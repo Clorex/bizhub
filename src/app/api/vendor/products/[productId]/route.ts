@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+// FILE: src/app/api/vendor/products/[productId]/route.ts
+import { NextResponse, type NextRequest } from "next/server";
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -40,15 +41,16 @@ async function getOwnedProduct(me: any, productId: string) {
   return { ref, data };
 }
 
-export async function GET(req: Request, ctx: { params: { productId: string } }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ productId: string }> }) {
   try {
     const me = await requireRole(req, "owner");
     if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
-    const productId = String(ctx.params.productId || "");
-    const { data } = await getOwnedProduct(me, productId);
+    const { productId } = await ctx.params;
+    const productIdClean = String(productId || "");
+    const { data } = await getOwnedProduct(me, productIdClean);
     if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     if (typeof data.marketEnabled === "undefined") data.marketEnabled = true;
@@ -57,24 +59,22 @@ export async function GET(req: Request, ctx: { params: { productId: string } }) 
     return NextResponse.json({ ok: true, product: data });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
-        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
-        { status: 403 }
-      );
+      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
     }
     return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
-export async function PUT(req: Request, ctx: { params: { productId: string } }) {
+export async function PUT(req: NextRequest, ctx: { params: Promise<{ productId: string }> }) {
   try {
     const me = await requireRole(req, "owner");
     if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
-    const productId = String(ctx.params.productId || "");
-    const { ref, data: existing } = await getOwnedProduct(me, productId);
+    const { productId } = await ctx.params;
+    const productIdClean = String(productId || "");
+    const { ref, data: existing } = await getOwnedProduct(me, productIdClean);
     if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     const body = await req.json().catch(() => ({}));
@@ -98,17 +98,8 @@ export async function PUT(req: Request, ctx: { params: { productId: string } }) 
       }
     }
 
-    const images = Array.isArray(body.images)
-      ? body.images
-      : Array.isArray(existing.images)
-        ? existing.images
-        : [];
-
-    const optionGroups = Array.isArray(body.optionGroups)
-      ? body.optionGroups
-      : Array.isArray(existing.optionGroups)
-        ? existing.optionGroups
-        : [];
+    const images = Array.isArray(body.images) ? body.images : Array.isArray(existing.images) ? existing.images : [];
+    const optionGroups = Array.isArray(body.optionGroups) ? body.optionGroups : Array.isArray(existing.optionGroups) ? existing.optionGroups : [];
 
     const marketEnabled = body.marketEnabled === false ? false : true;
 
@@ -136,34 +127,29 @@ export async function PUT(req: Request, ctx: { params: { productId: string } }) 
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
-        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
-        { status: 403 }
-      );
+      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
     }
     return NextResponse.json({ ok: false, error: e?.message || "Update failed" }, { status: 500 });
   }
 }
 
-export async function DELETE(req: Request, ctx: { params: { productId: string } }) {
+export async function DELETE(req: NextRequest, ctx: { params: Promise<{ productId: string }> }) {
   try {
     const me = await requireRole(req, "owner");
     if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
-    const productId = String(ctx.params.productId || "");
-    const { ref, data } = await getOwnedProduct(me, productId);
+    const { productId } = await ctx.params;
+    const productIdClean = String(productId || "");
+    const { ref, data } = await getOwnedProduct(me, productIdClean);
     if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
     await ref.delete();
     return NextResponse.json({ ok: true });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
-        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
-        { status: 403 }
-      );
+      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
     }
     return NextResponse.json({ ok: false, error: e?.message || "Delete failed" }, { status: 500 });
   }

@@ -1,12 +1,9 @@
-import { NextResponse } from "next/server";
+// FILE: src/app/api/admin/vendors/[businessId]/analytics/route.ts
+import { NextResponse, type NextRequest } from "next/server";
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
-import {
-  dayKeysBetween,
-  fetchBusinessDailyMetrics,
-  monthRangeFromYYYYMM,
-} from "@/lib/metrics/daily";
+import { dayKeysBetween, fetchBusinessDailyMetrics, monthRangeFromYYYYMM } from "@/lib/metrics/daily";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -48,12 +45,14 @@ function dayKeyFromMs(ms: number) {
   return `${y}-${m}-${dd}`;
 }
 
-export async function GET(req: Request, ctx: { params: { businessId: string } }) {
+// ✅ Next.js 16 route handler typing: params is a Promise
+export async function GET(req: NextRequest, ctx: { params: Promise<{ businessId: string }> }) {
   try {
     await requireRole(req, "admin");
 
-    const businessId = String(ctx.params.businessId || "").trim();
-    if (!businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    const { businessId } = await ctx.params;
+    const businessIdClean = String(businessId || "").trim();
+    if (!businessIdClean) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     const url = new URL(req.url);
     const range = url.searchParams.get("range") || "week";
@@ -61,7 +60,7 @@ export async function GET(req: Request, ctx: { params: { businessId: string } })
     const { startMs, endMs } = rangeWindow(range, month);
 
     // Business details
-    const bizSnap = await adminDb.collection("businesses").doc(businessId).get();
+    const bizSnap = await adminDb.collection("businesses").doc(businessIdClean).get();
     if (!bizSnap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
     const biz = { id: bizSnap.id, ...(bizSnap.data() as any) };
 
@@ -71,7 +70,7 @@ export async function GET(req: Request, ctx: { params: { businessId: string } })
 
     const oSnap = await adminDb
       .collection("orders")
-      .where("businessId", "==", businessId)
+      .where("businessId", "==", businessIdClean)
       .where("createdAt", ">=", startTs)
       .where("createdAt", "<=", endTs)
       .limit(2000)
@@ -97,20 +96,22 @@ export async function GET(req: Request, ctx: { params: { businessId: string } })
 
     // Tracking metrics for window
     const dayKeys = dayKeysBetween(startMs, endMs);
-    const metricDocs = await fetchBusinessDailyMetrics({ businessId, dayKeys });
+    const metricDocs = await fetchBusinessDailyMetrics({ businessId: businessIdClean, dayKeys });
 
     // sum totals + create daily series map (traffic)
-    let visits = 0, leads = 0, views = 0;
+    let visits = 0,
+      leads = 0,
+      views = 0;
 
     const trafficMap = new Map(dayKeys.map((dk) => [dk, { dayKey: dk, visits: 0, leads: 0, views: 0 }]));
     for (const m of metricDocs) {
-      const dk = String(m.dayKey || "");
+      const dk = String((m as any).dayKey || "");
       const row = trafficMap.get(dk);
       if (!row) continue;
 
-      const v = Number(m.visits || 0);
-      const l = Number(m.leads || 0);
-      const w = Number(m.views || 0);
+      const v = Number((m as any).visits || 0);
+      const l = Number((m as any).leads || 0);
+      const w = Number((m as any).views || 0);
 
       visits += v;
       leads += l;

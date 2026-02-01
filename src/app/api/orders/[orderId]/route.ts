@@ -1,5 +1,5 @@
 // FILE: src/app/api/orders/[orderId]/route.ts
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireMe } from "@/lib/auth/server";
 
@@ -26,22 +26,20 @@ function lowerEmail(v: any) {
   return String(v || "").trim().toLowerCase();
 }
 
-export async function GET(req: Request, ctx: { params: { orderId: string } }) {
+// ✅ Next.js 16 route handler typing: params is a Promise
+export async function GET(req: NextRequest, ctx: { params: Promise<{ orderId: string }> }) {
   try {
     const me = await requireMe(req);
 
-    const orderId = String(ctx.params.orderId || "").trim();
-    if (!orderId) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+    const { orderId } = await ctx.params;
+    const orderIdClean = String(orderId || "").trim();
+    if (!orderIdClean) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
 
-    const snap = await adminDb.collection("orders").doc(orderId).get();
+    const snap = await adminDb.collection("orders").doc(orderIdClean).get();
     if (!snap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
 
     const o = { id: snap.id, ...(snap.data() as any) };
 
-    // Access rules:
-    // - customer: email must match order.customer.email
-    // - owner/staff: businessId must match
-    // - admin: allowed (already protected by admin auth + email verification gate in UI)
     if (me.role === "customer") {
       const myEmail = lowerEmail(me.email);
       const orderEmail = lowerEmail(o?.customer?.email);

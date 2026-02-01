@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/orders/[orderId]/route.ts
-import { NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -24,19 +24,20 @@ function computeOpsEffective(o: any) {
   return null;
 }
 
-export async function GET(req: Request, ctx: { params: { orderId: string } }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ orderId: string }> }) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
     if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
-    const orderId = String(ctx.params.orderId || "");
-    if (!orderId) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+    const { orderId } = await ctx.params;
+    const orderIdClean = String(orderId || "");
+    if (!orderIdClean) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
 
     const access = await getVendorLimitsResolved(me.businessId);
 
-    const ref = adminDb.collection("orders").doc(orderId);
+    const ref = adminDb.collection("orders").doc(orderIdClean);
     const snap = await ref.get();
     if (!snap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
 
@@ -83,10 +84,7 @@ export async function GET(req: Request, ctx: { params: { orderId: string } }) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
-        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
-        { status: 403 }
-      );
+      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
     }
     return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
