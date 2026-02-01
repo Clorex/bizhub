@@ -1,0 +1,246 @@
+﻿== BIZHUB BUILD ISSUES REPORT ==
+Date: 02/01/2026 14:51:03
+
+== NODE / NPM ==
+node: v24.12.0
+npm: 11.6.2
+
+== GIT (so we know what Vercel is building) ==
+main
+e8cebb91dc195531923111e6f65b78b4c4dfd971
+## main...origin/main
+ M src/app/account/invite/page.tsx
+ M src/app/account/login/page.tsx
+ M src/app/account/register/page.tsx
+ M src/app/account/verify/page.tsx
+ M src/app/api/orders/recent/route.ts
+ M src/app/api/vendor/reengagement/send/route.ts
+ M src/app/b/[slug]/pay/direct/page.tsx
+ M src/app/payment/callback/page.tsx
+ M src/app/payment/promotion/callback/page.tsx
+ M src/app/payment/subscription/callback/page.tsx
+ M src/app/vendor/promote/page.tsx
+ M src/app/vendor/subscription/page.tsx
+ M src/app/vendor/subscription/summary/page.tsx
+?? bizhub_build_issues_report.txt
+?? build-error.txt
+?? src/app/account/invite/invite-client.tsx
+?? src/app/account/login/login-client.tsx
+?? src/app/account/register/page-client.tsx
+?? src/app/account/verify/verify-client.tsx
+?? src/app/b/[slug]/pay/direct/page-client.tsx
+?? src/app/payment/callback/page-client.tsx
+?? src/app/payment/promotion/callback/page-client.tsx
+?? src/app/payment/subscription/callback/page-client.tsx
+?? src/app/vendor/promote/page-client.tsx
+?? src/app/vendor/subscription/page-client.tsx
+?? src/app/vendor/subscription/summary/page-client.tsx
+
+== CLEAN .next ==
+Deleted .next
+
+== FIND useSearchParams offenders ==
+
+== TYPESCRIPT (tsc --noEmit) ==
+
+== NEXT LINT ==
+node.exe : Invalid project directory provided, no such directory: 
+C:\Users\USER\Desktop\bizhub\lint
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (Invalid project...top\bizhub\lint: 
+   String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+== NEXT BUILD ==
+
+> bizhub@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 9.0s
+  Running TypeScript ...
+  Collecting page data using 7 workers ...
+  Generating static pages using 7 workers (0/36) ...
+  Generating static pages using 7 workers (9/36) 
+  Generating static pages using 7 workers (18/36) 
+  Generating static pages using 7 workers (27/36) 
+Γ£ô Generating static pages using 7 workers (36/36) in 818.2ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ Γùï /account
+Γö£ Γùï /account/forgot
+Γö£ ╞Æ /account/invite
+Γö£ ╞Æ /account/login
+Γö£ ╞Æ /account/register
+Γö£ ╞Æ /account/verify
+Γö£ Γùï /admin
+Γö£ Γùï /admin/analytics
+Γö£ Γùï /admin/customers
+Γö£ Γùï /admin/disputes
+Γö£ Γùï /admin/finance
+Γö£ Γùï /admin/packages
+Γö£ Γùï /admin/reports
+Γö£ Γùï /admin/vendors
+Γö£ ╞Æ /admin/vendors/[businessId]
+Γö£ Γùï /admin/verification
+Γö£ Γùï /admin/withdrawals
+Γö£ ╞Æ /api/admin/analytics/platform
+Γö£ ╞Æ /api/admin/bootstrap
+Γö£ ╞Æ /api/admin/buyers/freeze
+Γö£ ╞Æ /api/admin/customers
+Γö£ ╞Æ /api/admin/disputes
+Γö£ ╞Æ /api/admin/finance
+Γö£ ╞Æ /api/admin/plan-config
+Γö£ ╞Æ /api/admin/platform/pin
+Γö£ ╞Æ /api/admin/platform/withdraw
+Γö£ ╞Æ /api/admin/platform/withdraw/payout-details
+Γö£ ╞Æ /api/admin/platform/withdraw/send-code
+Γö£ ╞Æ /api/admin/reports/daily
+Γö£ ╞Æ /api/admin/security/send-code
+Γö£ ╞Æ /api/admin/security/session
+Γö£ ╞Æ /api/admin/security/verify-code
+Γö£ ╞Æ /api/admin/vendors
+Γö£ ╞Æ /api/admin/vendors/[businessId]/analytics
+Γö£ ╞Æ /api/admin/verification
+Γö£ ╞Æ /api/admin/withdrawals
+Γö£ ╞Æ /api/auth/send-email-code
+Γö£ ╞Æ /api/auth/verify-email-code
+Γö£ ╞Æ /api/customer/onboard
+Γö£ ╞Æ /api/disputes/create
+Γö£ ╞Æ /api/escrow/confirm
+Γö£ ╞Æ /api/escrow/release
+Γö£ ╞Æ /api/escrow/sweep
+Γö£ ╞Æ /api/marketing/optout
+Γö£ ╞Æ /api/me
+Γö£ ╞Æ /api/orders/[orderId]
+Γö£ ╞Æ /api/orders/chat/create
+Γö£ ╞Æ /api/orders/direct/create
+Γö£ ╞Æ /api/orders/recent
+Γö£ ╞Æ /api/paystack/initialize
+Γö£ ╞Æ /api/paystack/verify
+Γö£ ╞Æ /api/promotions/confirm
+Γö£ ╞Æ /api/promotions/initialize
+Γö£ ╞Æ /api/promotions/my
+Γö£ ╞Æ /api/staff/accept
+Γö£ ╞Æ /api/subscriptions/confirm
+Γö£ ╞Æ /api/subscriptions/initialize
+Γö£ ╞Æ /api/subscriptions/my
+Γö£ ╞Æ /api/track
+Γö£ ╞Æ /api/uploads/cloudinary/sign
+Γö£ ╞Æ /api/vendor/access
+Γö£ ╞Æ /api/vendor/analytics
+Γö£ ╞Æ /api/vendor/assistant/summary
+Γö£ ╞Æ /api/vendor/chat/availability
+Γö£ ╞Æ /api/vendor/coupons
+Γö£ ╞Æ /api/vendor/coupons/validate
+Γö£ ╞Æ /api/vendor/onboard
+Γö£ ╞Æ /api/vendor/orders
+Γö£ ╞Æ /api/vendor/orders/[orderId]
+Γö£ ╞Æ /api/vendor/orders/[orderId]/notes
+Γö£ ╞Æ /api/vendor/orders/[orderId]/ops-status
+Γö£ ╞Æ /api/vendor/payout-details
+Γö£ ╞Æ /api/vendor/products
+Γö£ ╞Æ /api/vendor/products/[productId]
+Γö£ ╞Æ /api/vendor/reengagement/audience
+Γö£ ╞Æ /api/vendor/reengagement/send
+Γö£ ╞Æ /api/vendor/shipping
+Γö£ ╞Æ /api/vendor/shipping/options
+Γö£ ╞Æ /api/vendor/staff
+Γö£ ╞Æ /api/vendor/store
+Γö£ ╞Æ /api/vendor/verification
+Γö£ ╞Æ /api/vendor/wallet
+Γö£ ╞Æ /api/vendor/withdrawals
+Γö£ ╞Æ /b/[slug]
+Γö£ ╞Æ /b/[slug]/checkout
+Γö£ ╞Æ /b/[slug]/p/[productId]
+Γö£ ╞Æ /b/[slug]/pay/direct
+Γö£ Γùï /cart
+Γö£ Γùï /market
+Γö£ Γùï /orders
+Γö£ ╞Æ /orders/[orderId]
+Γö£ ╞Æ /orders/[orderId]/dispute
+Γö£ ╞Æ /payment/callback
+Γö£ ╞Æ /payment/promotion/callback
+Γö£ ╞Æ /payment/subscription/callback
+Γö£ Γùï /vendor
+Γö£ Γùï /vendor/analytics
+Γö£ Γùï /vendor/coupon
+Γö£ Γùï /vendor/more
+Γö£ Γùï /vendor/orders
+Γö£ ╞Æ /vendor/orders/[orderId]
+Γö£ ╞Æ /vendor/orders/[orderId]/dispute
+Γö£ Γùï /vendor/products
+Γö£ ╞Æ /vendor/products/[productId]/edit
+Γö£ Γùï /vendor/products/new
+Γö£ ╞Æ /vendor/promote
+Γö£ Γùï /vendor/promote/faq
+Γö£ Γùï /vendor/promotions
+Γö£ Γùï /vendor/reengagement
+Γö£ Γùï /vendor/settings/payouts
+Γö£ Γùï /vendor/shipping
+Γö£ Γùï /vendor/staff
+Γö£ Γùï /vendor/store
+Γö£ ╞Æ /vendor/subscription
+Γö£ ╞Æ /vendor/subscription/summary
+Γö£ Γùï /vendor/verification
+Γö£ Γùï /vendor/wallet
+Γöö Γùï /vendor/withdrawals
+
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+
+
+== SHOW current file causing your Vercel error (orders recent) ==
+----- src/app/api/orders/recent/route.ts (first 120 lines) -----
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function toIdList(input: unknown): string[] {
+  if (!Array.isArray(input)) return [];
+  return input
+    .filter((x): x is string => typeof x === "string")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 50);
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({} as any));
+    const ids = toIdList((body as any)?.ids);
+
+    if (ids.length === 0) {
+      return NextResponse.json({ ok: true, orders: [] });
+    }
+
+    const refs = ids.map((id) => adminDb.collection("orders").doc(id));
+
+    // getAll exists on Firestore but types can be awkward in some setups
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const snaps: any[] = await (adminDb as any).getAll(...refs);
+
+    const orders = snaps
+      .filter((s) => s && s.exists)
+      .map((s) => ({ id: s.id, ...s.data() }));
+
+    return NextResponse.json({ ok: true, orders });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message || "Failed" },
+      { status: 500 }
+    );
+  }
+}

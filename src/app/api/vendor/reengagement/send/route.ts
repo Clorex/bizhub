@@ -134,7 +134,7 @@ export async function POST(req: Request) {
       audience,
       text,
       recipients,
-      limit: { planKey, dailyLimit, ...allowed },
+      limit: { planKey, ...allowed }, // ✅ removed duplicate dailyLimit key
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
