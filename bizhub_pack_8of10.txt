@@ -1,0 +1,2164 @@
+﻿== BIZHUB SNAPSHOT PACK 8/10 ==
+Date: 2/1/2026 10:12:48 AM
+Node: v24.12.0
+NPM: 11.6.2
+Approx bytes in this pack: 75149
+
+== FILE LIST (relative path + bytes) ==
+src\app\b\[slug]\checkout\page.tsx  (bytes: 17650)
+src\app\cart\page.tsx  (bytes: 9734)
+src\app\orders\[orderId]\page.tsx  (bytes: 7410)
+src\app\api\promotions\confirm\route.ts  (bytes: 6444)
+src\app\vendor\more\page.tsx  (bytes: 5945)
+src\components\vendor\VariationBuilder.tsx  (bytes: 5268)
+src\app\api\staff\accept\route.ts  (bytes: 4082)
+src\app\api\vendor\store\route.ts  (bytes: 3777)
+src\app\api\subscriptions\initialize\route.ts  (bytes: 3065)
+src\lib\vendor\assistantLimitsServer.ts  (bytes: 2573)
+src\components\vendor\VendorBottomNav.tsx  (bytes: 2438)
+src\lib\checkout\shipping.ts  (bytes: 1721)
+src\app\api\admin\finance\route.ts  (bytes: 1413)
+src\components\ui\SegmentedControl.tsx  (bytes: 1292)
+src\app\api\vendor\wallet\route.ts  (bytes: 1089)
+src\components\vendor\VendorShell.tsx  (bytes: 650)
+src\app\api\orders\recent.ts  (bytes: 598)
+
+----- FILE: src\app\b\[slug]\checkout\page.tsx -----
+"use client";
+
+import { useCart } from "@/lib/cart/CartContext";
+import { Card } from "@/components/Card";
+import GradientHeader from "@/components/GradientHeader";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect, useMemo, useState } from "react";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
+import { loadCheckoutProfile, saveCheckoutProfile } from "@/lib/checkout/profile";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { clearAppliedCoupon, getCouponForCheckout, saveAppliedCoupon } from "@/lib/checkout/coupon";
+import { getShippingForCheckout, saveAppliedShipping } from "@/lib/checkout/shipping";
+
+type ShippingOption = {
+  id: string;
+  type: "pickup" | "delivery";
+  name: string;
+  feeKobo: number;
+  etaDays: number;
+  areasText?: string | null;
+};
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+export default function CheckoutPage() {
+  const router = useRouter();
+  const params = useParams();
+  const slug = String((params as any)?.slug ?? "");
+  const { cart, subtotal } = useCart();
+
+  const validCart = useMemo(() => cart.storeSlug === slug && cart.items.length > 0, [cart, slug]);
+
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [emailVerified, setEmailVerified] = useState<boolean>(false);
+
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+
+  // coupon UI state
+  const subtotalKobo = Math.floor(Number(subtotal || 0) * 100);
+  const [couponCode, setCouponCode] = useState("");
+  const [couponMsg, setCouponMsg] = useState<string | null>(null);
+  const [couponLoading, setCouponLoading] = useState(false);
+  const [applied, setApplied] = useState<any>(null);
+
+  // shipping UI state
+  const [shipLoading, setShipLoading] = useState(false);
+  const [shipMsg, setShipMsg] = useState<string | null>(null);
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipId, setSelectedShipId] = useState<string>("");
+
+  useEffect(() => {
+    // load persisted coupon for this store/subtotal
+    const c = getCouponForCheckout({ storeSlug: slug, subtotalKobo });
+    setApplied(c);
+    setCouponCode(c?.code || "");
+  }, [slug, subtotalKobo]);
+
+  useEffect(() => {
+    // If subtotal changes after coupon applied, clear it
+    if (applied && applied.subtotalKobo !== subtotalKobo) {
+      clearAppliedCoupon();
+      setApplied(null);
+      setCouponMsg("Cart changed. Please re-apply discount code.");
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [subtotalKobo]);
+
+  // Load saved shipping selection (store-specific)
+  useEffect(() => {
+    const s = getShippingForCheckout({ storeSlug: slug });
+    setSelectedShipId(s?.optionId || "");
+  }, [slug]);
+
+  // Fetch shipping options for this store
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadShippingOptions() {
+      setShipLoading(true);
+      setShipMsg(null);
+
+      try {
+        const r = await fetch(`/api/vendor/shipping/options?storeSlug=${encodeURIComponent(slug)}`);
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Failed to load shipping options");
+
+        const opts: ShippingOption[] = Array.isArray(data.options) ? data.options : [];
+        if (!mounted) return;
+
+        setShippingOptions(opts);
+
+        // Auto-select: saved option if it exists, else first option
+        if (opts.length > 0) {
+          const saved = getShippingForCheckout({ storeSlug: slug });
+          const savedId = saved?.optionId || "";
+          const stillValid = savedId && opts.some((o) => o.id === savedId);
+
+          const nextId = stillValid ? savedId : String(opts[0].id);
+          setSelectedShipId(nextId);
+
+          const chosen = opts.find((o) => o.id === nextId) || opts[0];
+          saveAppliedShipping({
+            storeSlug: slug,
+            optionId: chosen.id,
+            type: chosen.type,
+            name: chosen.name,
+            feeKobo: Number(chosen.feeKobo || 0),
+            selectedAtMs: Date.now(),
+          });
+        } else {
+          setSelectedShipId("");
+        }
+      } catch (e: any) {
+        if (!mounted) return;
+        setShipMsg(e?.message || "Failed to load shipping options");
+        setShippingOptions([]);
+        setSelectedShipId("");
+      } finally {
+        if (mounted) setShipLoading(false);
+      }
+    }
+
+    if (slug) loadShippingOptions();
+    return () => {
+      mounted = false;
+    };
+  }, [slug]);
+
+  const selectedShipping = useMemo(() => {
+    if (!selectedShipId) return null;
+    return shippingOptions.find((o) => o.id === selectedShipId) || null;
+  }, [selectedShipId, shippingOptions]);
+
+  const discountKobo = Number(applied?.discountKobo || 0);
+
+  // totals:
+  // baseTotal = subtotal - discount
+  const baseTotalKobo = Math.max(0, subtotalKobo - discountKobo);
+
+  // shipping added AFTER discount (assumption)
+  const shippingFeeKobo = Number(selectedShipping?.feeKobo || 0);
+  const grandTotalKobo = Math.max(0, baseTotalKobo + shippingFeeKobo);
+
+  const grandTotalNgn = grandTotalKobo / 100;
+
+  // Force login before checkout
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      setAuthLoading(false);
+
+      if (!u) {
+        setLoggedIn(false);
+        router.replace(`/account/login?next=${encodeURIComponent(`/b/${slug}/checkout`)}`);
+        return;
+      }
+
+      setLoggedIn(true);
+
+      const p = loadCheckoutProfile();
+      setEmail(p.email || u.email || "");
+      setFullName(p.fullName || "");
+      setPhone(p.phone || "");
+      setAddress(p.address || "");
+
+      try {
+        const token = await u.getIdToken();
+        const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await r.json().catch(() => ({}));
+        const ok = !!data?.me?.emailVerified;
+        setEmailVerified(ok);
+
+        if (!ok) {
+          router.replace(`/account/verify?next=${encodeURIComponent(`/b/${slug}/checkout`)}`);
+        }
+      } catch {
+        setEmailVerified(false);
+      }
+    });
+
+    return () => unsub();
+  }, [router, slug]);
+
+  if (!validCart) {
+    return (
+      <div className="min-h-screen">
+        <GradientHeader title="Checkout" showBack={true} />
+        <div className="px-4 pb-24">
+          <Card className="p-5 text-center">
+            <p className="font-bold text-biz-ink">Cart is empty for this store</p>
+            <p className="text-sm text-biz-muted mt-2">Go back to cart and add items.</p>
+            <div className="mt-4 space-y-2">
+              <Button variant="secondary" onClick={() => router.push("/cart")}>
+                Go to cart
+              </Button>
+              <Button onClick={() => router.push(`/b/${slug}`)}>Back to store</Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+    );
+  }
+
+  if (authLoading || !loggedIn) {
+    return (
+      <div className="min-h-screen">
+        <GradientHeader title="Checkout" subtitle="Preparing checkoutâ€¦" showBack={true} />
+        <div className="px-4 pb-24">
+          <Card className="p-4">Loadingâ€¦</Card>
+        </div>
+      </div>
+    );
+  }
+
+  async function applyCoupon() {
+    setCouponLoading(true);
+    setCouponMsg(null);
+
+    try {
+      const code = couponCode.trim().toUpperCase();
+      if (!code) {
+        clearAppliedCoupon();
+        setApplied(null);
+        setCouponMsg("Enter a code first.");
+        return;
+      }
+
+      const r = await fetch("/api/coupons/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storeSlug: slug, code, subtotalKobo }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Invalid code");
+
+      const next = {
+        storeSlug: slug,
+        code,
+        subtotalKobo,
+        discountKobo: Number(data.discountKobo || 0),
+        totalKobo: Number(data.totalKobo || subtotalKobo),
+        appliedAtMs: Date.now(),
+      };
+
+      saveAppliedCoupon(next);
+      setApplied(next);
+      setCouponMsg(`Applied ${code}.`);
+    } catch (e: any) {
+      clearAppliedCoupon();
+      setApplied(null);
+      setCouponMsg(e?.message || "Failed to apply code");
+    } finally {
+      setCouponLoading(false);
+    }
+  }
+
+  function clearCoupon() {
+    clearAppliedCoupon();
+    setApplied(null);
+    setCouponCode("");
+    setCouponMsg("Discount removed.");
+  }
+
+  function selectShipping(opt: ShippingOption) {
+    setSelectedShipId(opt.id);
+    saveAppliedShipping({
+      storeSlug: slug,
+      optionId: opt.id,
+      type: opt.type,
+      name: opt.name,
+      feeKobo: Number(opt.feeKobo || 0),
+      selectedAtMs: Date.now(),
+    });
+  }
+
+  async function handlePaystack() {
+    saveCheckoutProfile({ email, fullName, phone, address });
+
+    const r = await fetch("/api/paystack/initialize", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email,
+        amountKobo: grandTotalKobo,
+        metadata: {
+          storeSlug: slug,
+          customer: { fullName, phone, address, email },
+          items: cart.items,
+          coupon: applied
+            ? { code: applied.code, discountKobo: applied.discountKobo, subtotalKobo: applied.subtotalKobo }
+            : null,
+          shipping: selectedShipping
+            ? {
+                optionId: selectedShipping.id,
+                type: selectedShipping.type,
+                name: selectedShipping.name,
+                feeKobo: Number(selectedShipping.feeKobo || 0),
+              }
+            : null,
+        },
+      }),
+    });
+
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      alert(data?.error || "Paystack init failed");
+      return;
+    }
+
+    window.location.href = data.authorization_url;
+  }
+
+  function goBankTransfer() {
+    saveCheckoutProfile({ email, fullName, phone, address });
+    // shipping selection already saved in localStorage
+    router.push(`/b/${slug}/pay/direct?name=${encodeURIComponent(fullName)}&phone=${encodeURIComponent(phone)}`);
+  }
+
+  const shippingRequired = shippingOptions.length > 0;
+  const pickedPickup = selectedShipping?.type === "pickup";
+
+  const canPay =
+    !!fullName &&
+    !!phone &&
+    !!email &&
+    emailVerified &&
+    (!shippingRequired || !!selectedShipping) &&
+    (pickedPickup ? true : !!address);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Checkout" subtitle="Complete your order" showBack={true} />
+
+      <div className="px-4 pb-28 space-y-3">
+        <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+          <p className="text-sm font-bold">Order total</p>
+          <p className="text-xs opacity-95 mt-1">
+            Store: <b>{slug}</b>
+          </p>
+
+          <p className="text-2xl font-bold mt-2">{fmtNaira(grandTotalNgn)}</p>
+
+          <p className="text-[11px] opacity-95 mt-2">
+            Subtotal: <b>{fmtNaira(subtotal)}</b>
+            {applied ? <> â€¢ Discount: <b>{fmtNaira(discountKobo / 100)}</b></> : null}
+            {selectedShipping ? <> â€¢ Shipping: <b>{fmtNaira(shippingFeeKobo / 100)}</b></> : null}
+          </p>
+        </div>
+
+        <SectionCard title="Shipping" subtitle="Choose delivery or pickup">
+          {shipLoading ? <p className="text-sm text-biz-muted">Loading shipping optionsâ€¦</p> : null}
+          {shipMsg ? <p className="text-sm text-red-700">{shipMsg}</p> : null}
+
+          {!shipLoading && !shipMsg && shippingOptions.length === 0 ? (
+            <p className="text-sm text-biz-muted">
+              This store has not set shipping options yet. You can proceed (shipping = â‚¦0).
+            </p>
+          ) : null}
+
+          {shippingOptions.length > 0 ? (
+            <div className="space-y-2">
+              {shippingOptions.map((o) => {
+                const active = o.id === selectedShipId;
+                const feeNgn = Number(o.feeKobo || 0) / 100;
+
+                return (
+                  <button
+                    key={o.id}
+                    type="button"
+                    onClick={() => selectShipping(o)}
+                    className={[
+                      "w-full text-left rounded-2xl border p-3 transition",
+                      active
+                        ? "border-transparent bg-gradient-to-br from-biz-accent2 to-biz-accent text-white shadow-float"
+                        : "border-biz-line bg-white hover:bg-black/[0.02]",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className={active ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
+                          {o.name} {o.type === "pickup" ? "(Pickup)" : "(Delivery)"}
+                        </p>
+                        <p className={active ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-biz-muted mt-1"}>
+                          Fee: <b>{fmtNaira(feeNgn)}</b>
+                          {o.etaDays ? ` â€¢ ETA: ${o.etaDays} day(s)` : ""}
+                          {o.areasText ? ` â€¢ ${o.areasText}` : ""}
+                        </p>
+                      </div>
+
+                      <div className={active ? "text-white font-bold" : "text-gray-400 font-bold"}>â€º</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
+
+          {shippingRequired && !selectedShipping ? (
+            <p className="mt-2 text-[11px] text-red-700">Please select a shipping option to continue.</p>
+          ) : null}
+        </SectionCard>
+
+        <SectionCard title="Discount code" subtitle="Optional">
+          <div className="space-y-2">
+            <Input
+              placeholder="Enter coupon code"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={applyCoupon} loading={couponLoading} disabled={couponLoading}>
+                Apply
+              </Button>
+              <Button variant="secondary" onClick={clearCoupon} disabled={!applied}>
+                Remove
+              </Button>
+            </div>
+
+            {couponMsg ? <p className="text-[11px] text-biz-muted">{couponMsg}</p> : null}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Customer details" subtitle="Saved on this device for faster checkout">
+          <div className="space-y-2">
+            <Input placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+            <Input placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
+            <Input placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
+
+            {/* Address required only for delivery */}
+            {selectedShipping?.type !== "pickup" ? (
+              <textarea
+                className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                placeholder="Delivery address"
+                value={address}
+                onChange={(e) => setAddress(e.target.value)}
+                rows={3}
+              />
+            ) : (
+              <div className="rounded-2xl border border-biz-line bg-white p-3">
+                <p className="text-xs text-biz-muted">
+                  Pickup selected â€” delivery address not required.
+                </p>
+              </div>
+            )}
+          </div>
+
+          {!emailVerified ? (
+            <p className="mt-3 text-xs text-red-700">Please verify your email to continue checkout.</p>
+          ) : null}
+        </SectionCard>
+
+        <div className="fixed bottom-0 left-0 right-0 z-40">
+          <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+            <Card className="p-4 space-y-2">
+              <Button onClick={handlePaystack} disabled={!canPay}>
+                Pay with Paystack
+              </Button>
+
+              <Button variant="secondary" onClick={goBankTransfer} disabled={!canPay}>
+                Pay with Bank Transfer
+              </Button>
+
+              {!canPay ? (
+                <p className="text-[11px] text-biz-muted">
+                  Ensure shipping is selected, and fill required fields (address required for delivery).
+                </p>
+              ) : null}
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\cart\page.tsx -----
+"use client";
+
+import Link from "next/link";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { useCart } from "@/lib/cart/CartContext";
+import { Button } from "@/components/ui/Button";
+import { useEffect, useMemo, useState } from "react";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function digitsOnlyPhone(v: string) {
+  return String(v || "").replace(/[^\d]/g, "");
+}
+
+function waLink(wa: string, text: string) {
+  const digits = digitsOnlyPhone(wa);
+  const t = encodeURIComponent(text);
+  return `https://wa.me/${digits}?text=${t}`;
+}
+
+function makeClientOrderId() {
+  // Firestore doc ids must not include "/" â€” uuid is safe.
+  try {
+    const c: any = (globalThis as any).crypto;
+    if (c?.randomUUID) return String(c.randomUUID());
+  } catch {
+    // ignore
+  }
+  return `chat_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+type ChatAvailability = {
+  ok: boolean;
+  enabled: boolean;
+  whatsapp: string | null;
+  storeName: string | null;
+  reasons?: { toggleOn: boolean; subscribed: boolean; whatsappSet: boolean };
+};
+
+export default function CartPage() {
+  const { cart, subtotal, setQty, removeFromCart, clearCart } = useCart();
+
+  // Continue in Chat availability (per store)
+  const [chatAvail, setChatAvail] = useState<ChatAvailability | null>(null);
+  const [chatMsg, setChatMsg] = useState<string | null>(null);
+
+  const storeSlug = cart.storeSlug ?? null;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadAvail(slug: string) {
+      try {
+        setChatMsg(null);
+        setChatAvail(null);
+
+        const r = await fetch(`/api/vendor/chat/availability?storeSlug=${encodeURIComponent(slug)}`);
+        const data = (await r.json().catch(() => ({}))) as ChatAvailability;
+
+        if (!mounted) return;
+
+        if (!r.ok) {
+          setChatAvail(null);
+          return;
+        }
+
+        setChatAvail(data);
+      } catch {
+        if (!mounted) return;
+        setChatAvail(null);
+      }
+    }
+
+    if (storeSlug) loadAvail(storeSlug);
+
+    return () => {
+      mounted = false;
+    };
+  }, [storeSlug]);
+
+  const canChat = useMemo(() => {
+    return !!(chatAvail?.ok && chatAvail?.enabled && chatAvail?.whatsapp);
+  }, [chatAvail]);
+
+  async function continueInChat() {
+    try {
+      if (!storeSlug) return;
+      if (!canChat) return;
+
+      const whatsapp = String(chatAvail?.whatsapp || "");
+      if (!whatsapp) return;
+
+      // 1) create order record immediately (fire-and-forget, no UI wait)
+      const clientOrderId = makeClientOrderId();
+      const payload = {
+        storeSlug,
+        clientOrderId,
+        items: cart.items,
+      };
+
+      try {
+        if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
+          const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+          (navigator as any).sendBeacon("/api/orders/chat/create", blob);
+        } else {
+          fetch("/api/orders/chat/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            keepalive: true,
+          }).catch(() => {});
+        }
+      } catch {
+        // ignore (still open WhatsApp)
+      }
+
+      // 2) open WhatsApp with prefilled message
+      const storeName = chatAvail?.storeName ? String(chatAvail.storeName) : storeSlug;
+      const refShort = String(clientOrderId).slice(0, 8);
+
+      const lines: string[] = [];
+      lines.push(`Hello ${storeName}.`);
+      lines.push(`I want to order the following items from your BizHub store:`);
+
+      for (const it of cart.items) {
+        const opts =
+          it.selectedOptions && Object.keys(it.selectedOptions).length
+            ? ` (${Object.entries(it.selectedOptions).map(([k, v]) => `${k}: ${v}`).join(", ")})`
+            : "";
+        lines.push(`- ${it.qty} Ã— ${it.name}${opts}`);
+      }
+
+      lines.push(``);
+      lines.push(`Subtotal: ${fmtNaira(subtotal)}`);
+      lines.push(`BizHub chat order ref: ${refShort}`);
+      lines.push(`(I may send screenshots in this chat.)`);
+
+      const text = lines.join("\n");
+
+      window.open(waLink(whatsapp, text), "_blank");
+    } catch (e: any) {
+      setChatMsg(e?.message || "Failed to open chat");
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Cart" subtitle="Review items before checkout" showBack={false} />
+
+      <div className="px-4 pb-24 space-y-3">
+        <Card className="p-4">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-sm text-gray-700">
+              Store: <b className="text-biz-ink">{cart.storeSlug ?? "None"}</b>
+            </p>
+            <button className="text-xs font-extrabold text-biz-accent" onClick={clearCart}>
+              Clear cart
+            </button>
+          </div>
+
+          {chatMsg ? <p className="mt-2 text-[11px] text-red-700">{chatMsg}</p> : null}
+        </Card>
+
+        {cart.items.length === 0 ? (
+          <Card className="p-5 text-center">
+            <p className="font-extrabold text-biz-ink">Cart is empty</p>
+            <p className="text-sm text-biz-muted mt-2">Add products to continue.</p>
+
+            <div className="mt-4">
+              <Link
+                href="/market"
+                className="block w-full rounded-2xl py-3 text-center text-sm font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+              >
+                Go to Market
+              </Link>
+            </div>
+          </Card>
+        ) : (
+          cart.items.map((i) => (
+            <Card key={i.lineId} className="p-4">
+              <div className="flex gap-3">
+                <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden shrink-0">
+                  {i.imageUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={i.imageUrl} alt={i.name} className="h-full w-full object-cover" />
+                  ) : null}
+                </div>
+
+                <div className="flex-1 min-w-0">
+                  <p className="font-extrabold text-biz-ink truncate">{i.name}</p>
+
+                  {i.selectedOptions && Object.keys(i.selectedOptions).length ? (
+                    <p className="text-[11px] text-biz-muted mt-1">
+                      {Object.entries(i.selectedOptions)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(" â€¢ ")}
+                    </p>
+                  ) : null}
+
+                  <p className="text-xs text-biz-muted mt-1">{fmtNaira(i.price)}</p>
+
+                  <div className="mt-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <button
+                        className="h-10 w-10 rounded-2xl border border-biz-line bg-white font-extrabold"
+                        onClick={() => setQty(i.lineId, i.qty - 1)}
+                      >
+                        âˆ’
+                      </button>
+                      <span className="min-w-8 text-center font-extrabold text-biz-ink">{i.qty}</span>
+                      <button
+                        className="h-10 w-10 rounded-2xl border border-biz-line bg-white font-extrabold"
+                        onClick={() => setQty(i.lineId, i.qty + 1)}
+                      >
+                        +
+                      </button>
+                    </div>
+
+                    <button className="text-xs font-extrabold text-red-600" onClick={() => removeFromCart(i.lineId)}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-right shrink-0">
+                  <p className="text-sm font-extrabold text-biz-ink">{fmtNaira(i.price * i.qty)}</p>
+                </div>
+              </div>
+            </Card>
+          ))
+        )}
+
+        {cart.items.length > 0 && cart.storeSlug ? (
+          <div className="fixed bottom-0 left-0 right-0 z-40">
+            <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+              <Card className="p-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-biz-muted">Subtotal</span>
+                  <b className="text-biz-ink">{fmtNaira(subtotal)}</b>
+                </div>
+
+                <div className="mt-3 space-y-2">
+                  <Link href={`/b/${cart.storeSlug}/checkout`} className="block">
+                    <Button>Checkout</Button>
+                  </Link>
+
+                  {/* Continue in Chat (only if vendor enabled + subscribed + whatsapp set) */}
+                  {canChat ? (
+                    <Button variant="secondary" onClick={continueInChat}>
+                      Continue in Chat
+                    </Button>
+                  ) : null}
+
+                  <Link href={`/b/${cart.storeSlug}`} className="block">
+                    <Button variant="secondary">Continue shopping</Button>
+                  </Link>
+
+                  {/* If vendor has it OFF / not subscribed, we say nothing (strict, quiet). */}
+                </div>
+              </Card>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\orders\[orderId]\page.tsx -----
+// FILE: src/app/orders/[orderId]/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { db } from "@/lib/firebase/client";
+import { doc, getDoc } from "firebase/firestore";
+import { Button } from "@/components/ui/Button";
+import { SectionCard } from "@/components/ui/SectionCard";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function fmtDate(v: any) {
+  try {
+    if (!v) return "â€”";
+    if (typeof v?.toDate === "function") return v.toDate().toLocaleString();
+    return String(v);
+  } catch {
+    return "â€”";
+  }
+}
+
+function labelOps(s: string) {
+  if (s === "new") return "New";
+  if (s === "contacted") return "Contacted";
+  if (s === "paid") return "Paid";
+  if (s === "in_transit") return "In transit";
+  if (s === "delivered") return "Delivered";
+  if (s === "cancelled") return "Cancelled";
+  return s || "â€”";
+}
+
+export default function OrderDetailPage() {
+  const router = useRouter();
+  const params = useParams();
+  const orderId = String((params as any)?.orderId ?? "");
+
+  const [loading, setLoading] = useState(true);
+  const [o, setO] = useState<any>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const items = useMemo(() => (Array.isArray(o?.items) ? o.items : []), [o]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const snap = await getDoc(doc(db, "orders", orderId));
+        if (!snap.exists()) {
+          setMsg("Order not found");
+          setO(null);
+          return;
+        }
+
+        if (!mounted) return;
+        setO({ id: snap.id, ...snap.data() });
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load order");
+        setO(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    if (orderId) run();
+    return () => {
+      mounted = false;
+    };
+  }, [orderId]);
+
+  const canDispute =
+    o?.paymentType === "paystack_escrow" &&
+    o?.escrowStatus !== "released" &&
+    o?.escrowStatus !== "disputed";
+
+  const amount = Number(o?.amount || (o?.amountKobo ? o.amountKobo / 100 : 0) || 0);
+
+  const ops = String(o?.opsStatus || o?.opsStatusEffective || "").trim();
+  const progressLabel = ops ? labelOps(ops) : null;
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Order details" showBack={true} subtitle={orderId ? `#${orderId.slice(0, 8)}` : undefined} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && o ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-sm font-extrabold">Order summary</p>
+              <p className="text-2xl font-extrabold mt-2">{fmtNaira(amount)}</p>
+
+              <p className="text-xs opacity-95 mt-1">
+                Status: <b>{o.orderStatus || o.escrowStatus || "â€”"}</b>
+              </p>
+
+              {progressLabel ? (
+                <p className="text-[11px] opacity-95 mt-2">
+                  Progress: <b>{progressLabel}</b>
+                </p>
+              ) : null}
+
+              <p className="text-[11px] opacity-90 mt-2">Created: {fmtDate(o.createdAt)}</p>
+            </div>
+
+            <SectionCard title="Store" subtitle="Order source">
+              <div className="text-sm text-gray-700 space-y-1">
+                <div>
+                  Slug: <b className="text-biz-ink">{o.businessSlug || "â€”"}</b>
+                </div>
+                <div>
+                  Payment: <b className="text-biz-ink">{o.paymentType || "â€”"}</b>
+                </div>
+                {o?.payment?.reference ? (
+                  <div className="text-[11px] text-gray-500 break-all">
+                    Reference: <b className="text-biz-ink">{o.payment.reference}</b>
+                  </div>
+                ) : null}
+              </div>
+
+              {o.businessSlug ? (
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button variant="secondary" onClick={() => router.push(`/b/${o.businessSlug}`)}>
+                    Visit store
+                  </Button>
+                  <Button onClick={() => router.push("/market")}>Market</Button>
+                </div>
+              ) : null}
+            </SectionCard>
+
+            <SectionCard title="Items" subtitle={`${items.length} item(s)`}>
+              <div className="space-y-2">
+                {items.map((it: any, idx: number) => (
+                  <div key={idx} className="rounded-2xl border border-biz-line bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-extrabold text-biz-ink truncate">{it?.name || "Item"}</p>
+
+                        {it?.selectedOptions && Object.keys(it.selectedOptions).length ? (
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            {Object.entries(it.selectedOptions)
+                              .map(([k, v]) => `${k}: ${v}`)
+                              .join(" â€¢ ")}
+                          </p>
+                        ) : null}
+
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          Qty: <b className="text-biz-ink">{it?.qty ?? 1}</b>
+                        </p>
+                      </div>
+
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-extrabold text-biz-ink">{fmtNaira(it?.price || 0)}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Customer" subtitle="Delivery information">
+              <div className="text-sm text-gray-700 space-y-1">
+                <div>
+                  Name: <b className="text-biz-ink">{o?.customer?.fullName || "â€”"}</b>
+                </div>
+                <div>
+                  Phone: <b className="text-biz-ink">{o?.customer?.phone || "â€”"}</b>
+                </div>
+                {o?.customer?.address ? (
+                  <div>
+                    Address: <b className="text-biz-ink">{o.customer.address}</b>
+                  </div>
+                ) : null}
+              </div>
+            </SectionCard>
+
+            {canDispute ? (
+              <Card className="p-4">
+                <Button onClick={() => router.push(`/orders/${orderId}/dispute`)}>Raise a dispute</Button>
+                <p className="mt-2 text-[11px] text-biz-muted">
+                  Only use disputes for real issues (wrong item, not delivered, etc).
+                </p>
+              </Card>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\api\promotions\confirm\route.ts -----
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { computeVendorAccessState } from "@/lib/vendor/access";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+async function verifyPaystack(reference: string) {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  if (!secret) throw new Error("Missing PAYSTACK_SECRET_KEY");
+
+  const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+    headers: { Authorization: `Bearer ${secret}` },
+  });
+
+  const data = await res.json();
+  if (!data.status) throw new Error(data.message || "Paystack verify failed");
+  return data.data;
+}
+
+function normalizeMetadata(raw: any) {
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+  return raw;
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const reference = String(body.reference || "");
+    if (!reference) return NextResponse.json({ ok: false, error: "reference is required" }, { status: 400 });
+
+    const tx = await verifyPaystack(reference);
+    if (tx.status !== "success") {
+      return NextResponse.json({ ok: false, error: `Payment not successful: ${tx.status}` }, { status: 400 });
+    }
+
+    const md = normalizeMetadata(tx.metadata);
+    if (md?.purpose !== "promotion") {
+      return NextResponse.json({ ok: false, error: "Invalid purpose for this endpoint" }, { status: 400 });
+    }
+
+    const businessId = String(md.businessId || "");
+    const businessSlug = String(md.businessSlug || "");
+    const productIds: string[] = Array.isArray(md.productIds) ? md.productIds.map(String).slice(0, 5) : [];
+
+    const days = Number(md.days || 0);
+    const dailyBudgetKobo = Number(md.dailyBudgetKobo || 0);
+    const totalBudgetKobo = Number(md.totalBudgetKobo || 0);
+
+    if (!businessId || productIds.length < 1) {
+      return NextResponse.json({ ok: false, error: "Missing businessId/productIds" }, { status: 400 });
+    }
+
+    // HARD LOCK enforcement at confirm-time too:
+    const bizSnap = await adminDb.collection("businesses").doc(businessId).get();
+    if (!bizSnap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+    const biz = { id: bizSnap.id, ...(bizSnap.data() as any) };
+
+    const state = computeVendorAccessState(biz);
+    if (state.locked) {
+      // IMPORTANT: we block activation to enforce "subscription-only"
+      // If this happens, admin can manually refund externally if needed.
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Vendor is locked. Promotion activation blocked." },
+        { status: 403 }
+      );
+    }
+
+    const paidKobo = Number(tx.amount || 0);
+    if (!Number.isFinite(paidKobo) || paidKobo <= 0) {
+      return NextResponse.json({ ok: false, error: "Invalid amount from Paystack" }, { status: 400 });
+    }
+
+    if (totalBudgetKobo && paidKobo !== totalBudgetKobo) {
+      return NextResponse.json(
+        { ok: false, error: "Amount mismatch", expected: totalBudgetKobo, paid: paidKobo },
+        { status: 400 }
+      );
+    }
+
+    const now = Date.now();
+    const endsAtMs = now + Math.max(1, Number(days || 1)) * 24 * 60 * 60 * 1000;
+
+    const campaignRef = adminDb.collection("promotionCampaigns").doc(reference);
+    const platformRef = adminDb.collection("platform").doc("finance");
+    const ledgerRef = adminDb.collection("platformLedger").doc();
+    const txRef = adminDb.collection("transactions").doc(reference);
+
+    const result = await adminDb.runTransaction(async (t) => {
+      const existing = await t.get(campaignRef);
+      if (existing.exists) {
+        const d = existing.data() as any;
+        return { ok: true, alreadyProcessed: true, reference, endsAtMs: d.endsAtMs ?? null };
+      }
+
+      // Write campaign
+      t.set(campaignRef, {
+        reference,
+        businessId,
+        businessSlug: businessSlug || null,
+        productIds,
+        days: Number(days || 0),
+        dailyBudgetKobo: Number(dailyBudgetKobo || 0),
+        totalBudgetKobo: paidKobo,
+        status: "active",
+        startedAtMs: now,
+        endsAtMs,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      // Update products: boost fields
+      const perProductDailyKobo =
+        productIds.length > 0 ? Math.floor(Number(dailyBudgetKobo || 0) / productIds.length) : 0;
+
+      const perProductWeight =
+        Math.max(1, Math.round((perProductDailyKobo || 0) / 100)); // NGN weight; used by market weighting if present
+
+      for (const pid of productIds) {
+        const pRef = adminDb.collection("products").doc(pid);
+        t.set(
+          pRef,
+          {
+            boostUntilMs: endsAtMs,
+            boostCampaignRef: reference,
+            boostDailyBudgetKobo: perProductDailyKobo,
+            boostWeight: perProductWeight,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+      }
+
+      // Platform balance updates
+      t.set(
+        platformRef,
+        {
+          balanceKobo: FieldValue.increment(paidKobo),
+          boostRevenueKobo: FieldValue.increment(paidKobo),
+          subscriptionRevenueKobo: FieldValue.increment(0),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // Ledger entry
+      t.set(ledgerRef, {
+        type: "promotion",
+        reference,
+        businessId,
+        amountKobo: paidKobo,
+        currency: tx.currency || "NGN",
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      // Transaction record
+      t.set(txRef, {
+        purpose: "promotion",
+        reference,
+        businessId,
+        amountKobo: paidKobo,
+        amount: paidKobo / 100,
+        status: "paid",
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      return { ok: true, alreadyProcessed: false, reference, endsAtMs };
+    });
+
+    return NextResponse.json(result);
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Confirm failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\vendor\more\page.tsx -----
+// FILE: src/app/vendor/more/page.tsx
+"use client";
+
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+
+import {
+  Store,
+  Package,
+  ClipboardList,
+  BarChart3,
+  Wallet,
+  Banknote,
+  Settings,
+  Shield,
+  HelpCircle,
+  LogOut,
+  Crown,
+  Megaphone,
+  Users,
+  Percent,
+  MessageCircle,
+  BadgeCheck,
+  Sparkles,
+  Send,
+} from "lucide-react";
+import { auth } from "@/lib/firebase/client";
+import { signOut } from "firebase/auth";
+
+function Group({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <Card className="p-4">
+      <p className="text-xs font-bold text-gray-500">{title.toUpperCase()}</p>
+      <div className="mt-3 space-y-2">{children}</div>
+    </Card>
+  );
+}
+
+function Row({
+  icon,
+  title,
+  desc,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button onClick={onClick} className="w-full text-left rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition">
+      <div className="flex items-start gap-3">
+        <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center shrink-0">{icon}</div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-biz-ink">{title}</p>
+          {desc ? <p className="text-xs text-biz-muted mt-1">{desc}</p> : null}
+        </div>
+        <div className="text-gray-400 font-bold">â€º</div>
+      </div>
+    </button>
+  );
+}
+
+export default function VendorMorePage() {
+  const router = useRouter();
+
+  async function logout() {
+    await signOut(auth);
+    router.push("/market");
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="More" subtitle="Tools, settings, and support" showBack={false} />
+
+      <div className="px-4 pb-6 space-y-3">
+        <Group title="Store setup">
+          <Row icon={<Store className="h-5 w-5 text-orange-700" />} title="Store settings" desc="Brand, location, WhatsApp & banner" onClick={() => router.push("/vendor/store")} />
+          <Row icon={<BadgeCheck className="h-5 w-5 text-orange-700" />} title="Verification" desc="Tier 1 / Tier 2 / Tier 3" onClick={() => router.push("/vendor/verification")} />
+          <Row icon={<MessageCircle className="h-5 w-5 text-orange-700" />} title="Checkout & Chat" desc="Continue in Chat (WhatsApp) settings" onClick={() => router.push("/vendor/store")} />
+          <Row icon={<Package className="h-5 w-5 text-orange-700" />} title="Products" desc="Create and manage listings" onClick={() => router.push("/vendor/products")} />
+        </Group>
+
+        <Group title="Sales & operations">
+          <Row icon={<Sparkles className="h-5 w-5 text-orange-700" />} title="Sales assistant" desc="Daily + weekly summary, dispute warnings" onClick={() => router.push("/vendor")} />
+          <Row icon={<Send className="h-5 w-5 text-orange-700" />} title="Reâ€‘engagement" desc="Message past buyers and follow up" onClick={() => router.push("/vendor/reengagement")} />
+          <Row icon={<ClipboardList className="h-5 w-5 text-orange-700" />} title="Orders" desc="View and manage your orders" onClick={() => router.push("/vendor/orders")} />
+          <Row icon={<BarChart3 className="h-5 w-5 text-orange-700" />} title="Business analysis" desc="Sales tips, insights & performance" onClick={() => router.push("/vendor/analytics")} />
+          <Row icon={<Percent className="h-5 w-5 text-orange-700" />} title="Discounts" desc="Coupon codes for checkout" onClick={() => router.push("/vendor/coupon")} />
+        </Group>
+
+        <Group title="Team">
+          <Row icon={<Users className="h-5 w-5 text-orange-700" />} title="Staff accounts" desc="Invite and manage staff access" onClick={() => router.push("/vendor/staff")} />
+        </Group>
+
+        <Group title="Growth tools">
+          <Row icon={<Megaphone className="h-5 w-5 text-orange-700" />} title="Promotions" desc="Boost products like ads (1â€“5 products per campaign)" onClick={() => router.push("/vendor/promotions")} />
+        </Group>
+
+        <Group title="Payments">
+          <Row icon={<Crown className="h-5 w-5 text-orange-700" />} title="Subscription" desc="Upgrade your plan to unlock more features" onClick={() => router.push("/vendor/subscription")} />
+          <Row icon={<Wallet className="h-5 w-5 text-orange-700" />} title="BizHub Balance" desc="Pending, available & withdrawals" onClick={() => router.push("/vendor/wallet")} />
+          <Row icon={<Banknote className="h-5 w-5 text-orange-700" />} title="Payout details" desc="Bank name, account number, account name" onClick={() => router.push("/vendor/settings/payouts")} />
+        </Group>
+
+        <Group title="Account & support">
+          <Row icon={<Settings className="h-5 w-5 text-orange-700" />} title="Preferences" desc="More settings coming soon" onClick={() => alert("Next: preferences, notifications, team accounts.")} />
+          <Row icon={<Shield className="h-5 w-5 text-orange-700" />} title="Security" desc="Extra verification for withdrawals (coming)" onClick={() => alert("Next: security center & withdrawal verification.")} />
+          <Row icon={<HelpCircle className="h-5 w-5 text-orange-700" />} title="Help & support" desc="How to sell more on BizHub" onClick={() => router.push("/vendor/promote/faq")} />
+        </Group>
+
+        <Card className="p-4">
+          <button className="w-full rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-red-600" onClick={logout}>
+            <span className="inline-flex items-center gap-2 justify-center">
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </span>
+          </button>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\components\vendor\VariationBuilder.tsx -----
+"use client";
+
+import { useMemo, useState } from "react";
+
+export type OptionGroup = { name: string; values: string[] };
+
+const SUGGESTIONS = [
+  "Color",
+  "Size",
+  "Material",
+  "Weight",
+  "Length",
+  "Model",
+  "Brand",
+  "Condition",
+  "Flavor",
+  "Type",
+];
+
+export function VariationBuilder({
+  value,
+  onChange,
+  maxGroups = 10,
+}: {
+  value: OptionGroup[];
+  onChange: (v: OptionGroup[]) => void;
+  maxGroups?: number;
+}) {
+  const [newName, setNewName] = useState("");
+
+  const canAddMore = value.length < maxGroups;
+
+  const availableSuggestions = useMemo(() => {
+    const used = new Set(value.map((g) => g.name.toLowerCase()));
+    return SUGGESTIONS.filter((s) => !used.has(s.toLowerCase()));
+  }, [value]);
+
+  function addGroup(name: string) {
+    const n = name.trim();
+    if (!n) return;
+    if (!canAddMore) return;
+
+    const exists = value.some((g) => g.name.toLowerCase() === n.toLowerCase());
+    if (exists) return;
+
+    onChange([...value, { name: n, values: [] }]);
+    setNewName("");
+  }
+
+  function removeGroup(name: string) {
+    onChange(value.filter((g) => g.name !== name));
+  }
+
+  function addValue(groupName: string, v: string) {
+    const val = v.trim();
+    if (!val) return;
+
+    onChange(
+      value.map((g) => {
+        if (g.name !== groupName) return g;
+        if (g.values.includes(val)) return g;
+        return { ...g, values: [...g.values, val] };
+      })
+    );
+  }
+
+  function removeValue(groupName: string, v: string) {
+    onChange(
+      value.map((g) => {
+        if (g.name !== groupName) return g;
+        return { ...g, values: g.values.filter((x) => x !== v) };
+      })
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-sm font-extrabold text-[#111827]">Variations</p>
+        <p className="text-xs text-gray-600 mt-1">
+          Customers can choose options, but price/stock stays the same.
+        </p>
+      </div>
+
+      {/* Suggestions */}
+      <div className="flex flex-wrap gap-2">
+        {availableSuggestions.map((s) => (
+          <button
+            key={s}
+            onClick={() => addGroup(s)}
+            disabled={!canAddMore}
+            className="px-4 py-2 rounded-full text-xs font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00] disabled:opacity-40"
+          >
+            + {s}
+          </button>
+        ))}
+      </div>
+
+      {/* Custom group */}
+      <div className="flex gap-2">
+        <input
+          className="flex-1 border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
+          placeholder="Add custom variation (e.g. Sleeve)"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          maxLength={20}
+        />
+        <button
+          className="px-4 rounded-2xl text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00] disabled:opacity-40"
+          onClick={() => addGroup(newName)}
+          disabled={!newName.trim() || !canAddMore}
+        >
+          Add
+        </button>
+      </div>
+
+      {/* Groups */}
+      {value.map((g) => (
+        <div key={g.name} className="rounded-2xl border border-[#E7E7EE] bg-white p-4">
+          <div className="flex items-center justify-between">
+            <p className="font-extrabold text-[#111827]">{g.name}</p>
+            <button
+              className="text-xs font-extrabold text-red-600"
+              onClick={() => removeGroup(g.name)}
+            >
+              Remove
+            </button>
+          </div>
+
+          <GroupValues
+            group={g}
+            onAdd={(v) => addValue(g.name, v)}
+            onRemove={(v) => removeValue(g.name, v)}
+          />
+        </div>
+      ))}
+
+      <p className="text-xs text-gray-500">
+        Max variations: {maxGroups}. Current: {value.length}.
+      </p>
+    </div>
+  );
+}
+
+function GroupValues({
+  group,
+  onAdd,
+  onRemove,
+}: {
+  group: OptionGroup;
+  onAdd: (v: string) => void;
+  onRemove: (v: string) => void;
+}) {
+  const [val, setVal] = useState("");
+
+  return (
+    <div className="mt-3">
+      <div className="flex gap-2">
+        <input
+          className="flex-1 border border-[#E7E7EE] rounded-2xl p-3 text-sm"
+          placeholder={`Add ${group.name} value (e.g. Black)`}
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+        />
+        <button
+          className="px-4 rounded-2xl text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00] disabled:opacity-40"
+          onClick={() => {
+            onAdd(val);
+            setVal("");
+          }}
+          disabled={!val.trim()}
+        >
+          Add
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {group.values.map((v) => (
+          <button
+            key={v}
+            onClick={() => onRemove(v)}
+            className="px-4 py-2 rounded-full text-xs font-extrabold bg-[#FFF3E1] text-[#111827]"
+            title="Click to remove"
+          >
+            {v} Ã—
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\api\staff\accept\route.ts -----
+import { NextResponse } from "next/server";
+import { requireMe } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireMe(req);
+    if (!me.email) return NextResponse.json({ ok: false, error: "Missing email on account" }, { status: 400 });
+
+    const body = await req.json().catch(() => ({}));
+    const code = String(body.code || "").trim();
+    if (!code) return NextResponse.json({ ok: false, error: "Invite code required" }, { status: 400 });
+
+    const inviteRef = adminDb.collection("staffInvites").doc(code);
+
+    const result = await adminDb.runTransaction(async (t) => {
+      const invSnap = await t.get(inviteRef);
+      if (!invSnap.exists) return { ok: false, status: 404, error: "Invite not found" as const };
+
+      const inv = invSnap.data() as any;
+
+      if (String(inv.status || "") !== "pending") {
+        return { ok: false, status: 400, error: "Invite is not pending" as const };
+      }
+
+      const invitedEmail = String(inv.emailLower || inv.email || "").trim().toLowerCase();
+      const myEmail = String(me.email || "").trim().toLowerCase();
+
+      if (!invitedEmail || invitedEmail !== myEmail) {
+        return { ok: false, status: 403, error: "This invite is for a different email address" as const };
+      }
+
+      const businessId = String(inv.businessId || "");
+      if (!businessId) return { ok: false, status: 400, error: "Invite missing businessId" as const };
+
+      const bizSnap = await t.get(adminDb.collection("businesses").doc(businessId));
+      if (!bizSnap.exists) return { ok: false, status: 404, error: "Business not found" as const };
+      const biz = bizSnap.data() as any;
+
+      // Prevent accepting if user is already owner/admin
+      const userRef = adminDb.collection("users").doc(me.uid);
+      const userSnap = await t.get(userRef);
+      const userData = userSnap.exists ? (userSnap.data() as any) : {};
+      const curRole = String(userData.role || "customer");
+
+      if (curRole === "admin" || curRole === "owner") {
+        return { ok: false, status: 403, error: "This account cannot be added as staff" as const };
+      }
+
+      const permissions = inv.permissions || {};
+
+      // Set user role to staff and attach business
+      t.set(
+        userRef,
+        {
+          uid: me.uid,
+          email: me.email,
+          role: "staff",
+          businessId,
+          businessSlug: String(biz.slug || inv.businessSlug || ""),
+          staffPermissions: permissions,
+          updatedAt: FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // Create staff membership doc under business
+      const staffRef = adminDb.collection("businesses").doc(businessId).collection("staff").doc(me.uid);
+      t.set(
+        staffRef,
+        {
+          uid: me.uid,
+          email: me.email,
+          name: inv.name || null,
+          permissions,
+          status: "active",
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // Mark invite accepted
+      t.set(
+        inviteRef,
+        {
+          status: "accepted",
+          acceptedByUid: me.uid,
+          acceptedAtMs: Date.now(),
+          updatedAtMs: Date.now(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return { ok: true, businessId };
+    });
+
+    if ((result as any).ok === false) {
+      const r: any = result;
+      return NextResponse.json({ ok: false, error: r.error }, { status: r.status || 400 });
+    }
+
+    return NextResponse.json(result);
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\vendor\store\route.ts -----
+// FILE: src/app/api/vendor/store/route.ts
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function hasActiveSubscription(biz: any) {
+  const exp = Number(biz?.subscription?.expiresAtMs || 0);
+  return !!(biz?.subscription?.planKey && exp && exp > Date.now());
+}
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const snap = await adminDb.collection("businesses").doc(me.businessId).get();
+    if (!snap.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
+
+    return NextResponse.json({ ok: true, business: { id: snap.id, ...snap.data() } });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const body = await req.json().catch(() => ({}));
+
+    // load business for old checks (continueInChat subscription-only)
+    const bizSnap = await adminDb.collection("businesses").doc(me.businessId).get();
+    const biz = bizSnap.exists ? (bizSnap.data() as any) : {};
+
+    const plan = await getBusinessPlanResolved(me.businessId);
+
+    // Store customization lock: FREE uses BizHub default wallpaper (no logo/banner customization)
+    const canCustomize = !!(plan.features as any)?.storeCustomize;
+
+    // Continue in Chat enabling is still subscription-only
+    const wantsContinueInChatEnabled = body.continueInChatEnabled === true;
+    if (wantsContinueInChatEnabled && !hasActiveSubscription(biz)) {
+      return NextResponse.json({ ok: false, code: "SUBSCRIPTION_REQUIRED", error: "Subscribe to enable Continue in Chat." }, { status: 403 });
+    }
+
+    const patch: any = {
+      // Basic fields (allowed for all plans)
+      name: typeof body.name === "string" ? body.name.trim() : undefined,
+      description: typeof body.description === "string" ? body.description : undefined,
+      state: typeof body.state === "string" ? body.state.trim() : undefined,
+      city: typeof body.city === "string" ? body.city.trim() : undefined,
+      whatsapp: typeof body.whatsapp === "string" ? body.whatsapp.trim() : undefined,
+      instagram: typeof body.instagram === "string" ? body.instagram.trim().replace(/^@/, "") : undefined,
+
+      // Only if plan allows customization
+      logoUrl: canCustomize && typeof body.logoUrl === "string" ? body.logoUrl : undefined,
+      bannerUrl: canCustomize && typeof body.bannerUrl === "string" ? body.bannerUrl : undefined,
+
+      continueInChatEnabled: body.continueInChatEnabled === true ? true : false,
+
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    Object.keys(patch).forEach((k) => patch[k] === undefined && delete patch[k]);
+
+    await adminDb.collection("businesses").doc(me.businessId).set(patch, { merge: true });
+
+    return NextResponse.json({ ok: true, planKey: plan.planKey, canCustomize });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\subscriptions\initialize\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import {
+  priceKoboFor,
+  type BizhubBillingCycle,
+  type BizhubPlanKey,
+} from "@/lib/bizhubPlans";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function appUrlFrom(req: Request) {
+  const env = process.env.NEXT_PUBLIC_APP_URL;
+  if (env) return env.replace(/\/$/, "");
+  const u = new URL(req.url);
+  return u.origin;
+}
+
+async function paystackInitialize(params: {
+  email: string;
+  amountKobo: number;
+  callbackUrl: string;
+  metadata: any;
+}) {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  if (!secret) throw new Error("Missing PAYSTACK_SECRET_KEY");
+
+  const res = await fetch("https://api.paystack.co/transaction/initialize", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${secret}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      email: params.email,
+      amount: params.amountKobo,
+      callback_url: params.callbackUrl,
+      metadata: params.metadata ?? {},
+    }),
+  });
+
+  const data = await res.json();
+  if (!data.status) throw new Error(data.message || "Paystack init failed");
+  return data.data as { authorization_url: string; reference: string };
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+    if (!me.email) return NextResponse.json({ error: "Missing email" }, { status: 400 });
+
+    const body = await req.json().catch(() => ({}));
+    const planKey = String(body.planKey || "") as BizhubPlanKey;
+    const cycle = String(body.cycle || "") as BizhubBillingCycle;
+
+    const allowedPlans: BizhubPlanKey[] = ["LAUNCH", "MOMENTUM", "APEX"];
+    const allowedCycles: BizhubBillingCycle[] = ["monthly", "quarterly", "biannually", "yearly"];
+
+    if (!allowedPlans.includes(planKey)) {
+      return NextResponse.json({ error: "Invalid planKey" }, { status: 400 });
+    }
+    if (!allowedCycles.includes(cycle)) {
+      return NextResponse.json({ error: "Invalid cycle" }, { status: 400 });
+    }
+
+    const amountKobo = priceKoboFor(planKey, cycle); // throws if cycle not available
+    if (amountKobo <= 0) return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+
+    const callbackUrl = `${appUrlFrom(req)}/payment/subscription/callback`;
+
+    const { authorization_url, reference } = await paystackInitialize({
+      email: me.email,
+      amountKobo,
+      callbackUrl,
+      metadata: {
+        purpose: "subscription",
+        businessId: me.businessId,
+        businessSlug: me.businessSlug ?? null,
+        ownerUid: me.uid,
+        planKey,
+        cycle,
+        amountKobo,
+      },
+    });
+
+    return NextResponse.json({ ok: true, authorization_url, reference });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\lib\vendor\assistantLimitsServer.ts -----
+// FILE: src/lib/vendor/assistantLimitsServer.ts
+import { adminDb } from "@/lib/firebase/admin";
+
+export type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
+
+export type AssistantLimits = {
+  canUseAssistant: boolean;
+  canSendWhatsappSummary: boolean;
+  canUseShareTemplates: boolean;
+};
+
+function hasActiveSubscription(biz: any) {
+  const exp = Number(biz?.subscription?.expiresAtMs || 0);
+  return !!(biz?.subscription?.planKey && exp && exp > Date.now());
+}
+
+function resolvePlanKey(biz: any): BizhubPlanKey {
+  if (!hasActiveSubscription(biz)) return "FREE";
+  const k = String(biz?.subscription?.planKey || "").toUpperCase();
+  if (k === "LAUNCH" || k === "MOMENTUM" || k === "APEX") return k;
+  return "LAUNCH";
+}
+
+function cleanLimits(v: any): AssistantLimits {
+  const obj = v && typeof v === "object" ? v : {};
+  return {
+    canUseAssistant: !!obj.canUseAssistant,
+    canSendWhatsappSummary: !!obj.canSendWhatsappSummary,
+    canUseShareTemplates: !!obj.canUseShareTemplates,
+  };
+}
+
+async function loadLimitsDoc(): Promise<Record<string, AssistantLimits> | null> {
+  const snap = await adminDb.collection("platform").doc("assistantLimits").get();
+  if (!snap.exists) return null;
+  const data = snap.data() as any;
+  const plans = data?.plans && typeof data.plans === "object" ? data.plans : null;
+  if (!plans) return null;
+
+  const out: Record<string, AssistantLimits> = {};
+  for (const [k, v] of Object.entries(plans)) out[String(k).toUpperCase()] = cleanLimits(v);
+  return out;
+}
+
+export async function getAssistantLimitsResolved(businessId: string) {
+  const bizSnap = await adminDb.collection("businesses").doc(businessId).get();
+  const biz = bizSnap.exists ? (bizSnap.data() as any) : null;
+
+  const hasSub = hasActiveSubscription(biz);
+  const planKey = resolvePlanKey(biz);
+
+  const plans = await loadLimitsDoc();
+
+  // Safe fallback (restrict free, allow paid basic)
+  const fallback: Record<BizhubPlanKey, AssistantLimits> = {
+    FREE: { canUseAssistant: false, canSendWhatsappSummary: false, canUseShareTemplates: false },
+    LAUNCH: { canUseAssistant: true, canSendWhatsappSummary: true, canUseShareTemplates: true },
+    MOMENTUM: { canUseAssistant: true, canSendWhatsappSummary: true, canUseShareTemplates: true },
+    APEX: { canUseAssistant: true, canSendWhatsappSummary: true, canUseShareTemplates: true },
+  };
+
+  const resolved = plans?.[planKey] ?? fallback[planKey];
+
+  return {
+    planKey,
+    hasActiveSubscription: hasSub,
+    limits: resolved,
+  };
+}
+
+----- FILE: src\components\vendor\VendorBottomNav.tsx -----
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  Package,
+  ClipboardList,
+  Store,
+  MoreHorizontal,
+} from "lucide-react";
+import { cn } from "@/lib/cn";
+
+const items = [
+  { href: "/vendor", label: "Dashboard", Icon: LayoutDashboard, exact: true },
+  { href: "/vendor/products", label: "Products", Icon: Package },
+  { href: "/vendor/orders", label: "Orders", Icon: ClipboardList },
+  { href: "/vendor/store", label: "Store", Icon: Store },
+  { href: "/vendor/more", label: "More", Icon: MoreHorizontal },
+];
+
+export function VendorBottomNav() {
+  const pathname = usePathname();
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50">
+      <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+        <div className="rounded-3xl border border-biz-line bg-white/90 backdrop-blur shadow-float px-2 py-2 flex">
+          {items.map(({ href, label, Icon, exact }) => {
+            // Fix: Dashboard should NOT match every /vendor/* route
+            const active = exact
+              ? pathname === href || pathname === href + "/"
+              : pathname === href || pathname.startsWith(href + "/");
+
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "flex-1 py-2 flex flex-col items-center justify-center gap-1 rounded-2xl transition",
+                  active ? "bg-biz-cream" : "hover:bg-black/5"
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-5 w-5",
+                    active ? "text-biz-accent" : "text-gray-500"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "text-[11px]",
+                    active ? "font-bold text-biz-accent" : "text-gray-500"
+                  )}
+                >
+                  {label}
+                </span>
+
+                <span
+                  className={cn(
+                    "h-1 w-6 rounded-full transition",
+                    active
+                      ? "bg-gradient-to-r from-biz-accent2 to-biz-accent"
+                      : "bg-transparent"
+                  )}
+                />
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\lib\checkout\shipping.ts -----
+export type AppliedShipping = {
+  storeSlug: string;
+  optionId: string | null;
+  type: "pickup" | "delivery";
+  name: string;
+  feeKobo: number;
+  selectedAtMs: number;
+};
+
+const KEY = "bizhub_checkout_shipping_v1";
+
+function safeParse(raw: string | null): AppliedShipping | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    if (!v || typeof v !== "object") return null;
+
+    const storeSlug = String(v.storeSlug || "");
+    const optionId = v.optionId != null ? String(v.optionId) : null;
+    const type = String(v.type || "delivery") === "pickup" ? "pickup" : "delivery";
+    const name = String(v.name || "").slice(0, 60) || (type === "pickup" ? "Pickup" : "Delivery");
+    const feeKobo = Math.max(0, Math.floor(Number(v.feeKobo || 0)));
+    const selectedAtMs = Number(v.selectedAtMs || 0);
+
+    if (!storeSlug) return null;
+    if (!Number.isFinite(feeKobo)) return null;
+
+    return { storeSlug, optionId, type, name, feeKobo, selectedAtMs };
+  } catch {
+    return null;
+  }
+}
+
+export function loadAppliedShipping(): AppliedShipping | null {
+  if (typeof window === "undefined") return null;
+  return safeParse(window.localStorage.getItem(KEY));
+}
+
+export function saveAppliedShipping(s: AppliedShipping) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(KEY, JSON.stringify(s));
+}
+
+export function clearAppliedShipping() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(KEY);
+}
+
+export function getShippingForCheckout(params: { storeSlug: string }) {
+  const s = loadAppliedShipping();
+  if (!s) return null;
+  if (s.storeSlug !== params.storeSlug) return null;
+  return s;
+}
+
+----- FILE: src\app\api\admin\finance\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    await requireRole(req, "admin");
+
+    const financeSnap = await adminDb.collection("platform").doc("finance").get();
+    const finance = financeSnap.exists ? (financeSnap.data() as any) : null;
+
+    const ledgerSnap = await adminDb
+      .collection("platformLedger")
+      .orderBy("createdAt", "desc")
+      .limit(100)
+      .get();
+
+    const ledger = ledgerSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+
+    return NextResponse.json({
+      ok: true,
+      finance: finance
+        ? {
+            balanceKobo: Number(finance.balanceKobo || 0),
+            subscriptionRevenueKobo: Number(finance.subscriptionRevenueKobo || 0),
+            boostRevenueKobo: Number(finance.boostRevenueKobo || 0),
+            updatedAt: finance.updatedAt ?? null,
+          }
+        : {
+            balanceKobo: 0,
+            subscriptionRevenueKobo: 0,
+            boostRevenueKobo: 0,
+            updatedAt: null,
+          },
+      ledger,
+    });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message || "Unauthorized" },
+      { status: 401 }
+    );
+  }
+}
+
+----- FILE: src\components\ui\SegmentedControl.tsx -----
+import { cn } from "@/lib/cn";
+
+export function SegmentedControl<T extends string>({
+  value,
+  options,
+  onChange,
+  className,
+}: {
+  value: T;
+  options: { value: T; label: string; disabled?: boolean }[];
+  onChange: (v: T) => void;
+  className?: string;
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-2xl border border-biz-line bg-white shadow-soft p-1 grid",
+        className
+      )}
+      style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+    >
+      {options.map((o) => {
+        const active = o.value === value;
+        const disabled = !!o.disabled;
+
+        return (
+          <button
+            key={o.value}
+            onClick={() => (!disabled ? onChange(o.value) : undefined)}
+            disabled={disabled}
+            className={cn(
+              "rounded-2xl py-2 text-xs font-bold transition",
+              active
+                ? "text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                : "text-biz-ink",
+              disabled ? "opacity-40 cursor-not-allowed" : ""
+            )}
+            title={disabled ? "Locked on current plan" : undefined}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+----- FILE: src\app\api\vendor\wallet\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) {
+      return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    }
+
+    await requireVendorUnlocked(me.businessId);
+
+    const snap = await adminDb.collection("wallets").doc(me.businessId).get();
+    return NextResponse.json({ ok: true, wallet: snap.exists ? snap.data() : null });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
+  }
+}
+
+----- FILE: src\components\vendor\VendorShell.tsx -----
+"use client";
+
+import { usePathname } from "next/navigation";
+import { VendorBottomNav } from "@/components/vendor/VendorBottomNav";
+
+export function VendorShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  // When locked, user will be on /vendor/subscription (or summary).
+  // Hide the vendor bottom nav there so the screen is â€œsubscription-onlyâ€.
+  const hideNav = pathname.startsWith("/vendor/subscription");
+
+  return (
+    <div className="min-h-screen">
+      <div className={hideNav ? "pb-6" : "pb-24"}>{children}</div>
+      {hideNav ? null : <VendorBottomNav />}
+    </div>
+  );
+}
+
+----- FILE: src\app\api\orders\recent.ts -----
+const KEY = "bizhub_recent_orders_v1";
+
+export function addRecentOrderId(orderId: string) {
+  if (typeof window === "undefined") return;
+  const raw = localStorage.getItem(KEY);
+  const list: string[] = raw ? JSON.parse(raw) : [];
+  const next = [orderId, ...list.filter((x) => x !== orderId)].slice(0, 50);
+  localStorage.setItem(KEY, JSON.stringify(next));
+}
+
+export function getRecentOrderIds(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = localStorage.getItem(KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}

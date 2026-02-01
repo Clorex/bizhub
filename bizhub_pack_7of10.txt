@@ -1,0 +1,2202 @@
+﻿== BIZHUB SNAPSHOT PACK 7/10 ==
+Date: 2/1/2026 10:12:47 AM
+Node: v24.12.0
+NPM: 11.6.2
+Approx bytes in this pack: 75299
+
+== FILE LIST (relative path + bytes) ==
+src\app\vendor\page.tsx  (bytes: 18423)
+src\app\vendor\products\new\page.tsx  (bytes: 9525)
+src\app\api\vendor\analytics\route.ts  (bytes: 7204)
+src\app\api\disputes\create\route.ts  (bytes: 6424)
+src\app\api\admin\vendors\[businessId]\analytics\route.ts  (bytes: 5883)
+src\app\api\vendor\orders\[orderId]\notes\route.ts  (bytes: 5224)
+src\app\api\orders\direct\create\route.ts  (bytes: 4011)
+src\app\account\invite\page.tsx  (bytes: 3632)
+src\app\api\vendor\orders\route.ts  (bytes: 3023)
+src\app\api\vendor\orders\[orderId]\ops-status\route.ts  (bytes: 2724)
+src\components\BottomNav.tsx  (bytes: 2183)
+src\app\api\auth\verify-email-code\route.ts  (bytes: 1832)
+src\lib\moderation\simpleTextGuard.ts  (bytes: 1421)
+src\lib\cart\store.ts  (bytes: 1386)
+src\app\api\customer\onboard\route.ts  (bytes: 871)
+src\app\api\escrow\release\route.ts  (bytes: 857)
+src\components\vendor\VendorAccessGate.tsx  (bytes: 353)
+src\lib\vendor\choices.ts  (bytes: 323)
+
+----- FILE: src\app\vendor\page.tsx -----
+// FILE: src/app/vendor/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { auth } from "@/lib/firebase/client";
+import { useRouter } from "next/navigation";
+
+import { Button } from "@/components/ui/Button";
+import { IconButton } from "@/components/ui/IconButton";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { StatCard } from "@/components/ui/StatCard";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+
+import { RefreshCw, Link2, Store as StoreIcon, Plus, BarChart3, Lock, AlertTriangle, MessageCircle } from "lucide-react";
+
+type Range = "today" | "week" | "month";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function fmtDate(v: any) {
+  try {
+    if (!v) return "â€”";
+    if (typeof v?.toDate === "function") return v.toDate().toLocaleString();
+    return String(v);
+  } catch {
+    return "â€”";
+  }
+}
+
+function waShareLink(text: string) {
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+
+export default function VendorDashboardPage() {
+  const router = useRouter();
+
+  const [range, setRange] = useState<Range>("week");
+  const [me, setMe] = useState<any>(null);
+  const [data, setData] = useState<any>(null);
+  const [access, setAccess] = useState<any>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const [assistant, setAssistant] = useState<any>(null);
+  const [assistantMsg, setAssistantMsg] = useState<string | null>(null);
+
+  const [msg, setMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const storeUrl = useMemo(() => {
+    if (!me?.businessSlug) return "";
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/b/${me.businessSlug}`;
+  }, [me]);
+
+  async function load() {
+    try {
+      setLoading(true);
+      setMsg(null);
+      setNotice(null);
+      setAssistantMsg(null);
+
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not logged in");
+
+      const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+      const meData = await rMe.json().catch(() => ({}));
+      if (!rMe.ok) throw new Error(meData?.error || "Failed to load profile");
+      setMe(meData.me);
+
+      const r = await fetch(`/api/vendor/analytics?range=${range}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const a = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(a?.error || "Failed to load analytics");
+
+      setData(a);
+      setAccess(a?.meta?.access || null);
+
+      const n = String(a?.meta?.notice || "");
+      if (n) setNotice(n);
+
+      const used = String(a?.meta?.usedRange || range) as Range;
+      if (used !== range) setRange(used);
+
+      // Assistant summary (Batch 6)
+      try {
+        const ra = await fetch("/api/vendor/assistant/summary", { headers: { Authorization: `Bearer ${token}` } });
+        const aj = await ra.json().catch(() => ({}));
+        if (!ra.ok) throw new Error(aj?.error || aj?.code || "Assistant locked");
+        setAssistant(aj);
+      } catch (e: any) {
+        setAssistant(null);
+        const m = String(e?.message || "");
+        if (m && !m.toLowerCase().includes("locked")) setAssistantMsg(m);
+      }
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+      setData(null);
+      setAccess(null);
+      setAssistant(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range]);
+
+  async function copyLink() {
+    try {
+      if (!storeUrl) return;
+      await navigator.clipboard.writeText(storeUrl);
+      alert("Store link copied");
+    } catch {
+      alert("Copy failed");
+    }
+  }
+
+  const ov = data?.overview || {};
+  const todo = data?.todo || {};
+  const chartDays: any[] = Array.isArray(data?.chartDays) ? data.chartDays : [];
+  const recentOrders: any[] = Array.isArray(data?.recentOrders) ? data.recentOrders : [];
+
+  const maxRev = Math.max(1, ...chartDays.map((d) => Number(d.revenue || 0)));
+
+  const monthUnlocked = !!access?.monthAnalyticsUnlocked;
+
+  const accessSource = String(access?.source || "free");
+  const accessPlanKey = String(access?.planKey || "FREE");
+  const accessExpiry = Number(access?.entitlementExpiresAtMs || 0);
+
+  const showUpgradeBanner = !monthUnlocked;
+
+  const accessLine = useMemo(() => {
+    if (accessSource === "subscription") return `Subscribed â€¢ ${accessPlanKey}`;
+    if (accessSource === "trial") return `Free access (7 days) â€¢ Restricted`;
+    return `Free access ended â€¢ Subscribe to continue`;
+  }, [accessSource, accessPlanKey]);
+
+  const expiryText = useMemo(() => {
+    if (!accessExpiry) return null;
+    const d = new Date(accessExpiry);
+    return d.toLocaleDateString();
+  }, [accessExpiry]);
+
+  const disputeLevel = String(assistant?.dispute?.level || "none");
+  const openDisputes = Number(assistant?.dispute?.openDisputes || 0);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Dashboard"
+        subtitle="Your business overview"
+        showBack={false}
+        right={
+          <div className="flex items-center gap-2">
+            <IconButton aria-label="Refresh" onClick={load} disabled={loading}>
+              <RefreshCw className="h-5 w-5 text-gray-700" />
+            </IconButton>
+          </div>
+        }
+      />
+
+      <div className="px-4 pb-6 space-y-3">
+        <SegmentedControl<Range>
+          value={range}
+          onChange={setRange}
+          options={[
+            { value: "today", label: "Today" },
+            { value: "week", label: "Week" },
+            { value: "month", label: "Month", disabled: !monthUnlocked },
+          ]}
+        />
+
+        {notice ? <Card className="p-4 text-orange-700">{notice}</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+
+        {/* Batch 6: Dispute warning */}
+        {!loading && assistant && disputeLevel !== "none" ? (
+          <Card className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-red-50 flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-red-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-biz-ink">Dispute warning</p>
+                <p className="text-xs text-biz-muted mt-1">
+                  You have <b className="text-biz-ink">{openDisputes}</b> open dispute(s). If ignored, your marketplace
+                  visibility reduces.
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button onClick={() => router.push("/vendor/orders")}>View orders</Button>
+                  <Button variant="secondary" onClick={() => router.push("/admin/disputes")}>
+                    Disputes
+                  </Button>
+                </div>
+                <p className="mt-2 text-[11px] text-biz-muted">
+                  Tip: update delivery progress and respond fast to prevent disputes.
+                </p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {!loading && showUpgradeBanner ? (
+          <Card className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
+                <Lock className="h-5 w-5 text-orange-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-biz-ink">Restricted access</p>
+                <p className="text-xs text-biz-muted mt-1">{accessLine}</p>
+                {expiryText ? (
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    Expires/Ends: <b className="text-biz-ink">{expiryText}</b>
+                  </p>
+                ) : null}
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button onClick={() => router.push("/vendor/subscription")}>Upgrade</Button>
+                  <Button variant="secondary" onClick={() => router.push("/vendor/more")}>
+                    More
+                  </Button>
+                </div>
+
+                <p className="mt-2 text-[11px] text-biz-muted">
+                  Month analytics and extended usage require a subscription.
+                </p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {!loading && data ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Total sales</p>
+              <p className="text-2xl font-bold mt-1">{fmtNaira(ov.totalRevenue || 0)}</p>
+              <p className="text-xs opacity-95 mt-1">
+                Store: <b>{me?.businessSlug || "â€”"}</b>
+              </p>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button
+                  variant="soft"
+                  className="bg-white/15 text-white border border-white/20"
+                  leftIcon={<Link2 className="h-4 w-4" />}
+                  onClick={copyLink}
+                  disabled={!storeUrl}
+                >
+                  Copy link
+                </Button>
+
+                <Button
+                  variant="soft"
+                  className="bg-white/15 text-white border border-white/20"
+                  leftIcon={<StoreIcon className="h-4 w-4" />}
+                  onClick={() => router.push(`/b/${me?.businessSlug || ""}`)}
+                  disabled={!me?.businessSlug}
+                >
+                  View store
+                </Button>
+              </div>
+            </div>
+
+            {/* Batch 6: Assistant summary card */}
+            {assistant ? (
+              <SectionCard
+                title="Assistant"
+                subtitle="Daily + weekly summary"
+                right={
+                  assistant?.meta?.limits?.canSendWhatsappSummary ? (
+                    <button
+                      className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-bold shadow-soft inline-flex items-center gap-2"
+                      onClick={() => window.open(waShareLink(String(assistant.whatsappText || "")), "_blank")}
+                    >
+                      <MessageCircle className="h-4 w-4 text-gray-700" />
+                      WhatsApp
+                    </button>
+                  ) : null
+                }
+              >
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-[11px] text-biz-muted">Today</p>
+                    <p className="text-sm font-bold text-biz-ink mt-1">
+                      {Number(assistant?.today?.orders || 0)} order(s)
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      {fmtNaira(Number(assistant?.today?.revenue || 0))}
+                    </p>
+                  </div>
+
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-[11px] text-biz-muted">This week</p>
+                    <p className="text-sm font-bold text-biz-ink mt-1">
+                      {Number(assistant?.week?.orders || 0)} order(s)
+                    </p>
+                    <p className="text-[11px] text-gray-500 mt-1">
+                      {fmtNaira(Number(assistant?.week?.revenue || 0))}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
+                    Share a product
+                  </Button>
+                  <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                    Manage orders
+                  </Button>
+                </div>
+              </SectionCard>
+            ) : assistantMsg ? (
+              <Card className="p-4 text-red-700">{assistantMsg}</Card>
+            ) : null}
+
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard label="Orders" value={ov.orders || 0} onClick={() => router.push("/vendor/orders")} />
+              <StatCard label="Products sold" value={ov.productsSold || 0} onClick={() => router.push("/vendor/orders")} />
+              <StatCard label="Customers" value={ov.customers || 0} hint="Buyers (phone/email)" />
+              <StatCard label="Website visits" value={ov.visits || 0} hint="Store + product views" />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard label="Leads (clicks)" value={ov.leads || 0} />
+              <StatCard label="Views (impressions)" value={ov.views || 0} />
+            </div>
+
+            <SectionCard title="Sales trend" subtitle="Last 7 days">
+              <div className="flex items-end gap-2 h-28">
+                {chartDays.map((d) => {
+                  const h = Math.max(6, Math.round((Number(d.revenue || 0) / maxRev) * 100));
+                  return (
+                    <div key={d.dayKey} className="flex-1 flex flex-col items-center justify-end gap-2">
+                      <div
+                        className="w-full rounded-xl bg-gradient-to-b from-biz-accent to-biz-accent2"
+                        style={{ height: `${h}%` }}
+                        title={`${d.label}: â‚¦${Number(d.revenue || 0).toLocaleString()}`}
+                      />
+                      <span className="text-[10px] text-gray-500">{String(d.label).slice(8, 10)}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Todo" subtitle="Quick fixes that improve sales">
+              <div className="space-y-2 text-sm">
+                <TodoRow label="Out of stock products" value={todo.outOfStockCount || 0} onClick={() => router.push("/vendor/products")} />
+                <TodoRow label="Low stock products" value={todo.lowStockCount || 0} onClick={() => router.push("/vendor/products")} />
+                <TodoRow label="Direct transfers awaiting confirmation" value={todo.awaitingConfirmCount || 0} onClick={() => router.push("/vendor/orders")} />
+                <TodoRow label="Disputed orders" value={todo.disputedCount || 0} onClick={() => router.push("/vendor/orders")} />
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Quick actions" subtitle="Create, manage, and grow">
+              <div className="grid grid-cols-2 gap-2">
+                <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => router.push("/vendor/products/new")}>
+                  New listing
+                </Button>
+                <Button variant="secondary" leftIcon={<BarChart3 className="h-4 w-4" />} onClick={() => router.push("/vendor/analytics")}>
+                  Analysis
+                </Button>
+                <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                  Orders
+                </Button>
+                <Button variant="secondary" onClick={() => router.push("/vendor/store")}>
+                  Store settings
+                </Button>
+              </div>
+              <p className="mt-3 text-[11px] text-biz-muted">
+                Promotions and advanced analytics unlock fully with subscription.
+              </p>
+            </SectionCard>
+
+            <SectionCard title="Recent orders" subtitle="Latest activity">
+              {recentOrders.length === 0 ? (
+                <div className="text-sm text-biz-muted">No orders yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {recentOrders.slice(0, 6).map((o) => (
+                    <button
+                      key={o.id}
+                      className="w-full text-left rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition"
+                      onClick={() => router.push(`/vendor/orders/${o.id}`)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-bold text-biz-ink">Order #{String(o.id).slice(0, 8)}</p>
+                          <p className="text-xs text-biz-muted mt-1">
+                            {o.paymentType || "â€”"} â€¢ {o.orderStatus || o.escrowStatus || "â€”"}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">Created: {fmtDate(o.createdAt)}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-biz-ink">{fmtNaira(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0))}</p>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function TodoRow({
+  label,
+  value,
+  onClick,
+}: {
+  label: string;
+  value: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      className="w-full rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between hover:bg-black/[0.02] transition"
+      onClick={onClick}
+    >
+      <span className="text-biz-ink">{label}</span>
+      <span className="text-xs font-bold text-biz-ink">{value}</span>
+    </button>
+  );
+}
+
+----- FILE: src\app\vendor\products\new\page.tsx -----
+"use client";
+
+import { useMemo, useState } from "react";
+import { auth } from "@/lib/firebase/client";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { useRouter } from "next/navigation";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+import { OptionGroup, VariationBuilder } from "@/components/vendor/VariationBuilder";
+import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+
+const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"];
+
+type ListingType = "product" | "service";
+type ServiceMode = "book" | "pay";
+
+export default function VendorNewProductPage() {
+  const router = useRouter();
+
+  const [listingType, setListingType] = useState<ListingType>("product");
+  const [serviceMode, setServiceMode] = useState<ServiceMode>("book");
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  const [price, setPrice] = useState<number>(0);
+  const [stock, setStock] = useState<number>(0);
+
+  const [packaging, setPackaging] = useState<string>("Box");
+  const [images, setImages] = useState<string[]>([]);
+  const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
+
+  const [msg, setMsg] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const isService = listingType === "service";
+
+  const priceOk = useMemo(() => {
+    if (!name.trim()) return false;
+    if (listingType === "product") return price > 0;
+    if (serviceMode === "pay") return price > 0;
+    return price >= 0; // book-only service can be 0
+  }, [listingType, serviceMode, price, name]);
+
+  async function create() {
+    setLoading(true);
+    setMsg(null);
+    setLocked(false);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not logged in");
+
+      const r = await fetch("/api/vendor/products", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          listingType,
+          serviceMode: listingType === "service" ? serviceMode : undefined,
+
+          name,
+          description,
+          price: Number(price || 0),
+          stock: listingType === "product" ? Number(stock || 0) : 0,
+
+          packaging,
+          images,
+          optionGroups,
+          variants: [],
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (data?.code === "TRIAL_ENDED") {
+          setLocked(true);
+          throw new Error(data?.error || "Your free access ended. Subscribe to continue.");
+        }
+        if (data?.code === "PLAN_LIMIT_PRODUCTS") {
+          setLocked(true);
+          throw new Error(data?.error || "Limit reached. Subscribe to add more.");
+        }
+        throw new Error(data?.error || "Create failed");
+      }
+
+      router.push(`/vendor/products/${data.productId}/edit`);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="New listing" showBack={true} subtitle="Add a product or service" />
+
+      <div className="px-4 pb-24 space-y-3">
+        {msg ? (
+          <Card className={locked ? "p-4 text-orange-700" : "p-4 text-red-700"}>
+            <p className="font-bold text-biz-ink">{locked ? "Upgrade required" : "Error"}</p>
+            <p className="text-sm mt-2">{msg}</p>
+
+            {locked ? (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button onClick={() => router.push("/vendor/subscription")}>Upgrade</Button>
+                <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
+                  Back
+                </Button>
+              </div>
+            ) : null}
+          </Card>
+        ) : null}
+
+        <Card className="p-4">
+          <p className="text-sm font-bold text-biz-ink">Listing type</p>
+          <p className="text-xs text-biz-muted mt-1">Choose what youâ€™re creating.</p>
+
+          <div className="mt-3">
+            <SegmentedControl<ListingType>
+              value={listingType}
+              onChange={(v) => {
+                setListingType(v);
+                if (v === "service") setServiceMode("book");
+              }}
+              options={[
+                { value: "product", label: "Product" },
+                { value: "service", label: "Service" },
+              ]}
+            />
+          </div>
+
+          {listingType === "service" ? (
+            <div className="mt-3">
+              <p className="text-sm font-bold text-biz-ink">Service mode</p>
+              <div className="mt-2">
+                <SegmentedControl<ServiceMode>
+                  value={serviceMode}
+                  onChange={setServiceMode}
+                  options={[
+                    { value: "book", label: "Book only" },
+                    { value: "pay", label: "Pay to book" },
+                  ]}
+                />
+              </div>
+              <p className="mt-2 text-[11px] text-biz-muted">
+                Book only â†’ customers contact you via WhatsApp. Pay to book â†’ customers pay at checkout.
+              </p>
+            </div>
+          ) : null}
+        </Card>
+
+        <Card className="p-4 space-y-2">
+          <input
+            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+            placeholder={isService ? "Service name" : "Product name"}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+
+          <textarea
+            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+            placeholder={isService ? "Describe your serviceâ€¦" : "Description"}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+          />
+
+          <input
+            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+            placeholder={listingType === "service" && serviceMode === "book" ? "Price (optional)" : "Price (NGN)"}
+            type="number"
+            value={price}
+            onChange={(e) => setPrice(Number(e.target.value))}
+          />
+
+          {listingType === "product" ? (
+            <input
+              className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+              placeholder="Stock"
+              type="number"
+              value={stock}
+              onChange={(e) => setStock(Number(e.target.value))}
+            />
+          ) : (
+            <div className="rounded-2xl border border-biz-line bg-white p-3">
+              <p className="text-xs text-biz-muted">Stock is not required for services.</p>
+            </div>
+          )}
+
+          <div className="mt-2">
+            <p className="text-sm font-bold text-biz-ink">{isService ? "Category" : "Packaging"}</p>
+            <select
+              className="mt-2 w-full border border-biz-line rounded-2xl p-3 text-sm bg-white"
+              value={packaging}
+              onChange={(e) => setPackaging(e.target.value)}
+            >
+              {PACKAGING.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+
+            {packaging === "Other" ? (
+              <input
+                className="mt-2 w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                placeholder={isService ? "Type category (e.g. Lash, Nails)" : "Type packaging"}
+                onChange={(e) => setPackaging(e.target.value)}
+              />
+            ) : null}
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <ImageUploader
+            label={isService ? "Service images (optional)" : "Product images"}
+            multiple={true}
+            onUploaded={(urls) => setImages((prev) => [...prev, ...urls])}
+          />
+        </Card>
+
+        <Card className="p-4">
+          <VariationBuilder value={optionGroups} onChange={setOptionGroups} maxGroups={10} />
+        </Card>
+
+        <Card className="p-4">
+          <Button onClick={create} loading={loading} disabled={!priceOk || loading}>
+            Create {isService ? "Service" : "Product"}
+          </Button>
+
+          {!priceOk ? (
+            <p className="mt-2 text-[11px] text-red-700">
+              {listingType === "product"
+                ? "Product requires a price greater than 0."
+                : serviceMode === "pay"
+                  ? "Pay-to-book service requires a price greater than 0."
+                  : "Enter a name to continue."}
+            </p>
+          ) : null}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\api\vendor\analytics\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { dayKeysBetween, fetchBusinessDailyMetrics, monthRangeFromYYYYMM } from "@/lib/metrics/daily";
+import { getBusinessEntitlementById } from "@/lib/entitlements/server";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function toMs(v: any) {
+  try {
+    if (!v) return 0;
+    if (typeof v?.toDate === "function") return v.toDate().getTime();
+    if (typeof v?.seconds === "number") return v.seconds * 1000;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+function dayKey(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+function rangeWindow(range: string, month?: string | null) {
+  const now = Date.now();
+
+  if (month) {
+    const mr = monthRangeFromYYYYMM(month);
+    if (mr) return { startMs: mr.startMs, endMs: mr.endMs };
+  }
+
+  const nowDate = new Date();
+  if (range === "today") {
+    const startMs = new Date(nowDate.getFullYear(), nowDate.getMonth(), nowDate.getDate()).getTime();
+    return { startMs, endMs: now };
+  }
+
+  if (range === "month") return { startMs: now - 30 * 24 * 60 * 60 * 1000, endMs: now };
+  return { startMs: now - 7 * 24 * 60 * 60 * 1000, endMs: now };
+}
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+
+    // âœ… Hard lock: if free ended, this endpoint is blocked
+    await requireVendorUnlocked(me.businessId);
+
+    const url = new URL(req.url);
+    const requestedRange = url.searchParams.get("range") || "week";
+    const requestedMonth = url.searchParams.get("month");
+
+    const { business, entitlement } = await getBusinessEntitlementById(me.businessId);
+
+    const planKey = String(entitlement.planKey || "FREE");
+    const source = String(entitlement.source || "free");
+
+    const hasActiveSubscription =
+      !!business?.subscription?.planKey && Number(business?.subscription?.expiresAtMs || 0) > Date.now();
+
+    const monthUnlocked = hasActiveSubscription;
+
+    let usedRange = requestedRange;
+    let usedMonth = requestedMonth || null;
+    let notice: string | null = null;
+
+    if (!monthUnlocked) {
+      if (requestedRange === "month") {
+        usedRange = "week";
+        notice = "Month analytics is locked. Subscribe to unlock month reports.";
+      }
+      if (requestedMonth) {
+        usedMonth = null;
+        usedRange = "week";
+        notice = "Month history is locked. Subscribe to unlock history.";
+      }
+    }
+
+    const { startMs, endMs } = rangeWindow(usedRange, usedMonth);
+    const dayKeys = dayKeysBetween(startMs, endMs);
+
+    const oSnap = await adminDb
+      .collection("orders")
+      .where("businessId", "==", me.businessId)
+      .limit(500)
+      .get();
+
+    const ordersAll = oSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
+    const orders = ordersAll.filter((o) => {
+      const ms = toMs(o.createdAt);
+      return ms >= startMs && ms <= endMs;
+    });
+
+    let revenueHeld = 0;
+    let revenueReleased = 0;
+    let revenueDirect = 0;
+    let productsSold = 0;
+    const customerSet = new Set<string>();
+
+    for (const o of orders) {
+      const amt = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+
+      if (o.paymentType === "paystack_escrow") {
+        if (o.escrowStatus === "released") revenueReleased += amt;
+        else revenueHeld += amt;
+      } else if (o.paymentType === "direct_transfer") {
+        revenueDirect += amt;
+      }
+
+      const items = Array.isArray(o.items) ? o.items : [];
+      for (const it of items) productsSold += Number(it.qty || 1);
+
+      const phone = String(o?.customer?.phone || "").trim();
+      const email = String(o?.customer?.email || "").trim().toLowerCase();
+      const key = phone || email;
+      if (key) customerSet.add(key);
+    }
+
+    const totalRevenue = revenueHeld + revenueReleased + revenueDirect;
+
+    const days: any[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
+      const k = dayKey(d);
+      days.push({ dayKey: k, label: k, revenue: 0 });
+    }
+    const dayMap = new Map(days.map((d) => [d.dayKey, d]));
+    for (const o of ordersAll) {
+      const ms = toMs(o.createdAt);
+      const d = new Date(ms);
+      const k = dayKey(d);
+      const row = dayMap.get(k);
+      if (!row) continue;
+      const amt = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+      row.revenue += amt;
+    }
+
+    const pSnap = await adminDb
+      .collection("products")
+      .where("businessId", "==", me.businessId)
+      .limit(500)
+      .get();
+    const products = pSnap.docs.map((d) => d.data() as any);
+
+    const outOfStockCount = products.filter((p) => Number(p.stock ?? 0) <= 0).length;
+    const lowStockCount = products.filter((p) => {
+      const s = Number(p.stock ?? 0);
+      return s > 0 && s <= 3;
+    }).length;
+
+    const awaitingConfirmCount = ordersAll.filter(
+      (o) => o.paymentType === "direct_transfer" && String(o.orderStatus || "").includes("awaiting")
+    ).length;
+
+    const disputedCount = ordersAll.filter((o) => o.escrowStatus === "disputed").length;
+
+    const metricDocs = await fetchBusinessDailyMetrics({ businessId: me.businessId, dayKeys });
+
+    let visits = 0;
+    let leads = 0;
+    let views = 0;
+
+    for (const m of metricDocs) {
+      visits += Number(m.visits || 0);
+      leads += Number(m.leads || 0);
+      views += Number(m.views || 0);
+    }
+
+    const recentOrders = [...ordersAll].sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt)).slice(0, 10);
+
+    return NextResponse.json({
+      ok: true,
+      meta: {
+        requestedRange,
+        usedRange,
+        requestedMonth: requestedMonth || null,
+        usedMonth,
+        notice,
+        access: {
+          planKey,
+          source,
+          monthAnalyticsUnlocked: monthUnlocked,
+          entitlementExpiresAtMs: Number(entitlement.expiresAtMs || 0) || null,
+        },
+      },
+      overview: {
+        totalRevenue,
+        revenueHeld,
+        revenueReleased,
+        revenueDirect,
+        orders: orders.length,
+        productsSold,
+        customers: customerSet.size,
+        visits,
+        leads,
+        views,
+      },
+      chartDays: days,
+      todo: { outOfStockCount, lowStockCount, awaitingConfirmCount, disputedCount },
+      recentOrders,
+    });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\disputes\create\route.ts -----
+// FILE: src/app/api/disputes/create/route.ts
+import { NextResponse } from "next/server";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { buyerKeyFrom } from "@/lib/buyers/key";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function cleanReason(v: any) {
+  const s = String(v || "").trim().slice(0, 60);
+  return s || "Other";
+}
+
+function cleanDetails(v: any) {
+  return String(v || "").trim().slice(0, 4000);
+}
+
+function cleanUrls(arr: any) {
+  const list: string[] = Array.isArray(arr) ? arr.map((x) => String(x || "").trim()) : [];
+  return list.filter((u) => u.startsWith("https://")).slice(0, 10);
+}
+
+function planPriority(planKey: string) {
+  const k = String(planKey || "FREE").toUpperCase();
+  if (k === "APEX") return 4;
+  if (k === "MOMENTUM") return 3;
+  if (k === "LAUNCH") return 2;
+  return 1;
+}
+
+async function requireAuthedUser(req: Request) {
+  const authHeader = req.headers.get("authorization") || "";
+  const token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+  if (!token) throw new Error("Missing Authorization token");
+  const decoded = await adminAuth.verifyIdToken(token);
+  return { uid: decoded.uid, email: decoded.email ?? null };
+}
+
+async function getUserRole(uid: string) {
+  const snap = await adminDb.collection("users").doc(uid).get();
+  const d = snap.exists ? (snap.data() as any) : {};
+  return {
+    role: String(d.role || "customer"),
+    businessId: d.businessId ? String(d.businessId) : null,
+    businessSlug: d.businessSlug ? String(d.businessSlug) : null,
+  };
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireAuthedUser(req);
+    const meProfile = await getUserRole(me.uid);
+
+    const body = await req.json().catch(() => ({}));
+    const orderId = String(body.orderId || "").trim();
+
+    if (!orderId) return NextResponse.json({ ok: false, error: "orderId is required" }, { status: 400 });
+
+    const orderRef = adminDb.collection("orders").doc(orderId);
+    const orderSnap = await orderRef.get();
+    if (!orderSnap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+
+    const order = orderSnap.data() as any;
+    const businessId = String(order.businessId || "");
+    const customer = order?.customer || {};
+
+    const isVendor = meProfile.role === "owner" || meProfile.role === "staff";
+    const createdByType = isVendor ? "vendor" : "buyer";
+
+    if (isVendor) {
+      if (!meProfile.businessId || String(meProfile.businessId) !== String(businessId)) {
+        return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+      }
+    } else {
+      const orderEmail = String(customer?.email || "").trim().toLowerCase();
+      const myEmail = String(me.email || "").trim().toLowerCase();
+      if (orderEmail && myEmail && orderEmail !== myEmail) {
+        return NextResponse.json({ ok: false, error: "Not allowed to dispute this order" }, { status: 403 });
+      }
+    }
+
+    let planKey = "FREE";
+    if (businessId) {
+      const bSnap = await adminDb.collection("businesses").doc(businessId).get();
+      const b = bSnap.exists ? (bSnap.data() as any) : {};
+      const exp = Number(b?.subscription?.expiresAtMs || 0);
+      const hasSub = !!(b?.subscription?.planKey && exp && exp > Date.now());
+      planKey = hasSub ? String(b?.subscription?.planKey || "LAUNCH") : "FREE";
+    }
+
+    const nowMs = Date.now();
+
+    const buyerKeyObj = buyerKeyFrom({
+      phone: customer?.phone || null,
+      email: customer?.email || null,
+    });
+
+    const disputeRef = adminDb.collection("disputes").doc();
+    const evidenceUrls = cleanUrls(body.evidenceUrls);
+
+    await disputeRef.set({
+      orderId,
+      businessId: businessId || null,
+
+      reason: cleanReason(body.reason),
+      details: cleanDetails(body.details),
+      evidenceUrls,
+
+      status: "open",
+      createdAt: FieldValue.serverTimestamp(),
+      createdAtMs: nowMs,
+
+      createdByUid: me.uid,
+      createdByEmail: me.email ?? null,
+      createdByType,
+      createdByRole: meProfile.role,
+
+      buyerKey: buyerKeyObj.key || null,
+      buyerPhone: buyerKeyObj.phone,
+      buyerEmail: buyerKeyObj.email,
+
+      vendorPlanKey: String(planKey || "FREE").toUpperCase(),
+      priority: planPriority(planKey),
+    });
+
+    const isEscrow = order.paymentType === "paystack_escrow";
+
+    await orderRef.set(
+      {
+        escrowStatus: isEscrow ? "disputed" : (order.escrowStatus ?? "none"),
+        orderStatus: "disputed",
+        updatedAt: FieldValue.serverTimestamp(),
+        disputedAtMs: nowMs,
+      },
+      { merge: true }
+    );
+
+    // Freeze buyer + increment open disputes
+    if (buyerKeyObj.key) {
+      const bsRef = adminDb.collection("buyerSignals").doc(buyerKeyObj.key);
+      await adminDb.runTransaction(async (t) => {
+        const bsSnap = await t.get(bsRef);
+        const bs = bsSnap.exists ? (bsSnap.data() as any) : {};
+        const curOpen = Number(bs.openDisputes || 0);
+        const nextOpen = curOpen + 1;
+
+        t.set(
+          bsRef,
+          {
+            key: buyerKeyObj.key,
+            phone: buyerKeyObj.phone,
+            email: buyerKeyObj.email,
+
+            frozen: true,
+            frozenReason: "Open dispute",
+            updatedAtMs: nowMs,
+            updatedAt: FieldValue.serverTimestamp(),
+
+            disputesCount: FieldValue.increment(1),
+            openDisputes: nextOpen,
+            lastDisputeAtMs: nowMs,
+          },
+          { merge: true }
+        );
+      });
+    }
+
+    // Vendor trust counters (used for marketplace visibility reduction)
+    if (businessId) {
+      await adminDb.collection("businesses").doc(businessId).set(
+        {
+          trust: {
+            openDisputes: FieldValue.increment(1),
+            disputesCount: FieldValue.increment(1),
+            lastDisputeAtMs: nowMs,
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    }
+
+    return NextResponse.json({ ok: true, disputeId: disputeRef.id });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed to create dispute" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\admin\vendors\[businessId]\analytics\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { Timestamp } from "firebase-admin/firestore";
+import {
+  dayKeysBetween,
+  fetchBusinessDailyMetrics,
+  monthRangeFromYYYYMM,
+} from "@/lib/metrics/daily";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function rangeWindow(range: string, month?: string | null) {
+  const now = Date.now();
+
+  if (month) {
+    const mr = monthRangeFromYYYYMM(month);
+    if (mr) return { startMs: mr.startMs, endMs: mr.endMs };
+  }
+
+  if (range === "today") {
+    const d = new Date();
+    const startMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    return { startMs, endMs: now };
+  }
+
+  if (range === "month") return { startMs: now - 30 * 24 * 60 * 60 * 1000, endMs: now };
+  return { startMs: now - 7 * 24 * 60 * 60 * 1000, endMs: now };
+}
+
+function toMs(v: any) {
+  try {
+    if (!v) return 0;
+    if (typeof v?.toDate === "function") return v.toDate().getTime();
+    if (typeof v?.seconds === "number") return v.seconds * 1000;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+function dayKeyFromMs(ms: number) {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+export async function GET(req: Request, ctx: { params: { businessId: string } }) {
+  try {
+    await requireRole(req, "admin");
+
+    const businessId = String(ctx.params.businessId || "").trim();
+    if (!businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    const url = new URL(req.url);
+    const range = url.searchParams.get("range") || "week";
+    const month = url.searchParams.get("month"); // optional YYYY-MM
+    const { startMs, endMs } = rangeWindow(range, month);
+
+    // Business details
+    const bizSnap = await adminDb.collection("businesses").doc(businessId).get();
+    if (!bizSnap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+    const biz = { id: bizSnap.id, ...(bizSnap.data() as any) };
+
+    // Orders for window
+    const startTs = Timestamp.fromMillis(startMs);
+    const endTs = Timestamp.fromMillis(endMs);
+
+    const oSnap = await adminDb
+      .collection("orders")
+      .where("businessId", "==", businessId)
+      .where("createdAt", ">=", startTs)
+      .where("createdAt", "<=", endTs)
+      .limit(2000)
+      .get();
+
+    const orders = oSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+
+    // Compute sales metrics
+    let revenue = 0;
+    let productsSold = 0;
+    const customerSet = new Set<string>();
+
+    for (const o of orders) {
+      revenue += Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+      const items = Array.isArray(o.items) ? o.items : [];
+      for (const it of items) productsSold += Number(it.qty || 1);
+
+      const phone = String(o?.customer?.phone || "").trim();
+      const email = String(o?.customer?.email || "").trim().toLowerCase();
+      const key = phone || email;
+      if (key) customerSet.add(key);
+    }
+
+    // Tracking metrics for window
+    const dayKeys = dayKeysBetween(startMs, endMs);
+    const metricDocs = await fetchBusinessDailyMetrics({ businessId, dayKeys });
+
+    // sum totals + create daily series map (traffic)
+    let visits = 0, leads = 0, views = 0;
+
+    const trafficMap = new Map(dayKeys.map((dk) => [dk, { dayKey: dk, visits: 0, leads: 0, views: 0 }]));
+    for (const m of metricDocs) {
+      const dk = String(m.dayKey || "");
+      const row = trafficMap.get(dk);
+      if (!row) continue;
+
+      const v = Number(m.visits || 0);
+      const l = Number(m.leads || 0);
+      const w = Number(m.views || 0);
+
+      visits += v;
+      leads += l;
+      views += w;
+
+      row.visits += v;
+      row.leads += l;
+      row.views += w;
+    }
+
+    // Daily revenue series (same dayKeys window)
+    const revenueMap = new Map(dayKeys.map((dk) => [dk, { dayKey: dk, revenue: 0, orders: 0 }]));
+    for (const o of orders) {
+      const ms = toMs(o.createdAt);
+      if (!ms) continue;
+      const dk = dayKeyFromMs(ms);
+      const row = revenueMap.get(dk);
+      if (!row) continue;
+      row.orders += 1;
+      row.revenue += Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+    }
+
+    const revenueSeries = Array.from(revenueMap.values());
+    const trafficSeries = Array.from(trafficMap.values());
+
+    // Recent orders (latest 10 within window)
+    const recentOrders = [...orders]
+      .sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt))
+      .slice(0, 10)
+      .map((o) => ({
+        id: o.id,
+        amount: Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0),
+        paymentType: o.paymentType || null,
+        orderStatus: o.orderStatus || null,
+        escrowStatus: o.escrowStatus || null,
+        createdAt: o.createdAt || null,
+      }));
+
+    return NextResponse.json({
+      ok: true,
+      window: { range, month: month || null, startMs, endMs },
+      business: {
+        id: biz.id,
+        name: biz.name ?? null,
+        slug: biz.slug ?? null,
+        trial: biz.trial ?? null,
+        subscription: biz.subscription ?? null,
+      },
+      overview: {
+        revenue,
+        orders: orders.length,
+        productsSold,
+        customers: customerSet.size,
+        visits,
+        leads,
+        views,
+      },
+      charts: {
+        revenueSeries,
+        trafficSeries,
+      },
+      recentOrders,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\vendor\orders\[orderId]\notes\route.ts -----
+// FILE: src/app/api/vendor/orders/[orderId]/notes/route.ts
+import { NextResponse } from "next/server";
+import { requireAnyRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+import { getVendorLimitsResolved } from "@/lib/vendor/limitsServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function cleanText(v: any, max = 2000) {
+  return String(v || "").trim().slice(0, max);
+}
+
+export async function GET(req: Request, ctx: { params: { orderId: string } }) {
+  try {
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const access = await getVendorLimitsResolved(me.businessId);
+    if (!access.limits.canUseNotes) {
+      return NextResponse.json(
+        { ok: false, code: "FEATURE_LOCKED", error: "Upgrade to use internal notes." },
+        { status: 403 }
+      );
+    }
+
+    const orderId = String(ctx.params.orderId || "");
+    if (!orderId) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+
+    // Ownership check using order doc
+    const orderSnap = await adminDb.collection("orders").doc(orderId).get();
+    if (!orderSnap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+    const order = orderSnap.data() as any;
+
+    if (String(order.businessId || "") !== String(me.businessId || "")) {
+      return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+    }
+
+    const entriesSnap = await adminDb
+      .collection("businesses")
+      .doc(me.businessId)
+      .collection("orderNotes")
+      .doc(orderId)
+      .collection("entries")
+      .orderBy("createdAtMs", "desc")
+      .limit(50)
+      .get();
+
+    const notes = entriesSnap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as any) }))
+      .sort((a, b) => Number(a.createdAtMs || 0) - Number(b.createdAtMs || 0));
+
+    return NextResponse.json({ ok: true, notes });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request, ctx: { params: { orderId: string } }) {
+  try {
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const access = await getVendorLimitsResolved(me.businessId);
+    if (!access.limits.canUseNotes) {
+      return NextResponse.json(
+        { ok: false, code: "FEATURE_LOCKED", error: "Upgrade to use internal notes." },
+        { status: 403 }
+      );
+    }
+
+    const orderId = String(ctx.params.orderId || "");
+    if (!orderId) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+
+    const body = await req.json().catch(() => ({}));
+    const text = cleanText(body.text, 2000);
+    if (text.length < 2) return NextResponse.json({ ok: false, error: "Note is too short" }, { status: 400 });
+
+    // Ownership check using order doc
+    const orderSnap = await adminDb.collection("orders").doc(orderId).get();
+    if (!orderSnap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+    const order = orderSnap.data() as any;
+
+    if (String(order.businessId || "") !== String(me.businessId || "")) {
+      return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+    }
+
+    const nowMs = Date.now();
+
+    const parentRef = adminDb.collection("businesses").doc(me.businessId).collection("orderNotes").doc(orderId);
+    const entryRef = parentRef.collection("entries").doc();
+
+    await adminDb.runTransaction(async (t) => {
+      t.set(
+        parentRef,
+        {
+          businessId: me.businessId,
+          orderId,
+          updatedAtMs: nowMs,
+          updatedAt: FieldValue.serverTimestamp(),
+          createdAtMs: FieldValue.increment(0),
+        },
+        { merge: true }
+      );
+
+      t.set(entryRef, {
+        businessId: me.businessId,
+        orderId,
+        text,
+        createdAtMs: nowMs,
+        createdAt: FieldValue.serverTimestamp(),
+        createdByUid: me.uid,
+        createdByRole: me.role,
+      });
+    });
+
+    return NextResponse.json({ ok: true, id: entryRef.id });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\orders\direct\create\route.ts -----
+// FILE: src/app/api/orders/direct/create/route.ts
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { assertBuyerNotFrozen } from "@/lib/buyers/freezeServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function cleanCode(v: any) {
+  const raw = String(v || "").trim().toUpperCase();
+  const ok = /^[A-Z0-9]{3,20}$/.test(raw);
+  return ok ? raw : "";
+}
+
+function cleanShipping(s: any) {
+  if (!s || typeof s !== "object") return null;
+
+  const optionId = s.optionId ? String(s.optionId) : null;
+  const type = String(s.type || "delivery") === "pickup" ? "pickup" : "delivery";
+  const name = String(s.name || "").slice(0, 60) || (type === "pickup" ? "Pickup" : "Delivery");
+  const feeKobo = Number(s.feeKobo || 0);
+
+  return {
+    optionId,
+    type,
+    name,
+    feeKobo: Number.isFinite(feeKobo) ? Math.max(0, Math.floor(feeKobo)) : 0,
+  };
+}
+
+export async function POST(req: Request) {
+  try {
+    const { businessId, businessSlug, items, amountKobo, customer, coupon, shipping } = await req.json();
+
+    if (!businessId || !businessSlug) {
+      return NextResponse.json({ error: "businessId and businessSlug are required" }, { status: 400 });
+    }
+    if (!Array.isArray(items) || items.length === 0) {
+      return NextResponse.json({ error: "items required" }, { status: 400 });
+    }
+
+    const amt = Number(amountKobo);
+    if (!Number.isFinite(amt) || amt <= 0) {
+      return NextResponse.json({ error: "amountKobo required" }, { status: 400 });
+    }
+
+    // âœ… Batch 4: buyer freeze enforcement (blocks new orders until resolved)
+    try {
+      await assertBuyerNotFrozen({
+        phone: customer?.phone || null,
+        email: customer?.email || null,
+      });
+    } catch (e: any) {
+      if (e?.code === "BUYER_FROZEN") {
+        return NextResponse.json(
+          { error: "Your account is currently restricted. Please resolve pending issues before creating new orders." },
+          { status: 403 }
+        );
+      }
+      return NextResponse.json({ error: e?.message || "Blocked" }, { status: 403 });
+    }
+
+    const orderRef = adminDb.collection("orders").doc();
+    const orderId = orderRef.id;
+
+    const couponCode = coupon?.code ? cleanCode(coupon.code) : "";
+    const discountKobo = coupon?.discountKobo != null ? Number(coupon.discountKobo) : null;
+    const subtotalKobo = coupon?.subtotalKobo != null ? Number(coupon.subtotalKobo) : null;
+
+    const shippingClean = cleanShipping(shipping);
+
+    await orderRef.set({
+      businessId,
+      businessSlug,
+      items,
+      customer: customer ?? {},
+
+      coupon: couponCode
+        ? {
+            code: couponCode,
+            discountKobo: Number.isFinite(discountKobo as any) ? Number(discountKobo) : null,
+            subtotalKobo: Number.isFinite(subtotalKobo as any) ? Number(subtotalKobo) : null,
+          }
+        : null,
+
+      shipping: shippingClean,
+
+      paymentType: "direct_transfer",
+      paymentStatus: "pending",
+      escrowStatus: "none",
+      orderStatus: "awaiting_vendor_confirmation",
+
+      opsStatus: "new",
+      opsUpdatedAtMs: Date.now(),
+
+      currency: "NGN",
+      amountKobo: amt,
+      amount: amt / 100,
+
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    if (couponCode) {
+      await adminDb
+        .collection("businesses")
+        .doc(businessId)
+        .collection("coupons")
+        .doc(couponCode)
+        .set(
+          { usedCount: FieldValue.increment(1), updatedAtMs: Date.now(), updatedAt: FieldValue.serverTimestamp() },
+          { merge: true }
+        );
+    }
+
+    return NextResponse.json({ ok: true, orderId });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Failed to create direct order" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\account\invite\page.tsx -----
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { auth } from "@/lib/firebase/client";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+
+export default function StaffInviteAcceptPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const code = sp.get("code") || "";
+
+  const [status, setStatus] = useState<"loading" | "ready" | "ok" | "error">("loading");
+  const [msg, setMsg] = useState<string>("Preparingâ€¦");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        if (!code) {
+          setStatus("error");
+          setMsg("Missing invite code.");
+          return;
+        }
+
+        // Must be logged in
+        const user = auth.currentUser;
+        if (!user) {
+          router.replace(`/account/login?next=${encodeURIComponent(`/account/invite?code=${code}`)}`);
+          return;
+        }
+
+        // Confirm verified email
+        await user.reload();
+        if (!user.emailVerified) {
+          router.replace(`/account/verify?next=${encodeURIComponent(`/account/invite?code=${code}`)}`);
+          return;
+        }
+
+        const token = await user.getIdToken();
+
+        setStatus("ready");
+        setMsg("Accept this staff invite to join the business.");
+        if (!mounted) return;
+      } catch (e: any) {
+        if (!mounted) return;
+        setStatus("error");
+        setMsg(e?.message || "Failed");
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [code, router]);
+
+  async function accept() {
+    try {
+      setStatus("loading");
+      setMsg("Accepting inviteâ€¦");
+
+      const token = await auth.currentUser?.getIdToken();
+      const r = await fetch("/api/staff/accept", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ code }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Failed to accept invite");
+
+      setStatus("ok");
+      setMsg("Invite accepted. You now have staff access.");
+    } catch (e: any) {
+      setStatus("error");
+      setMsg(e?.message || "Failed");
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Staff Invite" subtitle="Join a business as staff" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        <Card className="p-5 text-center">
+          <p className="text-base font-bold text-biz-ink">
+            {status === "loading" ? "Processingâ€¦" : status === "ok" ? "Success" : status === "error" ? "Issue" : "Invite"}
+          </p>
+
+          <p className={status === "error" ? "text-sm text-red-700 mt-2" : "text-sm text-biz-muted mt-2"}>
+            {msg}
+          </p>
+
+          <p className="text-[11px] text-gray-500 mt-3 break-all">Code: {code || "â€”"}</p>
+
+          <div className="mt-4 space-y-2">
+            {status === "ready" ? (
+              <Button onClick={accept}>Accept invite</Button>
+            ) : null}
+
+            {status === "ok" ? (
+              <Button onClick={() => router.push("/vendor")}>Go to Vendor</Button>
+            ) : null}
+
+            <Button variant="secondary" onClick={() => router.push("/account")}>
+              Account
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\api\vendor\orders\route.ts -----
+// FILE: src/app/api/vendor/orders/route.ts
+import { NextResponse } from "next/server";
+import { requireAnyRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+import { getVendorLimitsResolved } from "@/lib/vendor/limitsServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function toMs(v: any) {
+  try {
+    if (!v) return 0;
+    if (typeof v?.toDate === "function") return v.toDate().getTime();
+    if (typeof v?.seconds === "number") return v.seconds * 1000;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+const OPS_KEYS = new Set(["new", "contacted", "paid", "in_transit", "delivered", "cancelled"]);
+
+function computeOpsEffective(o: any) {
+  const ops = String(o?.opsStatus || "").trim();
+  if (OPS_KEYS.has(ops)) return ops;
+
+  const orderStatus = String(o?.orderStatus || "").trim();
+  if (OPS_KEYS.has(orderStatus)) return orderStatus;
+
+  const pt = String(o?.paymentType || "");
+  if (pt === "paystack_escrow") return "paid";
+  if (pt === "direct_transfer") return "new";
+  if (pt === "chat_whatsapp") return "new";
+  return null;
+}
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const access = await getVendorLimitsResolved(me.businessId);
+
+    const snap = await adminDb
+      .collection("orders")
+      .where("businessId", "==", me.businessId)
+      .limit(500)
+      .get();
+
+    const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+    list.sort((a: any, b: any) => toMs(b.createdAt) - toMs(a.createdAt));
+
+    const capped = list.slice(0, access.limits.ordersVisible);
+
+    const orders = capped.map((o: any) => ({
+      id: o.id,
+      createdAt: o.createdAt ?? null,
+      paymentType: o.paymentType ?? null,
+      escrowStatus: o.escrowStatus ?? null,
+      orderStatus: o.orderStatus ?? null,
+      opsStatus: o.opsStatus ?? null,
+      opsStatusEffective: computeOpsEffective(o),
+      amount: o.amount ?? null,
+      amountKobo: o.amountKobo ?? null,
+      items: Array.isArray(o.items) ? o.items : [],
+      customer: o.customer ?? null,
+      orderSource: o.orderSource ?? null,
+    }));
+
+    return NextResponse.json({
+      ok: true,
+      meta: {
+        planKey: access.planKey,
+        hasActiveSubscription: access.hasActiveSubscription,
+        limits: access.limits,
+      },
+      orders,
+    });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\vendor\orders\[orderId]\ops-status\route.ts -----
+// FILE: src/app/api/vendor/orders/[orderId]/ops-status/route.ts
+import { NextResponse } from "next/server";
+import { requireAnyRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+import { getVendorLimitsResolved } from "@/lib/vendor/limitsServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const OPS: Record<string, true> = {
+  new: true,
+  contacted: true,
+  paid: true,
+  in_transit: true,
+  delivered: true,
+  cancelled: true,
+};
+
+function cleanOps(v: any) {
+  const s = String(v || "").trim();
+  return OPS[s] ? s : "";
+}
+
+export async function POST(req: Request, ctx: { params: { orderId: string } }) {
+  try {
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const access = await getVendorLimitsResolved(me.businessId);
+    if (!access.limits.canUpdateStatus) {
+      return NextResponse.json(
+        { ok: false, code: "FEATURE_LOCKED", error: "Upgrade to update order progress." },
+        { status: 403 }
+      );
+    }
+
+    const orderId = String(ctx.params.orderId || "");
+    if (!orderId) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+
+    const body = await req.json().catch(() => ({}));
+    const opsStatus = cleanOps(body.opsStatus);
+    if (!opsStatus) return NextResponse.json({ ok: false, error: "Invalid opsStatus" }, { status: 400 });
+
+    const ref = adminDb.collection("orders").doc(orderId);
+    const snap = await ref.get();
+    if (!snap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+
+    const o = snap.data() as any;
+    if (String(o.businessId || "") !== String(me.businessId || "")) {
+      return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+    }
+
+    await ref.set(
+      {
+        opsStatus,
+        opsUpdatedAtMs: Date.now(),
+        opsUpdatedByUid: me.uid,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return NextResponse.json({ ok: true, opsStatus });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\components\BottomNav.tsx -----
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { LayoutGrid, ShoppingCart, ClipboardList, User } from "lucide-react";
+import { cn } from "@/lib/cn";
+
+const items = [
+  { href: "/market", label: "Market", Icon: LayoutGrid },
+  { href: "/cart", label: "Cart", Icon: ShoppingCart },
+  { href: "/orders", label: "Orders", Icon: ClipboardList },
+  { href: "/account", label: "Profile", Icon: User },
+];
+
+export function BottomNav() {
+  const pathname = usePathname();
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50">
+      <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+        <div className="rounded-3xl border border-biz-line bg-white/90 backdrop-blur shadow-float px-2 py-2 flex">
+          {items.map(({ href, label, Icon }) => {
+            const active = pathname === href || pathname.startsWith(href + "/");
+
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "flex-1 py-2 flex flex-col items-center justify-center gap-1 rounded-2xl transition",
+                  active ? "bg-biz-cream" : "hover:bg-black/5"
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-5 w-5",
+                    active ? "text-biz-accent" : "text-gray-500"
+                  )}
+                />
+
+                <span
+                  className={cn(
+                    "text-[11px]",
+                    active ? "font-extrabold text-biz-accent" : "text-gray-500"
+                  )}
+                >
+                  {label}
+                </span>
+
+                {/* small active indicator */}
+                <span
+                  className={cn(
+                    "h-1 w-6 rounded-full transition",
+                    active
+                      ? "bg-gradient-to-r from-biz-accent2 to-biz-accent"
+                      : "bg-transparent"
+                  )}
+                />
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\api\auth\verify-email-code\route.ts -----
+import { NextResponse } from "next/server";
+import { requireMe } from "@/lib/auth/server";
+import { adminAuth, adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import crypto from "node:crypto";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function hash(code: string) {
+  return crypto.createHash("sha256").update(code).digest("hex");
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireMe(req);
+    const { code } = await req.json();
+
+    if (!code) return NextResponse.json({ error: "code required" }, { status: 400 });
+
+    const ref = adminDb.collection("emailVerifications").doc(me.uid);
+    const snap = await ref.get();
+    if (!snap.exists) return NextResponse.json({ error: "No code requested" }, { status: 400 });
+
+    const data = snap.data() as any;
+
+    if (Date.now() > Number(data.expiresAtMs || 0)) {
+      return NextResponse.json({ error: "Code expired. Request a new one." }, { status: 400 });
+    }
+
+    const attempts = Number(data.attempts || 0);
+    if (attempts >= 5) {
+      return NextResponse.json({ error: "Too many attempts. Request a new code." }, { status: 400 });
+    }
+
+    const ok = hash(String(code).trim()) === data.codeHash;
+    await ref.set({ attempts: FieldValue.increment(1), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+
+    if (!ok) return NextResponse.json({ error: "Invalid code" }, { status: 400 });
+
+    // Mark email verified in Firebase Auth
+    await adminAuth.updateUser(me.uid, { emailVerified: true });
+
+    // Clean up
+    await ref.delete();
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\lib\moderation\simpleTextGuard.ts -----
+// FILE: src/lib/moderation/simpleTextGuard.ts
+/**
+ * MVP moderation filter (free): blocks sexual content, bullying/harassment patterns.
+ * Later, can be replaced with a paid moderation API, but this is immediate + local.
+ */
+
+function normalize(s: string) {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const BLOCK_LIST = [
+  // sexual harassment / explicit
+  "sex",
+  "nude",
+  "naked",
+  "hookup",
+  "fuck",
+  "suck",
+  "blowjob",
+  "porn",
+  "dick",
+  "pussy",
+  "rape",
+  "molest",
+  "nudes",
+  "send nudes",
+
+  // bullying / threats
+  "idiot",
+  "stupid",
+  "bastard",
+  "fool",
+  "kill you",
+  "die",
+  "thief",
+  "i will deal with you",
+  "i will ruin you",
+  "you are useless",
+];
+
+export type ModerationResult = { ok: true } | { ok: false; reason: string; hit?: string };
+
+export function moderateOutboundText(text: string): ModerationResult {
+  const t = normalize(text);
+  if (!t) return { ok: false, reason: "Empty message" };
+
+  for (const w of BLOCK_LIST) {
+    if (t.includes(w)) {
+      return { ok: false, reason: "Blocked by safety policy", hit: w };
+    }
+  }
+
+  // crude repeated insult pattern
+  if (/(?:\bidiot\b|\bstupid\b|\bfool\b).*(?:\bidiot\b|\bstupid\b|\bfool\b)/.test(t)) {
+    return { ok: false, reason: "Blocked by safety policy", hit: "repeated_insult" };
+  }
+
+  return { ok: true };
+}
+
+----- FILE: src\lib\cart\store.ts -----
+export type CartLine = {
+  lineId: string; // productId + selectedOptions signature
+  productId: string;
+  name: string;
+  price: number;
+  qty: number;
+
+  imageUrl?: string;
+
+  // selected options like Size/Color (display only)
+  selectedOptions?: Record<string, string>;
+};
+
+export type CartState = {
+  storeSlug: string | null;
+  items: CartLine[];
+};
+
+const KEY = "bizhub_cart_v2";
+
+export function loadCart(): CartState {
+  if (typeof window === "undefined") return { storeSlug: null, items: [] };
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return { storeSlug: null, items: [] };
+    const parsed = JSON.parse(raw);
+    return {
+      storeSlug: parsed?.storeSlug ?? null,
+      items: Array.isArray(parsed?.items) ? parsed.items : [],
+    };
+  } catch {
+    return { storeSlug: null, items: [] };
+  }
+}
+
+export function saveCart(cart: CartState) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEY, JSON.stringify(cart));
+}
+
+export function calcSubtotal(items: CartLine[]) {
+  return items.reduce((sum, i) => sum + i.price * i.qty, 0);
+}
+
+export function makeLineId(productId: string, selectedOptions?: Record<string, string>) {
+  const entries = Object.entries(selectedOptions || {}).sort(([a], [b]) => a.localeCompare(b));
+  const signature = entries.map(([k, v]) => `${k}=${v}`).join("|");
+  return `${productId}__${signature}`;
+}
+
+----- FILE: src\app\api\customer\onboard\route.ts -----
+import { NextResponse } from "next/server";
+import { requireMe } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireMe(req);
+
+    const ref = adminDb.collection("users").doc(me.uid);
+    await ref.set(
+      {
+        uid: me.uid,
+        email: me.email ?? null,
+        role: "customer",
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message || "Failed" },
+      { status: 500 }
+    );
+  }
+}
+
+----- FILE: src\app\api\escrow\release\route.ts -----
+// FILE: src/app/api/escrow/release/route.ts
+import { NextResponse } from "next/server";
+import { releaseEscrowIfEligible } from "@/lib/escrow/releaseServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function POST(req: Request) {
+  try {
+    const { orderId } = await req.json();
+    if (!orderId) {
+      return NextResponse.json({ error: "orderId is required" }, { status: 400 });
+    }
+
+    const result = await releaseEscrowIfEligible({ orderId: String(orderId) });
+
+    if ((result as any)?.ok === false) {
+      const r = result as any;
+      return NextResponse.json({ error: r.error }, { status: r.status || 500 });
+    }
+
+    return NextResponse.json(result);
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Release failed" }, { status: 500 });
+  }
+}
+// FILE: src/components/vendor/VendorAccessGate.tsx
+"use client";
+
+/**
+ * Batch 8 change:
+ * - No more hard redirect/lock to subscription screen.
+ * - Vendors stay inside the app; features are gated softly/hard-blocked per feature.
+ */
+export function VendorAccessGate({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+----- FILE: src\lib\vendor\choices.ts -----
+export const VARIATION_SUGGESTIONS = [
+  "Color",
+  "Size",
+  "Material",
+  "Weight",
+  "Length",
+  "Model",
+  "Brand",
+  "Condition",
+  "Flavor",
+  "Type",
+];
+
+export const PACKAGING_OPTIONS = [
+  "Box",
+  "Nylon",
+  "Wrap",
+  "Envelope",
+  "Bottle",
+  "Sachet",
+  "Carton",
+  "Plate",
+  "Other",
+];

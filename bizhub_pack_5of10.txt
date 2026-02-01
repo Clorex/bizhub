@@ -1,0 +1,2239 @@
+﻿== BIZHUB SNAPSHOT PACK 5/10 ==
+Date: 2/1/2026 10:12:47 AM
+Node: v24.12.0
+NPM: 11.6.2
+Approx bytes in this pack: 75147
+
+== FILE LIST (relative path + bytes) ==
+src\app\vendor\promote\page.tsx  (bytes: 15114)
+src\app\b\[slug]\page.tsx  (bytes: 10357)
+src\app\orders\[orderId]\dispute\page.tsx  (bytes: 7905)
+src\app\account\register\page.tsx  (bytes: 6461)
+src\lib\bizhubPlans.ts  (bytes: 6365)
+src\app\api\admin\withdrawals\route.ts  (bytes: 5839)
+src\app\api\admin\disputes\route.ts  (bytes: 4270)
+src\app\account\verify\page.tsx  (bytes: 3799)
+src\lib\reports\platformDaily.ts  (bytes: 3434)
+src\lib\cart\CartContext.tsx  (bytes: 2481)
+src\lib\metrics\daily.ts  (bytes: 2234)
+src\components\ui\Button.tsx  (bytes: 1784)
+src\components\ProductCard.tsx  (bytes: 1685)
+src\app\api\admin\bootstrap\route.ts  (bytes: 1140)
+src\app\api\admin\buyers\freeze\route.ts  (bytes: 968)
+tsconfig.json  (bytes: 670)
+src\components\ui\SectionHeader.tsx  (bytes: 641)
+
+----- FILE: src\app\vendor\promote\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { auth } from "@/lib/firebase/client";
+import { CheckCircle2, HelpCircle, Megaphone } from "lucide-react";
+
+type Tab = "setup" | "summary";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function clampInt(n: any, min: number, max: number) {
+  const v = Math.floor(Number(n));
+  if (!Number.isFinite(v)) return min;
+  return Math.max(min, Math.min(max, v));
+}
+
+function parseIds(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+export default function PromoteWizardPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const presetProductId = sp.get("productId");
+  const presetIds = parseIds(sp.get("ids"));
+  const presetDays = sp.get("days");
+  const presetDaily = sp.get("daily");
+
+  const [tab, setTab] = useState<Tab>("setup");
+
+  const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [products, setProducts] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const [days, setDays] = useState<number>(2);
+  const [dailyBudget, setDailyBudget] = useState<number>(1700);
+  const maxProducts = 5;
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      setLoading(true);
+      setMsg(null);
+      try {
+        const data = await authedFetch("/api/vendor/products");
+        const list = Array.isArray(data.products) ? data.products : [];
+        const onlyProducts = list.filter((p: any) => String(p?.listingType || "product") !== "service");
+
+        if (!mounted) return;
+        setProducts(onlyProducts);
+
+        // Apply presets
+        const nextIds: string[] = [];
+
+        // ids=... takes priority
+        for (const id of presetIds) {
+          const exists = onlyProducts.some((p: any) => String(p.id) === id);
+          if (exists) nextIds.push(id);
+        }
+
+        // fallback: productId
+        if (nextIds.length === 0 && presetProductId) {
+          const exists = onlyProducts.some((p: any) => String(p.id) === String(presetProductId));
+          if (exists) nextIds.push(String(presetProductId));
+        }
+
+        if (nextIds.length) setSelectedIds(nextIds.slice(0, maxProducts));
+
+        if (presetDays) setDays(clampInt(presetDays, 2, 60));
+        if (presetDaily) setDailyBudget(clampInt(presetDaily, 1700, 500000));
+      } catch (e: any) {
+        if (!mounted) return;
+        setMsg(e?.message || "Failed to load products");
+        setProducts([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [presetProductId, presetDays, presetDaily]); // presetIds is derived from query; safe
+
+  function toggle(id: string) {
+    setSelectedIds((prev) => {
+      const has = prev.includes(id);
+      if (has) return prev.filter((x) => x !== id);
+      if (prev.length >= maxProducts) return prev;
+      return [...prev, id];
+    });
+  }
+
+  const selectedProducts = useMemo(() => {
+    const map = new Map(products.map((p) => [String(p.id), p]));
+    return selectedIds.map((id) => map.get(id)).filter(Boolean);
+  }, [products, selectedIds]);
+
+  const safeDays = useMemo(() => clampInt(days, 2, 60), [days]);
+  const safeDaily = useMemo(() => clampInt(dailyBudget, 1700, 500000), [dailyBudget]);
+
+  const totalCost = useMemo(() => safeDays * safeDaily, [safeDays, safeDaily]);
+
+  const exposureNote = useMemo(() => {
+    if (selectedIds.length <= 1) {
+      return "Higher daily budget increases how often your product appears in promoted slots.";
+    }
+    return "Your campaign will promote multiple products. Exposure is shared across selected products.";
+  }, [selectedIds.length]);
+
+  const canContinue =
+    selectedIds.length >= 1 &&
+    selectedIds.length <= maxProducts &&
+    safeDays >= 2 &&
+    safeDaily >= 1700;
+
+  async function startPayment() {
+    if (!canContinue) return;
+
+    setPaying(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/promotions/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productIds: selectedIds,
+          days: safeDays,
+          dailyBudgetKobo: safeDaily * 100,
+        }),
+      });
+
+      window.location.href = data.authorization_url;
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to start payment");
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Promotion"
+        subtitle="Boost a product like ads"
+        showBack={true}
+        right={
+          <button
+            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-bold shadow-soft inline-flex items-center gap-2"
+            onClick={() => router.push("/vendor/promote/faq")}
+          >
+            <HelpCircle className="h-4 w-4 text-gray-700" />
+            FAQ
+          </button>
+        }
+      />
+
+      <div className="px-4 pb-6 space-y-3">
+        <SegmentedControl<Tab>
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "setup", label: "Setup" },
+            { value: "summary", label: "Summary" },
+          ]}
+        />
+
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            {tab === "setup" ? (
+              <>
+                <SectionCard
+                  title="Select products"
+                  subtitle={`Choose 1â€“${maxProducts} products to promote`}
+                  right={
+                    <span className="text-[11px] text-biz-muted">
+                      Selected: <b className="text-biz-ink">{selectedIds.length}</b>/{maxProducts}
+                    </span>
+                  }
+                >
+                  {products.length === 0 ? (
+                    <div className="text-sm text-biz-muted">
+                      You have no products yet. Add a product first.
+                      <div className="mt-3">
+                        <Button onClick={() => router.push("/vendor/products/new")}>Add product</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {products.slice(0, 50).map((p: any) => {
+                        const id = String(p.id);
+                        const on = selectedIds.includes(id);
+                        const img = Array.isArray(p?.images) ? p.images[0] : "";
+
+                        return (
+                          <button
+                            key={id}
+                            onClick={() => toggle(id)}
+                            className={[
+                              "w-full text-left rounded-2xl border p-3 transition",
+                              on
+                                ? "border-transparent bg-gradient-to-br from-biz-accent2 to-biz-accent text-white shadow-float"
+                                : "border-biz-line bg-white hover:bg-black/[0.02]",
+                            ].join(" ")}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="h-12 w-12 rounded-2xl bg-biz-cream overflow-hidden shrink-0 border border-black/5">
+                                {img ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={img} alt={p?.name || "Product"} className="h-full w-full object-cover" />
+                                ) : null}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <p className={on ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
+                                  {p?.name || "Product"}
+                                </p>
+                                <p className={on ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-biz-muted mt-1"}>
+                                  â‚¦{Number(p?.price || 0).toLocaleString()}
+                                </p>
+                              </div>
+
+                              {on ? (
+                                <CheckCircle2 className="h-5 w-5 text-white shrink-0 mt-0.5" />
+                              ) : (
+                                <span className="h-5 w-5 rounded-full border border-biz-line bg-white shrink-0 mt-0.5" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <p className="mt-3 text-[11px] text-biz-muted">
+                    If you select multiple products, exposure is shared across them.
+                  </p>
+                </SectionCard>
+
+                <SectionCard title="Budget & duration" subtitle="More budget = more exposure">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-biz-muted mb-1">Days (minimum 2)</p>
+                      <Input
+                        type="number"
+                        min={2}
+                        max={60}
+                        value={String(days)}
+                        onChange={(e) => setDays(Number(e.target.value))}
+                        placeholder="2"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-biz-muted mb-1">Daily budget (minimum â‚¦1,700)</p>
+                      <Input
+                        type="number"
+                        min={1700}
+                        step={100}
+                        value={String(dailyBudget)}
+                        onChange={(e) => setDailyBudget(Number(e.target.value))}
+                        placeholder="1700"
+                      />
+                      <p className="mt-2 text-[11px] text-biz-muted">{exposureNote}</p>
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <Card className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-biz-ink">Estimated total</p>
+                      <p className="text-[11px] text-biz-muted mt-1">
+                        {safeDays} day(s) Ã— {fmtNaira(safeDaily)}
+                      </p>
+                    </div>
+                    <p className="text-lg font-bold text-biz-ink">{fmtNaira(totalCost)}</p>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => setTab("summary")}
+                      disabled={!canContinue}
+                      leftIcon={<Megaphone className="h-4 w-4" />}
+                    >
+                      Continue
+                    </Button>
+                    <Button variant="secondary" onClick={() => router.push("/vendor/promotions")}>
+                      Campaigns
+                    </Button>
+                  </div>
+
+                  {!canContinue ? (
+                    <p className="mt-2 text-[11px] text-red-700">
+                      Select at least 1 product (max {maxProducts}), and use at least 2 days + â‚¦1,700/day.
+                    </p>
+                  ) : null}
+                </Card>
+              </>
+            ) : null}
+
+            {tab === "summary" ? (
+              <>
+                <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+                  <p className="text-xs opacity-95">Promotion summary</p>
+                  <p className="text-xl font-bold mt-1">{fmtNaira(totalCost)}</p>
+                  <p className="text-[11px] opacity-95 mt-2">
+                    Duration: <b>{safeDays} day(s)</b> â€¢ Daily budget: <b>{fmtNaira(safeDaily)}</b>
+                  </p>
+                  <p className="text-[11px] opacity-95 mt-1">
+                    Products: <b>{selectedIds.length}</b> (shared exposure if multiple)
+                  </p>
+                </div>
+
+                <SectionCard title="Selected products" subtitle="These will be promoted">
+                  <div className="space-y-2">
+                    {selectedProducts.map((p: any) => (
+                      <div key={String(p.id)} className="rounded-2xl border border-biz-line bg-white p-3">
+                        <p className="text-sm font-bold text-biz-ink">{p?.name || "Product"}</p>
+                        <p className="text-[11px] text-biz-muted mt-1">â‚¦{Number(p?.price || 0).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+
+                <div className="fixed bottom-0 left-0 right-0 z-40">
+                  <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+                    <Card className="p-4 space-y-2">
+                      <Button onClick={startPayment} loading={paying} disabled={!canContinue}>
+                        Pay {fmtNaira(totalCost)}
+                      </Button>
+                      <Button variant="secondary" onClick={() => setTab("setup")}>
+                        Edit campaign
+                      </Button>
+                    </Card>
+                  </div>
+                </div>
+
+                <div className="h-28" />
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\b\[slug]\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { db } from "@/lib/firebase/client";
+import { collection, getDocs, limit, query, where, orderBy } from "firebase/firestore";
+import { track } from "@/lib/track/client";
+import { Button } from "@/components/ui/Button";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Store, Phone, ArrowLeft, Package } from "lucide-react";
+
+function fmtNaira(n: number) {
+  try {
+    return `₦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `₦${n}`;
+  }
+}
+
+function waLink(wa: string, text: string) {
+  const digits = wa.replace(/[^\d]/g, "");
+  const t = encodeURIComponent(text);
+  return `https://wa.me/${digits}?text=${t}`;
+}
+
+function Tile({
+  title,
+  subtitle,
+  image,
+  badge,
+  onClick,
+}: {
+  title: string;
+  subtitle?: string;
+  image?: string;
+  badge?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button onClick={onClick} className="text-left w-full">
+      <Card className="p-3 hover:bg-black/[0.02] transition">
+        <div className="h-24 w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative">
+          {image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={image} alt={title} className="h-full w-full object-cover" />
+          ) : null}
+
+          {badge ? (
+            <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-white/90 border border-black/5">
+              {badge}
+            </div>
+          ) : null}
+        </div>
+
+        <p className="mt-2 text-sm font-extrabold text-biz-ink line-clamp-2">{title}</p>
+        {subtitle ? <p className="mt-1 text-xs text-biz-muted">{subtitle}</p> : null}
+      </Card>
+    </button>
+  );
+}
+
+export default function StorefrontPage() {
+  const router = useRouter();
+  const params = useParams();
+  const slug = String((params as any)?.slug ?? "");
+
+  const [biz, setBiz] = useState<any>(null);
+  const [items, setItems] = useState<any[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const products = useMemo(
+    () => items.filter((x) => String(x.listingType || "product") !== "service"),
+    [items]
+  );
+  const services = useMemo(
+    () => items.filter((x) => String(x.listingType || "product") === "service"),
+    [items]
+  );
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const qBiz = query(collection(db, "businesses"), where("slug", "==", slug), limit(1));
+        const snapBiz = await getDocs(qBiz);
+        if (snapBiz.empty) throw new Error("Store not found");
+        const b = { id: snapBiz.docs[0].id, ...snapBiz.docs[0].data() };
+
+        const qP = query(
+          collection(db, "products"),
+          where("businessSlug", "==", slug),
+          orderBy("createdAt", "desc"),
+          limit(200)
+        );
+        const snapP = await getDocs(qP);
+        const list = snapP.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+        if (!mounted) return;
+        setBiz(b);
+        setItems(list);
+
+        // track store visit
+        if (b?.id) track({ type: "store_visit", businessId: b.id, businessSlug: slug });
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load store");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    if (slug) run();
+    return () => {
+      mounted = false;
+    };
+  }, [slug]);
+
+  const banner = String(biz?.bannerUrl || "");
+  const logo = String(biz?.logoUrl || "");
+  const name = String(biz?.name || slug);
+  const about = String(biz?.description || "");
+  const location = [biz?.city, biz?.state].filter(Boolean).join(", ");
+  const whatsapp = String(biz?.whatsapp || "");
+  const instagram = String(biz?.instagram || "");
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title={name}
+        subtitle={location || `Store: ${slug}`}
+        showBack={true}
+        right={
+          <button
+            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft"
+            onClick={() => router.push("/market")}
+          >
+            Market
+          </button>
+        }
+      />
+
+      <div className="px-4 pb-6 space-y-3">
+        {loading ? <Card className="p-4">Loading…</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && biz ? (
+          <>
+            {/* Store card */}
+            <Card className="p-0 overflow-hidden">
+              <div className="h-36 w-full bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden">
+                {banner ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={banner} alt="Banner" className="h-full w-full object-cover" />
+                ) : null}
+              </div>
+
+              <div className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="h-14 w-14 rounded-2xl bg-biz-cream overflow-hidden border border-biz-line shrink-0">
+                    {logo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={logo} alt="Logo" className="h-full w-full object-cover" />
+                    ) : (
+                      <div className="h-full w-full flex items-center justify-center">
+                        <Store className="h-6 w-6 text-orange-700" />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base font-extrabold text-biz-ink">{name}</p>
+                    <p className="text-xs text-biz-muted mt-1">{location || "Nigeria"}</p>
+                    {instagram ? (
+                      <p className="text-xs text-biz-muted mt-1">@{instagram.replace(/^@/, "")}</p>
+                    ) : null}
+                  </div>
+                </div>
+
+                {about ? (
+                  <p className="mt-3 text-sm text-gray-700 whitespace-pre-wrap">{about}</p>
+                ) : null}
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button
+                    leftIcon={<Phone className="h-4 w-4" />}
+                    onClick={() => {
+                      if (!whatsapp) {
+                        alert("Vendor WhatsApp not set yet.");
+                        return;
+                      }
+                      window.open(
+                        waLink(whatsapp, `Hello ${name}. I came from your BizHub store (${slug}).`),
+                        "_blank"
+                      );
+                    }}
+                    disabled={!whatsapp}
+                  >
+                    WhatsApp
+                  </Button>
+
+                  <Button variant="secondary" leftIcon={<Package className="h-4 w-4" />} onClick={() => router.push("/cart")}>
+                    Cart
+                  </Button>
+                </div>
+              </div>
+            </Card>
+
+            {/* Services */}
+            <SectionCard
+              title="Services"
+              subtitle="Book a service or pay to book (depending on the service)"
+            >
+              {services.length === 0 ? (
+                <div className="text-sm text-biz-muted">No services yet.</div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {services.map((p: any) => {
+                    const img = Array.isArray(p?.images) ? p.images[0] : "";
+                    const mode = String(p?.serviceMode || "book");
+
+                    return (
+                      <Tile
+                        key={p.id}
+                        title={p?.name || "Service"}
+                        subtitle={mode === "book" ? "Book only" : fmtNaira(p?.price || 0)}
+                        image={img}
+                        badge="Service"
+                        onClick={() => {
+                          track({
+                            type: "store_product_click",
+                            businessId: biz.id,
+                            businessSlug: slug,
+                            productId: p.id,
+                          });
+                          router.push(`/b/${slug}/p/${p.id}`);
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </SectionCard>
+
+            {/* Products */}
+            <SectionCard title="Products" subtitle="Shop items from this store">
+              {products.length === 0 ? (
+                <EmptyState
+                  title="No products yet"
+                  description="This store hasn’t added products yet."
+                  ctaLabel="Back to market"
+                  onCta={() => router.push("/market")}
+                />
+              ) : (
+                <div className="grid grid-cols-2 gap-3">
+                  {products.map((p: any) => {
+                    const img = Array.isArray(p?.images) ? p.images[0] : "";
+                    const boosted = Number(p?.boostUntilMs || 0) > Date.now();
+
+                    return (
+                      <Tile
+                        key={p.id}
+                        title={p?.name || "Product"}
+                        subtitle={fmtNaira(p?.price || 0)}
+                        image={img}
+                        badge={boosted ? "Promoted" : undefined}
+                        onClick={() => {
+                          track({
+                            type: "store_product_click",
+                            businessId: biz.id,
+                            businessSlug: slug,
+                            productId: p.id,
+                          });
+                          router.push(`/b/${slug}/p/${p.id}`);
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              )}
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\orders\[orderId]\dispute\page.tsx -----
+// FILE: src/app/orders/[orderId]/dispute/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { db, auth } from "@/lib/firebase/client";
+import { doc, getDoc } from "firebase/firestore";
+import { Button } from "@/components/ui/Button";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { onAuthStateChanged } from "firebase/auth";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+
+export default function DisputePage() {
+  const router = useRouter();
+  const params = useParams();
+  const orderId = String((params as any)?.orderId ?? "");
+
+  const [authLoading, setAuthLoading] = useState(true);
+  const [loggedIn, setLoggedIn] = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [o, setO] = useState<any>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [reason, setReason] = useState("Not delivered");
+  const [details, setDetails] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const [evidenceUrls, setEvidenceUrls] = useState<string[]>([]);
+
+  // Must be logged in (you confirmed checkout already enforces login)
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      setAuthLoading(false);
+      if (!u) {
+        setLoggedIn(false);
+        router.replace(`/account/login?next=${encodeURIComponent(`/orders/${orderId}/dispute`)}`);
+        return;
+      }
+      setLoggedIn(true);
+    });
+    return () => unsub();
+  }, [router, orderId]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const snap = await getDoc(doc(db, "orders", orderId));
+        if (!snap.exists()) throw new Error("Order not found");
+
+        if (!mounted) return;
+        setO({ id: snap.id, ...snap.data() });
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load order");
+        setO(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    if (orderId) run();
+    return () => {
+      mounted = false;
+    };
+  }, [orderId]);
+
+  const canSubmit = useMemo(() => {
+    if (!reason) return false;
+    if (details.trim().length < 5) return false;
+    return true;
+  }, [reason, details]);
+
+  async function submit() {
+    setMsg(null);
+    setSending(true);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not logged in");
+
+      const r = await fetch("/api/disputes/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          orderId,
+          reason,
+          details,
+          evidenceUrls,
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Failed to submit dispute");
+
+      router.push(`/orders/${orderId}`);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function removeEvidence(url: string) {
+    setEvidenceUrls((prev) => prev.filter((x) => x !== url));
+  }
+
+  if (authLoading || !loggedIn) {
+    return (
+      <div className="min-h-screen">
+        <GradientHeader title="Raise a dispute" subtitle="Preparingâ€¦" showBack={true} />
+        <div className="px-4 pb-24">
+          <Card className="p-4">Loadingâ€¦</Card>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Raise a dispute" subtitle="Tell us what went wrong" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && o ? (
+          <>
+            <SectionCard title="Order" subtitle="Confirm youâ€™re disputing the right order">
+              <div className="text-sm text-gray-700 space-y-1">
+                <div>
+                  Order ID: <b className="text-biz-ink">{orderId}</b>
+                </div>
+                <div>
+                  Store: <b className="text-biz-ink">{o?.businessSlug || "â€”"}</b>
+                </div>
+                <div className="text-[11px] text-biz-muted">
+                  Payment: {o?.paymentType || "â€”"} â€¢ Status: {o?.escrowStatus || o?.orderStatus || "â€”"}
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Dispute details" subtitle="Add screenshots if you have evidence">
+              <select
+                className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              >
+                <option>Not delivered</option>
+                <option>Wrong item</option>
+                <option>Damaged item</option>
+                <option>Vendor not responding</option>
+                <option>Other</option>
+              </select>
+
+              <textarea
+                className="mt-2 w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                placeholder="Explain what happened (dates, delivery info, proof)â€¦"
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                rows={6}
+              />
+
+              <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
+                <ImageUploader
+                  label="Upload evidence (screenshots/photos)"
+                  multiple={true}
+                  onUploaded={(urls) => setEvidenceUrls((prev) => [...prev, ...urls].slice(0, 10))}
+                />
+
+                {evidenceUrls.length ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {evidenceUrls.map((u) => (
+                      <div key={u} className="rounded-2xl border border-biz-line overflow-hidden bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="Evidence" className="h-24 w-full object-cover" />
+                        <button
+                          className="w-full py-2 text-xs font-bold text-red-600 bg-white"
+                          type="button"
+                          onClick={() => removeEvidence(u)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[11px] text-biz-muted">No evidence uploaded yet.</p>
+                )}
+              </div>
+
+              <div className="mt-3">
+                <Button onClick={submit} loading={sending} disabled={!canSubmit || sending}>
+                  Submit dispute
+                </Button>
+              </div>
+
+              <p className="mt-2 text-[11px] text-biz-muted">
+                Important: disputes freeze buyer actions until resolved.
+              </p>
+            </SectionCard>
+
+            <Card className="p-4">
+              <Button variant="secondary" onClick={() => router.push(`/orders/${orderId}`)}>
+                Back to order
+              </Button>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\account\register\page.tsx -----
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+
+type Mode = "customer" | "vendor";
+
+export default function RegisterPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const nextFromUrl = sp.get("next");
+
+  const [mode, setMode] = useState<Mode>("customer");
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+
+  // vendor-only
+  const [businessName, setBusinessName] = useState("");
+  const [businessSlug, setBusinessSlug] = useState("");
+
+  const [msg, setMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const canCustomer = email.trim().length > 3 && password.length >= 6;
+  const canVendor = canCustomer && businessName.trim().length > 1;
+
+  const nextDefault = useMemo(() => {
+    return mode === "vendor" ? "/vendor" : "/market";
+  }, [mode]);
+
+  async function register() {
+    setLoading(true);
+    setMsg(null);
+
+    try {
+      await createUserWithEmailAndPassword(auth, email.trim(), password);
+
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Missing auth token");
+
+      // create role doc depending on mode
+      if (mode === "vendor") {
+        const r = await fetch("/api/vendor/onboard", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({
+            businessName: businessName.trim(),
+            businessSlug: businessSlug.trim(),
+          }),
+        });
+
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Vendor onboarding failed");
+      } else {
+        const r = await fetch("/api/customer/onboard", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Customer onboarding failed");
+      }
+
+      // send verification code
+      await fetch("/api/auth/send-email-code", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const dest = nextFromUrl || nextDefault;
+      router.push(`/account/verify?next=${encodeURIComponent(dest)}`);
+    } catch (e: any) {
+      setMsg(e?.message || "Register failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Create Account" showBack={true} />
+
+      <div className="px-4 pb-24">
+        <Card className="p-4">
+          <p className="text-base font-extrabold text-[#111827]">Continue as</p>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <button
+              className={
+                mode === "customer"
+                  ? "rounded-2xl py-3 text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00]"
+                  : "rounded-2xl border border-[#E7E7EE] py-3 text-sm font-extrabold"
+              }
+              onClick={() => setMode("customer")}
+              disabled={loading}
+            >
+              Customer
+            </button>
+
+            <button
+              className={
+                mode === "vendor"
+                  ? "rounded-2xl py-3 text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00]"
+                  : "rounded-2xl border border-[#E7E7EE] py-3 text-sm font-extrabold"
+              }
+              onClick={() => setMode("vendor")}
+              disabled={loading}
+            >
+              Vendor
+            </button>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <input
+              className="w-full border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <input
+              className="w-full border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
+              placeholder="Password (min 6)"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="new-password"
+            />
+
+            {mode === "vendor" ? (
+              <>
+                <div className="h-px bg-[#E7E7EE] my-2" />
+                <input
+                  className="w-full border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
+                  placeholder="Business name"
+                  value={businessName}
+                  onChange={(e) => setBusinessName(e.target.value)}
+                />
+                <input
+                  className="w-full border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
+                  placeholder="Business slug (optional)"
+                  value={businessSlug}
+                  onChange={(e) => setBusinessSlug(e.target.value)}
+                />
+                <p className="text-xs text-gray-600 mt-1">
+                  Your store link will be: <b>/b/your-slug</b>
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-gray-600 mt-1">
+                Customers will only login when checking out.
+              </p>
+            )}
+          </div>
+
+          <button
+            className="mt-4 w-full rounded-2xl py-3 text-sm font-extrabold text-white shadow-[0_12px_30px_rgba(17,24,39,0.10)] bg-gradient-to-br from-[#FF6A00] to-[#FF8A00] disabled:opacity-50"
+            onClick={register}
+            disabled={loading || (mode === "vendor" ? !canVendor : !canCustomer)}
+          >
+            {loading ? "Creating..." : "Create account"}
+          </button>
+
+          {msg ? <p className="mt-3 text-sm text-red-700">{msg}</p> : null}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\lib\bizhubPlans.ts -----
+export type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
+export type BizhubBillingCycle = "monthly" | "quarterly" | "biannually" | "yearly";
+
+/**
+ * Names are intentionally original (not Starter/Pro/Growth).
+ * Goal is to match the concept/UX, not copy wording.
+ */
+
+export type PlanCatalog = {
+  key: BizhubPlanKey;
+  name: string;
+  tagline: string;
+
+  /** All plans support all cycles per your instruction */
+  priceNgn: Record<BizhubBillingCycle, number>;
+
+  limits: {
+    maxProducts: number | "unlimited";
+  };
+
+  /** Shown on plan card as checkmarks */
+  highlights: string[];
+
+  /** Summary tab: Plan Benefits */
+  benefits: Record<string, string[]>; // category -> items
+
+  /** Summary tab: Plan Purchases */
+  purchases: Record<string, string[]>; // category -> items
+};
+
+export const BIZHUB_PLANS: Record<BizhubPlanKey, PlanCatalog> = {
+  FREE: {
+    key: "FREE",
+    name: "Free",
+    tagline: "Basics to get started.",
+    priceNgn: { monthly: 0, quarterly: 0, biannually: 0, yearly: 0 },
+    limits: { maxProducts: 20 },
+    highlights: [
+      "Up to 20 products",
+      "Paystack escrow checkout",
+      "Direct bank transfer orders",
+      "Basic storefront",
+    ],
+    benefits: {
+      "Sell online": [
+        "Public store link",
+        "Product pages",
+        "Cart + checkout gating (login at checkout)",
+      ],
+      "Products": ["Up to 20 products", "Images + variations (display-only)"],
+      "Orders": ["Order tracking on this device", "Vendor order list"],
+      "Payments": ["Paystack escrow payments", "Direct transfer orders"],
+    },
+    purchases: {
+      "You can still buy": ["Product Boost (â‚¦1,700/day)", "Subscription upgrades"],
+    },
+  },
+
+  LAUNCH: {
+    key: "LAUNCH",
+    name: "Launch",
+    tagline: "For new sellers ready to look professional.",
+    priceNgn: { monthly: 5000, quarterly: 14000, biannually: 27000, yearly: 50000 },
+    limits: { maxProducts: "unlimited" },
+    highlights: [
+      "Unlimited products",
+      "Better store presentation",
+      "Improved workflows",
+      "Essential insights",
+    ],
+    benefits: {
+      "Sell online": ["Unlimited products", "Cleaner storefront experience"],
+      "Store & brand": ["Logo + banner", "Store description + location + socials"],
+      "Operations": ["Low stock/out of stock signals", "Basic performance overview"],
+      "Payments": ["Paystack escrow + direct transfer"],
+    },
+    purchases: {
+      "Add-ons": ["Product Boost (â‚¦1,700/day)", "Advanced analytics (coming)"],
+    },
+  },
+
+  MOMENTUM: {
+    key: "MOMENTUM",
+    name: "Momentum",
+    tagline: "For sellers who want stronger growth tools.",
+    priceNgn: { monthly: 10000, quarterly: 28000, biannually: 55000, yearly: 100000 },
+    limits: { maxProducts: "unlimited" },
+    highlights: [
+      "Unlimited products",
+      "Stronger insights (rolling out)",
+      "Priority growth tools (rolling out)",
+      "More control (rolling out)",
+    ],
+    benefits: {
+      "Sell online": ["Unlimited products", "Stronger store experience"],
+      "Insights": ["Deeper insights (rolling out)", "Better performance signals (rolling out)"],
+      "Operations": ["More tools (rolling out)"],
+      "Payments": ["Paystack escrow + direct transfer"],
+    },
+    purchases: {
+      "Add-ons": ["Product Boost (â‚¦1,700/day)", "Extra tools bundle (coming)"],
+    },
+  },
+
+  APEX: {
+    key: "APEX",
+    name: "Apex",
+    tagline: "For brands scaling aggressively.",
+    priceNgn: { monthly: 25000, quarterly: 70000, biannually: 130000, yearly: 200000 },
+    limits: { maxProducts: "unlimited" },
+    highlights: [
+      "Unlimited products",
+      "Premium toolkit (rolling out)",
+      "Top insights (rolling out)",
+      "Priority enablement (rolling out)",
+    ],
+    benefits: {
+      "Growth": ["Premium growth toolkit (rolling out)", "Highest tier access"],
+      "Insights": ["Top reporting (rolling out)", "More comparisons (rolling out)"],
+      "Operations": ["More automation (rolling out)"],
+      "Payments": ["Paystack escrow + direct transfer"],
+    },
+    purchases: {
+      "Add-ons": ["Product Boost (â‚¦1,700/day)", "Premium tools bundle (coming)"],
+    },
+  },
+};
+
+export function priceKoboFor(planKey: BizhubPlanKey, cycle: BizhubBillingCycle) {
+  const ngn = Number(BIZHUB_PLANS[planKey]?.priceNgn?.[cycle] ?? 0);
+  if (!Number.isFinite(ngn) || ngn < 0) throw new Error("Invalid plan price");
+  return Math.round(ngn * 100);
+}
+
+export function computeExpiryMs(cycle: BizhubBillingCycle, startMs = Date.now()) {
+  const day = 24 * 60 * 60 * 1000;
+
+  // MVP: approximate by days (later we can do true calendar months)
+  const days =
+    cycle === "yearly" ? 365 :
+    cycle === "biannually" ? 182 :
+    cycle === "quarterly" ? 91 :
+    30;
+
+  return startMs + days * day;
+}
+
+export type BusinessTrial = {
+  planKey: Exclude<BizhubPlanKey, "FREE">;
+  startedAtMs: number;
+  endsAtMs: number;
+};
+
+export type BusinessSubscription = {
+  planKey: Exclude<BizhubPlanKey, "FREE">;
+  cycle: BizhubBillingCycle;
+  status: "active" | "expired";
+  startedAtMs: number;
+  expiresAtMs: number;
+  lastPaymentReference?: string;
+};
+
+export type Entitlement = {
+  planKey: BizhubPlanKey;
+  source: "trial" | "subscription" | "free";
+  expiresAtMs?: number;
+};
+
+export const DEFAULT_TRIAL_DAYS = 7;
+/** Trial tier (feel free to change later). */
+export const DEFAULT_TRIAL_PLAN: Exclude<BizhubPlanKey, "FREE"> = "APEX";
+
+export function getEntitlement(params: {
+  trial?: Partial<BusinessTrial> | null;
+  subscription?: Partial<BusinessSubscription> | null;
+}): Entitlement {
+  const now = Date.now();
+
+  const t = params.trial;
+  if (t?.planKey && Number(t.endsAtMs || 0) > now) {
+    return { planKey: t.planKey as BizhubPlanKey, source: "trial", expiresAtMs: Number(t.endsAtMs) };
+  }
+
+  const s = params.subscription;
+  if (s?.planKey && Number(s.expiresAtMs || 0) > now) {
+    return { planKey: s.planKey as BizhubPlanKey, source: "subscription", expiresAtMs: Number(s.expiresAtMs) };
+  }
+
+  return { planKey: "FREE", source: "free" };
+}
+
+export function productLimitFor(planKey: BizhubPlanKey): number | "unlimited" {
+  return BIZHUB_PLANS[planKey]?.limits?.maxProducts ?? 20;
+}
+
+----- FILE: src\app\api\admin\withdrawals\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function clampAction(v: any) {
+  const a = String(v || "");
+  if (a === "reject" || a === "mark_paid") return a;
+  return "";
+}
+
+export async function GET(req: Request) {
+  try {
+    await requireRole(req, "admin");
+
+    const url = new URL(req.url);
+    const status = String(url.searchParams.get("status") || "").trim();
+
+    // Keep it simple: load latest 200 and filter in memory (no index stress)
+    const snap = await adminDb.collection("withdrawals").orderBy("createdAt", "desc").limit(200).get();
+    let list = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+
+    if (status) list = list.filter((x) => String(x.status || "") === status);
+
+    return NextResponse.json({ ok: true, withdrawals: list.slice(0, 100) });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireRole(req, "admin");
+
+    const body = await req.json().catch(() => ({}));
+    const withdrawalId = String(body.withdrawalId || "");
+    const action = clampAction(body.action);
+    const note = String(body.note || "").slice(0, 500);
+
+    if (!withdrawalId || !action) {
+      return NextResponse.json({ ok: false, error: "withdrawalId and action required" }, { status: 400 });
+    }
+
+    const wdRef = adminDb.collection("withdrawals").doc(withdrawalId);
+
+    const result = await adminDb.runTransaction(async (t) => {
+      const wdSnap = await t.get(wdRef);
+      if (!wdSnap.exists) return { ok: false, status: 404, error: "Withdrawal not found" as const };
+
+      const wd = wdSnap.data() as any;
+      const businessId = String(wd.businessId || "");
+      const amountKobo = Number(wd.amountKobo || 0);
+
+      if (!businessId || !Number.isFinite(amountKobo) || amountKobo <= 0) {
+        return { ok: false, status: 400, error: "Invalid withdrawal data" as const };
+      }
+
+      const walletRef = adminDb.collection("wallets").doc(businessId);
+      const financeRef = adminDb.collection("platform").doc("finance");
+      const ledgerRef = adminDb.collection("platformLedger").doc();
+
+      const nowMs = Date.now();
+
+      // Load wallet to validate hold exists
+      const wSnap = await t.get(walletRef);
+      const w = wSnap.exists ? (wSnap.data() as any) : null;
+      const hold = Number(w?.withdrawHoldKobo || 0);
+
+      if (action === "reject") {
+        if (String(wd.status || "") !== "pending") {
+          return { ok: false, status: 400, error: "Only pending withdrawals can be rejected" as const };
+        }
+
+        // return funds hold -> available
+        t.set(
+          walletRef,
+          {
+            withdrawHoldKobo: FieldValue.increment(-amountKobo),
+            availableBalanceKobo: FieldValue.increment(amountKobo),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        t.set(
+          wdRef,
+          {
+            status: "rejected",
+            adminNote: note || null,
+            rejectedBy: me.uid,
+            rejectedAtMs: nowMs,
+            updatedAtMs: nowMs,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        return { ok: true, status: "rejected" as const };
+      }
+
+      if (action === "mark_paid") {
+        // allow marking pending or approved as paid
+        const curStatus = String(wd.status || "");
+        if (curStatus !== "pending" && curStatus !== "approved") {
+          return { ok: false, status: 400, error: "Only pending/approved withdrawals can be marked paid" as const };
+        }
+
+        if (hold < amountKobo) {
+          return { ok: false, status: 400, error: "Insufficient hold balance for this payout" as const };
+        }
+
+        // reduce hold and update totals
+        t.set(
+          walletRef,
+          {
+            withdrawHoldKobo: FieldValue.increment(-amountKobo),
+            totalWithdrawnKobo: FieldValue.increment(amountKobo),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        // platform outflow + ledger
+        t.set(
+          financeRef,
+          {
+            balanceKobo: FieldValue.increment(-amountKobo),
+            payoutOutflowKobo: FieldValue.increment(amountKobo),
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        t.set(ledgerRef, {
+          type: "payout_outflow",
+          withdrawalId,
+          businessId,
+          amountKobo,
+          createdAt: FieldValue.serverTimestamp(),
+        });
+
+        // mark paid
+        t.set(
+          wdRef,
+          {
+            status: "paid",
+            adminNote: note || null,
+            paidBy: me.uid,
+            paidAtMs: nowMs,
+            updatedAtMs: nowMs,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+
+        return { ok: true, status: "paid" as const };
+      }
+
+      return { ok: false, status: 400, error: "Unknown action" as const };
+    });
+
+    if ((result as any).ok === false) {
+      const r: any = result;
+      return NextResponse.json({ ok: false, error: r.error }, { status: r.status || 500 });
+    }
+
+    return NextResponse.json(result);
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\admin\disputes\route.ts -----
+// FILE: src/app/api/admin/disputes/route.ts
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { syncBusinessSignalsToProducts } from "@/lib/vendor/syncBusinessSignals";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    await requireRole(req, "admin");
+
+    const snap = await adminDb.collection("disputes").orderBy("createdAt", "desc").limit(150).get();
+    return NextResponse.json({ ok: true, disputes: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireRole(req, "admin");
+
+    const { disputeId, decision } = await req.json();
+    if (!disputeId || !decision) return NextResponse.json({ error: "disputeId and decision required" }, { status: 400 });
+
+    const disputeRef = adminDb.collection("disputes").doc(disputeId);
+    const disputeSnap = await disputeRef.get();
+    if (!disputeSnap.exists) return NextResponse.json({ error: "Dispute not found" }, { status: 404 });
+
+    const dispute = disputeSnap.data() as any;
+
+    await disputeRef.set(
+      { status: "closed", adminDecision: decision, resolvedAt: FieldValue.serverTimestamp(), resolvedByUid: me.uid, resolvedAtMs: Date.now() },
+      { merge: true }
+    );
+
+    const orderRef = adminDb.collection("orders").doc(dispute.orderId);
+    const orderSnap = await orderRef.get();
+    if (!orderSnap.exists) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+
+    const order = orderSnap.data() as any;
+
+    if (decision === "release") {
+      const amountKobo = Number(order.amountKobo || 0);
+      const businessId = String(order.businessId || "");
+
+      await adminDb.collection("wallets").doc(businessId).set(
+        {
+          pendingBalanceKobo: FieldValue.increment(-amountKobo),
+          availableBalanceKobo: FieldValue.increment(amountKobo),
+          totalEarnedKobo: FieldValue.increment(amountKobo),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      await orderRef.set(
+        { escrowStatus: "released", orderStatus: "released_to_vendor_wallet", updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+    }
+
+    if (decision === "refund") {
+      await orderRef.set(
+        { escrowStatus: "refunded", orderStatus: "refunded", updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+    }
+
+    const nowMs = Date.now();
+    const buyerKey = String(dispute.buyerKey || "").trim();
+    const businessId = String(dispute.businessId || order.businessId || "").trim();
+
+    if (buyerKey) {
+      const bsRef = adminDb.collection("buyerSignals").doc(buyerKey);
+
+      await adminDb.runTransaction(async (t) => {
+        const bsSnap = await t.get(bsRef);
+        const bs = bsSnap.exists ? (bsSnap.data() as any) : {};
+        const curOpen = Number(bs.openDisputes || 0);
+        const nextOpen = Math.max(0, curOpen - 1);
+
+        t.set(
+          bsRef,
+          {
+            openDisputes: nextOpen,
+            frozen: nextOpen > 0 ? true : false,
+            frozenReason: nextOpen > 0 ? "Open dispute" : null,
+            updatedAtMs: nowMs,
+            updatedAt: FieldValue.serverTimestamp(),
+          },
+          { merge: true }
+        );
+      });
+    }
+
+    if (businessId) {
+      await adminDb.collection("businesses").doc(businessId).set(
+        {
+          trust: {
+            openDisputes: FieldValue.increment(-1),
+            lastDisputeResolvedAtMs: nowMs,
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      await syncBusinessSignalsToProducts({ businessId });
+    }
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\account\verify\page.tsx -----
+"use client";
+
+import { useEffect, useState } from "react";
+import { auth } from "@/lib/firebase/client";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { useRouter, useSearchParams } from "next/navigation";
+
+export default function VerifyEmailPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const next = sp.get("next") || "/account";
+
+  const [code, setCode] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [devCode, setDevCode] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: {
+        ...(init?.headers || {}),
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  async function sendCode() {
+    setLoading(true);
+    setMsg(null);
+    setDevCode(null);
+    try {
+      const data = await authedFetch("/api/auth/send-email-code", { method: "POST" });
+      if (data?.devCode) setDevCode(String(data.devCode));
+      setMsg("Verification code sent. Check your email.");
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to send code");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function verify() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/auth/verify-email-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code }),
+      });
+
+      await auth.currentUser?.reload();
+      router.push(next);
+    } catch (e: any) {
+      setMsg(e?.message || "Verification failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (auth.currentUser) sendCode();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Verify Email" showBack={true} subtitle="Enter the 4-digit code" />
+
+      <div className="px-4 pb-24">
+        <Card className="p-4">
+          <p className="font-extrabold text-[#111827]">Verification code</p>
+          <p className="text-sm text-gray-600 mt-1">We sent a 4-digit code to your email.</p>
+
+          <input
+            className="mt-4 w-full border border-[#E7E7EE] rounded-2xl p-3 text-sm tracking-widest text-center outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
+            placeholder="1234"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            inputMode="numeric"
+            maxLength={4}
+          />
+
+          <button
+            className="mt-4 w-full rounded-2xl py-3 text-sm font-extrabold text-white shadow-[0_12px_30px_rgba(17,24,39,0.10)] bg-gradient-to-br from-[#FF6A00] to-[#FF8A00] disabled:opacity-50"
+            onClick={verify}
+            disabled={loading || code.trim().length !== 4}
+          >
+            Verify
+          </button>
+
+          <button
+            className="mt-3 w-full rounded-2xl border border-[#E7E7EE] py-3 text-sm font-extrabold"
+            onClick={sendCode}
+            disabled={loading}
+          >
+            Resend code
+          </button>
+
+          {devCode ? (
+            <p className="mt-3 text-xs text-gray-600">
+              DEV ONLY code: <b>{devCode}</b>
+            </p>
+          ) : null}
+
+          {msg ? <p className="mt-3 text-sm text-gray-700">{msg}</p> : null}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\lib\reports\platformDaily.ts -----
+import { adminDb } from "@/lib/firebase/admin";
+
+function dayKey(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+function startOfDay(d = new Date()) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+function addDays(d: Date, n: number) {
+  const x = new Date(d.getTime());
+  x.setDate(x.getDate() + n);
+  return x;
+}
+
+function pct(cur: number, prev: number) {
+  if (!prev) return null;
+  return ((cur - prev) / prev) * 100;
+}
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+export async function buildDailyPlatformReport(params?: { date?: Date }) {
+  const date = params?.date ?? new Date();
+
+  const today = startOfDay(date);
+  const yesterday = addDays(today, -1);
+
+  const dkToday = dayKey(today);
+  const dkYesterday = dayKey(yesterday);
+
+  const [mTodaySnap, mYestSnap] = await Promise.all([
+    adminDb.collection("platformMetricsDaily").doc(dkToday).get(),
+    adminDb.collection("platformMetricsDaily").doc(dkYesterday).get(),
+  ]);
+
+  const mToday = mTodaySnap.exists ? (mTodaySnap.data() as any) : {};
+  const mYest = mYestSnap.exists ? (mYestSnap.data() as any) : {};
+
+  const tVisits = Number(mToday.visits || 0);
+  const tLeads = Number(mToday.leads || 0);
+  const tViews = Number(mToday.views || 0);
+
+  const yVisits = Number(mYest.visits || 0);
+  const yLeads = Number(mYest.leads || 0);
+  const yViews = Number(mYest.views || 0);
+
+  // Orders today
+  const startMs = today.getTime();
+  const endMs = addDays(today, 1).getTime() - 1;
+
+  // Firestore Admin Timestamp query
+  const { Timestamp } = await import("firebase-admin/firestore");
+  const oSnap = await adminDb
+    .collection("orders")
+    .where("createdAt", ">=", Timestamp.fromMillis(startMs))
+    .where("createdAt", "<=", Timestamp.fromMillis(endMs))
+    .limit(5000)
+    .get();
+
+  const orders = oSnap.docs.map((d) => d.data() as any);
+  const orderCount = orders.length;
+
+  let revenue = 0;
+  for (const o of orders) {
+    revenue += Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+  }
+
+  const lines: string[] = [];
+  lines.push(`BizHub Daily Report â€” ${dkToday}`);
+  lines.push(``);
+  lines.push(`Traffic`);
+  lines.push(`- Views:  ${tViews.toLocaleString()} (${pct(tViews, yViews) == null ? "â€”" : pct(tViews, yViews)!.toFixed(1) + "%"})`);
+  lines.push(`- Leads:  ${tLeads.toLocaleString()} (${pct(tLeads, yLeads) == null ? "â€”" : pct(tLeads, yLeads)!.toFixed(1) + "%"})`);
+  lines.push(`- Visits: ${tVisits.toLocaleString()} (${pct(tVisits, yVisits) == null ? "â€”" : pct(tVisits, yVisits)!.toFixed(1) + "%"})`);
+  lines.push(``);
+  lines.push(`Sales`);
+  lines.push(`- Orders: ${orderCount.toLocaleString()}`);
+  lines.push(`- Revenue: ${fmtNaira(revenue)}`);
+  lines.push(``);
+  lines.push(`Notes`);
+  lines.push(`- Views = market impressions`);
+  lines.push(`- Leads = clicks (market/store)`);
+  lines.push(`- Visits = store + product views`);
+  lines.push(``);
+
+  return {
+    dayKey: dkToday,
+    totals: { views: tViews, leads: tLeads, visits: tVisits, orders: orderCount, revenue },
+    prev: { views: yViews, leads: yLeads, visits: yVisits },
+    text: lines.join("\n"),
+  };
+}
+
+----- FILE: src\lib\cart\CartContext.tsx -----
+"use client";
+
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import type { CartLine, CartState } from "@/lib/cart/store";
+import { calcSubtotal, loadCart, makeLineId, saveCart } from "@/lib/cart/store";
+
+type CartContextValue = {
+  cart: CartState;
+  subtotal: number;
+
+  addToCart: (
+    storeSlug: string,
+    item: Omit<CartLine, "lineId" | "qty">,
+    qty?: number
+  ) => void;
+
+  removeFromCart: (lineId: string) => void;
+  setQty: (lineId: string, qty: number) => void;
+  clearCart: () => void;
+};
+
+const CartContext = createContext<CartContextValue | null>(null);
+
+export function CartProvider({ children }: { children: React.ReactNode }) {
+  const [cart, setCart] = useState<CartState>({ storeSlug: null, items: [] });
+
+  useEffect(() => {
+    setCart(loadCart());
+  }, []);
+
+  useEffect(() => {
+    saveCart(cart);
+  }, [cart]);
+
+  const subtotal = useMemo(() => calcSubtotal(cart.items), [cart.items]);
+
+  function addToCart(storeSlug: string, item: Omit<CartLine, "lineId" | "qty">, qty = 1) {
+    setCart((prev) => {
+      const base: CartState =
+        prev.storeSlug && prev.storeSlug !== storeSlug
+          ? { storeSlug, items: [] }
+          : { ...prev, storeSlug };
+
+      const lineId = makeLineId(item.productId, item.selectedOptions);
+      const existing = base.items.find((x) => x.lineId === lineId);
+
+      if (existing) {
+        return {
+          ...base,
+          items: base.items.map((x) => (x.lineId === lineId ? { ...x, qty: x.qty + qty } : x)),
+        };
+      }
+
+      return { ...base, items: [...base.items, { ...item, lineId, qty }] };
+    });
+  }
+
+  function removeFromCart(lineId: string) {
+    setCart((prev) => {
+      const items = prev.items.filter((x) => x.lineId !== lineId);
+      return { storeSlug: items.length ? prev.storeSlug : null, items };
+    });
+  }
+
+  function setQty(lineId: string, qty: number) {
+    const q = Math.max(1, qty);
+    setCart((prev) => ({
+      ...prev,
+      items: prev.items.map((x) => (x.lineId === lineId ? { ...x, qty: q } : x)),
+    }));
+  }
+
+  function clearCart() {
+    setCart({ storeSlug: null, items: [] });
+  }
+
+  const value: CartContextValue = { cart, subtotal, addToCart, removeFromCart, setQty, clearCart };
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+}
+
+export function useCart() {
+  const ctx = useContext(CartContext);
+  if (!ctx) throw new Error("useCart must be used within CartProvider");
+  return ctx;
+}
+
+----- FILE: src\lib\metrics\daily.ts -----
+import { adminDb } from "@/lib/firebase/admin";
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export function dayKeyFromMs(ms: number) {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+export function startOfDayMs(ms: number) {
+  const d = new Date(ms);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+export function dayKeysBetween(startMs: number, endMs: number) {
+  const out: string[] = [];
+  let t = startOfDayMs(startMs);
+  const end = startOfDayMs(endMs);
+
+  // Nigeria/no DST issues; safe enough for MVP
+  while (t <= end) {
+    out.push(dayKeyFromMs(t));
+    t += DAY_MS;
+  }
+  return out;
+}
+
+export function monthRangeFromYYYYMM(yyyyMm: string) {
+  // yyyy-mm
+  const [yStr, mStr] = yyyyMm.split("-");
+  const y = Number(yStr);
+  const m = Number(mStr);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) return null;
+
+  const start = new Date(y, m - 1, 1).getTime();
+  const end = new Date(y, m, 1).getTime() - 1; // last ms of month
+  return { startMs: start, endMs: end };
+}
+
+export async function fetchBusinessDailyMetrics(params: {
+  businessId: string;
+  dayKeys: string[];
+}) {
+  const { businessId, dayKeys } = params;
+
+  if (!dayKeys.length) return [];
+
+  const refs = dayKeys.map((dk) =>
+    adminDb.collection("businessMetricsDaily").doc(`${businessId}_${dk}`)
+  );
+
+  // Firestore Admin supports getAll
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const snaps: any[] = await (adminDb as any).getAll(...refs);
+
+  return snaps.map((s) => (s.exists ? ({ id: s.id, ...(s.data() as any) }) : null)).filter(Boolean);
+}
+
+export async function fetchPlatformDailyMetrics(dayKeys: string[]) {
+  if (!dayKeys.length) return [];
+
+  const refs = dayKeys.map((dk) => adminDb.collection("platformMetricsDaily").doc(dk));
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const snaps: any[] = await (adminDb as any).getAll(...refs);
+
+  return snaps.map((s) => (s.exists ? ({ id: s.id, ...(s.data() as any) }) : null)).filter(Boolean);
+}
+
+----- FILE: src\components\ui\Button.tsx -----
+import { cn } from "@/lib/cn";
+
+type ButtonVariant = "primary" | "secondary" | "soft" | "ghost" | "danger";
+type ButtonSize = "sm" | "md" | "lg";
+
+export function Button({
+  variant = "primary",
+  size = "md",
+  loading,
+  leftIcon,
+  className,
+  children,
+  disabled,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  loading?: boolean;
+  leftIcon?: React.ReactNode;
+}) {
+  const base =
+    "inline-flex w-full items-center justify-center gap-2 font-bold transition active:scale-[0.99] disabled:opacity-50 disabled:active:scale-100";
+
+  const sizes =
+    size === "sm"
+      ? "rounded-2xl px-4 py-2 text-xs"
+      : size === "lg"
+        ? "rounded-2xl px-5 py-3.5 text-sm"
+        : "rounded-2xl px-5 py-3 text-sm";
+
+  const styles =
+    variant === "primary"
+      ? "text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+      : variant === "secondary"
+        ? "bg-white border border-biz-line text-biz-ink shadow-soft"
+        : variant === "soft"
+          ? "bg-biz-cream text-biz-ink border border-transparent shadow-soft"
+          : variant === "danger"
+            ? "bg-red-600 text-white shadow-float"
+            : "bg-transparent text-biz-ink border border-transparent";
+
+  return (
+    <button
+      className={cn(base, sizes, styles, className)}
+      disabled={disabled || loading}
+      {...props}
+    >
+      {loading ? (
+        <span
+          className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin"
+          aria-label="loading"
+        />
+      ) : leftIcon ? (
+        <span className="shrink-0">{leftIcon}</span>
+      ) : null}
+
+      <span>{children}</span>
+    </button>
+  );
+}
+
+----- FILE: src\components\ProductCard.tsx -----
+"use client";
+
+import Link from "next/link";
+
+function formatPriceNaira(value: any) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return "₦0";
+  return `₦${n.toLocaleString()}`;
+}
+
+export function ProductCard({
+  slug,
+  product,
+}: {
+  slug: string;
+  product: any;
+}) {
+  const name = product?.name ?? "Product";
+  const price =
+    product?.priceKobo != null ? Number(product.priceKobo) / 100 : product?.price;
+
+  const img = Array.isArray(product?.images) ? product.images?.[0] : null;
+
+  return (
+    <Link
+      href={`/b/${slug}/p/${product.id}`}
+      className="block rounded-2xl border border-black/5 bg-white shadow-sm active:scale-[0.99] transition"
+    >
+      <div className="aspect-square w-full rounded-2xl bg-[#F3F4F6] overflow-hidden">
+        {img ? (
+          // Using <img> to avoid Next/Image domain config issues
+          <img
+            src={img}
+            alt={name}
+            className="h-full w-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">
+            No image
+          </div>
+        )}
+      </div>
+
+      <div className="p-3">
+        <p className="text-sm font-semibold text-gray-900 line-clamp-1">
+          {name}
+        </p>
+        <p className="mt-1 text-sm text-gray-700">{formatPriceNaira(price)}</p>
+
+        {/* small chip like PlugPro */}
+        <div className="mt-2">
+          <span className="inline-flex items-center rounded-full bg-[#FFF3E6] text-[#C2410C] px-2 py-1 text-[11px] font-medium">
+            View details
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+----- FILE: src\app\api\admin\bootstrap\route.ts -----
+import { NextResponse } from "next/server";
+import { requireMe } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function adminEmails() {
+  return (process.env.ADMIN_EMAILS || "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireMe(req);
+    const allow = adminEmails();
+
+    if (!me.email || !allow.includes(me.email.toLowerCase())) {
+      return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+    }
+
+    await adminDb.collection("users").doc(me.uid).set(
+      {
+        uid: me.uid,
+        email: me.email ?? null,
+        role: "admin",
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return NextResponse.json({ ok: true, role: "admin" });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 401 });
+  }
+}
+
+----- FILE: src\app\api\admin\buyers\freeze\route.ts -----
+// FILE: src/app/api/admin/buyers/freeze/route.ts
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { setBuyerFrozen } from "@/lib/buyers/freezeServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireRole(req, "admin");
+
+    const body = await req.json().catch(() => ({}));
+    const key = String(body.key || "").trim();
+    const frozen = body.frozen === true;
+    const reason = String(body.reason || "Restricted").slice(0, 200);
+
+    if (!key) return NextResponse.json({ ok: false, error: "key required" }, { status: 400 });
+
+    await setBuyerFrozen({ key, frozen, reason: frozen ? reason : null, actorUid: me.uid });
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: tsconfig.json -----
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "react-jsx",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts",
+    "**/*.mts"
+  ],
+  "exclude": ["node_modules"]
+}
+
+
+----- FILE: src\components\ui\SectionHeader.tsx -----
+import Link from "next/link";
+
+export function SectionHeader({
+  title,
+  subtitle,
+  href,
+  hrefLabel = "See all",
+}: {
+  title: string;
+  subtitle?: string;
+  href?: string;
+  hrefLabel?: string;
+}) {
+  return (
+    <div className="flex items-end justify-between">
+      <div>
+        <p className="text-sm font-extrabold text-biz-ink">{title}</p>
+        {subtitle ? <p className="text-xs text-gray-500 mt-1">{subtitle}</p> : null}
+      </div>
+
+      {href ? (
+        <Link href={href} className="text-xs font-semibold text-biz-accent">
+          {hrefLabel}
+        </Link>
+      ) : null}
+    </div>
+  );
+}

@@ -1,26 +1,49 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* Tailwind v4 theme tokens (generates classes like bg-biz-bg, text-biz-ink, shadow-soft, etc.) */
+@theme {
+  /* Brand */
+  --color-biz-accent: #ff8a00;  /* bright orange */
+  --color-biz-accent2: #ff5200; /* deep orange */
+
+  /* Neutrals */
+  --color-biz-ink: #111827;
+  --color-biz-muted: #6b7280;
+
+  --color-biz-bg: #f6f7fb;
+  --color-biz-card: #ffffff;
+  --color-biz-line: #e7e7ee;
+
+  /* Warm surfaces */
+  --color-biz-sand: #ffe2b8;
+  --color-biz-cream: #fff3e1;
+
+  /* Shadows */
+  --shadow-soft: 0 10px 25px rgba(17, 24, 39, 0.08);
+  --shadow-float: 0 12px 30px rgba(17, 24, 39, 0.10);
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    background: theme(colors.biz-bg);
+    color: theme(colors.biz-ink);
+  }
+
+  /* Better tap feel on mobile */
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  /* Optional: consistent “app container” max width is already handled by AppShell */
+  .safe-pb {
+    padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
 }

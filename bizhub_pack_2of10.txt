@@ -1,0 +1,2089 @@
+﻿== BIZHUB SNAPSHOT PACK 2/10 ==
+Date: 2/1/2026 10:12:45 AM
+Node: v24.12.0
+NPM: 11.6.2
+Approx bytes in this pack: 75164
+
+== FILE LIST (relative path + bytes) ==
+src\app\vendor\store\page.tsx  (bytes: 12568)
+src\app\admin\vendors\[businessId]\page.tsx  (bytes: 11957)
+src\app\vendor\analytics\page.tsx  (bytes: 8565)
+src\app\vendor\orders\[orderId]\dispute\page.tsx  (bytes: 7116)
+src\app\payment\callback\page.tsx  (bytes: 6053)
+src\app\api\vendor\withdrawals\route.ts  (bytes: 5405)
+src\app\api\track\route.ts  (bytes: 4550)
+src\app\account\login\page.tsx  (bytes: 3983)
+src\lib\vendor\syncBusinessSignals.ts  (bytes: 3370)
+src\app\api\auth\send-email-code\route.ts  (bytes: 2447)
+src\app\api\vendor\payout-details\route.ts  (bytes: 2295)
+src\app\api\vendor\chat\availability\route.ts  (bytes: 1746)
+src\app\api\vendor\shipping\options\route.ts  (bytes: 1616)
+src\lib\marketing\optOut.ts  (bytes: 1154)
+src\app\globals.css  (bytes: 1049)
+src\lib\firebase\uploads.ts  (bytes: 664)
+src\app\api\me\route.ts  (bytes: 626)
+
+----- FILE: src\app\vendor\store\page.tsx -----
+// FILE: src/app/vendor/store/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { auth } from "@/lib/firebase/client";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+
+export default function VendorStoreSettingsPage() {
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [stateNg, setStateNg] = useState("");
+  const [city, setCity] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [instagram, setInstagram] = useState("");
+
+  const [logoUrl, setLogoUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+
+  const [continueInChatEnabled, setContinueInChatEnabled] = useState(false);
+
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [planKey, setPlanKey] = useState<string>("FREE");
+  const [features, setFeatures] = useState<any>(null);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const [storeData, accessData] = await Promise.all([
+          authedFetch("/api/vendor/store"),
+          authedFetch("/api/vendor/access"),
+        ]);
+
+        const b = storeData?.business;
+
+        if (!mounted) return;
+
+        setName(String(b?.name || ""));
+        setDescription(String(b?.description || ""));
+        setStateNg(String(b?.state || ""));
+        setCity(String(b?.city || ""));
+        setWhatsapp(String(b?.whatsapp || ""));
+        setInstagram(String(b?.instagram || ""));
+        setLogoUrl(String(b?.logoUrl || ""));
+        setBannerUrl(String(b?.bannerUrl || ""));
+
+        setContinueInChatEnabled(b?.continueInChatEnabled === true);
+
+        setHasActiveSubscription(!!accessData?.hasActiveSubscription);
+        setPlanKey(String(accessData?.planKey || "FREE"));
+        setFeatures(accessData?.features || null);
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load store settings");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const canEnableChat = useMemo(() => hasActiveSubscription && !!features?.continueInChat, [hasActiveSubscription, features]);
+  const canCustomize = useMemo(() => !!features?.storeCustomize, [features]);
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          description,
+          state: stateNg,
+          city,
+          whatsapp,
+          instagram,
+
+          // customization will be ignored server-side if plan disallows
+          logoUrl,
+          bannerUrl,
+
+          continueInChatEnabled,
+        }),
+      });
+      setMsg("Saved successfully.");
+    } catch (e: any) {
+      setMsg(e?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Store settings" subtitle="Customize your website" showBack={false} />
+
+      <div className="px-4 pb-6 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? (
+          <Card className={msg.includes("Saved") ? "p-4 text-green-700" : "p-4 text-red-700"}>
+            {msg}
+          </Card>
+        ) : null}
+
+        {!loading ? (
+          <>
+            {planKey === "FREE" ? (
+              <Card className="p-4">
+                <p className="text-sm font-bold text-biz-ink">Free plan</p>
+                <p className="text-xs text-biz-muted mt-1">
+                  You can use BizHubâ€™s default store design. Upgrade to unlock full store customization and marketplace visibility.
+                </p>
+                <div className="mt-3">
+                  <Button onClick={() => window.location.href = "/vendor/subscription"}>Upgrade</Button>
+                </div>
+              </Card>
+            ) : null}
+
+            <SectionCard title="Brand" subtitle="What customers see on your storefront">
+              <div className="space-y-2">
+                <Input placeholder="Business name" value={name} onChange={(e) => setName(e.target.value)} />
+
+                <textarea
+                  className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                  placeholder="About your business (what you sell / what service you offer)"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                />
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Location (Nigeria)" subtitle="Improves trust and discovery">
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="State (e.g. Lagos)" value={stateNg} onChange={(e) => setStateNg(e.target.value)} />
+                <Input placeholder="City (e.g. Lekki)" value={city} onChange={(e) => setCity(e.target.value)} />
+              </div>
+
+              <p className="mt-2 text-xs text-biz-muted">This helps customers know where you operate.</p>
+            </SectionCard>
+
+            <SectionCard title="Contact" subtitle="Recommended for services (lash, nails, repairs)">
+              <div className="space-y-2">
+                <Input
+                  placeholder="WhatsApp number (e.g. 2348012345678)"
+                  value={whatsapp}
+                  onChange={(e) => setWhatsapp(e.target.value)}
+                />
+                <Input
+                  placeholder="Instagram handle (e.g. mybrand)"
+                  value={instagram}
+                  onChange={(e) => setInstagram(e.target.value)}
+                />
+              </div>
+
+              <p className="mt-2 text-xs text-biz-muted">Tip: remove â€œ@â€ â€” BizHub will format it automatically.</p>
+            </SectionCard>
+
+            <SectionCard title="Checkout & Chat" subtitle="Let customers continue in WhatsApp from cart">
+              <div className="rounded-2xl border border-biz-line bg-white p-3">
+                <p className="text-sm font-bold text-biz-ink">Continue in Chat</p>
+                <p className="text-[11px] text-biz-muted mt-1">
+                  When ON, customers can tap â€œContinue in Chatâ€ from their cart. BizHub creates an order record and opens WhatsApp with the order details.
+                </p>
+
+                {!canEnableChat ? (
+                  <p className="mt-2 text-[11px] text-orange-700">
+                    Upgrade required: Continue in Chat is not available on your current plan.
+                  </p>
+                ) : null}
+
+                {!whatsapp.trim() ? (
+                  <p className="mt-2 text-[11px] text-orange-700">
+                    WhatsApp is not set. Add your WhatsApp number above before turning this ON.
+                  </p>
+                ) : null}
+
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-xs text-biz-muted">
+                    Status: <b className="text-biz-ink">{continueInChatEnabled ? "ON" : "OFF"}</b>
+                  </span>
+
+                  <button
+                    type="button"
+                    className={
+                      continueInChatEnabled
+                        ? "px-3 py-2 rounded-2xl text-xs font-bold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent"
+                        : "px-3 py-2 rounded-2xl text-xs font-bold border border-biz-line bg-white"
+                    }
+                    onClick={() => {
+                      if (!canEnableChat && !continueInChatEnabled) {
+                        setMsg("Upgrade to enable Continue in Chat.");
+                        return;
+                      }
+                      if (!whatsapp.trim() && !continueInChatEnabled) {
+                        setMsg("Add your WhatsApp number before enabling Continue in Chat.");
+                        return;
+                      }
+                      setContinueInChatEnabled((v) => !v);
+                    }}
+                  >
+                    {continueInChatEnabled ? "ON" : "OFF"}
+                  </button>
+                </div>
+              </div>
+
+              <p className="mt-2 text-[11px] text-biz-muted">
+                Note: Checkout remains available.
+              </p>
+            </SectionCard>
+
+            <SectionCard title="Media" subtitle={canCustomize ? "Logo + banner make your store look premium" : "Upgrade to customize logo and banner"}>
+              {!canCustomize ? (
+                <div className="rounded-2xl border border-biz-line bg-white p-3">
+                  <p className="text-xs text-biz-muted">
+                    Youâ€™re using BizHub default design. Upgrade to upload logo and banner.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-sm font-extrabold text-biz-ink">Logo</p>
+                    <p className="text-xs text-biz-muted mt-1">Square image recommended.</p>
+
+                    <div className="mt-3">
+                      <ImageUploader label="Upload logo" multiple={false} onUploaded={(urls) => setLogoUrl(urls[0] || "")} />
+                    </div>
+
+                    {logoUrl ? (
+                      <div className="mt-3 h-20 w-20 rounded-2xl overflow-hidden border border-biz-line bg-biz-cream">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-biz-muted">No logo yet.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-sm font-extrabold text-biz-ink">Banner</p>
+                    <p className="text-xs text-biz-muted mt-1">Wide image recommended.</p>
+
+                    <div className="mt-3">
+                      <ImageUploader label="Upload banner" multiple={false} onUploaded={(urls) => setBannerUrl(urls[0] || "")} />
+                    </div>
+
+                    {bannerUrl ? (
+                      <div className="mt-3 h-24 w-full rounded-2xl overflow-hidden border border-biz-line bg-biz-cream">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={bannerUrl} alt="Banner" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-biz-muted">No banner yet.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </SectionCard>
+
+            <Card className="p-4">
+              <Button onClick={save} loading={saving}>
+                Save changes
+              </Button>
+
+              <p className="mt-2 text-xs text-biz-muted">After saving, your public store page will update.</p>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\admin\vendors\[businessId]\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+import { RefreshCw } from "lucide-react";
+
+type Range = "today" | "week" | "month";
+type Metric = "revenue" | "views" | "leads" | "visits";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function toMs(v: any) {
+  try {
+    if (!v) return 0;
+    if (typeof v?.toDate === "function") return v.toDate().getTime();
+    if (typeof v?.seconds === "number") return v.seconds * 1000;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+function fmtDateTime(v: any) {
+  const ms = toMs(v);
+  if (!ms) return "â€”";
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
+  }
+}
+
+function fmtDate(ms?: number) {
+  if (!ms) return "â€”";
+  try {
+    return new Date(ms).toLocaleDateString();
+  } catch {
+    return String(ms);
+  }
+}
+
+export default function AdminVendorDetailPage() {
+  const router = useRouter();
+  const params = useParams();
+  const businessId = String((params as any)?.businessId ?? "");
+
+  const [range, setRange] = useState<Range>("week");
+  const [month, setMonth] = useState<string>("");
+  const [metric, setMetric] = useState<Metric>("views");
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [data, setData] = useState<any>(null);
+
+  async function api(path: string) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error || "Request failed");
+    return j;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const qs =
+        range === "month" && month
+          ? `?range=month&month=${encodeURIComponent(month)}`
+          : `?range=${encodeURIComponent(range)}`;
+
+      const j = await api(`/api/admin/vendors/${encodeURIComponent(businessId)}/analytics${qs}`);
+      setData(j);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    if (businessId) load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, range]);
+
+  const biz = data?.business || {};
+  const ov = data?.overview || {};
+  const revenueSeries: any[] = Array.isArray(data?.charts?.revenueSeries) ? data.charts.revenueSeries : [];
+  const trafficSeries: any[] = Array.isArray(data?.charts?.trafficSeries) ? data.charts.trafficSeries : [];
+  const recentOrders: any[] = Array.isArray(data?.recentOrders) ? data.recentOrders : [];
+
+  const series = useMemo(() => {
+    if (metric === "revenue") return revenueSeries.map((d) => ({ dayKey: d.dayKey, value: Number(d.revenue || 0) }));
+    return trafficSeries.map((d) => ({ dayKey: d.dayKey, value: Number(d[metric] || 0) }));
+  }, [metric, revenueSeries, trafficSeries]);
+
+  const maxV = useMemo(() => Math.max(1, ...series.map((d) => Number(d.value || 0))), [series]);
+
+  const planLabel = useMemo(() => {
+    if (biz?.subscription?.planKey && Number(biz?.subscription?.expiresAtMs || 0) > Date.now()) {
+      return `Subscribed â€¢ ${biz.subscription.planKey}`;
+    }
+    if (biz?.trial?.planKey && Number(biz?.trial?.endsAtMs || 0) > Date.now()) {
+      return `Trial â€¢ ${biz.trial.planKey}`;
+    }
+    return "Free";
+  }, [biz]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Vendor analysis"
+        subtitle={biz?.slug ? `${biz.slug}` : "Vendor"}
+        showBack={true}
+        right={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={load}
+            leftIcon={<RefreshCw className="h-4 w-4" />}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
+        }
+      />
+
+      <div className="px-4 pb-24 space-y-3">
+        <SegmentedControl<Range>
+          value={range}
+          onChange={setRange}
+          options={[
+            { value: "today", label: "Today" },
+            { value: "week", label: "Week" },
+            { value: "month", label: "Month" },
+          ]}
+        />
+
+        <Card className="p-4">
+          <p className="text-sm font-bold text-biz-ink">Month history</p>
+          <p className="text-xs text-biz-muted mt-1">Recover analytics from any month.</p>
+
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="flex-1 rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setRange("month");
+                setTimeout(load, 0);
+              }}
+              disabled={!month}
+            >
+              Load
+            </Button>
+          </div>
+        </Card>
+
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && data ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Vendor</p>
+              <p className="text-xl font-bold mt-1">
+                {biz?.name || "Business"}{" "}
+                <span className="opacity-95 text-[11px]">({biz?.slug || "â€”"})</span>
+              </p>
+              <p className="text-[11px] opacity-95 mt-2">
+                Plan: <b>{planLabel}</b>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Revenue</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{fmtNaira(Number(ov.revenue || 0))}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Orders</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{Number(ov.orders || 0).toLocaleString()}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Customers</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{Number(ov.customers || 0).toLocaleString()}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Products sold</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{Number(ov.productsSold || 0).toLocaleString()}</p>
+              </Card>
+            </div>
+
+            <div className="grid grid-cols-3 gap-3">
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Visits</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{Number(ov.visits || 0).toLocaleString()}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Leads</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{Number(ov.leads || 0).toLocaleString()}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Views</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{Number(ov.views || 0).toLocaleString()}</p>
+              </Card>
+            </div>
+
+            <SectionCard
+              title="Trend chart"
+              subtitle="Use this to spot decline or increase"
+              right={
+                <select
+                  value={metric}
+                  onChange={(e) => setMetric(e.target.value as Metric)}
+                  className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-bold"
+                >
+                  <option value="views">Views</option>
+                  <option value="leads">Leads</option>
+                  <option value="visits">Visits</option>
+                  <option value="revenue">Revenue</option>
+                </select>
+              }
+            >
+              <div className="flex items-end gap-2 h-28">
+                {series.slice(-31).map((d) => {
+                  const v = Number(d.value || 0);
+                  const h = Math.max(6, Math.round((v / maxV) * 100));
+                  const label = String(d.dayKey || "").slice(8, 10);
+
+                  return (
+                    <div key={d.dayKey} className="flex-1 flex flex-col items-center justify-end gap-2">
+                      <div
+                        className="w-full rounded-xl bg-gradient-to-b from-biz-accent to-biz-accent2"
+                        style={{ height: `${h}%` }}
+                        title={`${d.dayKey} â€¢ ${metric}: ${v.toLocaleString()}`}
+                      />
+                      <span className="text-[10px] text-gray-500">{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+
+            <SectionCard
+              title="Recent orders"
+              subtitle="Latest orders in this window"
+              right={
+                biz?.slug ? (
+                  <Button variant="secondary" size="sm" onClick={() => router.push(`/b/${biz.slug}`)}>
+                    View store
+                  </Button>
+                ) : null
+              }
+            >
+              {recentOrders.length === 0 ? (
+                <p className="text-sm text-biz-muted">No orders in this period.</p>
+              ) : (
+                <div className="space-y-2">
+                  {recentOrders.map((o) => (
+                    <div key={o.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-biz-ink">Order #{String(o.id).slice(0, 8)}</p>
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            {String(o.paymentType || "â€”")} â€¢ {String(o.orderStatus || o.escrowStatus || "â€”")}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">Created: {fmtDateTime(o.createdAt)}</p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-biz-ink">{fmtNaira(Number(o.amount || 0))}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button variant="secondary" onClick={() => router.push("/admin/vendors")}>
+                  Back to vendors
+                </Button>
+                <Button onClick={() => router.push("/admin/analytics")}>Platform analytics</Button>
+              </div>
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\vendor\analytics\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { auth, db } from "@/lib/firebase/client";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+export default function VendorAnalyticsPage() {
+  const [loading, setLoading] = useState(true);
+  const [me, setMe] = useState<any>(null);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("Not logged in");
+
+        const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Failed to load profile");
+        if (!mounted) return;
+
+        setMe(data?.me);
+
+        const businessId = data?.me?.businessId;
+        if (!businessId) throw new Error("Missing businessId");
+
+        const qOrders = query(collection(db, "orders"), where("businessId", "==", businessId), limit(250));
+        const snap = await getDocs(qOrders);
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        if (!mounted) return;
+
+        setOrders(list);
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load analytics");
+        setOrders([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const totals = useMemo(() => {
+    const revenue = orders.reduce((sum, o) => sum + Number(o.amount || o.amountKobo / 100 || 0), 0);
+    const count = orders.length;
+    const paid = orders.filter((o) => o.paymentType === "paystack_escrow").length;
+    const direct = orders.filter((o) => o.paymentType === "direct_transfer").length;
+
+    const disputed = orders.filter((o) => o.escrowStatus === "disputed").length;
+    const awaiting = orders.filter((o) => String(o.orderStatus || "").includes("awaiting")).length;
+
+    return { revenue, count, paid, direct, disputed, awaiting };
+  }, [orders]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Business Analysis" subtitle="Sales, tips, and insights" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loading...</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && !msg ? (
+          <>
+            <div className="rounded-2xl p-4 text-white shadow-[0_12px_30px_rgba(17,24,39,0.10)] bg-gradient-to-br from-[#FF6A00] to-[#FF8A00]">
+              <p className="text-sm font-extrabold">Overview</p>
+              <p className="text-xs opacity-95 mt-1">Store: {me?.businessSlug || "â€”"}</p>
+              <p className="text-xl font-extrabold mt-2">{fmtNaira(totals.revenue)}</p>
+              <p className="text-xs opacity-95 mt-1">Total revenue (from recorded orders)</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="p-4">
+                <p className="text-xs text-gray-600">Orders</p>
+                <p className="text-lg font-extrabold text-[#111827] mt-1">{totals.count}</p>
+              </Card>
+
+              <Card className="p-4">
+                <p className="text-xs text-gray-600">Paystack</p>
+                <p className="text-lg font-extrabold text-[#111827] mt-1">{totals.paid}</p>
+              </Card>
+
+              <Card className="p-4">
+                <p className="text-xs text-gray-600">Bank transfer</p>
+                <p className="text-lg font-extrabold text-[#111827] mt-1">{totals.direct}</p>
+              </Card>
+
+              <Card className="p-4">
+                <p className="text-xs text-gray-600">Disputes</p>
+                <p className="text-lg font-extrabold text-[#111827] mt-1">{totals.disputed}</p>
+              </Card>
+            </div>
+
+            <Card className="p-4">
+              <p className="font-extrabold text-[#111827]">Tips to make more sales</p>
+              <ul className="mt-2 text-sm text-gray-700 list-disc pl-5 space-y-1">
+                <li>Upload 3-5 clear photos per product (front, side, close-up).</li>
+                <li>Add variations like Color/Size so customers feel confident.</li>
+                <li>Keep stock accurate to avoid cancellations and disputes.</li>
+                <li>Reply quickly to delivery/confirmation messages.</li>
+              </ul>
+            </Card>
+
+            <Card className="p-4">
+              <p className="font-extrabold text-[#111827]">Possible mistakes this period</p>
+              <p className="text-sm text-gray-600 mt-1">
+                These are simple signals BizHub can detect from your orders. Fixing them can increase sales.
+              </p>
+
+              <div className="mt-3 space-y-2 text-sm text-gray-700">
+                {totals.count === 0 ? (
+                  <div className="rounded-2xl border border-[#E7E7EE] p-3">
+                    <p className="font-extrabold text-[#111827]">No orders yet</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Add more products + upload clearer photos. Share your store link to customers.
+                    </p>
+                  </div>
+                ) : null}
+
+                {totals.awaiting > 0 ? (
+                  <div className="rounded-2xl border border-[#E7E7EE] p-3">
+                    <p className="font-extrabold text-[#111827]">Slow confirmations</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      <b>{totals.awaiting}</b> order(s) look like they are still awaiting confirmation. Customers may lose trust if orders donâ€™t move fast.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-[#E7E7EE] p-3">
+                    <p className="font-extrabold text-[#111827]">Good speed</p>
+                    <p className="text-xs text-gray-600 mt-1">You have no "awaiting confirmation" signals right now.</p>
+                  </div>
+                )}
+
+                {totals.disputed > 0 ? (
+                  <div className="rounded-2xl border border-[#E7E7EE] p-3">
+                    <p className="font-extrabold text-[#111827]">Disputes risk</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      <b>{totals.disputed}</b> order(s) are disputed. Improve photos/descriptions and confirm delivery steps clearly.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-[#E7E7EE] p-3">
+                    <p className="font-extrabold text-[#111827]">Healthy record</p>
+                    <p className="text-xs text-gray-600 mt-1">No disputes detected. Keep it up.</p>
+                  </div>
+                )}
+              </div>
+
+              <p className="mt-3 text-xs text-gray-500">
+                Note: MVP analytics. Next versions will include charts, top products, repeat customers, and week/month comparisons.
+              </p>
+            </Card>
+
+            <Card className="p-4">
+              <p className="font-extrabold text-[#111827]">Next actions</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  className="rounded-2xl py-3 text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00]"
+                  onClick={() => (window.location.href = "/vendor/products/new")}
+                >
+                  Add product
+                </button>
+                <button
+                  className="rounded-2xl border border-[#E7E7EE] py-3 text-sm font-extrabold"
+                  onClick={() => (window.location.href = "/vendor")}
+                >
+                  Vendor home
+                </button>
+              </div>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\vendor\orders\[orderId]\dispute\page.tsx -----
+// FILE: src/app/vendor/orders/[orderId]/dispute/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { auth } from "@/lib/firebase/client";
+import { Button } from "@/components/ui/Button";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+
+export default function VendorDisputePage() {
+  const router = useRouter();
+  const params = useParams();
+  const orderId = String((params as any)?.orderId ?? "");
+
+  const [loading, setLoading] = useState(true);
+  const [o, setO] = useState<any>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [reason, setReason] = useState("Buyer not responding");
+  const [details, setDetails] = useState("");
+  const [sending, setSending] = useState(false);
+
+  const [evidenceUrls, setEvidenceUrls] = useState<string[]>([]);
+
+  async function authedFetch(path: string) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const data = await authedFetch(`/api/vendor/orders/${encodeURIComponent(orderId)}`);
+        if (!mounted) return;
+        setO(data.order);
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load order");
+        setO(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    if (orderId) load();
+    return () => {
+      mounted = false;
+    };
+  }, [orderId]);
+
+  const canSubmit = useMemo(() => details.trim().length >= 5, [details]);
+
+  async function submit() {
+    setSending(true);
+    setMsg(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not logged in");
+
+      const r = await fetch("/api/disputes/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          orderId,
+          reason,
+          details,
+          evidenceUrls,
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Failed to submit dispute");
+
+      router.push(`/vendor/orders/${orderId}`);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  function removeEvidence(url: string) {
+    setEvidenceUrls((prev) => prev.filter((x) => x !== url));
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Report an issue" subtitle="Vendor dispute report" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && o ? (
+          <>
+            <SectionCard title="Order" subtitle="This report is tied to a specific order">
+              <div className="text-sm text-gray-700 space-y-1">
+                <div>
+                  Order: <b className="text-biz-ink">#{String(orderId).slice(0, 8)}</b>
+                </div>
+                <div>
+                  Payment: <b className="text-biz-ink">{String(o.paymentType || "â€”")}</b>
+                </div>
+                <div className="text-[11px] text-gray-500 break-all">
+                  Full ID: <b className="text-biz-ink">{orderId}</b>
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Issue details" subtitle="Add screenshots if available">
+              <select
+                className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+              >
+                <option>Buyer not responding</option>
+                <option>Buyer unreachable</option>
+                <option>Buyer cancelled</option>
+                <option>Delivery failed</option>
+                <option>Other</option>
+              </select>
+
+              <textarea
+                className="mt-2 w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                placeholder="Explain what happenedâ€¦ (timeline, chats, delivery attempt, proof)"
+                value={details}
+                onChange={(e) => setDetails(e.target.value)}
+                rows={6}
+              />
+
+              <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
+                <ImageUploader
+                  label="Upload evidence"
+                  multiple={true}
+                  onUploaded={(urls) => setEvidenceUrls((prev) => [...prev, ...urls].slice(0, 10))}
+                />
+
+                {evidenceUrls.length ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {evidenceUrls.map((u) => (
+                      <div key={u} className="rounded-2xl border border-biz-line overflow-hidden bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="Evidence" className="h-24 w-full object-cover" />
+                        <button
+                          className="w-full py-2 text-xs font-bold text-red-600 bg-white"
+                          type="button"
+                          onClick={() => removeEvidence(u)}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[11px] text-biz-muted">No evidence uploaded yet.</p>
+                )}
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button onClick={submit} loading={sending} disabled={!canSubmit || sending}>
+                  Submit report
+                </Button>
+                <Button variant="secondary" onClick={() => router.push(`/vendor/orders/${orderId}`)} disabled={sending}>
+                  Back
+                </Button>
+              </div>
+
+              <p className="mt-2 text-[11px] text-biz-muted">
+                Note: opening a dispute freezes buyer actions until resolved.
+              </p>
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\payment\callback\page.tsx -----
+// FILE: src/app/payment/callback/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { addRecentOrderId } from "@/lib/orders/recent";
+import { Button } from "@/components/ui/Button";
+import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+
+export default function PaymentCallbackPage() {
+  const sp = useSearchParams();
+  const reference = sp.get("reference") ?? sp.get("trxref");
+
+  const [status, setStatus] = useState<"loading" | "error" | "confirmed">("loading");
+  const [msg, setMsg] = useState("Finalizing payment...");
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [storeSlug, setStoreSlug] = useState<string | null>(null);
+  const [holdUntilMs, setHoldUntilMs] = useState<number>(0);
+
+  const waitSeconds = useMemo(() => {
+    if (!holdUntilMs) return 300;
+    return Math.max(0, Math.ceil((holdUntilMs - Date.now()) / 1000));
+  }, [holdUntilMs]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        if (!reference) {
+          setMsg("Missing payment reference.");
+          setStatus("error");
+          return;
+        }
+
+        const r = await fetch("/api/escrow/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reference }),
+        });
+
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) {
+          setMsg(data?.error || "Failed to confirm payment.");
+          setStatus("error");
+          return;
+        }
+
+        const oid = String(data.orderId);
+        const slug = String(data.businessSlug || data.storeSlug || "");
+
+        addRecentOrderId(oid);
+
+        if (!mounted) return;
+        setOrderId(oid);
+        setStoreSlug(slug);
+        setHoldUntilMs(Number(data.holdUntilMs || 0));
+
+        setStatus("confirmed");
+        setMsg("Order confirmed. Funds are held briefly for safety.");
+
+        const waitMs = Math.max(0, Number(data.holdUntilMs || 0) - Date.now());
+
+        setTimeout(async () => {
+          try {
+            await fetch("/api/escrow/release", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ orderId: oid }),
+            });
+          } catch {
+            // ignore
+          }
+        }, waitMs + 500);
+      } catch (e: any) {
+        setMsg(e?.message || "Something went wrong.");
+        setStatus("error");
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [reference]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Payment" subtitle="Paystack confirmation" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        <Card className="p-5 text-center">
+          {status === "loading" ? (
+            <>
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-biz-cream flex items-center justify-center">
+                <Loader2 className="h-6 w-6 text-orange-700 animate-spin" />
+              </div>
+              <p className="mt-4 text-base font-extrabold text-biz-ink">Processingâ€¦</p>
+              <p className="text-sm text-biz-muted mt-2">{msg}</p>
+              <p className="text-[11px] text-gray-500 mt-3 break-all">Reference: {reference || "â€”"}</p>
+            </>
+          ) : null}
+
+          {status === "error" ? (
+            <>
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <p className="mt-4 text-base font-extrabold text-biz-ink">Payment issue</p>
+              <p className="text-sm text-red-700 mt-2">{msg}</p>
+              <p className="text-[11px] text-gray-500 mt-3 break-all">Reference: {reference || "â€”"}</p>
+
+              <div className="mt-4 space-y-2">
+                <Link href="/orders" className="block">
+                  <Button>Go to Orders</Button>
+                </Link>
+                <Link href="/market" className="block">
+                  <Button variant="secondary">Go to Market</Button>
+                </Link>
+              </div>
+            </>
+          ) : null}
+
+          {status === "confirmed" ? (
+            <>
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              </div>
+
+              <p className="mt-4 text-lg font-extrabold text-biz-ink">Order confirmed</p>
+              <p className="text-sm text-gray-700 mt-2">{msg}</p>
+
+              {holdUntilMs ? (
+                <p className="mt-2 text-[11px] text-gray-500">Hold: ~{waitSeconds}s remaining</p>
+              ) : null}
+
+              <div className="mt-4 space-y-2">
+                {orderId ? (
+                  <Link href={`/orders/${orderId}`} className="block">
+                    <Button>Track my order</Button>
+                  </Link>
+                ) : null}
+
+                {storeSlug ? (
+                  <Link href={`/b/${storeSlug}`} className="block">
+                    <Button variant="secondary">Continue shopping</Button>
+                  </Link>
+                ) : (
+                  <Link href="/market" className="block">
+                    <Button variant="secondary">Continue</Button>
+                  </Link>
+                )}
+              </div>
+
+              <p className="mt-4 text-[11px] text-biz-muted">
+                If anything is wrong, open the order and raise a dispute immediately.
+              </p>
+            </>
+          ) : null}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\api\vendor\withdrawals\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function clampKobo(v: any) {
+  const n = Math.floor(Number(v));
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, n);
+}
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const snap = await adminDb
+      .collection("withdrawals")
+      .where("businessId", "==", me.businessId)
+      .limit(50)
+      .get();
+
+    const list = snap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as any) }))
+      .sort((a, b) => Number(b.createdAtMs || 0) - Number(a.createdAtMs || 0))
+      .slice(0, 20);
+
+    // Wallet summary for UI
+    const wSnap = await adminDb.collection("wallets").doc(me.businessId).get();
+    const wallet = wSnap.exists ? (wSnap.data() as any) : null;
+
+    return NextResponse.json({ ok: true, withdrawals: list, wallet });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    // hard lock enforcement
+    await requireVendorUnlocked(me.businessId);
+
+    const body = await req.json().catch(() => ({}));
+    const amountKobo = clampKobo(body.amountKobo);
+
+    // Minimum â‚¦1000
+    if (amountKobo < 1000 * 100) {
+      return NextResponse.json({ ok: false, error: "Minimum withdrawal is â‚¦1,000" }, { status: 400 });
+    }
+
+    const bizSnap = await adminDb.collection("businesses").doc(me.businessId).get();
+    if (!bizSnap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+    const biz = bizSnap.data() as any;
+
+    const payout = biz?.payoutDetails || null;
+    const bankName = String(payout?.bankName || "").trim();
+    const accountNumber = String(payout?.accountNumber || "").trim();
+    const accountName = String(payout?.accountName || "").trim();
+
+    if (!bankName || !accountNumber || !accountName) {
+      return NextResponse.json(
+        { ok: false, code: "MISSING_PAYOUT_DETAILS", error: "Add payout details before requesting withdrawal." },
+        { status: 400 }
+      );
+    }
+
+    const walletRef = adminDb.collection("wallets").doc(me.businessId);
+    const wdRef = adminDb.collection("withdrawals").doc();
+
+    const result = await adminDb.runTransaction(async (t) => {
+      const wSnap = await t.get(walletRef);
+      const w = wSnap.exists ? (wSnap.data() as any) : null;
+
+      const available = Number(w?.availableBalanceKobo || 0);
+      const hold = Number(w?.withdrawHoldKobo || 0);
+
+      if (!Number.isFinite(available) || available <= 0) {
+        return { ok: false, status: 400, error: "No available balance" as const };
+      }
+      if (amountKobo > available) {
+        return { ok: false, status: 400, error: "Amount exceeds available balance" as const };
+      }
+
+      const nowMs = Date.now();
+
+      // Create withdrawal request (status pending)
+      t.set(wdRef, {
+        businessId: me.businessId,
+        businessSlug: biz?.slug ?? me.businessSlug ?? null,
+        requestedByUid: me.uid,
+
+        amountKobo,
+        amount: amountKobo / 100,
+        currency: "NGN",
+
+        payoutDetails: {
+          bankName,
+          accountNumber,
+          accountName,
+        },
+
+        status: "pending", // pending | approved | rejected | paid
+        createdAtMs: nowMs,
+        updatedAtMs: nowMs,
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      // Move funds: available -> hold
+      t.set(
+        walletRef,
+        {
+          businessId: me.businessId,
+          availableBalanceKobo: FieldValue.increment(-amountKobo),
+          withdrawHoldKobo: FieldValue.increment(amountKobo),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      return { ok: true, withdrawalId: wdRef.id, amountKobo, holdAfter: hold + amountKobo, availableAfter: available - amountKobo };
+    });
+
+    if ((result as any).ok === false) {
+      const r: any = result;
+      return NextResponse.json({ ok: false, error: r.error }, { status: r.status || 400 });
+    }
+
+    return NextResponse.json(result);
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\track\route.ts -----
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function dayKey(d = new Date()) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+function clampCount(n: any) {
+  const c = Number(n || 1);
+  if (!Number.isFinite(c) || c <= 0) return 1;
+  return Math.min(500, Math.floor(c));
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({}));
+
+    const type = String(body.type || "");
+    const businessId = String(body.businessId || "");
+    const businessSlug = String(body.businessSlug || "");
+    const productId = body.productId ? String(body.productId) : "";
+    const count = clampCount(body.count);
+
+    if (!businessId || !type) {
+      return NextResponse.json({ ok: false, error: "businessId and type required" }, { status: 400 });
+    }
+
+    const dk = dayKey();
+
+    // ===== Business daily metrics =====
+    const bizDocId = `${businessId}_${dk}`;
+    const bizRef = adminDb.collection("businessMetricsDaily").doc(bizDocId);
+
+    const inc: any = {
+      updatedAt: FieldValue.serverTimestamp(),
+      businessId,
+      businessSlug: businessSlug || null,
+      dayKey: dk,
+    };
+
+    // Definitions:
+    // visits = store_visit + product_view
+    // leads = market_click + store_product_click
+    // views = market_impression
+    if (type === "store_visit") {
+      inc.visits = FieldValue.increment(count);
+      inc.storeVisits = FieldValue.increment(count);
+    } else if (type === "product_view") {
+      inc.visits = FieldValue.increment(count);
+      inc.productViews = FieldValue.increment(count);
+    } else if (type === "market_click") {
+      inc.leads = FieldValue.increment(count);
+      inc.marketClicks = FieldValue.increment(count);
+    } else if (type === "store_product_click") {
+      inc.leads = FieldValue.increment(count);
+      inc.storeProductClicks = FieldValue.increment(count);
+    } else if (type === "market_impression") {
+      inc.views = FieldValue.increment(count);
+      inc.marketImpressions = FieldValue.increment(count);
+    } else {
+      return NextResponse.json({ ok: false, error: "Unknown type" }, { status: 400 });
+    }
+
+    await bizRef.set(inc, { merge: true });
+
+    // ===== Product daily metrics (optional) =====
+    if (productId) {
+      const prodDocId = `${productId}_${dk}`;
+      const prodRef = adminDb.collection("productMetricsDaily").doc(prodDocId);
+
+      const pinc: any = {
+        updatedAt: FieldValue.serverTimestamp(),
+        productId,
+        businessId,
+        businessSlug: businessSlug || null,
+        dayKey: dk,
+      };
+
+      if (type === "product_view") pinc.visits = FieldValue.increment(count);
+      if (type === "market_click" || type === "store_product_click") pinc.leads = FieldValue.increment(count);
+      if (type === "market_impression") pinc.views = FieldValue.increment(count);
+
+      await prodRef.set(pinc, { merge: true });
+    }
+
+    // ===== Platform daily metrics (NEW) =====
+    // Doc ID = dayKey (easy month history lookup without indexes)
+    const platRef = adminDb.collection("platformMetricsDaily").doc(dk);
+
+    const plinc: any = {
+      updatedAt: FieldValue.serverTimestamp(),
+      dayKey: dk,
+    };
+
+    if (type === "store_visit") {
+      plinc.visits = FieldValue.increment(count);
+      plinc.storeVisits = FieldValue.increment(count);
+    } else if (type === "product_view") {
+      plinc.visits = FieldValue.increment(count);
+      plinc.productViews = FieldValue.increment(count);
+    } else if (type === "market_click") {
+      plinc.leads = FieldValue.increment(count);
+      plinc.marketClicks = FieldValue.increment(count);
+    } else if (type === "store_product_click") {
+      plinc.leads = FieldValue.increment(count);
+      plinc.storeProductClicks = FieldValue.increment(count);
+    } else if (type === "market_impression") {
+      plinc.views = FieldValue.increment(count);
+      plinc.marketImpressions = FieldValue.increment(count);
+    }
+
+    await platRef.set(plinc, { merge: true });
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\account\login\page.tsx -----
+"use client";
+
+import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+
+export default function LoginPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const next = sp.get("next"); // if present, we go there after login
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function login() {
+    setLoading(true);
+    setMsg(null);
+
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), password);
+
+      const token = await auth.currentUser?.getIdToken();
+      const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Failed to load profile");
+
+      const role = data?.me?.role;
+      const emailVerified = !!data?.me?.emailVerified;
+
+      // if not verified, verify first then continue to next
+      const fallbackNext = role === "admin" ? "/admin" : role === "owner" ? "/vendor" : "/market";
+      const dest = next || fallbackNext;
+
+      if (!emailVerified) {
+        router.push(`/account/verify?next=${encodeURIComponent(dest)}`);
+        return;
+      }
+
+      router.push(dest);
+    } catch (e: any) {
+      setMsg(e?.message || "Login failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Login" showBack={true} />
+
+      <div className="px-4 pb-24">
+        <Card className="p-4">
+          <p className="text-base font-extrabold text-[#111827]">Welcome back</p>
+          <p className="text-sm text-gray-600 mt-1">Login to continue.</p>
+
+          <div className="mt-4 space-y-2">
+            <input
+              className="w-full border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              autoComplete="email"
+            />
+            <input
+              className="w-full border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
+              placeholder="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              autoComplete="current-password"
+            />
+          </div>
+
+          <button
+            className="mt-4 w-full rounded-2xl py-3 text-sm font-extrabold text-white shadow-[0_12px_30px_rgba(17,24,39,0.10)] bg-gradient-to-br from-[#FF6A00] to-[#FF8A00] disabled:opacity-50"
+            onClick={login}
+            disabled={!email || !password || loading}
+          >
+            {loading ? "Logging in..." : "Login"}
+          </button>
+
+          <div className="mt-3 flex items-center justify-between">
+            <button
+              className="text-xs font-extrabold text-[#FF8A00]"
+              onClick={() => router.push("/account/forgot")}
+              disabled={loading}
+            >
+              Forgot password?
+            </button>
+
+            <button
+              className="text-xs font-extrabold text-[#111827]"
+              onClick={() => router.push(`/account/register${next ? `?next=${encodeURIComponent(next)}` : ""}`)}
+              disabled={loading}
+            >
+              Create account
+            </button>
+          </div>
+
+          {msg ? <p className="mt-3 text-sm text-red-700">{msg}</p> : null}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\lib\vendor\syncBusinessSignals.ts -----
+// FILE: src/lib/vendor/syncBusinessSignals.ts
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { getTrustRules } from "@/lib/vendor/trustRulesServer";
+
+export type VerificationTier = 0 | 1 | 2 | 3;
+
+function hasActiveSubscription(biz: any) {
+  const exp = Number(biz?.subscription?.expiresAtMs || 0);
+  return !!(biz?.subscription?.planKey && exp && exp > Date.now());
+}
+
+function computeTierFromVerification(v: any): VerificationTier {
+  const tier1 = String(v?.tier1?.status || "").toLowerCase() === "verified";
+  const tier2 = String(v?.tier2?.status || "").toLowerCase() === "verified";
+  const tier3 = String(v?.tier3?.status || "").toLowerCase() === "verified";
+
+  if (tier3) return 3;
+  if (tier2) return 2;
+  if (tier1) return 1;
+  return 0;
+}
+
+export async function syncBusinessSignalsToProducts(params: { businessId: string }) {
+  const businessId = String(params.businessId || "").trim();
+  if (!businessId) throw new Error("Missing businessId");
+
+  const bizRef = adminDb.collection("businesses").doc(businessId);
+  const bizSnap = await bizRef.get();
+  if (!bizSnap.exists) throw new Error("Business not found");
+
+  const biz = bizSnap.data() as any;
+
+  const trustRules = await getTrustRules();
+
+  const tier = computeTierFromVerification(biz?.verification || {});
+  const openDisputes = Number(biz?.trust?.openDisputes || 0);
+
+  // penalty is used only to reduce marketplace visibility
+  const reduceThreshold = Number(trustRules.dispute.reduceOpenDisputes || 4);
+  const warnThreshold = Number(trustRules.dispute.warnOpenDisputes || 2);
+
+  const marketPenalty =
+    openDisputes >= reduceThreshold ? 2 : openDisputes >= warnThreshold ? 1 : 0;
+
+  // marketScore is a simple ordering helper for /market client-side sort
+  const marketScore = tier * 100 - marketPenalty * 80;
+
+  const patchBusiness: any = {
+    verificationTier: tier,
+    trust: {
+      ...(biz?.trust || {}),
+      openDisputes: openDisputes || 0,
+      warnOpenDisputesThreshold: warnThreshold,
+      reduceOpenDisputesThreshold: reduceThreshold,
+      marketPenalty,
+    },
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
+  await bizRef.set(patchBusiness, { merge: true });
+
+  // Update products in batches
+  const pSnap = await adminDb
+    .collection("products")
+    .where("businessId", "==", businessId)
+    .limit(1000)
+    .get();
+
+  const docs = pSnap.docs;
+
+  const state = String(biz?.state || "").trim() || null;
+  const city = String(biz?.city || "").trim() || null;
+
+  const subscribed = hasActiveSubscription(biz);
+  const marketAllowed = true; // Tier 0 allowed but low visibility (your rule)
+
+  const basePatch: any = {
+    businessState: state,
+    businessCity: city,
+    marketTier: tier,
+    marketPenalty,
+    marketScore,
+    marketAllowed,
+    businessHasActiveSubscription: subscribed,
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
+  // batch limit 500 writes
+  for (let i = 0; i < docs.length; i += 450) {
+    const chunk = docs.slice(i, i + 450);
+    const batch = adminDb.batch();
+
+    for (const d of chunk) {
+      batch.set(d.ref, basePatch, { merge: true });
+    }
+
+    await batch.commit();
+  }
+
+  return { ok: true, productsUpdated: docs.length, tier, marketPenalty, marketScore };
+}
+
+----- FILE: src\app\api\auth\send-email-code\route.ts -----
+import { NextResponse } from "next/server";
+import { requireMe } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import crypto from "node:crypto";
+import nodemailer from "nodemailer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function makeCode() {
+  return String(Math.floor(1000 + Math.random() * 9000)); // 4 digits
+}
+
+function hash(code: string) {
+  return crypto.createHash("sha256").update(code).digest("hex");
+}
+
+async function sendEmail(to: string, code: string) {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 465);
+  const secure = String(process.env.SMTP_SECURE || "true") === "true";
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || user;
+
+  if (!host || !user || !pass || !from) {
+    // No SMTP configured
+    return { sent: false };
+  }
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
+
+  await transporter.sendMail({
+    from,
+    to,
+    subject: "BizHub verification code",
+    text: `Your BizHub verification code is: ${code}\n\nIt expires in 10 minutes.`,
+  });
+
+  return { sent: true };
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireMe(req);
+    if (!me.email) return NextResponse.json({ error: "Missing email" }, { status: 400 });
+
+    const code = makeCode();
+    const expiresAtMs = Date.now() + 10 * 60 * 1000; // 10 minutes
+
+    await adminDb.collection("emailVerifications").doc(me.uid).set(
+      {
+        uid: me.uid,
+        email: me.email,
+        codeHash: hash(code),
+        expiresAtMs,
+        attempts: 0,
+        updatedAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    const emailResult = await sendEmail(me.email, code);
+
+    // Dev fallback if SMTP missing
+    const devCode =
+      process.env.NODE_ENV !== "production" && !emailResult.sent ? code : undefined;
+
+    return NextResponse.json({
+      ok: true,
+      sent: emailResult.sent,
+      devCode, // only appears in dev when SMTP not set
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\vendor\payout-details\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const snap = await adminDb.collection("businesses").doc(me.businessId).get();
+    const data = snap.exists ? (snap.data() as any) : null;
+    return NextResponse.json({ ok: true, payoutDetails: data?.payoutDetails ?? null });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const body = await req.json().catch(() => ({}));
+    const bankName = String(body.bankName || "");
+    const accountNumber = String(body.accountNumber || "");
+    const accountName = String(body.accountName || "");
+
+    await adminDb.collection("businesses").doc(me.businessId).set(
+      {
+        payoutDetails: { bankName, accountNumber, accountName },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\vendor\chat\availability\route.ts -----
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function hasActiveSubscription(biz: any) {
+  const exp = Number(biz?.subscription?.expiresAtMs || 0);
+  return !!(biz?.subscription?.planKey && exp && exp > Date.now());
+}
+
+export async function GET(req: Request) {
+  try {
+    const url = new URL(req.url);
+    const storeSlug = String(url.searchParams.get("storeSlug") || "").trim();
+
+    if (!storeSlug) {
+      return NextResponse.json({ ok: false, error: "storeSlug required" }, { status: 400 });
+    }
+
+    const bizSnap = await adminDb
+      .collection("businesses")
+      .where("slug", "==", storeSlug)
+      .limit(1)
+      .get();
+
+    if (bizSnap.empty) {
+      return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
+    }
+
+    const bizDoc = bizSnap.docs[0];
+    const biz = { id: bizDoc.id, ...(bizDoc.data() as any) };
+
+    const enabledToggle = biz?.continueInChatEnabled === true;
+    const whatsapp = String(biz?.whatsapp || "").trim();
+    const subscribed = hasActiveSubscription(biz);
+
+    // Strict rule: NOT available for free users => subscription required.
+    const enabled = !!(enabledToggle && subscribed && whatsapp);
+
+    return NextResponse.json({
+      ok: true,
+      storeSlug,
+      storeName: biz?.name ?? null,
+      enabled,
+      reasons: {
+        toggleOn: enabledToggle,
+        subscribed,
+        whatsappSet: !!whatsapp,
+      },
+      whatsapp: enabled ? whatsapp : null,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\vendor\shipping\options\route.ts -----
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    const url = new URL(req.url);
+    const storeSlug = String(url.searchParams.get("storeSlug") || "").trim();
+
+    if (!storeSlug) {
+      return NextResponse.json({ ok: false, error: "storeSlug required" }, { status: 400 });
+    }
+
+    const bizSnap = await adminDb
+      .collection("businesses")
+      .where("slug", "==", storeSlug)
+      .limit(1)
+      .get();
+
+    if (bizSnap.empty) return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
+
+    const bizDoc = bizSnap.docs[0];
+    const businessId = bizDoc.id;
+
+    const sSnap = await adminDb
+      .collection("businesses")
+      .doc(businessId)
+      .collection("shippingOptions")
+      .limit(200)
+      .get();
+
+    const options = sSnap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as any) }))
+      .filter((o) => o.active !== false)
+      .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0))
+      .map((o) => ({
+        id: o.id,
+        type: o.type || "delivery",
+        name: o.name || "Delivery",
+        feeKobo: Number(o.feeKobo || 0),
+        etaDays: Number(o.etaDays || 0),
+        areasText: o.areasText || null,
+      }));
+
+    return NextResponse.json({ ok: true, businessId, storeSlug, options });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\lib\marketing\optOut.ts -----
+// FILE: src/lib/marketing/optOut.ts
+export type OptOutPrefs = {
+  globalOptOut: boolean;
+  storeOptOutSlugs: string[];
+  updatedAtMs: number;
+};
+
+const KEY = "bizhub_marketing_optout_v1";
+
+function safeParse(raw: string | null): OptOutPrefs | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    if (!v || typeof v !== "object") return null;
+
+    const globalOptOut = !!v.globalOptOut;
+    const storeOptOutSlugs = Array.isArray(v.storeOptOutSlugs)
+      ? v.storeOptOutSlugs.map(String).filter(Boolean).slice(0, 500)
+      : [];
+
+    const updatedAtMs = Number(v.updatedAtMs || 0);
+
+    return { globalOptOut, storeOptOutSlugs, updatedAtMs };
+  } catch {
+    return null;
+  }
+}
+
+export function loadOptOutPrefs(): OptOutPrefs {
+  if (typeof window === "undefined") return { globalOptOut: false, storeOptOutSlugs: [], updatedAtMs: 0 };
+  return safeParse(localStorage.getItem(KEY)) || { globalOptOut: false, storeOptOutSlugs: [], updatedAtMs: 0 };
+}
+
+export function saveOptOutPrefs(p: OptOutPrefs) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEY, JSON.stringify(p));
+}
+
+----- FILE: src\app\globals.css -----
+@import "tailwindcss";
+
+/* Tailwind v4 theme tokens (generates classes like bg-biz-bg, text-biz-ink, shadow-soft, etc.) */
+@theme {
+  /* Brand */
+  --color-biz-accent: #ff8a00;  /* bright orange */
+  --color-biz-accent2: #ff5200; /* deep orange */
+
+  /* Neutrals */
+  --color-biz-ink: #111827;
+  --color-biz-muted: #6b7280;
+
+  --color-biz-bg: #f6f7fb;
+  --color-biz-card: #ffffff;
+  --color-biz-line: #e7e7ee;
+
+  /* Warm surfaces */
+  --color-biz-sand: #ffe2b8;
+  --color-biz-cream: #fff3e1;
+
+  /* Shadows */
+  --shadow-soft: 0 10px 25px rgba(17, 24, 39, 0.08);
+  --shadow-float: 0 12px 30px rgba(17, 24, 39, 0.10);
+}
+
+@layer base {
+  html,
+  body {
+    height: 100%;
+  }
+
+  body {
+    background: theme(colors.biz-bg);
+    color: theme(colors.biz-ink);
+  }
+
+  /* Better tap feel on mobile */
+  button,
+  a {
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer utilities {
+  /* Optional: consistent â€œapp containerâ€ max width is already handled by AppShell */
+  .safe-pb {
+    padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+  }
+}
+
+----- FILE: src\lib\firebase\uploads.ts -----
+import { storage } from "@/lib/firebase/client";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+
+export async function uploadProductImages(params: {
+  businessId: string;
+  productId: string;
+  files: File[];
+}) {
+  const { businessId, productId, files } = params;
+
+  const urls: string[] = [];
+
+  for (const file of files) {
+    const safeName = file.name.replace(/\s+/g, "_");
+    const path = `businesses/${businessId}/products/${productId}/${Date.now()}_${safeName}`;
+    const r = ref(storage, path);
+    await uploadBytes(r, file);
+    const url = await getDownloadURL(r);
+    urls.push(url);
+  }
+
+  return urls;
+}
+
+----- FILE: src\app\api\me\route.ts -----
+import { NextResponse } from "next/server";
+import { requireMe } from "@/lib/auth/server";
+import { adminAuth } from "@/lib/firebase/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireMe(req);
+    const u = await adminAuth.getUser(me.uid);
+
+    return NextResponse.json({
+      ok: true,
+      me: { ...me, emailVerified: !!u.emailVerified },
+    });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message || "Unauthorized" },
+      { status: 401 }
+    );
+  }
+}

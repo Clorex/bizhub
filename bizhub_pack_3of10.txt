@@ -1,0 +1,2203 @@
+﻿== BIZHUB SNAPSHOT PACK 3/10 ==
+Date: 2/1/2026 10:12:46 AM
+Node: v24.12.0
+NPM: 11.6.2
+Approx bytes in this pack: 75220
+
+== FILE LIST (relative path + bytes) ==
+src\app\vendor\subscription\summary\page.tsx  (bytes: 12773)
+src\app\vendor\verification\page.tsx  (bytes: 10983)
+src\app\admin\analytics\page.tsx  (bytes: 9469)
+src\app\admin\vendors\page.tsx  (bytes: 6660)
+src\app\vendor\withdrawals\page.tsx  (bytes: 6334)
+src\app\admin\disputes\page.tsx  (bytes: 5709)
+src\app\api\admin\customers\route.ts  (bytes: 4369)
+src\app\vendor\wallet\page.tsx  (bytes: 3931)
+src\app\api\vendor\orders\[orderId]\route.ts  (bytes: 3292)
+src\app\api\marketing\optout\route.ts  (bytes: 2503)
+src\app\api\admin\reports\daily\route.ts  (bytes: 2283)
+src\app\api\vendor\access\route.ts  (bytes: 1760)
+src\lib\firebase\admin.ts  (bytes: 1610)
+src\lib\checkout\profile.ts  (bytes: 1149)
+src\lib\firebase\market.ts  (bytes: 996)
+src\components\ui\EmptyState.tsx  (bytes: 762)
+src\components\ui\Chip.tsx  (bytes: 544)
+postcss.config.mjs  (bytes: 93)
+
+----- FILE: src\app\vendor\subscription\summary\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { auth } from "@/lib/firebase/client";
+import {
+  BIZHUB_PLANS,
+  type BizhubBillingCycle,
+  type BizhubPlanKey,
+} from "@/lib/bizhubPlans";
+import { CheckCircle2 } from "lucide-react";
+
+type TabKey = "benefits" | "purchases" | "history";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function fmtDateTime(ms?: number) {
+  if (!ms) return "â€”";
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
+  }
+}
+
+function DetailsList({
+  groups,
+}: {
+  groups: Record<string, string[]>;
+}) {
+  return (
+    <div className="space-y-2">
+      {Object.entries(groups).map(([k, items]) => (
+        <details
+          key={k}
+          className="rounded-2xl border border-biz-line bg-white p-3"
+        >
+          <summary className="cursor-pointer text-sm font-extrabold text-biz-ink">
+            {k}
+          </summary>
+          <div className="mt-2 space-y-2">
+            {items.map((t) => (
+              <div key={t} className="flex items-start gap-2 text-sm text-gray-700">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+                <span>{t}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+export default function SubscriptionSummaryPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const planFromUrl = String(sp.get("plan") || "LAUNCH") as BizhubPlanKey;
+  const cycleFromUrl = String(sp.get("cycle") || "yearly") as BizhubBillingCycle;
+
+  const [tab, setTab] = useState<TabKey>("benefits");
+  const [cycle, setCycle] = useState<BizhubBillingCycle>(cycleFromUrl);
+
+  const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [history, setHistory] = useState<any[]>([]);
+  const [entitlement, setEntitlement] = useState<any>(null);
+
+  const planKey: BizhubPlanKey = (["FREE", "LAUNCH", "MOMENTUM", "APEX"] as BizhubPlanKey[]).includes(planFromUrl)
+    ? planFromUrl
+    : "LAUNCH";
+
+  const plan = BIZHUB_PLANS[planKey];
+  const price = plan.priceNgn[cycle];
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      setLoading(true);
+      setMsg(null);
+      try {
+        const data = await authedFetch("/api/subscriptions/my");
+        if (!mounted) return;
+
+        setHistory(Array.isArray(data.purchases) ? data.purchases : []);
+        setEntitlement(data.entitlement || null);
+      } catch (e: any) {
+        if (!mounted) return;
+        setMsg(e?.message || "Failed to load");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const headline = useMemo(() => {
+    if (planKey === "FREE") return "Free plan";
+    return `${plan.name} plan`;
+  }, [planKey, plan.name]);
+
+  const canPay = planKey !== "FREE" && price > 0;
+
+  async function payNow() {
+    if (!canPay) return;
+
+    setPaying(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/subscriptions/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planKey, cycle }),
+      });
+
+      window.location.href = data.authorization_url;
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to start payment");
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  const entPlanKey = String(entitlement?.planKey || "FREE");
+  const entSource = String(entitlement?.source || "free");
+  const entExpiry = Number(entitlement?.expiresAtMs || 0);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Summary"
+        subtitle="Review plan details and continue"
+        showBack={true}
+        right={
+          <button
+            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft"
+            onClick={() => router.push("/vendor/subscription")}
+          >
+            Change
+          </button>
+        }
+      />
+
+      <div className="px-4 pb-6 space-y-3">
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {/* Current access banner */}
+        <Card className="p-4">
+          <p className="text-xs text-biz-muted">Current access</p>
+          <p className="text-sm font-extrabold text-biz-ink mt-1">
+            {entPlanKey === "FREE" ? "Free plan" : `${BIZHUB_PLANS[entPlanKey as BizhubPlanKey]?.name || entPlanKey} â€¢ ${entSource}`}
+          </p>
+          <p className="text-[11px] text-gray-500 mt-1">
+            {entPlanKey === "FREE" ? "Upgrade anytime." : `Expires: ${fmtDateTime(entExpiry)}`}
+          </p>
+        </Card>
+
+        {/* Plan card */}
+        <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs opacity-95">Selected plan</p>
+              <p className="text-xl font-extrabold mt-1">{headline}</p>
+              <p className="text-[11px] opacity-95 mt-1">{plan.tagline}</p>
+            </div>
+
+            <div className="text-right">
+              <p className="text-sm font-extrabold">
+                {price === 0 ? "Free" : fmtNaira(price)}
+              </p>
+              <p className="text-[11px] opacity-95 mt-1">{cycle}</p>
+            </div>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {plan.highlights.slice(0, 4).map((t) => (
+              <div key={t} className="flex items-start gap-2 text-sm">
+                <span className="mt-1 h-2 w-2 rounded-full bg-white/90" />
+                <span className="opacity-95">{t}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Cycle selector (like the concept) */}
+        <SegmentedControl<BizhubBillingCycle>
+          value={cycle}
+          onChange={setCycle}
+          options={[
+            { value: "monthly", label: "Monthly" },
+            { value: "quarterly", label: "Quarterly" },
+            { value: "biannually", label: "Biannual" },
+            { value: "yearly", label: "Yearly" },
+          ]}
+        />
+
+        {/* Tabs */}
+        <Card className="p-2">
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              className={tab === "benefits"
+                ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"}
+              onClick={() => setTab("benefits")}
+            >
+              Benefits
+            </button>
+
+            <button
+              className={tab === "purchases"
+                ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"}
+              onClick={() => setTab("purchases")}
+            >
+              Purchases
+            </button>
+
+            <button
+              className={tab === "history"
+                ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"}
+              onClick={() => setTab("history")}
+            >
+              History
+            </button>
+          </div>
+        </Card>
+
+        {/* Tab content */}
+        <Card className="p-4">
+          {tab === "benefits" ? (
+            <>
+              <p className="font-extrabold text-biz-ink">Plan benefits</p>
+              <p className="text-xs text-biz-muted mt-1">
+                Whatâ€™s included in this plan.
+              </p>
+              <div className="mt-3">
+                <DetailsList groups={plan.benefits} />
+              </div>
+            </>
+          ) : null}
+
+          {tab === "purchases" ? (
+            <>
+              <p className="font-extrabold text-biz-ink">Plan purchases</p>
+              <p className="text-xs text-biz-muted mt-1">
+                Extras you can add to grow faster.
+              </p>
+              <div className="mt-3">
+                <DetailsList groups={plan.purchases} />
+              </div>
+            </>
+          ) : null}
+
+          {tab === "history" ? (
+            <>
+              <p className="font-extrabold text-biz-ink">Subscription purchases</p>
+              <p className="text-xs text-biz-muted mt-1">
+                Your recent subscription payments.
+              </p>
+
+              {loading ? (
+                <div className="mt-3 text-sm text-biz-muted">Loadingâ€¦</div>
+              ) : history.length === 0 ? (
+                <div className="mt-3 text-sm text-biz-muted">
+                  No subscription payments yet.
+                </div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {history.map((h) => (
+                    <div
+                      key={h.id}
+                      className="rounded-2xl border border-biz-line bg-white p-3"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-extrabold text-biz-ink">
+                            {String(h.planKey || "â€”")} â€¢ {String(h.cycle || "â€”")}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1 break-all">
+                            Ref: {String(h.reference || h.id)}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            Started: {fmtDateTime(Number(h.startedAtMs || 0))}
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-extrabold text-biz-ink">
+                            {fmtNaira(Number(h.amount || (h.amountKobo ? h.amountKobo / 100 : 0) || 0))}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            {String(h.status || "â€”")}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : null}
+        </Card>
+
+        {/* Bottom action */}
+        <div className="fixed bottom-0 left-0 right-0 z-40">
+          <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+            <Card className="p-4 space-y-2">
+              {planKey === "FREE" ? (
+                <Button variant="secondary" onClick={() => router.push("/vendor/subscription")}>
+                  Back to plans
+                </Button>
+              ) : (
+                <Button onClick={payNow} loading={paying} disabled={!canPay}>
+                  Pay {fmtNaira(price)}
+                </Button>
+              )}
+
+              <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                Return to dashboard
+              </Button>
+            </Card>
+          </div>
+        </div>
+
+        {/* Spacer so content not hidden behind fixed CTA */}
+        <div className="h-28" />
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\vendor\verification\page.tsx -----
+// FILE: src/app/vendor/verification/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { auth } from "@/lib/firebase/client";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+
+type IdType = "nin" | "drivers_licence" | "voters_card" | "passport";
+
+function TierPill({ tier }: { tier: number }) {
+  const t = Number(tier || 0);
+  const cls =
+    t >= 3
+      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+      : t === 2
+        ? "bg-blue-50 text-blue-700 border-blue-100"
+        : t === 1
+          ? "bg-orange-50 text-orange-700 border-orange-100"
+          : "bg-white text-gray-700 border-biz-line";
+
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border ${cls}`}>
+      Tier {t || 0}
+    </span>
+  );
+}
+
+export default function VendorVerificationPage() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [tier, setTier] = useState<number>(0);
+  const [verification, setVerification] = useState<any>(null);
+  const [trust, setTrust] = useState<any>(null);
+
+  // Tier 1
+  const [selfieUrls, setSelfieUrls] = useState<string[]>([]);
+
+  // Tier 2
+  const [idType, setIdType] = useState<IdType>("nin");
+  const [idNumber, setIdNumber] = useState<string>("");
+
+  // Tier 3
+  const [proofUrls, setProofUrls] = useState<string[]>([]);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    return data;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/vendor/verification");
+      setTier(Number(data.verificationTier || 0));
+      setVerification(data.verification || null);
+      setTrust(data.trust || null);
+
+      const t1 = data?.verification?.tier1;
+      if (t1?.selfieUrls?.length) setSelfieUrls(t1.selfieUrls);
+
+      const t2 = data?.verification?.tier2;
+      if (t2?.idType) setIdType(String(t2.idType) as any);
+      if (t2?.idNumber) setIdNumber(String(t2.idNumber));
+
+      const t3 = data?.verification?.tier3;
+      if (t3?.proofUrls?.length) setProofUrls(t3.proofUrls);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to load");
+      setVerification(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const t1Status = String(verification?.tier1?.status || "not_started");
+  const t2Status = String(verification?.tier2?.status || "not_started");
+  const t3Status = String(verification?.tier3?.status || "not_started");
+
+  const openDisputes = Number(trust?.openDisputes || 0);
+
+  async function submitTier1() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: "tier1", selfieUrls }),
+      });
+      setMsg("Tier 1 updated.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitTier2() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: "tier2", idType, idNumber }),
+      });
+      setMsg("Tier 2 submitted. Admin review can take up to 8 hours.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitTier3() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: "tier3", proofUrls }),
+      });
+      setMsg("Tier 3 submitted. Admin review can take up to 8 hours.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const showVisibilityNote = useMemo(() => {
+    return "Important: vendors with higher tiers appear more in the marketplace. Tier 0 is reduced visibility.";
+  }, []);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Verification" subtitle="Tier system for trust + visibility" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Your verification</p>
+              <div className="mt-2 flex items-center gap-2">
+                <TierPill tier={tier} />
+                {openDisputes > 0 ? (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border bg-red-50 text-red-700 border-red-100">
+                    Open disputes: {openDisputes}
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-[11px] opacity-95 mt-3">{showVisibilityNote}</p>
+            </div>
+
+            <SectionCard title="Tier 1 â€” Face check" subtitle="Upload clear selfies (bright light)">
+              <p className="text-[11px] text-biz-muted">
+                Guidance: take a clear photo of your face (front), and if you can, add extra angles.
+              </p>
+
+              <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
+                <ImageUploader
+                  label="Upload selfie photos"
+                  multiple={true}
+                  onUploaded={(urls) => setSelfieUrls((prev) => [...prev, ...urls].slice(0, 6))}
+                />
+
+                {selfieUrls.length ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {selfieUrls.map((u) => (
+                      <div key={u} className="rounded-2xl border border-biz-line overflow-hidden bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="Selfie" className="h-24 w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-biz-muted">
+                  Status: <b className="text-biz-ink">{t1Status}</b>
+                </span>
+                <Button onClick={submitTier1} loading={saving} disabled={saving || selfieUrls.length < 1}>
+                  Save Tier 1
+                </Button>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Tier 2 â€” ID number" subtitle="Enter your verification number (no photo)">
+              <SegmentedControl<IdType>
+                value={idType}
+                onChange={setIdType}
+                options={[
+                  { value: "nin", label: "NIN" },
+                  { value: "drivers_licence", label: "Driverâ€™s" },
+                  { value: "voters_card", label: "Voterâ€™s" },
+                  { value: "passport", label: "Passport" },
+                ]}
+              />
+
+              <div className="mt-2">
+                <Input
+                  placeholder="Enter your ID number"
+                  value={idNumber}
+                  onChange={(e) => setIdNumber(e.target.value)}
+                />
+              </div>
+
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-biz-muted">
+                  Status: <b className="text-biz-ink">{t2Status}</b>
+                </span>
+                <Button onClick={submitTier2} loading={saving} disabled={saving || idNumber.trim().length < 5}>
+                  Submit Tier 2
+                </Button>
+              </div>
+
+              {verification?.tier2?.adminNote ? (
+                <p className="mt-2 text-[11px] text-red-700">Admin note: {String(verification.tier2.adminNote)}</p>
+              ) : null}
+            </SectionCard>
+
+            <SectionCard title="Tier 3 â€” Proof of address" subtitle="Upload a document showing your address">
+              <div className="rounded-2xl border border-biz-line bg-white p-3">
+                <ImageUploader
+                  label="Upload proof of address"
+                  multiple={true}
+                  onUploaded={(urls) => setProofUrls((prev) => [...prev, ...urls].slice(0, 6))}
+                />
+
+                {proofUrls.length ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {proofUrls.map((u) => (
+                      <div key={u} className="rounded-2xl border border-biz-line overflow-hidden bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="Proof" className="h-24 w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-biz-muted">
+                  Status: <b className="text-biz-ink">{t3Status}</b>
+                </span>
+                <Button onClick={submitTier3} loading={saving} disabled={saving || proofUrls.length < 1}>
+                  Submit Tier 3
+                </Button>
+              </div>
+
+              {verification?.tier3?.adminNote ? (
+                <p className="mt-2 text-[11px] text-red-700">Admin note: {String(verification.tier3.adminNote)}</p>
+              ) : null}
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\admin\analytics\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+import { RefreshCw } from "lucide-react";
+
+type Range = "today" | "week" | "month";
+type Metric = "visits" | "leads" | "views";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function pctText(v: any) {
+  if (v == null) return "â€”";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "â€”";
+  const s = n >= 0 ? "+" : "";
+  return `${s}${n.toFixed(1)}%`;
+}
+
+function diffText(v: any) {
+  if (v == null) return "â€”";
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "â€”";
+  const s = n >= 0 ? "+" : "";
+  return `${s}${n.toLocaleString()}`;
+}
+
+export default function AdminPlatformAnalyticsPage() {
+  const [range, setRange] = useState<Range>("week");
+  const [metric, setMetric] = useState<Metric>("views");
+
+  // Month history picker (YYYY-MM)
+  const [month, setMonth] = useState<string>("");
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [data, setData] = useState<any>(null);
+
+  async function api(path: string) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error || "Request failed");
+    return j;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const qs =
+        range === "month" && month
+          ? `?range=month&month=${encodeURIComponent(month)}`
+          : `?range=${encodeURIComponent(range)}`;
+
+      const j = await api(`/api/admin/analytics/platform${qs}`);
+      setData(j);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range]);
+
+  const totals = data?.totals || {};
+  const deltas = data?.deltas || null;
+  const series: any[] = Array.isArray(data?.series) ? data.series : [];
+
+  const maxMetric = useMemo(() => {
+    return Math.max(1, ...series.map((d) => Number(d?.[metric] || 0)));
+  }, [series, metric]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Admin Analytics"
+        subtitle="Platform performance (daily tracking)"
+        showBack={true}
+        right={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={load}
+            leftIcon={<RefreshCw className="h-4 w-4" />}
+            disabled={loading}
+          >
+            Refresh
+          </Button>
+        }
+      />
+
+      <div className="px-4 pb-24 space-y-3">
+        <SegmentedControl<Range>
+          value={range}
+          onChange={setRange}
+          options={[
+            { value: "today", label: "Today" },
+            { value: "week", label: "Week" },
+            { value: "month", label: "Month" },
+          ]}
+        />
+
+        {/* Month history selection */}
+        <Card className="p-4">
+          <p className="text-sm font-bold text-biz-ink">Month history</p>
+          <p className="text-xs text-biz-muted mt-1">
+            Choose a past month to recover old analysis (works best with tracking).
+          </p>
+
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="flex-1 rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                // only meaningful when range=month
+                setRange("month");
+                setTimeout(load, 0);
+              }}
+              disabled={!month}
+            >
+              Load
+            </Button>
+          </div>
+
+          <p className="mt-2 text-[11px] text-biz-muted">
+            Tip: Use Month view to compare growth patterns and spot declines.
+          </p>
+        </Card>
+
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && data ? (
+          <>
+            {/* Hero */}
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Platform summary</p>
+              <p className="text-xl font-bold mt-1">
+                {totals.orders?.toLocaleString?.() || 0} order(s) â€¢ {fmtNaira(totals.revenue || 0)}
+              </p>
+              <p className="text-[11px] opacity-95 mt-2">
+                Visits: <b>{Number(totals.visits || 0).toLocaleString()}</b> â€¢ Leads:{" "}
+                <b>{Number(totals.leads || 0).toLocaleString()}</b> â€¢ Views:{" "}
+                <b>{Number(totals.views || 0).toLocaleString()}</b>
+              </p>
+            </div>
+
+            {/* Daily change */}
+            <SectionCard title="Daily change" subtitle="Today vs yesterday (traffic)">
+              {deltas ? (
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-biz-muted">Visits</p>
+                    <p className="font-bold text-biz-ink mt-1">{diffText(deltas.visits?.diff)}</p>
+                    <p className="text-[11px] text-gray-500 mt-1">{pctText(deltas.visits?.pct)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-biz-muted">Leads</p>
+                    <p className="font-bold text-biz-ink mt-1">{diffText(deltas.leads?.diff)}</p>
+                    <p className="text-[11px] text-gray-500 mt-1">{pctText(deltas.leads?.pct)}</p>
+                  </div>
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-biz-muted">Views</p>
+                    <p className="font-bold text-biz-ink mt-1">{diffText(deltas.views?.diff)}</p>
+                    <p className="text-[11px] text-gray-500 mt-1">{pctText(deltas.views?.pct)}</p>
+                  </div>
+                </div>
+              ) : (
+                <p className="text-sm text-biz-muted">Not enough data yet (need at least 2 days).</p>
+              )}
+            </SectionCard>
+
+            {/* Metric chart */}
+            <SectionCard
+              title="Daily chart"
+              subtitle="Shows trend â€” use this to spot decline/increase"
+              right={
+                <select
+                  value={metric}
+                  onChange={(e) => setMetric(e.target.value as Metric)}
+                  className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-bold"
+                >
+                  <option value="views">Views</option>
+                  <option value="leads">Leads</option>
+                  <option value="visits">Visits</option>
+                </select>
+              }
+            >
+              <div className="flex items-end gap-2 h-28">
+                {series.slice(-31).map((d) => {
+                  const v = Number(d?.[metric] || 0);
+                  const h = Math.max(6, Math.round((v / maxMetric) * 100));
+                  const label = String(d.dayKey || "").slice(8, 10);
+                  return (
+                    <div key={d.dayKey} className="flex-1 flex flex-col items-center justify-end gap-2">
+                      <div
+                        className="w-full rounded-xl bg-gradient-to-b from-biz-accent to-biz-accent2"
+                        style={{ height: `${h}%` }}
+                        title={`${d.dayKey} â€¢ ${metric}: ${v.toLocaleString()}`}
+                      />
+                      <span className="text-[10px] text-gray-500">{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+
+            <Card className="p-4">
+              <div className="grid grid-cols-3 gap-2">
+                <Button variant="secondary" onClick={() => (window.location.href = "/admin/vendors")}>
+                  Vendors
+                </Button>
+                <Button variant="secondary" onClick={() => (window.location.href = "/admin/customers")}>
+                  Customers
+                </Button>
+                <Button variant="secondary" onClick={() => (window.location.href = "/admin/finance")}>
+                  Balance
+                </Button>
+              </div>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\admin\vendors\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+import { RefreshCw } from "lucide-react";
+
+function fmtDate(ms?: number) {
+  if (!ms) return "â€”";
+  try {
+    return new Date(ms).toLocaleDateString();
+  } catch {
+    return String(ms);
+  }
+}
+
+function pill(text: string) {
+  const t = text.toLowerCase();
+  const cls =
+    t.includes("trial")
+      ? "bg-orange-50 text-orange-700 border-orange-100"
+      : t.includes("subscription")
+        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+        : "bg-white text-gray-700 border-biz-line";
+
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border ${cls}`}>
+      {text}
+    </span>
+  );
+}
+
+export default function AdminVendorsPage() {
+  const router = useRouter();
+
+  const [q, setQ] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [vendors, setVendors] = useState<any[]>([]);
+
+  async function api(path: string) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error || "Request failed");
+    return j;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const qs = q.trim() ? `?q=${encodeURIComponent(q.trim())}` : "";
+      const j = await api(`/api/admin/vendors${qs}`);
+      setVendors(Array.isArray(j.vendors) ? j.vendors : []);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+      setVendors([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const counts = useMemo(() => {
+    let total = vendors.length;
+    let activeTrial = 0;
+    let activePaid = 0;
+
+    for (const v of vendors) {
+      const ent = v.entitlement || {};
+      const planKey = String(ent.planKey || "FREE");
+      const source = String(ent.source || "free");
+      const exp = Number(ent.expiresAtMs || 0);
+
+      if (source === "trial" && exp > Date.now()) activeTrial++;
+      if (source === "subscription" && exp > Date.now()) activePaid++;
+    }
+
+    return { total, activeTrial, activePaid };
+  }, [vendors]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Vendors"
+        subtitle="Search and review vendor performance"
+        showBack={true}
+        right={
+          <Button variant="secondary" size="sm" onClick={load} leftIcon={<RefreshCw className="h-4 w-4" />}>
+            Refresh
+          </Button>
+        }
+      />
+
+      <div className="px-4 pb-24 space-y-3">
+        <Card className="p-4">
+          <p className="text-sm font-bold text-biz-ink">Search</p>
+          <div className="mt-2 flex gap-2">
+            <Input placeholder="Search by store name or slugâ€¦" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Button size="sm" onClick={load}>Go</Button>
+          </div>
+
+          <div className="mt-3 text-[11px] text-biz-muted">
+            Total: <b className="text-biz-ink">{counts.total}</b> â€¢ Active trials:{" "}
+            <b className="text-biz-ink">{counts.activeTrial}</b> â€¢ Active paid:{" "}
+            <b className="text-biz-ink">{counts.activePaid}</b>
+          </div>
+        </Card>
+
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && !msg ? (
+          <SectionCard title="Vendor list" subtitle="Tap any vendor to open analytics">
+            {vendors.length === 0 ? (
+              <div className="text-sm text-biz-muted">No vendors found.</div>
+            ) : (
+              <div className="space-y-2">
+                {vendors.map((v) => {
+                  const ent = v.entitlement || {};
+                  const planKey = String(ent.planKey || "FREE");
+                  const source = String(ent.source || "free");
+                  const exp = Number(ent.expiresAtMs || 0);
+
+                  const accessLabel =
+                    planKey === "FREE"
+                      ? "Free"
+                      : source === "trial"
+                        ? `Trial â€¢ ${planKey}`
+                        : `Subscribed â€¢ ${planKey}`;
+
+                  return (
+                    <button
+                      key={v.id}
+                      className="w-full text-left rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition"
+                      onClick={() => router.push(`/admin/vendors/${v.id}`)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-biz-ink">
+                            {v.name || "Business"}{" "}
+                            <span className="text-biz-muted">({v.slug || "â€”"})</span>
+                          </p>
+
+                          <div className="mt-2 flex flex-wrap gap-2 items-center">
+                            {pill(accessLabel)}
+                            {planKey !== "FREE" ? (
+                              <span className="text-[11px] text-gray-500">
+                                Expires: <b className="text-biz-ink">{fmtDate(exp)}</b>
+                              </span>
+                            ) : null}
+                          </div>
+
+                          {v.ownerEmail ? (
+                            <p className="mt-2 text-[11px] text-gray-500 break-all">
+                              Owner: <b className="text-biz-ink">{v.ownerEmail}</b>
+                            </p>
+                          ) : null}
+                        </div>
+
+                        <div className="text-gray-400 font-bold">â€º</div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </SectionCard>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\vendor\withdrawals\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+
+function fmtNairaFromKobo(kobo: number) {
+  const n = Number(kobo || 0) / 100;
+  try {
+    return `â‚¦${n.toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function fmtDate(ms?: number) {
+  if (!ms) return "â€”";
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
+  }
+}
+
+export default function VendorWithdrawalsPage() {
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [wallet, setWallet] = useState<any>(null);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+
+  const [amountNgn, setAmountNgn] = useState<number>(1000);
+  const [sending, setSending] = useState(false);
+
+  async function api(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error || "Request failed");
+    return j;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const j = await api("/api/vendor/withdrawals");
+      setWallet(j.wallet || null);
+      setWithdrawals(Array.isArray(j.withdrawals) ? j.withdrawals : []);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to load");
+      setWallet(null);
+      setWithdrawals([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const availableKobo = useMemo(() => Number(wallet?.availableBalanceKobo || 0), [wallet]);
+  const holdKobo = useMemo(() => Number(wallet?.withdrawHoldKobo || 0), [wallet]);
+
+  async function requestWithdrawal() {
+    setSending(true);
+    setMsg(null);
+    try {
+      const amountKobo = Math.floor(Number(amountNgn || 0) * 100);
+      await api("/api/vendor/withdrawals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amountKobo }),
+      });
+
+      setMsg("Withdrawal request submitted.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Withdrawals" subtitle="Request payout from BizHub Balance" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Available</p>
+              <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(availableKobo)}</p>
+              <p className="text-[11px] opacity-95 mt-2">
+                On hold: <b>{fmtNairaFromKobo(holdKobo)}</b>
+              </p>
+            </div>
+
+            <SectionCard title="Request withdrawal" subtitle="Minimum â‚¦1,000">
+              <div className="space-y-2">
+                <Input
+                  type="number"
+                  min={1000}
+                  step={500}
+                  value={String(amountNgn)}
+                  onChange={(e) => setAmountNgn(Number(e.target.value))}
+                  placeholder="1000"
+                />
+
+                <Button onClick={requestWithdrawal} loading={sending} disabled={sending}>
+                  Request payout
+                </Button>
+
+                <p className="text-[11px] text-biz-muted">
+                  Your requested amount will move to â€œholdâ€ until admin processes it.
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="History" subtitle="Your recent withdrawal requests">
+              {withdrawals.length === 0 ? (
+                <div className="text-sm text-biz-muted">No withdrawal requests yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {withdrawals.map((w) => (
+                    <div key={w.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-biz-ink">
+                            {w.status || "pending"}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            {fmtDate(Number(w.createdAtMs || 0))}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1 break-all">
+                            Bank: {w?.payoutDetails?.bankName || "â€”"} â€¢ {w?.payoutDetails?.accountNumber || "â€”"}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-biz-ink">
+                            {fmtNairaFromKobo(Number(w.amountKobo || 0))}
+                          </p>
+                        </div>
+                      </div>
+                      {w.adminNote ? (
+                        <p className="text-[11px] text-gray-600 mt-2">
+                          Note: {String(w.adminNote)}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3">
+                <Button variant="secondary" onClick={load}>
+                  Refresh
+                </Button>
+              </div>
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\admin\disputes\page.tsx -----
+// FILE: src/app/admin/disputes/page.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import { auth } from "@/lib/firebase/client";
+import { Card } from "@/components/Card";
+import GradientHeader from "@/components/GradientHeader";
+import { Button } from "@/components/ui/Button";
+
+function fmtDate(v: any) {
+  try {
+    if (!v) return "â€”";
+    if (typeof v?.toDate === "function") return v.toDate().toLocaleString();
+    return String(v);
+  } catch {
+    return "â€”";
+  }
+}
+
+export default function AdminDisputesPage() {
+  const [items, setItems] = useState<any[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function api(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  async function load() {
+    setMsg(null);
+    try {
+      const data = await api("/api/admin/disputes");
+      setItems(data.disputes || []);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    }
+  }
+
+  async function resolve(disputeId: string, decision: "release" | "refund") {
+    try {
+      await api("/api/admin/disputes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ disputeId, decision }),
+      });
+      await load();
+    } catch (e: any) {
+      alert(e?.message || "Failed");
+    }
+  }
+
+  async function freezeBuyer(key: string, frozen: boolean) {
+    const reason = frozen ? "Open dispute" : "";
+    try {
+      await api("/api/admin/buyers/freeze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, frozen, reason }),
+      });
+      await load();
+    } catch (e: any) {
+      alert(e?.message || "Failed");
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  return (
+    <div className="min-h-screen bg-white">
+      <GradientHeader title="Disputes" showBack={true} />
+      <div className="px-4 -mt-4 pb-24 space-y-3">
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {items.length === 0 ? (
+          <Card className="p-4">No disputes</Card>
+        ) : (
+          items.map((d) => {
+            const evidence: string[] = Array.isArray(d.evidenceUrls) ? d.evidenceUrls : [];
+            const buyerKey = String(d.buyerKey || "").trim();
+
+            return (
+              <Card key={d.id} className="p-4">
+                <p className="font-semibold text-gray-900">Dispute</p>
+                <p className="text-xs text-gray-600 break-all">{d.id}</p>
+
+                <p className="text-sm mt-2">
+                  Order: <b className="break-all">{d.orderId}</b>
+                </p>
+                <p className="text-sm mt-1">
+                  Reason: <b>{d.reason}</b>
+                </p>
+                {d.details ? <p className="text-sm mt-1 text-gray-700 whitespace-pre-wrap">{String(d.details)}</p> : null}
+
+                <p className="text-xs text-gray-600 mt-2">
+                  Status: <b>{d.status}</b> â€¢ Created: {fmtDate(d.createdAt)}
+                </p>
+
+                <p className="text-xs text-gray-600 mt-2">
+                  From: <b>{String(d.createdByType || "â€”")}</b> â€¢ Priority: <b>{Number(d.priority || 1)}</b> â€¢ Plan:{" "}
+                  <b>{String(d.vendorPlanKey || "FREE")}</b>
+                </p>
+
+                {buyerKey ? (
+                  <p className="text-[11px] text-gray-600 mt-2 break-all">
+                    BuyerKey: <b className="text-gray-900">{buyerKey}</b>
+                  </p>
+                ) : null}
+
+                {evidence.length ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {evidence.slice(0, 9).map((u) => (
+                      <a key={u} href={u} target="_blank" rel="noreferrer" className="block">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="Evidence" className="h-24 w-full object-cover rounded-2xl border" />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-gray-500 mt-2">No evidence uploaded.</p>
+                )}
+
+                {d.status === "open" ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <button className="rounded-2xl border py-2 text-sm font-semibold" onClick={() => resolve(d.id, "release")}>
+                      Release
+                    </button>
+                    <button className="rounded-2xl border py-2 text-sm font-semibold" onClick={() => resolve(d.id, "refund")}>
+                      Refund
+                    </button>
+                  </div>
+                ) : null}
+
+                {buyerKey ? (
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => freezeBuyer(buyerKey, true)}>
+                      Freeze buyer
+                    </Button>
+                    <Button variant="secondary" size="sm" onClick={() => freezeBuyer(buyerKey, false)}>
+                      Unfreeze buyer
+                    </Button>
+                  </div>
+                ) : null}
+              </Card>
+            );
+          })
+        )}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\api\admin\customers\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { Timestamp } from "firebase-admin/firestore";
+import { dayKeysBetween, monthRangeFromYYYYMM } from "@/lib/metrics/daily";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function rangeWindow(range: string, month?: string | null) {
+  const now = Date.now();
+
+  if (month) {
+    const mr = monthRangeFromYYYYMM(month);
+    if (mr) return { startMs: mr.startMs, endMs: mr.endMs };
+  }
+
+  if (range === "today") {
+    const d = new Date();
+    const startMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    return { startMs, endMs: now };
+  }
+
+  if (range === "month") return { startMs: now - 30 * 24 * 60 * 60 * 1000, endMs: now };
+  return { startMs: now - 7 * 24 * 60 * 60 * 1000, endMs: now };
+}
+
+function toMs(v: any) {
+  try {
+    if (!v) return 0;
+    if (typeof v?.toDate === "function") return v.toDate().getTime();
+    if (typeof v?.seconds === "number") return v.seconds * 1000;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+function dayKeyFromMs(ms: number) {
+  const d = new Date(ms);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const dd = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${dd}`;
+}
+
+function buyerKeyFromOrder(o: any) {
+  const phone = String(o?.customer?.phone || "").trim().replace(/[^\d+]/g, "");
+  const email = String(o?.customer?.email || "").trim().toLowerCase();
+  return phone || email || "";
+}
+
+export async function GET(req: Request) {
+  try {
+    await requireRole(req, "admin");
+
+    const url = new URL(req.url);
+    const range = url.searchParams.get("range") || "week";
+    const month = url.searchParams.get("month");
+    const { startMs, endMs } = rangeWindow(range, month);
+
+    const startTs = Timestamp.fromMillis(startMs);
+    const endTs = Timestamp.fromMillis(endMs);
+
+    const snap = await adminDb
+      .collection("orders")
+      .where("createdAt", ">=", startTs)
+      .where("createdAt", "<=", endTs)
+      .limit(5000)
+      .get();
+
+    const orders = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+
+    const buyers = new Map<string, any>();
+
+    let revenue = 0;
+    for (const o of orders) {
+      const amt = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+      revenue += amt;
+
+      const key = buyerKeyFromOrder(o);
+      if (!key) continue;
+
+      const cur = buyers.get(key) || {
+        key,
+        phone: String(o?.customer?.phone || "").trim() || null,
+        email: String(o?.customer?.email || "").trim().toLowerCase() || null,
+        fullName: String(o?.customer?.fullName || "").trim() || null,
+        orders: 0,
+        spend: 0,
+        lastOrderAtMs: 0,
+      };
+
+      cur.orders += 1;
+      cur.spend += amt;
+
+      const ms = toMs(o.createdAt);
+      if (ms > cur.lastOrderAtMs) cur.lastOrderAtMs = ms;
+
+      buyers.set(key, cur);
+    }
+
+    const list = Array.from(buyers.values());
+    const uniqueBuyers = list.length;
+    const repeatBuyers = list.filter((b) => b.orders >= 2).length;
+
+    // Top buyers by spend
+    list.sort((a, b) => Number(b.spend || 0) - Number(a.spend || 0));
+    const topBuyers = list.slice(0, 25);
+
+    // Daily series (orders + revenue)
+    const dayKeys = dayKeysBetween(startMs, endMs);
+    const seriesMap = new Map(dayKeys.map((dk) => [dk, { dayKey: dk, orders: 0, revenue: 0 }]));
+
+    for (const o of orders) {
+      const ms = toMs(o.createdAt);
+      if (!ms) continue;
+      const dk = dayKeyFromMs(ms);
+      const row = seriesMap.get(dk);
+      if (!row) continue;
+      row.orders += 1;
+      row.revenue += Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+    }
+
+    const series = Array.from(seriesMap.values());
+
+    return NextResponse.json({
+      ok: true,
+      window: { range, month: month || null, startMs, endMs },
+      totals: {
+        orders: orders.length,
+        revenue,
+        uniqueBuyers,
+        repeatBuyers,
+      },
+      topBuyers,
+      series,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\vendor\wallet\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { auth } from "@/lib/firebase/client";
+import { Button } from "@/components/ui/Button";
+import { useRouter } from "next/navigation";
+
+function fmtNairaFromKobo(kobo: number) {
+  const n = Number(kobo || 0) / 100;
+  try {
+    return `â‚¦${n.toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+export default function VendorBalancePage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [wallet, setWallet] = useState<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("Not logged in");
+
+        const r = await fetch("/api/vendor/wallet", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Failed to load balance");
+
+        if (!mounted) return;
+        setWallet(data?.wallet || data);
+      } catch (e: any) {
+        setMsg(e?.message || "Failed");
+        setWallet(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const pending = useMemo(() => Number(wallet?.pendingBalanceKobo || 0), [wallet]);
+  const available = useMemo(() => Number(wallet?.availableBalanceKobo || 0), [wallet]);
+  const hold = useMemo(() => Number(wallet?.withdrawHoldKobo || 0), [wallet]);
+  const total = useMemo(() => Number(wallet?.totalEarnedKobo || 0), [wallet]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="BizHub Balance" subtitle="Earnings & withdrawals" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && !msg ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Available balance</p>
+              <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(available)}</p>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button onClick={() => router.push("/vendor/withdrawals")}>Withdraw</Button>
+                <Button variant="secondary" onClick={() => window.location.reload()}>Refresh</Button>
+              </div>
+
+              <p className="mt-3 text-[11px] opacity-90">
+                Pending withdrawals (hold): <b>{fmtNairaFromKobo(hold)}</b>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Pending settlement</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(pending)}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Total earned</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(total)}</p>
+              </Card>
+            </div>
+
+            <Card className="p-4">
+              <p className="font-bold text-biz-ink">Tip</p>
+              <p className="text-sm text-gray-700 mt-2">
+                Escrow orders move from Pending to Available after the hold time if thereâ€™s no dispute.
+              </p>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\api\vendor\orders\[orderId]\route.ts -----
+// FILE: src/app/api/vendor/orders/[orderId]/route.ts
+import { NextResponse } from "next/server";
+import { requireAnyRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+import { getVendorLimitsResolved } from "@/lib/vendor/limitsServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const OPS_KEYS = new Set(["new", "contacted", "paid", "in_transit", "delivered", "cancelled"]);
+
+function computeOpsEffective(o: any) {
+  const ops = String(o?.opsStatus || "").trim();
+  if (OPS_KEYS.has(ops)) return ops;
+
+  const orderStatus = String(o?.orderStatus || "").trim();
+  if (OPS_KEYS.has(orderStatus)) return orderStatus;
+
+  const pt = String(o?.paymentType || "");
+  if (pt === "paystack_escrow") return "paid";
+  if (pt === "direct_transfer") return "new";
+  if (pt === "chat_whatsapp") return "new";
+  return null;
+}
+
+export async function GET(req: Request, ctx: { params: { orderId: string } }) {
+  try {
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const orderId = String(ctx.params.orderId || "");
+    if (!orderId) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+
+    const access = await getVendorLimitsResolved(me.businessId);
+
+    const ref = adminDb.collection("orders").doc(orderId);
+    const snap = await ref.get();
+    if (!snap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+
+    const o = { id: snap.id, ...(snap.data() as any) };
+
+    if (String(o.businessId || "") !== String(me.businessId || "")) {
+      return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+    }
+
+    return NextResponse.json({
+      ok: true,
+      meta: {
+        planKey: access.planKey,
+        hasActiveSubscription: access.hasActiveSubscription,
+        limits: access.limits,
+      },
+      order: {
+        id: o.id,
+        createdAt: o.createdAt ?? null,
+        updatedAt: o.updatedAt ?? null,
+
+        businessId: o.businessId ?? null,
+        businessSlug: o.businessSlug ?? null,
+
+        orderSource: o.orderSource ?? null,
+
+        paymentType: o.paymentType ?? null,
+        escrowStatus: o.escrowStatus ?? null,
+        orderStatus: o.orderStatus ?? null,
+
+        opsStatus: o.opsStatus ?? null,
+        opsStatusEffective: computeOpsEffective(o),
+
+        amount: o.amount ?? null,
+        amountKobo: o.amountKobo ?? null,
+        currency: o.currency ?? "NGN",
+
+        customer: o.customer ?? null,
+        items: Array.isArray(o.items) ? o.items : [],
+
+        shipping: o.shipping ?? null,
+        coupon: o.coupon ?? null,
+      },
+    });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
+        { status: 403 }
+      );
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\marketing\optout\route.ts -----
+// FILE: src/app/api/marketing/optout/route.ts
+import { NextResponse } from "next/server";
+import { requireMe } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function cleanSlug(s: any) {
+  return String(s || "").trim().toLowerCase().slice(0, 80);
+}
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireMe(req);
+
+    const ref = adminDb.collection("users").doc(me.uid);
+    const snap = await ref.get();
+    const d = snap.exists ? (snap.data() as any) : {};
+
+    const prefs = d?.marketingPrefs || {};
+    const globalOptOut = !!prefs.globalOptOut;
+
+    const storeOptOutSlugs: string[] = Array.isArray(prefs.storeOptOutSlugs)
+      ? prefs.storeOptOutSlugs.map(String).filter(Boolean).slice(0, 500)
+      : [];
+
+    return NextResponse.json({ ok: true, globalOptOut, storeOptOutSlugs });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireMe(req);
+
+    const body = await req.json().catch(() => ({}));
+    const storeSlug = cleanSlug(body.storeSlug);
+    const optOut = body.optOut === true;
+
+    if (!storeSlug) return NextResponse.json({ ok: false, error: "storeSlug required" }, { status: 400 });
+
+    const ref = adminDb.collection("users").doc(me.uid);
+
+    await adminDb.runTransaction(async (t) => {
+      const snap = await t.get(ref);
+      const d = snap.exists ? (snap.data() as any) : {};
+      const prefs = d?.marketingPrefs || {};
+
+      const cur: string[] = Array.isArray(prefs.storeOptOutSlugs)
+        ? prefs.storeOptOutSlugs.map(String).filter(Boolean)
+        : [];
+
+      const set = new Set(cur.map((x) => x.toLowerCase()));
+      if (optOut) set.add(storeSlug);
+      else set.delete(storeSlug);
+
+      t.set(
+        ref,
+        {
+          marketingPrefs: {
+            ...prefs,
+            storeOptOutSlugs: Array.from(set).slice(0, 500),
+            updatedAtMs: Date.now(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\admin\reports\daily\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import nodemailer from "nodemailer";
+import { buildDailyPlatformReport } from "@/lib/reports/platformDaily";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function getTransport() {
+  const host = process.env.SMTP_HOST;
+  const port = Number(process.env.SMTP_PORT || 465);
+  const secure = String(process.env.SMTP_SECURE || "true") === "true";
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  const from = process.env.SMTP_FROM || user;
+
+  if (!host || !user || !pass || !from) return null;
+
+  const transporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    auth: { user, pass },
+  });
+
+  return { transporter, from };
+}
+
+function isCronAuthorized(req: Request) {
+  const token = req.headers.get("x-cron-token") || "";
+  const expected = process.env.DAILY_REPORT_CRON_TOKEN || "";
+  return expected && token && token === expected;
+}
+
+export async function GET(req: Request) {
+  try {
+    await requireRole(req, "admin");
+    const report = await buildDailyPlatformReport();
+    return NextResponse.json({ ok: true, report });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    // Allow either admin user OR cron token
+    const cronOk = isCronAuthorized(req);
+    if (!cronOk) {
+      await requireRole(req, "admin");
+    }
+
+    const report = await buildDailyPlatformReport();
+
+    const to = process.env.DAILY_REPORT_EMAIL_TO || "bizhub6041@gmail.com";
+
+    const t = getTransport();
+    if (!t) {
+      return NextResponse.json(
+        { ok: false, error: "SMTP is not configured (SMTP_HOST/USER/PASS/FROM)." },
+        { status: 500 }
+      );
+    }
+
+    await t.transporter.sendMail({
+      from: t.from,
+      to,
+      subject: `BizHub Daily Report â€” ${report.dayKey}`,
+      text: report.text,
+    });
+
+    return NextResponse.json({ ok: true, sentTo: to, dayKey: report.dayKey });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\vendor\access\route.ts -----
+// FILE: src/app/api/vendor/access/route.ts
+import { NextResponse } from "next/server";
+import { requireAnyRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { computeVendorAccessState } from "@/lib/vendor/access";
+import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    const snap = await adminDb.collection("businesses").doc(me.businessId).get();
+    if (!snap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+
+    const biz = { id: snap.id, ...(snap.data() as any) };
+
+    const state = computeVendorAccessState(biz);
+    const plan = await getBusinessPlanResolved(me.businessId);
+
+    return NextResponse.json({
+      ok: true,
+
+      // Batch 8: never lock
+      locked: false,
+      reason: state.reason,
+
+      // keep old fields for compatibility
+      freeEndsAtMs: null,
+      trialEndsAtMs: state.trialEndsAtMs,
+      subscriptionExpiresAtMs: state.subscriptionExpiresAtMs,
+      hasActiveSubscription: plan.hasActiveSubscription,
+      trialActive: state.trialActive,
+
+      planKey: plan.planKey,
+      features: plan.features,
+      limits: plan.limits,
+
+      business: {
+        id: biz.id,
+        slug: biz.slug ?? null,
+        name: biz.name ?? null,
+      },
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\lib\firebase\admin.ts -----
+import fs from "node:fs";
+import path from "node:path";
+import { cert, getApps, initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
+import { getAuth } from "firebase-admin/auth";
+
+/**
+ * PRODUCTION SAFE:
+ * - Prefer FIREBASE_SERVICE_ACCOUNT_JSON or FIREBASE_SERVICE_ACCOUNT_BASE64 env vars
+ * - Fallback to local file serviceAccountKey.json for local dev only
+ */
+function readServiceAccountFromEnv() {
+  const rawJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
+  if (rawJson) {
+    return JSON.parse(rawJson);
+  }
+
+  const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_BASE64;
+  if (b64) {
+    const json = Buffer.from(b64, "base64").toString("utf8");
+    return JSON.parse(json);
+  }
+
+  return null;
+}
+
+function readServiceAccountFromFile() {
+  const p = path.join(process.cwd(), "serviceAccountKey.json");
+  if (!fs.existsSync(p)) return null;
+  const raw = fs.readFileSync(p, "utf8");
+  return JSON.parse(raw);
+}
+
+function getServiceAccount() {
+  const env = readServiceAccountFromEnv();
+  if (env) return env;
+
+  const file = readServiceAccountFromFile();
+  if (file) return file;
+
+  throw new Error(
+    "Missing Firebase Admin credentials. Provide FIREBASE_SERVICE_ACCOUNT_JSON (or FIREBASE_SERVICE_ACCOUNT_BASE64) in env, or serviceAccountKey.json locally."
+  );
+}
+
+export const adminApp =
+  getApps().length > 0
+    ? getApps()[0]
+    : initializeApp({
+        credential: cert(getServiceAccount()),
+      });
+
+export const adminDb = getFirestore(adminApp);
+export const adminAuth = getAuth(adminApp);
+
+----- FILE: src\lib\checkout\profile.ts -----
+export type CheckoutProfile = {
+  email: string;
+  fullName: string;
+  phone: string;
+  address: string;
+};
+
+const KEY = "bizhub_checkout_profile_v1";
+
+function safeParse(raw: string | null): CheckoutProfile | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    if (!v || typeof v !== "object") return null;
+    return {
+      email: String(v.email || ""),
+      fullName: String(v.fullName || ""),
+      phone: String(v.phone || ""),
+      address: String(v.address || ""),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function loadCheckoutProfile(): CheckoutProfile {
+  if (typeof window === "undefined") return { email: "", fullName: "", phone: "", address: "" };
+  const v = safeParse(localStorage.getItem(KEY));
+  return v || { email: "", fullName: "", phone: "", address: "" };
+}
+
+export function saveCheckoutProfile(p: CheckoutProfile) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(
+    KEY,
+    JSON.stringify({
+      email: p.email || "",
+      fullName: p.fullName || "",
+      phone: p.phone || "",
+      address: p.address || "",
+    })
+  );
+}
+
+----- FILE: src\lib\firebase\market.ts -----
+import { db } from "@/lib/firebase/client";
+import { collection, getDocs, limit, query } from "firebase/firestore";
+
+export async function listBusinesses(max = 10) {
+  const q = query(collection(db, "businesses"), limit(max));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+}
+
+export async function listTrendingProducts(max = 12) {
+  // Simple: just grab first products. Later weâ€™ll do analytics-based trending.
+  const q = query(collection(db, "products"), limit(max));
+  const snap = await getDocs(q);
+
+  // Attach business slug/name if present on product, else best-effort
+  return snap.docs.map((d) => {
+    const x = d.data() as any;
+    return {
+      id: d.id,
+      name: x.name,
+      price: x.price,
+      imageUrl: x.images?.[0] ?? null,
+      businessId: x.businessId,
+      businessSlug: x.businessSlug ?? x.storeSlug ?? "miracle-store",
+      businessName: x.businessName ?? "Store",
+    };
+  });
+}
+
+----- FILE: src\components\ui\EmptyState.tsx -----
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/cn";
+
+export function EmptyState({
+  title,
+  description,
+  ctaLabel,
+  onCta,
+  className,
+}: {
+  title: string;
+  description?: string;
+  ctaLabel?: string;
+  onCta?: () => void;
+  className?: string;
+}) {
+  return (
+    <Card className={cn("p-5 text-center", className)}>
+      <p className="text-base font-bold text-biz-ink">{title}</p>
+      {description ? (
+        <p className="text-sm text-biz-muted mt-2">{description}</p>
+      ) : null}
+
+      {ctaLabel && onCta ? (
+        <div className="mt-4">
+          <Button onClick={onCta}>{ctaLabel}</Button>
+        </div>
+      ) : null}
+    </Card>
+  );
+}
+
+----- FILE: src\components\ui\Chip.tsx -----
+import { cn } from "@/lib/cn";
+
+export function Chip({
+  active,
+  className,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { active?: boolean }) {
+  return (
+    <button
+      className={cn(
+        "whitespace-nowrap rounded-full px-4 py-2 text-xs font-bold border transition shadow-sm",
+        active
+          ? "bg-gradient-to-br from-biz-accent2 to-biz-accent text-white border-transparent"
+          : "bg-white border-biz-line text-gray-700",
+        className
+      )}
+      {...props}
+    />
+  );
+}
+
+----- FILE: postcss.config.mjs -----
+const config = {
+  plugins: {
+    "@tailwindcss/postcss": {},
+  },
+};
+
+export default config;

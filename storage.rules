@@ -1,0 +1,15 @@
+﻿rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    // Public read (so images can load on storefront/market)
+    match /{allPaths=**} {
+      allow read: if true;
+    }
+
+    // Write: only authenticated user can write under their own uid folder
+    match /uploads/{uid}/{allPaths=**} {
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+  }
+}

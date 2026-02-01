@@ -1,0 +1,2321 @@
+﻿== BIZHUB SNAPSHOT PACK 9/10 ==
+Date: 2/1/2026 10:12:49 AM
+Node: v24.12.0
+NPM: 11.6.2
+Approx bytes in this pack: 75132
+
+== FILE LIST (relative path + bytes) ==
+src\app\market\page.tsx  (bytes: 12637)
+src\app\vendor\staff\page.tsx  (bytes: 11341)
+src\app\vendor\subscription\page.tsx  (bytes: 9117)
+src\lib\vendor\planConfigServer.ts  (bytes: 7030)
+src\app\api\subscriptions\confirm\route.ts  (bytes: 6257)
+src\app\api\vendor\shipping\route.ts  (bytes: 5273)
+src\app\api\vendor\coupons\validate\route.ts  (bytes: 4620)
+src\app\api\admin\analytics\platform\route.ts  (bytes: 3959)
+src\app\api\vendor\onboard\route.ts  (bytes: 3262)
+src\components\AuthGate.tsx  (bytes: 2542)
+src\lib\escrow\releaseServer.ts  (bytes: 2213)
+src\lib\track\client.ts  (bytes: 1836)
+README.md  (bytes: 1450)
+src\lib\vendor\access.ts  (bytes: 1181)
+src\lib\orders\recent.ts  (bytes: 1113)
+src\components\ui\StatCard.tsx  (bytes: 751)
+src\components\ui\IconButton.tsx  (bytes: 550)
+
+----- FILE: src\app\market\page.tsx -----
+// FILE: src/app/market/page.tsx
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { db } from "@/lib/firebase/client";
+import { collection, getDocs, limit, orderBy, query, where, DocumentData } from "firebase/firestore";
+
+import { Card } from "@/components/Card";
+import { Input } from "@/components/ui/Input";
+import { Button } from "@/components/ui/Button";
+import { trackBatch, track } from "@/lib/track/client";
+import { Chip } from "@/components/ui/Chip";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function tokenForSearch(q: string) {
+  const t = q.toLowerCase().trim().split(/\s+/).filter(Boolean)[0] || "";
+  return t.slice(0, 10);
+}
+
+const CATEGORIES = [
+  { label: "Fashion", hint: "Clothes, shoes" },
+  { label: "Phones", hint: "Android, iPhone" },
+  { label: "Beauty", hint: "Hair, makeup" },
+  { label: "Home", hint: "Kitchen, decor" },
+  { label: "Bags", hint: "Handbags" },
+  { label: "Services", hint: "Lash, nails" },
+];
+
+function listingSubtitle(p: any) {
+  const isService = String(p?.listingType || "product") === "service";
+  const serviceMode = String(p?.serviceMode || "book");
+  if (!isService) return fmtNaira(p?.price || 0);
+  return serviceMode === "pay" ? fmtNaira(p?.price || 0) : "Book only";
+}
+
+function tierLabel(n: any) {
+  const t = Number(n || 0);
+  if (t >= 3) return "Tier 3";
+  if (t === 2) return "Tier 2";
+  if (t === 1) return "Tier 1";
+  return "Tier 0";
+}
+
+export default function MarketPage() {
+  const router = useRouter();
+  const [qText, setQText] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [items, setItems] = useState<DocumentData[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [tierFilter, setTierFilter] = useState<number | null>(null);
+  const [stateFilter, setStateFilter] = useState<string>("");
+  const [cityFilter, setCityFilter] = useState<string>("");
+
+  const token = useMemo(() => tokenForSearch(qText), [qText]);
+  const impressed = useRef(new Set<string>());
+
+  function applyMarketRules(list: any[]) {
+    // âœ… Batch 8 rule:
+    // FREE products should not appear in market.
+    // Enforced via businessHasActiveSubscription or marketAllowed flag on product.
+    return list
+      .filter((p: any) => p?.marketEnabled !== false)
+      .filter((p: any) => !!p?.businessSlug)
+      .filter((p: any) => p?.businessHasActiveSubscription === true || p?.marketAllowed === true)
+      .filter((p: any) => {
+        if (tierFilter == null) return true;
+        return Number(p?.marketTier || 0) === tierFilter;
+      })
+      .filter((p: any) => {
+        if (!stateFilter.trim()) return true;
+        return String(p?.businessState || "").toLowerCase().includes(stateFilter.trim().toLowerCase());
+      })
+      .filter((p: any) => {
+        if (!cityFilter.trim()) return true;
+        return String(p?.businessCity || "").toLowerCase().includes(cityFilter.trim().toLowerCase());
+      })
+      .sort((a: any, b: any) => {
+        // Higher marketScore first (tier boosts, dispute penalties reduce)
+        return Number(b.marketScore || 0) - Number(a.marketScore || 0);
+      });
+  }
+
+  async function loadTrending() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const boostedRef = query(
+        collection(db, "products"),
+        where("boostUntilMs", ">", Date.now()),
+        orderBy("boostUntilMs", "desc"),
+        limit(50)
+      );
+      const boostedSnap = await getDocs(boostedRef);
+      const boosted = boostedSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      const latestRef = query(collection(db, "products"), orderBy("createdAt", "desc"), limit(120));
+      const latestSnap = await getDocs(latestRef);
+      const latest = latestSnap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      const merged: any[] = [];
+      const seen = new Set<string>();
+
+      for (const p of [...boosted, ...latest]) {
+        if (seen.has(p.id)) continue;
+        seen.add(p.id);
+        merged.push(p);
+      }
+
+      const filtered = applyMarketRules(merged);
+
+      setItems(filtered);
+
+      const events = filtered
+        .slice(0, 40)
+        .filter((p: any) => p?.businessId && p?.id)
+        .filter((p: any) => {
+          if (impressed.current.has(p.id)) return false;
+          impressed.current.add(p.id);
+          return true;
+        })
+        .map((p: any) => ({
+          type: "market_impression" as const,
+          businessId: String(p.businessId),
+          businessSlug: String(p.businessSlug || ""),
+          productId: String(p.id),
+        }));
+
+      trackBatch(events);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to load market");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runSearch() {
+    const t = tokenForSearch(qText);
+    if (!t) return loadTrending();
+
+    setLoading(true);
+    setMsg(null);
+
+    try {
+      const qRef = query(collection(db, "products"), where("keywords", "array-contains", t), limit(120));
+      const snap = await getDocs(qRef);
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      const filtered = applyMarketRules(rows);
+
+      setItems(filtered);
+
+      const events = filtered
+        .slice(0, 40)
+        .filter((p: any) => p?.businessId && p?.id)
+        .filter((p: any) => {
+          if (impressed.current.has(p.id)) return false;
+          impressed.current.add(p.id);
+          return true;
+        })
+        .map((p: any) => ({
+          type: "market_impression" as const,
+          businessId: String(p.businessId),
+          businessSlug: String(p.businessSlug || ""),
+          productId: String(p.id),
+        }));
+
+      trackBatch(events);
+    } catch (e: any) {
+      setMsg(e?.message || "Search failed");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadTrending();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    // re-apply filters without refetch
+    setItems((prev) => applyMarketRules(prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tierFilter, stateFilter, cityFilter]);
+
+  function openProduct(p: any) {
+    const slug = String(p?.businessSlug || "");
+    if (!slug) return;
+
+    if (p?.businessId && p?.id) {
+      track({
+        type: "market_click",
+        businessId: String(p.businessId),
+        businessSlug: slug,
+        productId: String(p.id),
+      });
+    }
+
+    router.push(`/b/${slug}/p/${p.id}`);
+  }
+
+  return (
+    <div className="min-h-screen">
+      <div className="relative">
+        <div className="h-2 w-full bg-gradient-to-r from-biz-accent2 to-biz-accent" />
+        <div className="px-4 pt-5 pb-5 bg-gradient-to-b from-biz-sand to-biz-bg">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-lg font-bold text-biz-ink">
+                BizHub<span className="text-biz-accent">.</span>
+              </p>
+              <p className="text-xs text-biz-muted mt-1">Marketplace</p>
+            </div>
+
+            <Link href="/cart" className="rounded-2xl border border-biz-line bg-white px-4 py-2 text-xs font-bold shadow-soft">
+              Cart
+            </Link>
+          </div>
+
+          <Card className="p-3 mt-4">
+            <div className="flex gap-2">
+              <Input placeholder="Search products or servicesâ€¦" value={qText} onChange={(e) => setQText(e.target.value)} />
+              <Button size="sm" onClick={runSearch} disabled={loading}>
+                Search
+              </Button>
+            </div>
+
+            <p className="mt-2 text-[11px] text-biz-muted">
+              {token ? (
+                <>
+                  Searching: <b className="text-biz-ink">{token}</b>
+                </>
+              ) : (
+                <>Showing latest + promoted</>
+              )}
+            </p>
+          </Card>
+
+          {/* Filters */}
+          <Card className="p-3 mt-3">
+            <p className="text-xs font-bold text-gray-500">FILTERS</p>
+
+            <div className="mt-2 flex gap-2 flex-wrap">
+              {[null, 1, 2, 3].map((t) => (
+                <Chip
+                  key={String(t)}
+                  active={tierFilter === t}
+                  onClick={() => setTierFilter(t as any)}
+                >
+                  {t == null ? "All tiers" : `Tier ${t}`}
+                </Chip>
+              ))}
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Input placeholder="State (optional)" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} />
+              <Input placeholder="City (optional)" value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} />
+            </div>
+
+            <div className="mt-2">
+              <Button variant="secondary" size="sm" onClick={() => { setTierFilter(null); setStateFilter(""); setCityFilter(""); }}>
+                Clear filters
+              </Button>
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      <div className="px-4 pb-24 space-y-3">
+        <Card className="p-4">
+          <p className="font-bold text-biz-ink">Categories</p>
+          <div className="mt-3 grid grid-cols-3 gap-2">
+            {CATEGORIES.map((c) => (
+              <button
+                key={c.label}
+                onClick={() => {
+                  setQText(c.label);
+                  setTimeout(runSearch, 0);
+                }}
+                className="rounded-2xl border border-biz-line bg-white p-3 text-left hover:bg-black/[0.02] transition"
+              >
+                <p className="text-sm font-bold text-biz-ink">{c.label}</p>
+                <p className="text-[11px] text-biz-muted mt-1">{c.hint}</p>
+              </button>
+            ))}
+          </div>
+        </Card>
+
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {loading ? (
+          <Card className="p-4">Loadingâ€¦</Card>
+        ) : items.length === 0 ? (
+          <Card className="p-4">
+            <p className="font-bold text-biz-ink">No results</p>
+            <p className="text-sm text-biz-muted mt-1">Try another keyword or adjust filters.</p>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            {items.map((p: any) => {
+              const img = Array.isArray(p?.images) ? p.images[0] : "";
+              const boosted = Number(p?.boostUntilMs || 0) > Date.now();
+              const tier = Number(p?.marketTier ?? p?.verificationTier ?? 0);
+
+              return (
+                <button key={p.id} onClick={() => openProduct(p)} className="text-left">
+                  <Card className="p-3">
+                    <div className="h-28 w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative">
+                      {img ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={img} alt={p?.name || "Listing"} className="h-full w-full object-cover" />
+                      ) : null}
+
+                      {boosted ? (
+                        <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5">
+                          Promoted
+                        </div>
+                      ) : null}
+
+                      <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5">
+                        {tierLabel(tier)}
+                      </div>
+                    </div>
+
+                    <p className="mt-2 text-sm font-bold text-biz-ink line-clamp-2">{p?.name || "Unnamed"}</p>
+                    <p className="mt-1 text-xs text-biz-muted">{listingSubtitle(p)}</p>
+
+                    <p className="mt-1 text-[11px] text-gray-500">
+                      Store: <b className="text-biz-ink">{p?.businessSlug || "â€”"}</b>
+                    </p>
+                  </Card>
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\vendor\staff\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+
+type Perms = {
+  productsView: boolean;
+  productsManage: boolean;
+  ordersView: boolean;
+  ordersManage: boolean;
+  analyticsView: boolean;
+  storeManage: boolean;
+  walletAccess: boolean;
+  payoutAccess: boolean;
+};
+
+const DEFAULT_PERMS: Perms = {
+  productsView: true,
+  productsManage: false,
+  ordersView: true,
+  ordersManage: false,
+  analyticsView: true,
+  storeManage: false,
+  walletAccess: false,
+  payoutAccess: false,
+};
+
+function Toggle({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => (!disabled ? onChange(!value) : undefined)}
+      className={[
+        "w-full rounded-2xl border p-3 flex items-center justify-between",
+        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-black/[0.02]",
+        "border-biz-line bg-white transition",
+      ].join(" ")}
+    >
+      <span className="text-sm font-bold text-biz-ink">{label}</span>
+      <span
+        className={
+          value
+            ? "px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100"
+            : "px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100"
+        }
+      >
+        {value ? "ON" : "OFF"}
+      </span>
+    </button>
+  );
+}
+
+export default function VendorStaffPage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [me, setMe] = useState<any>(null);
+
+  const [staff, setStaff] = useState<any[]>([]);
+  const [invites, setInvites] = useState<any[]>([]);
+
+  // invite form
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [perms, setPerms] = useState<Perms>(DEFAULT_PERMS);
+  const [creating, setCreating] = useState(false);
+
+  const isOwner = useMemo(() => String(me?.role || "") === "owner", [me]);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+
+    try {
+      // get role
+      const token = await auth.currentUser?.getIdToken();
+      const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+      const meData = await rMe.json().catch(() => ({}));
+      if (!rMe.ok) throw new Error(meData?.error || "Failed to load profile");
+      setMe(meData.me);
+
+      // owner-only endpoint
+      const data = await authedFetch("/api/vendor/staff");
+      setStaff(Array.isArray(data.staff) ? data.staff : []);
+      setInvites(Array.isArray(data.invites) ? data.invites : []);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to load staff");
+      setStaff([]);
+      setInvites([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function createInvite() {
+    setCreating(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/vendor/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, permissions: perms }),
+      });
+
+      const link = String(data.inviteLink || "");
+      if (link) {
+        try {
+          await navigator.clipboard.writeText(link);
+          setMsg("Invite created. Link copied to clipboard.");
+        } catch {
+          setMsg("Invite created. Copy link manually: " + link);
+        }
+      } else {
+        setMsg("Invite created.");
+      }
+
+      setName("");
+      setEmail("");
+      setPerms(DEFAULT_PERMS);
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to create invite");
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function revokeInvite(inviteId: string) {
+    if (!confirm("Revoke this invite?")) return;
+    try {
+      await authedFetch(`/api/vendor/staff?inviteId=${encodeURIComponent(inviteId)}`, { method: "DELETE" });
+      await load();
+    } catch (e: any) {
+      alert(e?.message || "Failed");
+    }
+  }
+
+  async function removeStaff(staffUid: string) {
+    if (!confirm("Remove this staff member?")) return;
+    try {
+      await authedFetch(`/api/vendor/staff?staffUid=${encodeURIComponent(staffUid)}`, { method: "DELETE" });
+      await load();
+    } catch (e: any) {
+      alert(e?.message || "Failed");
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Staff"
+        subtitle="Invite and manage team access"
+        showBack={true}
+        right={
+          <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
+            Refresh
+          </Button>
+        }
+      />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4">{msg}</Card> : null}
+
+        {!loading && !isOwner ? (
+          <Card className="p-4">
+            <p className="text-sm font-bold text-biz-ink">Owner only</p>
+            <p className="text-xs text-biz-muted mt-1">
+              Staff management is available to the business owner only.
+            </p>
+            <div className="mt-3">
+              <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                Back to dashboard
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        {!loading && isOwner ? (
+          <>
+            <SectionCard title="Invite staff" subtitle="Send an invite link to a staff email">
+              <div className="space-y-2">
+                <Input placeholder="Staff name (optional)" value={name} onChange={(e) => setName(e.target.value)} />
+                <Input placeholder="Staff email" value={email} onChange={(e) => setEmail(e.target.value)} />
+
+                <div className="rounded-2xl border border-biz-line bg-white p-3">
+                  <p className="text-sm font-bold text-biz-ink">Permissions</p>
+                  <p className="text-[11px] text-biz-muted mt-1">
+                    Owner-only: store settings, wallet, payouts.
+                  </p>
+
+                  <div className="mt-3 space-y-2">
+                    <Toggle label="View products" value={perms.productsView} onChange={(v) => setPerms((p) => ({ ...p, productsView: v }))} />
+                    <Toggle label="Manage products" value={perms.productsManage} onChange={(v) => setPerms((p) => ({ ...p, productsManage: v }))} />
+
+                    <Toggle label="View orders" value={perms.ordersView} onChange={(v) => setPerms((p) => ({ ...p, ordersView: v }))} />
+                    <Toggle label="Manage orders" value={perms.ordersManage} onChange={(v) => setPerms((p) => ({ ...p, ordersManage: v }))} />
+
+                    <Toggle label="View analytics" value={perms.analyticsView} onChange={(v) => setPerms((p) => ({ ...p, analyticsView: v }))} />
+                  </div>
+                </div>
+
+                <Button onClick={createInvite} loading={creating} disabled={creating || !email.trim()}>
+                  Create invite
+                </Button>
+
+                <p className="text-[11px] text-biz-muted">
+                  Staff must login with the invited email, then open the invite link to join your business.
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Pending invites" subtitle="Revoke if needed">
+              {invites.length === 0 ? (
+                <p className="text-sm text-biz-muted">No invites yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {invites.map((inv) => (
+                    <div key={inv.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <p className="text-sm font-bold text-biz-ink">{inv.email || "â€”"}</p>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        Status: <b className="text-biz-ink">{inv.status || "pending"}</b>
+                      </p>
+
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={async () => {
+                            const link = `${window.location.origin}/account/invite?code=${encodeURIComponent(inv.id)}`;
+                            try {
+                              await navigator.clipboard.writeText(link);
+                              alert("Invite link copied");
+                            } catch {
+                              alert("Copy failed. Link: " + link);
+                            }
+                          }}
+                        >
+                          Copy link
+                        </Button>
+                        <Button variant="danger" size="sm" onClick={() => revokeInvite(inv.id)}>
+                          Revoke
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Staff members" subtitle="Active team access">
+              {staff.length === 0 ? (
+                <p className="text-sm text-biz-muted">No staff members yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {staff.map((s) => (
+                    <div key={s.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <p className="text-sm font-bold text-biz-ink">{s.email || s.id}</p>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        Status: <b className="text-biz-ink">{s.status || "active"}</b>
+                      </p>
+
+                      <div className="mt-2">
+                        <Button variant="danger" size="sm" onClick={() => removeStaff(s.id)}>
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\vendor\subscription\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signOut } from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
+
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { BIZHUB_PLANS, type BizhubBillingCycle, type BizhubPlanKey } from "@/lib/bizhubPlans";
+import { CheckCircle2, LogOut } from "lucide-react";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function fmtDate(ms?: number) {
+  if (!ms) return "â€”";
+  try {
+    return new Date(ms).toLocaleDateString();
+  } catch {
+    return String(ms);
+  }
+}
+
+const PLAN_ORDER: BizhubPlanKey[] = ["LAUNCH", "MOMENTUM", "APEX"];
+
+export default function VendorSubscriptionPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+  const lockedMode = sp.get("locked") === "1";
+
+  const [cycle, setCycle] = useState<BizhubBillingCycle>("yearly");
+  const [selectedPlan, setSelectedPlan] = useState<BizhubPlanKey>("LAUNCH");
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [access, setAccess] = useState<any>(null);
+  const [my, setMy] = useState<any>(null);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const [a, m] = await Promise.all([
+        authedFetch("/api/vendor/access"),
+        authedFetch("/api/subscriptions/my"),
+      ]);
+
+      setAccess(a);
+      setMy(m);
+
+      // If currently subscribed, default to that plan
+      const entPlan = String(m?.entitlement?.planKey || "FREE") as BizhubPlanKey;
+      if (entPlan !== "FREE") setSelectedPlan(entPlan);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to load");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function doSignOut() {
+    await signOut(auth);
+    router.replace("/market");
+  }
+
+  async function subscribe() {
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/subscriptions/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planKey: selectedPlan, cycle }),
+      });
+
+      window.location.href = data.authorization_url;
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to start payment");
+    }
+  }
+
+  const plan = BIZHUB_PLANS[selectedPlan];
+  const price = plan.priceNgn[cycle];
+
+  const freeEndsAtMs = Number(access?.freeEndsAtMs || 0) || null;
+
+  const topHeader = (
+    <div className="relative">
+      <div className="h-2 w-full bg-gradient-to-r from-biz-accent2 to-biz-accent" />
+      <div className="px-4 pt-5 pb-5 bg-gradient-to-b from-biz-sand to-biz-bg">
+        <div className="flex items-start justify-between gap-3">
+          <button
+            onClick={doSignOut}
+            className="h-10 w-10 rounded-2xl bg-white border border-biz-line shadow-soft flex items-center justify-center"
+            aria-label="Sign out"
+            title="Sign out"
+          >
+            <LogOut className="h-5 w-5 text-gray-700" />
+          </button>
+
+          <div className="flex-1 min-w-0">
+            <h1 className="text-lg font-bold tracking-tight text-biz-ink">
+              Subscription<span className="text-biz-accent">.</span>
+            </h1>
+            <p className="text-xs text-biz-muted mt-1">
+              {lockedMode ? "Subscribe to continue using BizHub" : "Upgrade your plan"}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen">
+      {topHeader}
+
+      <div className="px-4 pb-6 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            {lockedMode ? (
+              <Card className="p-4">
+                <p className="text-sm font-bold text-biz-ink">Free access ended</p>
+                <p className="text-xs text-biz-muted mt-1">
+                  Your 7â€‘day restricted access has ended. Subscribe to unlock and continue.
+                </p>
+                {freeEndsAtMs ? (
+                  <p className="text-[11px] text-gray-500 mt-2">
+                    Ended on: <b className="text-biz-ink">{fmtDate(freeEndsAtMs)}</b>
+                  </p>
+                ) : null}
+              </Card>
+            ) : null}
+
+            <SegmentedControl<BizhubBillingCycle>
+              value={cycle}
+              onChange={setCycle}
+              options={[
+                { value: "monthly", label: "Monthly" },
+                { value: "quarterly", label: "Quarterly" },
+                { value: "biannually", label: "Biannual" },
+                { value: "yearly", label: "Yearly" },
+              ]}
+            />
+
+            <SectionCard title="Choose a plan" subtitle="Pay with Paystack â€¢ Instant activation">
+              <div className="space-y-2">
+                {PLAN_ORDER.map((k) => {
+                  const p = BIZHUB_PLANS[k];
+                  const active = selectedPlan === k;
+                  const pPrice = p.priceNgn[cycle];
+
+                  return (
+                    <button
+                      key={k}
+                      className={[
+                        "w-full text-left rounded-2xl border p-3 transition",
+                        active
+                          ? "border-transparent bg-gradient-to-br from-biz-accent2 to-biz-accent text-white shadow-float"
+                          : "border-biz-line bg-white hover:bg-black/[0.02]",
+                      ].join(" ")}
+                      onClick={() => setSelectedPlan(k)}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className={active ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
+                            {p.name}
+                          </p>
+                          <p className={active ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-biz-muted mt-1"}>
+                            {p.tagline}
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <p className={active ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
+                            {fmtNaira(pPrice)}
+                          </p>
+                          <p className={active ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-gray-500 mt-1"}>
+                            {cycle}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="What you get" subtitle="Key benefits">
+              <div className="space-y-2">
+                {plan.highlights.map((t) => (
+                  <div key={t} className="flex items-start gap-2 text-sm text-gray-700">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+                    <span>{t}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-2">
+                <Button onClick={() => router.push(`/vendor/subscription/summary?plan=${encodeURIComponent(selectedPlan)}&cycle=${encodeURIComponent(cycle)}`)}>
+                  Continue
+                </Button>
+                <Button variant="secondary" onClick={subscribe}>
+                  Pay now
+                </Button>
+              </div>
+
+              <p className="mt-3 text-[11px] text-biz-muted">
+                In locked mode, only subscription and sign out are available.
+              </p>
+            </SectionCard>
+
+            {!lockedMode ? (
+              <Card className="p-4">
+                <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                  Back to dashboard
+                </Button>
+              </Card>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\lib\vendor\planConfigServer.ts -----
+// FILE: src/lib/vendor/planConfigServer.ts
+import { adminDb } from "@/lib/firebase/admin";
+
+export type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
+
+export type PlanFeatures = {
+  marketplace: boolean;
+  storeCustomize: boolean; // âœ… new: free uses BizHub default design
+  continueInChat: boolean;
+  coupons: boolean;
+  assistant: boolean;
+  reengagement: boolean;
+  staff: boolean;
+  promotions: boolean;
+  monthAnalytics: boolean;
+};
+
+export type PlanLimits = {
+  maxProducts: number;
+  ordersVisible: number;
+  reengagementDaily: number;
+  chatOrdersDaily: number;
+
+  staffMax: number;
+  couponsMax: number;
+  shippingOptionsMax: number;
+  promotionsMaxActive: number;
+};
+
+export type PlanConfig = {
+  plans: Record<BizhubPlanKey, { features: PlanFeatures; limits: PlanLimits }>;
+};
+
+function hasActiveSubscription(biz: any) {
+  const exp = Number(biz?.subscription?.expiresAtMs || 0);
+  return !!(biz?.subscription?.planKey && exp && exp > Date.now());
+}
+
+function resolvePlanKey(biz: any): BizhubPlanKey {
+  if (!hasActiveSubscription(biz)) return "FREE";
+  const k = String(biz?.subscription?.planKey || "").toUpperCase();
+  if (k === "LAUNCH" || k === "MOMENTUM" || k === "APEX") return k;
+  return "LAUNCH";
+}
+
+function clampInt(n: any, min: number, max: number) {
+  const v = Math.floor(Number(n));
+  if (!Number.isFinite(v)) return min;
+  return Math.max(min, Math.min(max, v));
+}
+
+function cleanFeatures(v: any, fallback: PlanFeatures): PlanFeatures {
+  const o = v && typeof v === "object" ? v : {};
+  return {
+    marketplace: typeof o.marketplace === "boolean" ? o.marketplace : fallback.marketplace,
+    storeCustomize: typeof o.storeCustomize === "boolean" ? o.storeCustomize : fallback.storeCustomize,
+    continueInChat: typeof o.continueInChat === "boolean" ? o.continueInChat : fallback.continueInChat,
+    coupons: typeof o.coupons === "boolean" ? o.coupons : fallback.coupons,
+    assistant: typeof o.assistant === "boolean" ? o.assistant : fallback.assistant,
+    reengagement: typeof o.reengagement === "boolean" ? o.reengagement : fallback.reengagement,
+    staff: typeof o.staff === "boolean" ? o.staff : fallback.staff,
+    promotions: typeof o.promotions === "boolean" ? o.promotions : fallback.promotions,
+    monthAnalytics: typeof o.monthAnalytics === "boolean" ? o.monthAnalytics : fallback.monthAnalytics,
+  };
+}
+
+function cleanLimits(v: any, fallback: PlanLimits): PlanLimits {
+  const o = v && typeof v === "object" ? v : {};
+  return {
+    maxProducts: clampInt(o.maxProducts, 0, 200000) || fallback.maxProducts,
+    ordersVisible: clampInt(o.ordersVisible, 1, 200000) || fallback.ordersVisible,
+    reengagementDaily: clampInt(o.reengagementDaily, 0, 200000),
+    chatOrdersDaily: clampInt(o.chatOrdersDaily, 0, 200000),
+
+    staffMax: clampInt(o.staffMax, 0, 1000),
+    couponsMax: clampInt(o.couponsMax, 0, 100000),
+    shippingOptionsMax: clampInt(o.shippingOptionsMax, 0, 1000),
+    promotionsMaxActive: clampInt(o.promotionsMaxActive, 0, 1000),
+  };
+}
+
+export function fallbackPlanConfig(): PlanConfig {
+  return {
+    plans: {
+      FREE: {
+        features: {
+          marketplace: false,
+          storeCustomize: false,
+          continueInChat: false,
+          coupons: false,
+          assistant: false,
+          reengagement: false,
+          staff: false,
+          promotions: false,
+          monthAnalytics: false,
+        },
+        limits: {
+          maxProducts: 25,
+          ordersVisible: 20,
+          reengagementDaily: 0,
+          chatOrdersDaily: 0,
+
+          staffMax: 0,
+          couponsMax: 0,
+          shippingOptionsMax: 3,
+          promotionsMaxActive: 0,
+        },
+      },
+
+      LAUNCH: {
+        features: {
+          marketplace: true,
+          storeCustomize: true,
+          continueInChat: true,
+          coupons: true,
+          assistant: true,
+          reengagement: true,
+          staff: true,
+          promotions: true,
+          monthAnalytics: true,
+        },
+        limits: {
+          maxProducts: 5000,
+          ordersVisible: 200,
+          reengagementDaily: 20,
+          chatOrdersDaily: 500,
+
+          staffMax: 3,
+          couponsMax: 200,
+          shippingOptionsMax: 50,
+          promotionsMaxActive: 5,
+        },
+      },
+
+      MOMENTUM: {
+        features: {
+          marketplace: true,
+          storeCustomize: true,
+          continueInChat: true,
+          coupons: true,
+          assistant: true,
+          reengagement: true,
+          staff: true,
+          promotions: true,
+          monthAnalytics: true,
+        },
+        limits: {
+          maxProducts: 20000,
+          ordersVisible: 500,
+          reengagementDaily: 60,
+          chatOrdersDaily: 2000,
+
+          staffMax: 5,
+          couponsMax: 500,
+          shippingOptionsMax: 150,
+          promotionsMaxActive: 10,
+        },
+      },
+
+      APEX: {
+        features: {
+          marketplace: true,
+          storeCustomize: true,
+          continueInChat: true,
+          coupons: true,
+          assistant: true,
+          reengagement: true,
+          staff: true,
+          promotions: true,
+          monthAnalytics: true,
+        },
+        limits: {
+          maxProducts: 100000,
+          ordersVisible: 2000,
+          reengagementDaily: 150,
+          chatOrdersDaily: 10000,
+
+          staffMax: 10,
+          couponsMax: 2000,
+          shippingOptionsMax: 300,
+          promotionsMaxActive: 20,
+        },
+      },
+    },
+  };
+}
+
+export async function getPlanConfig(): Promise<PlanConfig> {
+  const snap = await adminDb.collection("platform").doc("planConfig").get();
+  if (!snap.exists) return fallbackPlanConfig();
+
+  const raw = snap.data() as any;
+  const plansRaw = raw?.plans && typeof raw.plans === "object" ? raw.plans : null;
+  if (!plansRaw) return fallbackPlanConfig();
+
+  const fallback = fallbackPlanConfig();
+
+  const out: any = { plans: {} as any };
+
+  (["FREE", "LAUNCH", "MOMENTUM", "APEX"] as BizhubPlanKey[]).forEach((k) => {
+    const p = plansRaw[k] || plansRaw[String(k).toLowerCase()] || null;
+    const fb = fallback.plans[k];
+
+    out.plans[k] = {
+      features: cleanFeatures(p?.features, fb.features),
+      limits: cleanLimits(p?.limits, fb.limits),
+    };
+  });
+
+  return out as PlanConfig;
+}
+
+export async function getBusinessPlanResolved(businessId: string) {
+  const bizSnap = await adminDb.collection("businesses").doc(businessId).get();
+  const biz = bizSnap.exists ? (bizSnap.data() as any) : null;
+
+  const hasSub = hasActiveSubscription(biz);
+  const planKey = resolvePlanKey(biz);
+
+  const cfg = await getPlanConfig();
+  const plan = cfg.plans[planKey] ?? fallbackPlanConfig().plans[planKey];
+
+  return {
+    planKey,
+    hasActiveSubscription: hasSub,
+    features: plan.features,
+    limits: plan.limits,
+    business: biz,
+  };
+}
+
+----- FILE: src\app\api\subscriptions\confirm\route.ts -----
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import {
+  computeExpiryMs,
+  priceKoboFor,
+  type BizhubBillingCycle,
+  type BizhubPlanKey,
+} from "@/lib/bizhubPlans";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+async function verifyPaystack(reference: string) {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  if (!secret) throw new Error("Missing PAYSTACK_SECRET_KEY");
+
+  const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+    headers: { Authorization: `Bearer ${secret}` },
+  });
+
+  const data = await res.json();
+  if (!data.status) throw new Error(data.message || "Paystack verify failed");
+  return data.data;
+}
+
+function normalizeMetadata(raw: any) {
+  if (!raw) return {};
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch {
+      return {};
+    }
+  }
+  return raw;
+}
+
+export async function POST(req: Request) {
+  try {
+    const { reference } = await req.json().catch(() => ({}));
+    if (!reference) return NextResponse.json({ error: "reference is required" }, { status: 400 });
+
+    const paystackTx = await verifyPaystack(String(reference));
+    if (paystackTx.status !== "success") {
+      return NextResponse.json(
+        { error: `Payment not successful: ${paystackTx.status}` },
+        { status: 400 }
+      );
+    }
+
+    const md = normalizeMetadata(paystackTx.metadata);
+    if (md?.purpose !== "subscription") {
+      return NextResponse.json({ error: "Invalid purpose for this endpoint" }, { status: 400 });
+    }
+
+    const businessId = String(md.businessId || "");
+    const planKey = String(md.planKey || "") as BizhubPlanKey;
+    const cycle = String(md.cycle || "") as BizhubBillingCycle;
+
+    if (!businessId) return NextResponse.json({ error: "Missing businessId in metadata" }, { status: 400 });
+
+    const allowedPlans: BizhubPlanKey[] = ["LAUNCH", "MOMENTUM", "APEX"];
+    const allowedCycles: BizhubBillingCycle[] = ["monthly", "quarterly", "biannually", "yearly"];
+
+    if (!allowedPlans.includes(planKey)) return NextResponse.json({ error: "Invalid planKey" }, { status: 400 });
+    if (!allowedCycles.includes(cycle)) return NextResponse.json({ error: "Invalid cycle" }, { status: 400 });
+
+    const expectedKobo = priceKoboFor(planKey, cycle); // throws if not available
+    const paidKobo = Number(paystackTx.amount || 0);
+
+    if (!Number.isFinite(paidKobo) || paidKobo <= 0) {
+      return NextResponse.json({ error: "Invalid Paystack amount" }, { status: 400 });
+    }
+    if (paidKobo !== expectedKobo) {
+      return NextResponse.json(
+        { error: "Amount mismatch", expectedKobo, paidKobo },
+        { status: 400 }
+      );
+    }
+
+    const now = Date.now();
+    const expiresAtMs = computeExpiryMs(cycle, now);
+
+    // idempotency: subscription doc id = reference
+    const subRef = adminDb.collection("subscriptions").doc(String(reference));
+    const platformRef = adminDb.collection("platform").doc("finance");
+    const ledgerRef = adminDb.collection("platformLedger").doc();
+    const businessRef = adminDb.collection("businesses").doc(businessId);
+    const txRef = adminDb.collection("transactions").doc(String(reference));
+
+    const result = await adminDb.runTransaction(async (t) => {
+      const existing = await t.get(subRef);
+      if (existing.exists) {
+        const d = existing.data() as any;
+        return {
+          ok: true,
+          alreadyProcessed: true,
+          businessId: d.businessId,
+          planKey: d.planKey,
+          expiresAtMs: d.expiresAtMs,
+        };
+      }
+
+      const bizSnap = await t.get(businessRef);
+      if (!bizSnap.exists) throw new Error("Business not found");
+
+      // Subscription record
+      t.set(subRef, {
+        reference: String(reference),
+        businessId,
+        businessSlug: md.businessSlug ?? null,
+
+        planKey,
+        cycle,
+
+        amountKobo: paidKobo,
+        amount: paidKobo / 100,
+        currency: paystackTx.currency || "NGN",
+        provider: "paystack",
+        paidAt: paystackTx.paid_at || null,
+
+        status: "active",
+        startedAtMs: now,
+        expiresAtMs,
+
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      });
+
+      // Update business snapshot: activate subscription and clear trial (so no confusion)
+      t.set(
+        businessRef,
+        {
+          subscription: {
+            planKey,
+            cycle,
+            status: "active",
+            startedAtMs: now,
+            expiresAtMs,
+            lastPaymentReference: String(reference),
+          },
+          trial: FieldValue.delete(),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // Platform â€œBizHub Balanceâ€ (admin)
+      t.set(
+        platformRef,
+        {
+          balanceKobo: FieldValue.increment(paidKobo),
+          subscriptionRevenueKobo: FieldValue.increment(paidKobo),
+          boostRevenueKobo: FieldValue.increment(0),
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+
+      // Ledger entry
+      t.set(ledgerRef, {
+        type: "subscription",
+        reference: String(reference),
+        businessId,
+        planKey,
+        cycle,
+        amountKobo: paidKobo,
+        currency: paystackTx.currency || "NGN",
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      // Transaction record
+      t.set(txRef, {
+        purpose: "subscription",
+        reference: String(reference),
+        businessId,
+        planKey,
+        cycle,
+        amountKobo: paidKobo,
+        amount: paidKobo / 100,
+        status: "paid",
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      return { ok: true, alreadyProcessed: false, businessId, planKey, expiresAtMs };
+    });
+
+    return NextResponse.json(result);
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Confirm failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\vendor\shipping\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+type ShipType = "pickup" | "delivery";
+
+function cleanType(v: any): ShipType {
+  return String(v || "delivery") === "pickup" ? "pickup" : "delivery";
+}
+
+function clampInt(v: any, min: number, max: number) {
+  const n = Math.floor(Number(v));
+  if (!Number.isFinite(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+function clampKobo(v: any) {
+  const n = Math.floor(Number(v));
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, n);
+}
+
+function cleanText(v: any, max = 80) {
+  return String(v || "").trim().slice(0, max);
+}
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const snap = await adminDb
+      .collection("businesses")
+      .doc(me.businessId)
+      .collection("shippingOptions")
+      .limit(200)
+      .get();
+
+    const options = snap.docs
+      .map((d) => ({ id: d.id, ...(d.data() as any) }))
+      .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+
+    return NextResponse.json({ ok: true, options });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const body = await req.json().catch(() => ({}));
+
+    const id = body.id ? String(body.id) : "";
+    const type = cleanType(body.type);
+
+    const name = cleanText(body.name, 60);
+    if (!name) return NextResponse.json({ ok: false, error: "Name is required" }, { status: 400 });
+
+    const feeKobo = clampKobo(body.feeKobo);
+    const etaDays = clampInt(body.etaDays, 0, 30);
+    const areasText = cleanText(body.areasText, 160);
+    const active = body.active === false ? false : true;
+    const sortOrder = clampInt(body.sortOrder, 0, 999);
+
+    if (type === "pickup") {
+      // pickup is always 0 fee (MVP)
+      // (You can allow pickup fees later)
+    }
+
+    const ref = id
+      ? adminDb.collection("businesses").doc(me.businessId).collection("shippingOptions").doc(id)
+      : adminDb.collection("businesses").doc(me.businessId).collection("shippingOptions").doc();
+
+    await ref.set(
+      {
+        businessId: me.businessId,
+        businessSlug: me.businessSlug ?? null,
+
+        type, // pickup | delivery
+        name,
+        feeKobo: type === "pickup" ? 0 : feeKobo,
+        fee: (type === "pickup" ? 0 : feeKobo) / 100,
+
+        etaDays,
+        areasText: areasText || null,
+
+        active,
+        sortOrder,
+
+        updatedAtMs: Date.now(),
+        updatedAt: FieldValue.serverTimestamp(),
+        createdAtMs: FieldValue.increment(0), // keep for backward compatibility
+      },
+      { merge: true }
+    );
+
+    // If doc is newly created, set createdAtMs only once
+    const snap = await ref.get();
+    const data = snap.data() as any;
+    if (!data?.createdAtMs || Number(data.createdAtMs) === 0) {
+      await ref.set({ createdAtMs: Date.now(), createdAt: FieldValue.serverTimestamp() }, { merge: true });
+    }
+
+    return NextResponse.json({ ok: true, id: ref.id });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request) {
+  try {
+    const me = await requireRole(req, "owner");
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const url = new URL(req.url);
+    const id = String(url.searchParams.get("id") || "").trim();
+    if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 });
+
+    await adminDb.collection("businesses").doc(me.businessId).collection("shippingOptions").doc(id).delete();
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\vendor\coupons\validate\route.ts -----
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function cleanCode(v: any) {
+  const raw = String(v || "").trim().toUpperCase();
+  const ok = /^[A-Z0-9]{3,20}$/.test(raw);
+  return ok ? raw : "";
+}
+
+function clampKobo(n: any) {
+  const v = Math.floor(Number(n));
+  if (!Number.isFinite(v)) return 0;
+  return Math.max(0, v);
+}
+
+function computeDiscount(params: {
+  type: "percent" | "fixed";
+  percent?: number | null;
+  amountOffKobo?: number | null;
+  subtotalKobo: number;
+  maxDiscountKobo?: number | null;
+}) {
+  const subtotal = params.subtotalKobo;
+
+  let discount = 0;
+
+  if (params.type === "percent") {
+    const pct = Math.max(0, Math.min(90, Number(params.percent || 0)));
+    discount = Math.floor((subtotal * pct) / 100);
+  } else {
+    discount = Math.floor(Number(params.amountOffKobo || 0));
+  }
+
+  if (params.maxDiscountKobo != null) {
+    discount = Math.min(discount, Math.floor(Number(params.maxDiscountKobo || 0)));
+  }
+
+  discount = Math.max(0, Math.min(discount, subtotal));
+  return discount;
+}
+
+export async function POST(req: Request) {
+  try {
+    const body = await req.json().catch(() => ({}));
+    const storeSlug = String(body.storeSlug || "").trim();
+    const codeUpper = cleanCode(body.code);
+    const subtotalKobo = clampKobo(body.subtotalKobo);
+
+    if (!storeSlug) return NextResponse.json({ ok: false, error: "storeSlug required" }, { status: 400 });
+    if (!codeUpper) return NextResponse.json({ ok: false, error: "Invalid code format" }, { status: 400 });
+    if (subtotalKobo <= 0) return NextResponse.json({ ok: false, error: "Invalid subtotal" }, { status: 400 });
+
+    // Find business by slug
+    const bizSnap = await adminDb
+      .collection("businesses")
+      .where("slug", "==", storeSlug)
+      .limit(1)
+      .get();
+
+    if (bizSnap.empty) {
+      return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
+    }
+
+    const bizDoc = bizSnap.docs[0];
+    const businessId = bizDoc.id;
+
+    const cSnap = await adminDb
+      .collection("businesses")
+      .doc(businessId)
+      .collection("coupons")
+      .doc(codeUpper)
+      .get();
+
+    if (!cSnap.exists) {
+      return NextResponse.json({ ok: false, code: "NOT_FOUND", error: "Invalid code" }, { status: 404 });
+    }
+
+    const c = cSnap.data() as any;
+    const now = Date.now();
+
+    if (c.active === false) {
+      return NextResponse.json({ ok: false, code: "INACTIVE", error: "Code is inactive" }, { status: 400 });
+    }
+
+    const startsAtMs = c.startsAtMs ? Number(c.startsAtMs) : null;
+    const endsAtMs = c.endsAtMs ? Number(c.endsAtMs) : null;
+
+    if (startsAtMs && now < startsAtMs) {
+      return NextResponse.json({ ok: false, code: "NOT_STARTED", error: "Code not active yet" }, { status: 400 });
+    }
+    if (endsAtMs && now > endsAtMs) {
+      return NextResponse.json({ ok: false, code: "EXPIRED", error: "Code expired" }, { status: 400 });
+    }
+
+    const minOrderKobo = clampKobo(c.minOrderKobo);
+    if (minOrderKobo && subtotalKobo < minOrderKobo) {
+      return NextResponse.json(
+        { ok: false, code: "MIN_ORDER", error: "Order total is too low for this code", minOrderKobo },
+        { status: 400 }
+      );
+    }
+
+    const usageLimitTotal = c.usageLimitTotal != null ? Number(c.usageLimitTotal) : null;
+    const usedCount = Number(c.usedCount || 0);
+
+    if (usageLimitTotal != null && usedCount >= usageLimitTotal) {
+      return NextResponse.json({ ok: false, code: "LIMIT_REACHED", error: "Code usage limit reached" }, { status: 400 });
+    }
+
+    const type = String(c.type || "percent") === "fixed" ? "fixed" : "percent";
+
+    const discountKobo = computeDiscount({
+      type,
+      percent: c.percent ?? null,
+      amountOffKobo: c.amountOffKobo ?? null,
+      subtotalKobo,
+      maxDiscountKobo: c.maxDiscountKobo ?? null,
+    });
+
+    const totalKobo = Math.max(0, subtotalKobo - discountKobo);
+
+    return NextResponse.json({
+      ok: true,
+      coupon: {
+        code: codeUpper,
+        type,
+        percent: c.percent ?? null,
+        amountOffKobo: c.amountOffKobo ?? null,
+        minOrderKobo: minOrderKobo || 0,
+        maxDiscountKobo: c.maxDiscountKobo ?? null,
+      },
+      subtotalKobo,
+      discountKobo,
+      totalKobo,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\admin\analytics\platform\route.ts -----
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { dayKeysBetween, fetchPlatformDailyMetrics, monthRangeFromYYYYMM } from "@/lib/metrics/daily";
+import { Timestamp } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function rangeWindow(range: string, month?: string | null) {
+  const now = Date.now();
+
+  // Historical month view: /api/admin/analytics/platform?range=month&month=2026-01
+  if (month) {
+    const mr = monthRangeFromYYYYMM(month);
+    if (mr) return { startMs: mr.startMs, endMs: mr.endMs };
+  }
+
+  if (range === "today") {
+    const d = new Date();
+    const startMs = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    return { startMs, endMs: now };
+  }
+
+  if (range === "month") {
+    return { startMs: now - 30 * 24 * 60 * 60 * 1000, endMs: now };
+  }
+
+  // week default
+  return { startMs: now - 7 * 24 * 60 * 60 * 1000, endMs: now };
+}
+
+export async function GET(req: Request) {
+  try {
+    await requireRole(req, "admin");
+
+    const url = new URL(req.url);
+    const range = url.searchParams.get("range") || "week";
+    const month = url.searchParams.get("month"); // optional YYYY-MM
+    const { startMs, endMs } = rangeWindow(range, month);
+
+    const dayKeys = dayKeysBetween(startMs, endMs);
+    const metricDocs = await fetchPlatformDailyMetrics(dayKeys);
+
+    // Sum totals + create day series
+    let visits = 0, leads = 0, views = 0;
+
+    const byDay = new Map<string, any>();
+    for (const dk of dayKeys) byDay.set(dk, { dayKey: dk, visits: 0, leads: 0, views: 0 });
+
+    for (const m of metricDocs) {
+      const dk = String(m.dayKey || m.id || "");
+      const row = byDay.get(dk);
+      if (!row) continue;
+
+      const v = Number(m.visits || 0);
+      const l = Number(m.leads || 0);
+      const w = Number(m.views || 0);
+
+      visits += v;
+      leads += l;
+      views += w;
+
+      row.visits += v;
+      row.leads += l;
+      row.views += w;
+    }
+
+    const series = Array.from(byDay.values());
+
+    // Revenue/orders for same window (MVP: limit 5000)
+    const startTs = Timestamp.fromMillis(startMs);
+    const endTs = Timestamp.fromMillis(endMs);
+
+    const oSnap = await adminDb
+      .collection("orders")
+      .where("createdAt", ">=", startTs)
+      .where("createdAt", "<=", endTs)
+      .limit(5000)
+      .get();
+
+    const orders = oSnap.docs.map((d) => d.data() as any);
+    const orderCount = orders.length;
+
+    let revenue = 0;
+    for (const o of orders) {
+      revenue += Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+    }
+
+    // Daily change (today vs yesterday) from platformMetricsDaily
+    const todayKey = dayKeys[dayKeys.length - 1];
+    const yKey = dayKeys.length >= 2 ? dayKeys[dayKeys.length - 2] : null;
+
+    const todayRow = todayKey ? byDay.get(todayKey) : null;
+    const yRow = yKey ? byDay.get(yKey) : null;
+
+    function delta(cur: number, prev: number) {
+      const d = cur - prev;
+      const pct = prev > 0 ? (d / prev) * 100 : null;
+      return { diff: d, pct };
+    }
+
+    const deltas = todayRow && yRow ? {
+      visits: delta(Number(todayRow.visits || 0), Number(yRow.visits || 0)),
+      leads: delta(Number(todayRow.leads || 0), Number(yRow.leads || 0)),
+      views: delta(Number(todayRow.views || 0), Number(yRow.views || 0)),
+    } : null;
+
+    return NextResponse.json({
+      ok: true,
+      window: { range, month: month || null, startMs, endMs },
+      totals: {
+        visits,
+        leads,
+        views,
+        orders: orderCount,
+        revenue,
+      },
+      deltas,
+      series, // per-day chart data
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\vendor\onboard\route.ts -----
+import { NextResponse } from "next/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+import { requireMe } from "@/lib/auth/server";
+import { DEFAULT_TRIAL_DAYS, DEFAULT_TRIAL_PLAN } from "@/lib/bizhubPlans";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function slugify(input: string) {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-");
+}
+
+async function ensureUniqueSlug(base: string) {
+  const clean = slugify(base);
+  if (!clean) return `biz-${Math.random().toString(36).slice(2, 7)}`;
+
+  const snap = await adminDb.collection("businesses").where("slug", "==", clean).limit(1).get();
+  if (snap.empty) return clean;
+
+  return `${clean}-${Math.random().toString(36).slice(2, 6)}`;
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireMe(req);
+
+    const body = await req.json();
+    const { businessName, businessSlug, description } = body;
+
+    if (!businessName) {
+      return NextResponse.json({ error: "businessName is required" }, { status: 400 });
+    }
+
+    // If already onboarded, return current profile
+    const userRef = adminDb.collection("users").doc(me.uid);
+    const userSnap = await userRef.get();
+    const userData = userSnap.exists ? (userSnap.data() as any) : null;
+
+    if (userData?.businessId) {
+      return NextResponse.json({
+        ok: true,
+        alreadyOnboarded: true,
+        businessId: userData.businessId,
+        businessSlug: userData.businessSlug,
+      });
+    }
+
+    const slug = await ensureUniqueSlug(businessSlug || businessName);
+
+    // Create business
+    const bizRef = adminDb.collection("businesses").doc();
+    const businessId = bizRef.id;
+
+    const now = Date.now();
+    const trialMs = DEFAULT_TRIAL_DAYS * 24 * 60 * 60 * 1000;
+
+    await bizRef.set({
+      name: businessName,
+      slug,
+      description: description ?? "",
+
+      payoutDetails: {
+        bankName: "",
+        accountNumber: "",
+        accountName: "",
+      },
+
+      // 7-day trial
+      trial: {
+        planKey: DEFAULT_TRIAL_PLAN,
+        startedAtMs: now,
+        endsAtMs: now + trialMs,
+      },
+
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+    });
+
+    // Create wallet
+    await adminDb.collection("wallets").doc(businessId).set(
+      {
+        businessId,
+        pendingBalanceKobo: 0,
+        availableBalanceKobo: 0,
+        totalEarnedKobo: 0,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Save user profile
+    await userRef.set(
+      {
+        uid: me.uid,
+        email: me.email ?? null,
+        role: "owner",
+        businessId,
+        businessSlug: slug,
+        updatedAt: FieldValue.serverTimestamp(),
+        createdAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return NextResponse.json({ ok: true, businessId, businessSlug: slug });
+  } catch (e: any) {
+    return NextResponse.json({ error: e?.message || "Vendor onboard failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\components\AuthGate.tsx -----
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import { auth } from "@/lib/firebase/client";
+import { Card } from "@/components/Card";
+
+type Role = "owner" | "staff" | "admin";
+
+export function AuthGate({
+  requireRole,
+  children,
+}: {
+  requireRole: Role | Role[];
+  children: React.ReactNode;
+}) {
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const roles = Array.isArray(requireRole) ? requireRole : [requireRole];
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      try {
+        setError(null);
+
+        if (!u) {
+          router.replace(`/account/login`);
+          return;
+        }
+
+        const token = await u.getIdToken();
+        const r = await fetch("/api/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Unauthorized");
+
+        const role = data?.me?.role as string;
+        const emailVerified = !!data?.me?.emailVerified;
+
+        if (!emailVerified) {
+          router.replace(`/account/verify?next=${encodeURIComponent(pathname)}`);
+          return;
+        }
+
+        if (!roles.includes(role as any)) {
+          throw new Error(`Not allowed. Required role: ${roles.join(" or ")}`);
+        }
+
+        setLoading(false);
+      } catch (e: any) {
+        setLoading(false);
+        setError(e?.message || "Not authorized");
+      }
+    });
+
+    return () => unsub();
+  }, [router, pathname, roles.join("|")]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen p-4 bg-biz-bg">
+        <Card className="p-4">Loadingâ€¦</Card>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen p-4 bg-biz-bg">
+        <Card className="p-4">
+          <p className="font-bold text-biz-ink">Access denied</p>
+          <p className="text-sm text-gray-700 mt-2">{error}</p>
+          <button
+            className="mt-4 w-full rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold"
+            onClick={() => router.replace("/account")}
+          >
+            Go to account
+          </button>
+        </Card>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
+----- FILE: src\lib\escrow\releaseServer.ts -----
+// FILE: src/lib/escrow/releaseServer.ts
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+
+export async function releaseEscrowIfEligible(params: { orderId: string }) {
+  const { orderId } = params;
+
+  const orderRef = adminDb.collection("orders").doc(orderId);
+
+  const result = await adminDb.runTransaction(async (t) => {
+    const orderSnap = await t.get(orderRef);
+    if (!orderSnap.exists) {
+      return { ok: false, status: 404, error: "Order not found" as const };
+    }
+
+    const order = orderSnap.data() as any;
+
+    if (order.escrowStatus !== "held") {
+      return {
+        ok: true,
+        message: "Not held",
+        escrowStatus: order.escrowStatus,
+      };
+    }
+
+    const holdUntilMs = Number(order.holdUntilMs || 0);
+    if (Date.now() < holdUntilMs) {
+      return { ok: true, message: "Still holding", holdUntilMs };
+    }
+
+    const businessId = order.businessId;
+    const amountKobo = Number(order.amountKobo || 0);
+
+    if (!businessId || !Number.isFinite(amountKobo) || amountKobo <= 0) {
+      return { ok: false, status: 400, error: "Invalid order data" as const };
+    }
+
+    const walletRef = adminDb.collection("wallets").doc(businessId);
+    t.set(
+      walletRef,
+      {
+        pendingBalanceKobo: FieldValue.increment(-amountKobo),
+        availableBalanceKobo: FieldValue.increment(amountKobo),
+        totalEarnedKobo: FieldValue.increment(amountKobo),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    t.set(
+      orderRef,
+      {
+        escrowStatus: "released",
+        orderStatus: "released_to_vendor_wallet",
+        releasedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    const reference = order?.payment?.reference;
+    if (reference) {
+      const txRef = adminDb.collection("transactions").doc(String(reference));
+      t.set(txRef, { status: "released", releasedAt: FieldValue.serverTimestamp() }, { merge: true });
+    }
+
+    return { ok: true, message: "Released to vendor wallet" };
+  });
+
+  return result;
+}
+
+----- FILE: src\lib\track\client.ts -----
+export type TrackEvent = {
+  type:
+    | "store_visit"
+    | "product_view"
+    | "market_click"
+    | "market_impression"
+    | "store_product_click";
+  businessId: string;
+  businessSlug?: string;
+  productId?: string;
+  count?: number; // allow batching (default 1)
+};
+
+export async function track(ev: TrackEvent) {
+  try {
+    const payload = { ...ev, count: Number(ev.count || 1) };
+
+    // best effort: donâ€™t block UI
+    if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
+      const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+      (navigator as any).sendBeacon("/api/track", blob);
+      return;
+    }
+
+    fetch("/api/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * Batch helper (best-effort).
+ * Groups identical events and sends them with `count`.
+ */
+export async function trackBatch(events: TrackEvent[]) {
+  try {
+    if (!Array.isArray(events) || events.length === 0) return;
+
+    const grouped = new Map<string, TrackEvent & { count: number }>();
+
+    for (const e of events) {
+      if (!e?.type || !e?.businessId) continue;
+
+      const key = [
+        e.type,
+        e.businessId,
+        e.businessSlug || "",
+        e.productId || "",
+      ].join("|");
+
+      const cur = grouped.get(key);
+      if (cur) {
+        cur.count = Math.min(500, (cur.count || 1) + (Number(e.count || 1) || 1));
+      } else {
+        grouped.set(key, { ...e, count: Math.min(500, Number(e.count || 1) || 1) });
+      }
+    }
+
+    // Send grouped events
+    for (const ev of grouped.values()) {
+      track(ev);
+    }
+  } catch {
+    // ignore
+  }
+}
+
+----- FILE: README.md -----
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+----- FILE: src\lib\vendor\access.ts -----
+// FILE: src/lib/vendor/access.ts
+/**
+ * Batch 8 change:
+ * - NO time-based lock.
+ * - Free is unlimited time, but restricted via planConfig.
+ */
+export type VendorAccessState = {
+  locked: boolean;
+  reason: "active_subscription" | "free";
+  freeEndsAtMs: number | null;
+  trialEndsAtMs: number | null;
+  subscriptionExpiresAtMs: number | null;
+  hasActiveSubscription: boolean;
+  trialActive: boolean;
+};
+
+export function computeVendorAccessState(biz: any | null): VendorAccessState {
+  const now = Date.now();
+
+  const subscriptionExpiresAtMs = Number(biz?.subscription?.expiresAtMs || 0) || null;
+  const hasActiveSubscription = !!(biz?.subscription?.planKey && subscriptionExpiresAtMs && subscriptionExpiresAtMs > now);
+
+  // We no longer use trial to lock anything
+  const trialEndsAtMs = Number(biz?.trial?.endsAtMs || 0) || null;
+  const trialActive = !!(biz?.trial?.planKey && trialEndsAtMs && trialEndsAtMs > now);
+
+  return {
+    locked: false,
+    reason: hasActiveSubscription ? "active_subscription" : "free",
+    freeEndsAtMs: null,
+    trialEndsAtMs,
+    subscriptionExpiresAtMs,
+    hasActiveSubscription,
+    trialActive,
+  };
+}
+
+----- FILE: src\lib\orders\recent.ts -----
+const KEY = "bizhub_recent_order_ids";
+const MAX = 20;
+
+function safeParse(json: string | null): string[] {
+  if (!json) return [];
+  try {
+    const v = JSON.parse(json);
+    return Array.isArray(v) ? v.filter((x) => typeof x === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+export function getRecentOrderIds(): string[] {
+  if (typeof window === "undefined") return [];
+  return safeParse(window.localStorage.getItem(KEY));
+}
+
+export function addRecentOrderId(orderId: string) {
+  if (typeof window === "undefined") return;
+  const cur = getRecentOrderIds();
+  const next = [orderId, ...cur.filter((id) => id !== orderId)].slice(0, MAX);
+  window.localStorage.setItem(KEY, JSON.stringify(next));
+}
+
+export function removeRecentOrderId(orderId: string) {
+  if (typeof window === "undefined") return;
+  const cur = getRecentOrderIds();
+  const next = cur.filter((id) => id !== orderId);
+  window.localStorage.setItem(KEY, JSON.stringify(next));
+}
+
+export function clearRecentOrderIds() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(KEY);
+}
+
+----- FILE: src\components\ui\StatCard.tsx -----
+import { Card } from "@/components/Card";
+import { cn } from "@/lib/cn";
+
+export function StatCard({
+  label,
+  value,
+  hint,
+  onClick,
+  className,
+}: {
+  label: string;
+  value: React.ReactNode;
+  hint?: string;
+  onClick?: () => void;
+  className?: string;
+}) {
+  const inner = (
+    <Card className={cn("p-4", onClick ? "cursor-pointer" : "", className)}>
+      <p className="text-xs text-biz-muted">{label}</p>
+      <p className="text-lg font-bold text-biz-ink mt-1">{value}</p>
+      {hint ? <p className="text-[11px] text-gray-500 mt-1">{hint}</p> : null}
+    </Card>
+  );
+
+  if (!onClick) return inner;
+
+  return (
+    <button className="w-full text-left" onClick={onClick}>
+      {inner}
+    </button>
+  );
+}
+
+----- FILE: src\components\ui\IconButton.tsx -----
+import { cn } from "@/lib/cn";
+
+export function IconButton({
+  className,
+  variant = "secondary",
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: "secondary" | "ghost";
+}) {
+  const base =
+    "h-10 w-10 rounded-2xl inline-flex items-center justify-center transition active:scale-[0.99] disabled:opacity-50";
+  const styles =
+    variant === "ghost"
+      ? "bg-transparent"
+      : "bg-white border border-biz-line shadow-soft";
+
+  return <button className={cn(base, styles, className)} {...props} />;
+}

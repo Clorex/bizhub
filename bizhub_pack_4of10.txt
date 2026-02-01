@@ -1,0 +1,2314 @@
+﻿== BIZHUB SNAPSHOT PACK 4/10 ==
+Date: 2/1/2026 10:12:46 AM
+Node: v24.12.0
+NPM: 11.6.2
+Approx bytes in this pack: 75191
+
+== FILE LIST (relative path + bytes) ==
+src\app\b\[slug]\pay\direct\page.tsx  (bytes: 13434)
+src\app\vendor\reengagement\page.tsx  (bytes: 10643)
+src\app\b\[slug]\p\[productId]\page.tsx  (bytes: 9012)
+src\app\admin\customers\page.tsx  (bytes: 7182)
+src\app\orders\page.tsx  (bytes: 5996)
+src\app\api\vendor\assistant\summary\route.ts  (bytes: 5370)
+src\components\vendor\ImageUploader.tsx  (bytes: 5031)
+src\app\payment\subscription\callback\page.tsx  (bytes: 3666)
+src\app\vendor\settings\payouts\page.tsx  (bytes: 2968)
+src\lib\types.ts  (bytes: 2847)
+src\lib\checkout\coupon.ts  (bytes: 1977)
+src\app\api\uploads\cloudinary\sign\route.ts  (bytes: 1925)
+src\app\api\admin\plan-config\route.ts  (bytes: 1619)
+src\app\api\paystack\verify\route.ts  (bytes: 1162)
+src\lib\vendor\lockServer.ts  (bytes: 989)
+package.json  (bytes: 767)
+src\app\vendor\layout.tsx  (bytes: 497)
+src\app\page.tsx  (bytes: 106)
+
+----- FILE: src\app\b\[slug]\pay\direct\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { db } from "@/lib/firebase/client";
+import { collection, getDocs, limit, query, where } from "firebase/firestore";
+import { useCart } from "@/lib/cart/CartContext";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { addRecentOrderId } from "@/lib/orders/recent";
+import { getCouponForCheckout } from "@/lib/checkout/coupon";
+import { loadCheckoutProfile } from "@/lib/checkout/profile";
+import { getShippingForCheckout, saveAppliedShipping } from "@/lib/checkout/shipping";
+import { Button } from "@/components/ui/Button";
+
+type ShippingOption = {
+  id: string;
+  type: "pickup" | "delivery";
+  name: string;
+  feeKobo: number;
+  etaDays: number;
+  areasText?: string | null;
+};
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+async function copy(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    alert("Copied");
+  } catch {
+    alert("Copy failed");
+  }
+}
+
+export default function DirectPayPage() {
+  const params = useParams();
+  const router = useRouter();
+  const sp = useSearchParams();
+  const slug = String((params as any)?.slug ?? "");
+
+  const { cart, subtotal, clearCart } = useCart();
+
+  const [loading, setLoading] = useState(true);
+  const [biz, setBiz] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const [payerName, setPayerName] = useState(sp.get("name") ?? "");
+  const [payerPhone, setPayerPhone] = useState(sp.get("phone") ?? "");
+
+  // checkout profile (address/email)
+  const [profileEmail, setProfileEmail] = useState("");
+  const [profileAddress, setProfileAddress] = useState("");
+
+  // shipping
+  const [shipLoading, setShipLoading] = useState(false);
+  const [shipMsg, setShipMsg] = useState<string | null>(null);
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipId, setSelectedShipId] = useState<string>("");
+
+  const subtotalKobo = Math.floor(Number(subtotal || 0) * 100);
+  const applied = getCouponForCheckout({ storeSlug: slug, subtotalKobo });
+  const discountKobo = Number(applied?.discountKobo || 0);
+
+  const baseTotalKobo = Math.max(0, subtotalKobo - discountKobo);
+
+  useEffect(() => {
+    const p = loadCheckoutProfile();
+    setProfileEmail(p.email || "");
+    setProfileAddress(p.address || "");
+    if (!payerName && p.fullName) setPayerName(p.fullName);
+    if (!payerPhone && p.phone) setPayerPhone(p.phone);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
+
+  // Load saved shipping, then fetch options to validate/default
+  useEffect(() => {
+    const s = getShippingForCheckout({ storeSlug: slug });
+    setSelectedShipId(s?.optionId || "");
+  }, [slug]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadShippingOptions() {
+      setShipLoading(true);
+      setShipMsg(null);
+      try {
+        const r = await fetch(`/api/vendor/shipping/options?storeSlug=${encodeURIComponent(slug)}`);
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Failed to load shipping options");
+
+        const opts: ShippingOption[] = Array.isArray(data.options) ? data.options : [];
+        if (!mounted) return;
+
+        setShippingOptions(opts);
+
+        if (opts.length > 0) {
+          const saved = getShippingForCheckout({ storeSlug: slug });
+          const savedId = saved?.optionId || "";
+          const stillValid = savedId && opts.some((o) => o.id === savedId);
+
+          const nextId = stillValid ? savedId : String(opts[0].id);
+          setSelectedShipId(nextId);
+
+          const chosen = opts.find((o) => o.id === nextId) || opts[0];
+          saveAppliedShipping({
+            storeSlug: slug,
+            optionId: chosen.id,
+            type: chosen.type,
+            name: chosen.name,
+            feeKobo: Number(chosen.feeKobo || 0),
+            selectedAtMs: Date.now(),
+          });
+        }
+      } catch (e: any) {
+        if (!mounted) return;
+        setShipMsg(e?.message || "Failed to load shipping options");
+        setShippingOptions([]);
+      } finally {
+        if (mounted) setShipLoading(false);
+      }
+    }
+
+    if (slug) loadShippingOptions();
+    return () => {
+      mounted = false;
+    };
+  }, [slug]);
+
+  const selectedShipping = useMemo(() => {
+    if (!selectedShipId) return null;
+    return shippingOptions.find((o) => o.id === selectedShipId) || null;
+  }, [selectedShipId, shippingOptions]);
+
+  const shippingFeeKobo = Number(selectedShipping?.feeKobo || 0);
+  const grandTotalKobo = Math.max(0, baseTotalKobo + shippingFeeKobo);
+  const grandTotalNgn = grandTotalKobo / 100;
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setError(null);
+
+        const qBiz = query(collection(db, "businesses"), where("slug", "==", slug), limit(1));
+        const snap = await getDocs(qBiz);
+        if (snap.empty) {
+          setError("Store not found");
+          setBiz(null);
+          return;
+        }
+
+        const d = snap.docs[0];
+        if (!mounted) return;
+        setBiz({ id: d.id, ...d.data() });
+      } catch (e: any) {
+        setError(e?.message || "Failed to load store");
+        setBiz(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    if (slug) run();
+    return () => {
+      mounted = false;
+    };
+  }, [slug]);
+
+  const bankName = biz?.payoutDetails?.bankName ?? "";
+  const accountNumber = biz?.payoutDetails?.accountNumber ?? "";
+  const accountName = biz?.payoutDetails?.accountName ?? "";
+
+  const canConfirm = useMemo(() => !!payerName && !!payerPhone, [payerName, payerPhone]);
+
+  async function confirmIHavePaid() {
+    if (!cart.storeSlug || cart.storeSlug !== slug || cart.items.length === 0) {
+      alert("Cart does not match this store. Go back to cart.");
+      router.push("/cart");
+      return;
+    }
+
+    if (!biz?.id) {
+      alert("Store not loaded yet.");
+      return;
+    }
+
+    const r = await fetch("/api/orders/direct/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        businessId: biz.id,
+        businessSlug: slug,
+        items: cart.items,
+        amountKobo: grandTotalKobo,
+        customer: {
+          fullName: payerName,
+          phone: payerPhone,
+          email: profileEmail || "",
+          address: selectedShipping?.type === "pickup" ? "" : (profileAddress || ""),
+        },
+        coupon: applied
+          ? { code: applied.code, discountKobo: applied.discountKobo, subtotalKobo: applied.subtotalKobo }
+          : null,
+        shipping: selectedShipping
+          ? { optionId: selectedShipping.id, type: selectedShipping.type, name: selectedShipping.name, feeKobo: shippingFeeKobo }
+          : null,
+      }),
+    });
+
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) {
+      alert(data?.error || "Failed to create order");
+      return;
+    }
+
+    addRecentOrderId(data.orderId);
+    clearCart();
+    router.push(`/orders/${data.orderId}`);
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Bank Transfer" showBack={true} subtitle="Pay directly to vendor" />
+
+      <div className="px-4 pb-28 space-y-3">
+        <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+          <p className="text-sm font-bold">Transfer Amount</p>
+          <p className="text-2xl font-bold mt-2">{fmtNaira(grandTotalNgn)}</p>
+          <p className="text-[11px] opacity-95 mt-2">
+            Subtotal: <b>{fmtNaira(subtotal)}</b>
+            {applied ? <> â€¢ Discount: <b>{fmtNaira(discountKobo / 100)}</b> â€¢ Code: <b>{applied.code}</b></> : null}
+            {selectedShipping ? <> â€¢ Shipping: <b>{fmtNaira(shippingFeeKobo / 100)}</b></> : null}
+          </p>
+        </div>
+
+        <Card className="p-4">
+          {loading ? <p>Loadingâ€¦</p> : null}
+          {error ? <p className="text-red-700">{error}</p> : null}
+
+          {!loading && !error ? (
+            <div className="space-y-3">
+              <div className="rounded-2xl border border-biz-line p-3 bg-white">
+                <p className="text-xs text-biz-muted">Bank</p>
+                <p className="font-bold text-biz-ink mt-1">{bankName || "Not set"}</p>
+              </div>
+
+              <div className="rounded-2xl border border-biz-line p-3 bg-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-biz-muted">Account Number</p>
+                    <p className="font-bold text-biz-ink mt-1">{accountNumber || "Not set"}</p>
+                  </div>
+                  {accountNumber ? (
+                    <button className="text-xs font-bold text-biz-accent" onClick={() => copy(accountNumber)}>
+                      Copy
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-biz-line p-3 bg-white">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs text-biz-muted">Account Name</p>
+                    <p className="font-bold text-biz-ink mt-1">{accountName || "Not set"}</p>
+                  </div>
+                  {accountName ? (
+                    <button className="text-xs font-bold text-biz-accent" onClick={() => copy(accountName)}>
+                      Copy
+                    </button>
+                  ) : null}
+                </div>
+              </div>
+
+              <p className="text-xs text-biz-muted">
+                Tip: Put your name in the transfer narration so the vendor can confirm faster.
+              </p>
+            </div>
+          ) : null}
+        </Card>
+
+        <Card className="p-4">
+          <p className="font-bold text-biz-ink">Shipping</p>
+          {shipLoading ? <p className="text-sm text-biz-muted mt-2">Loading shippingâ€¦</p> : null}
+          {shipMsg ? <p className="text-sm text-red-700 mt-2">{shipMsg}</p> : null}
+
+          {!shipLoading && !shipMsg ? (
+            selectedShipping ? (
+              <div className="mt-2 rounded-2xl border border-biz-line bg-white p-3">
+                <p className="text-sm font-bold text-biz-ink">{selectedShipping.name}</p>
+                <p className="text-[11px] text-biz-muted mt-1">
+                  {selectedShipping.type === "pickup" ? "Pickup" : "Delivery"} â€¢ Fee:{" "}
+                  <b className="text-biz-ink">{fmtNaira(shippingFeeKobo / 100)}</b>
+                </p>
+                <div className="mt-2">
+                  <Button variant="secondary" size="sm" onClick={() => router.push(`/b/${slug}/checkout`)}>
+                    Edit shipping
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-biz-muted mt-2">
+                No shipping selected. Go back to checkout and choose shipping.
+              </p>
+            )
+          ) : null}
+        </Card>
+
+        <Card className="p-4">
+          <p className="font-bold text-biz-ink">Your details</p>
+          <div className="mt-3 space-y-2">
+            <InputLike value={payerName} setValue={setPayerName} placeholder="Your name" />
+            <InputLike value={payerPhone} setValue={setPayerPhone} placeholder="Phone number" />
+          </div>
+        </Card>
+
+        <div className="fixed bottom-0 left-0 right-0 z-40">
+          <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+            <Card className="p-4 space-y-2">
+              <button
+                className="w-full rounded-2xl py-3 text-sm font-bold text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent disabled:opacity-50"
+                onClick={confirmIHavePaid}
+                disabled={!canConfirm || (shippingOptions.length > 0 && !selectedShipping)}
+              >
+                I have paid
+              </button>
+
+              {shippingOptions.length > 0 && !selectedShipping ? (
+                <Button variant="secondary" onClick={() => router.push(`/b/${slug}/checkout`)}>
+                  Choose shipping
+                </Button>
+              ) : null}
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function InputLike({
+  value,
+  setValue,
+  placeholder,
+}: {
+  value: string;
+  setValue: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <input
+      className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40 bg-white"
+      placeholder={placeholder}
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+    />
+  );
+}
+
+----- FILE: src\app\vendor\reengagement\page.tsx -----
+// FILE: src/app/vendor/reengagement/page.tsx
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { auth } from "@/lib/firebase/client";
+import { MessageCircle, AlertTriangle } from "lucide-react";
+
+type Audience = "buyers" | "abandoned";
+
+function waLink(phone: string, text: string) {
+  const digits = String(phone || "").replace(/[^\d]/g, "");
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
+
+function templateFor(a: Audience) {
+  if (a === "abandoned") {
+    return `Hello, I noticed you started an order but didnâ€™t complete payment.
+
+Do you still want it? I can help you complete it.`;
+  }
+  return `Hello, thank you for buying from my BizHub store.
+
+If you need anything else or want to reorder, Iâ€™m available.`;
+}
+
+export default function VendorReengagementPage() {
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [audience, setAudience] = useState<Audience>("buyers");
+  const [days, setDays] = useState<number>(30);
+
+  const [people, setPeople] = useState<any[]>([]);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+
+  const [text, setText] = useState<string>(templateFor("buyers"));
+
+  const [sending, setSending] = useState(false);
+  const sendQueueRef = useRef<any[]>([]);
+  const sendIdxRef = useRef<number>(0);
+
+  const selectedPeople = useMemo(() => {
+    return people.filter((p) => selected[p.key]);
+  }, [people, selected]);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    return data;
+  }
+
+  async function loadAudience() {
+    setLoading(true);
+    setMsg(null);
+
+    try {
+      const data = await authedFetch(
+        `/api/vendor/reengagement/audience?audience=${encodeURIComponent(audience)}&days=${encodeURIComponent(String(days))}`
+      );
+
+      const list = Array.isArray(data.people) ? data.people : [];
+      setPeople(list);
+
+      const initSel: Record<string, boolean> = {};
+      for (const p of list.slice(0, 50)) initSel[String(p.key)] = true;
+      setSelected(initSel);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+      setPeople([]);
+      setSelected({});
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    setText(templateFor(audience));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audience]);
+
+  useEffect(() => {
+    loadAudience();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [audience, days]);
+
+  function toggle(key: string) {
+    setSelected((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function toggleAll(on: boolean) {
+    const next: Record<string, boolean> = {};
+    for (const p of people) next[String(p.key)] = on;
+    setSelected(next);
+  }
+
+  async function startSend() {
+    if (!text.trim()) return;
+    if (selectedPeople.length === 0) return;
+
+    setSending(true);
+    setMsg(null);
+
+    try {
+      const recipients = selectedPeople.slice(0, 500);
+
+      const data = await authedFetch("/api/vendor/reengagement/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ audience, text, people: recipients }),
+      });
+
+      const list: any[] = Array.isArray(data.recipients) ? data.recipients : [];
+      if (list.length === 0) {
+        setMsg("No recipients available under your plan limit today.");
+        setSending(false);
+        return;
+      }
+
+      // Queue: open WhatsApp tabs with delay (reduces vendor stress, but WhatsApp still opens)
+      sendQueueRef.current = list;
+      sendIdxRef.current = 0;
+
+      setMsg(`Starting WhatsApp sendâ€¦ (${list.length} recipient(s))`);
+
+      const tick = async () => {
+        const i = sendIdxRef.current;
+        const q = sendQueueRef.current;
+
+        if (i >= q.length) {
+          setSending(false);
+          setMsg(`Done. Opened WhatsApp for ${q.length} recipient(s).`);
+          return;
+        }
+
+        const r = q[i];
+        const url = waLink(String(r.phone || ""), text);
+        window.open(url, "_blank");
+
+        sendIdxRef.current = i + 1;
+        setTimeout(tick, 650);
+      };
+
+      tick();
+    } catch (e: any) {
+      setSending(false);
+      setMsg(e?.message || "Failed");
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Reâ€‘engagement" subtitle="Message past buyers and follow up" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {msg ? (
+          <Card className={String(msg).toLowerCase().includes("blocked") ? "p-4 text-red-700" : "p-4"}>{msg}</Card>
+        ) : null}
+
+        <SectionCard title="Audience" subtitle="Choose who you want to message">
+          <SegmentedControl<Audience>
+            value={audience}
+            onChange={setAudience}
+            options={[
+              { value: "buyers", label: "Past buyers" },
+              { value: "abandoned", label: "Not completed" },
+            ]}
+          />
+
+          <div className="mt-2">
+            <Input
+              type="number"
+              min={7}
+              max={90}
+              value={String(days)}
+              onChange={(e) => setDays(Number(e.target.value))}
+              placeholder="30"
+              disabled={sending}
+            />
+            <p className="text-[11px] text-biz-muted mt-1">Buyers = paid or delivered. Not completed = unpaid.</p>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button variant="secondary" onClick={() => toggleAll(true)} disabled={sending}>
+              Select all
+            </Button>
+            <Button variant="secondary" onClick={() => toggleAll(false)} disabled={sending}>
+              Clear all
+            </Button>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Message" subtitle="Edit before sending">
+          <textarea
+            className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={7}
+            disabled={sending}
+          />
+
+          <div className="mt-2 rounded-2xl border border-biz-line bg-white p-3">
+            <div className="flex items-start gap-2">
+              <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
+                <AlertTriangle className="h-5 w-5 text-orange-700" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-biz-ink">Safety policy</p>
+                <p className="text-[11px] text-biz-muted mt-1">
+                  Bullying/sexual harassment content is blocked and logged.
+                </p>
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard
+          title="Recipients"
+          subtitle={loading ? "Loadingâ€¦" : `${people.length} found â€¢ ${selectedPeople.length} selected`}
+          right={
+            <Button size="sm" variant="secondary" onClick={loadAudience} disabled={loading || sending}>
+              Refresh
+            </Button>
+          }
+        >
+          {loading ? <p className="text-sm text-biz-muted">Loadingâ€¦</p> : null}
+
+          {!loading && people.length === 0 ? <p className="text-sm text-biz-muted">No recipients found.</p> : null}
+
+          {!loading && people.length > 0 ? (
+            <div className="space-y-2">
+              {people.slice(0, 80).map((p) => (
+                <button
+                  key={p.key}
+                  className="w-full text-left rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition"
+                  onClick={() => (!sending ? toggle(p.key) : undefined)}
+                  type="button"
+                  disabled={sending}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-biz-ink">{p.fullName || p.phone}</p>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        {p.phone} â€¢ Last order: {String(p.lastOrderId || "").slice(0, 8)}
+                      </p>
+                    </div>
+                    <span
+                      className={
+                        selected[p.key]
+                          ? "px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100"
+                          : "px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100"
+                      }
+                    >
+                      {selected[p.key] ? "Selected" : "Off"}
+                    </span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ) : null}
+        </SectionCard>
+
+        <div className="fixed bottom-0 left-0 right-0 z-40">
+          <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+            <Card className="p-4 space-y-2">
+              <Button onClick={startSend} disabled={sending || !text.trim() || selectedPeople.length === 0}>
+                <span className="inline-flex items-center gap-2">
+                  <MessageCircle className="h-4 w-4" />
+                  {sending ? "Sendingâ€¦" : "Send"}
+                </span>
+              </Button>
+
+              <Button variant="secondary" onClick={() => window.history.back()} disabled={sending}>
+                Back
+              </Button>
+            </Card>
+          </div>
+        </div>
+
+        <div className="h-28" />
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\b\[slug]\p\[productId]\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { db } from "@/lib/firebase/client";
+import { doc, getDoc } from "firebase/firestore";
+import { useCart } from "@/lib/cart/CartContext";
+import { track } from "@/lib/track/client";
+import { Button } from "@/components/ui/Button";
+import { SectionCard } from "@/components/ui/SectionCard";
+
+type OptionGroup = { name: string; values: string[] };
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+export default function ProductPage() {
+  const router = useRouter();
+  const params = useParams();
+  const slug = String((params as any)?.slug ?? "");
+  const productId = String((params as any)?.productId ?? "");
+
+  const { addToCart } = useCart();
+
+  const [loading, setLoading] = useState(true);
+  const [p, setP] = useState<any>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<string, string>>({});
+
+  const images: string[] = useMemo(() => (Array.isArray(p?.images) ? p.images : []), [p]);
+  const optionGroups: OptionGroup[] = useMemo(
+    () => (Array.isArray(p?.optionGroups) ? p.optionGroups : []),
+    [p]
+  );
+
+  const selectedOptionsClean = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const g of optionGroups) {
+      const v = selected[g.name];
+      if (v) out[g.name] = v;
+    }
+    return out;
+  }, [selected, optionGroups]);
+
+  const listingType = String(p?.listingType || "product"); // product | service
+  const serviceMode = String(p?.serviceMode || "book"); // book | pay
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const snap = await getDoc(doc(db, "products", productId));
+        if (!snap.exists()) {
+          setMsg("Listing not found");
+          setP(null);
+          return;
+        }
+
+        const data = { id: snap.id, ...snap.data() } as any;
+
+        const productSlug = String(data?.businessSlug || "");
+        if (productSlug && productSlug !== slug) {
+          setMsg("This listing does not belong to this store.");
+          setP(null);
+          return;
+        }
+
+        if (!mounted) return;
+        setP(data);
+
+        // Track product view as "visit"
+        if (data?.businessId) {
+          track({
+            type: "product_view",
+            businessId: String(data.businessId),
+            businessSlug: slug,
+            productId: String(data.id),
+          });
+        }
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load listing");
+        setP(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    if (productId) run();
+    return () => {
+      mounted = false;
+    };
+  }, [productId, slug]);
+
+  function pick(groupName: string, value: string) {
+    setSelected((prev) => ({ ...prev, [groupName]: prev[groupName] === value ? "" : value }));
+  }
+
+  function add() {
+    if (!p) return;
+
+    addToCart(
+      slug,
+      {
+        productId: p.id,
+        name: String(p?.name || "Item"),
+        price: Number(p?.price || 0),
+        imageUrl: images[0],
+        selectedOptions: selectedOptionsClean,
+      },
+      1
+    );
+
+    router.push("/cart");
+  }
+
+  function bookOnly() {
+    alert("For services, booking will open WhatsApp from the store page.");
+    router.push(`/b/${slug}`);
+  }
+
+  const outOfStock = listingType === "product" && Number(p?.stock ?? 0) <= 0;
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title={listingType === "service" ? "Service" : "Product"}
+        showBack={true}
+        subtitle={slug ? `Store: ${slug}` : undefined}
+        right={
+          <button
+            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft"
+            onClick={() => router.push("/cart")}
+          >
+            Cart
+          </button>
+        }
+      />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && p ? (
+          <>
+            {/* Media + title */}
+            <Card className="p-4">
+              <div className="h-56 w-full rounded-3xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden">
+                {images[0] ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={images[0]} alt={p?.name || "Item"} className="h-full w-full object-cover" />
+                ) : null}
+              </div>
+
+              <p className="mt-3 text-lg font-extrabold text-biz-ink">{p?.name}</p>
+
+              <p className="mt-1 text-sm text-gray-700">
+                {listingType === "service" && serviceMode === "book"
+                  ? "Book only"
+                  : fmtNaira(p?.price || 0)}
+              </p>
+
+              <div className="mt-2 flex items-center justify-between text-xs text-biz-muted">
+                <span>
+                  {listingType === "product" ? (
+                    <>
+                      Stock: <b className="text-biz-ink">{Number(p?.stock ?? 0)}</b>
+                    </>
+                  ) : (
+                    <>
+                      Type: <b className="text-biz-ink">Service</b>
+                    </>
+                  )}
+                </span>
+                <span>
+                  Packaging: <b className="text-biz-ink">{p?.packaging || "â€”"}</b>
+                </span>
+              </div>
+
+              {p?.description ? (
+                <p className="mt-3 text-sm text-gray-700 whitespace-pre-wrap">{String(p.description)}</p>
+              ) : null}
+            </Card>
+
+            {/* Variations */}
+            {optionGroups.length ? (
+              <SectionCard
+                title="Variations"
+                subtitle="Optional choices (price/stock stays the same)"
+              >
+                <div className="space-y-4">
+                  {optionGroups.map((g) => (
+                    <div key={g.name}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-extrabold text-biz-ink">{g.name}</p>
+                        {selected[g.name] ? (
+                          <button
+                            className="text-xs font-extrabold text-biz-accent"
+                            onClick={() => pick(g.name, selected[g.name])}
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {(g.values || []).map((v) => {
+                          const active = selected[g.name] === v;
+                          return (
+                            <button
+                              key={v}
+                              onClick={() => pick(g.name, v)}
+                              className={
+                                active
+                                  ? "px-4 py-2 rounded-full text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent"
+                                  : "px-4 py-2 rounded-full text-xs font-extrabold bg-biz-cream text-biz-ink"
+                              }
+                            >
+                              {v}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            ) : null}
+
+            {/* Bottom actions */}
+            <div className="fixed bottom-0 left-0 right-0 z-40">
+              <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+                <Card className="p-4 space-y-2">
+                  {listingType === "service" && serviceMode === "book" ? (
+                    <Button onClick={bookOnly}>Book service</Button>
+                  ) : (
+                    <Button onClick={add} disabled={outOfStock}>
+                      {outOfStock ? "Out of stock" : "Add to cart"}
+                    </Button>
+                  )}
+
+                  <Button variant="secondary" onClick={() => router.push(`/b/${slug}`)}>
+                    Back to store
+                  </Button>
+                </Card>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\admin\customers\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+import { RefreshCw } from "lucide-react";
+
+type Range = "today" | "week" | "month";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+export default function AdminCustomersPage() {
+  const [range, setRange] = useState<Range>("week");
+  const [month, setMonth] = useState<string>("");
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [data, setData] = useState<any>(null);
+
+  async function api(path: string) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error || "Request failed");
+    return j;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const qs =
+        range === "month" && month
+          ? `?range=month&month=${encodeURIComponent(month)}`
+          : `?range=${encodeURIComponent(range)}`;
+
+      const j = await api(`/api/admin/customers${qs}`);
+      setData(j);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+      setData(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [range]);
+
+  const totals = data?.totals || {};
+  const topBuyers: any[] = Array.isArray(data?.topBuyers) ? data.topBuyers : [];
+  const series: any[] = Array.isArray(data?.series) ? data.series : [];
+
+  const maxOrders = useMemo(() => Math.max(1, ...series.map((d) => Number(d.orders || 0))), [series]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Customers"
+        subtitle="Buyer analytics (phone/email)"
+        showBack={true}
+        right={
+          <Button variant="secondary" size="sm" onClick={load} leftIcon={<RefreshCw className="h-4 w-4" />}>
+            Refresh
+          </Button>
+        }
+      />
+
+      <div className="px-4 pb-24 space-y-3">
+        <SegmentedControl<Range>
+          value={range}
+          onChange={setRange}
+          options={[
+            { value: "today", label: "Today" },
+            { value: "week", label: "Week" },
+            { value: "month", label: "Month" },
+          ]}
+        />
+
+        <Card className="p-4">
+          <p className="text-sm font-bold text-biz-ink">Month history</p>
+          <p className="text-xs text-biz-muted mt-1">Load analysis for any month.</p>
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="month"
+              value={month}
+              onChange={(e) => setMonth(e.target.value)}
+              className="flex-1 rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30"
+            />
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                setRange("month");
+                setTimeout(load, 0);
+              }}
+              disabled={!month}
+            >
+              Load
+            </Button>
+          </div>
+        </Card>
+
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && data ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Customer summary</p>
+              <p className="text-xl font-bold mt-1">
+                {Number(totals.uniqueBuyers || 0).toLocaleString()} buyers â€¢ {fmtNaira(totals.revenue || 0)}
+              </p>
+              <p className="text-[11px] opacity-95 mt-2">
+                Orders: <b>{Number(totals.orders || 0).toLocaleString()}</b> â€¢ Repeat buyers:{" "}
+                <b>{Number(totals.repeatBuyers || 0).toLocaleString()}</b>
+              </p>
+            </div>
+
+            <SectionCard title="Daily orders" subtitle="Trend line via bars">
+              <div className="flex items-end gap-2 h-28">
+                {series.slice(-31).map((d) => {
+                  const v = Number(d.orders || 0);
+                  const h = Math.max(6, Math.round((v / maxOrders) * 100));
+                  const label = String(d.dayKey || "").slice(8, 10);
+                  return (
+                    <div key={d.dayKey} className="flex-1 flex flex-col items-center justify-end gap-2">
+                      <div
+                        className="w-full rounded-xl bg-gradient-to-b from-biz-accent to-biz-accent2"
+                        style={{ height: `${h}%` }}
+                        title={`${d.dayKey} â€¢ orders: ${v}`}
+                      />
+                      <span className="text-[10px] text-gray-500">{label}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Top customers" subtitle="Highest spenders">
+              {topBuyers.length === 0 ? (
+                <div className="text-sm text-biz-muted">No buyers found in this window.</div>
+              ) : (
+                <div className="space-y-2">
+                  {topBuyers.slice(0, 20).map((b) => (
+                    <div key={b.key} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-biz-ink">
+                            {b.fullName || b.phone || b.email || "Customer"}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1 break-all">
+                            {b.phone ? `Phone: ${b.phone}` : b.email ? `Email: ${b.email}` : "â€”"}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            Orders: <b className="text-biz-ink">{Number(b.orders || 0)}</b>
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-biz-ink">{fmtNaira(Number(b.spend || 0))}</p>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\orders\page.tsx -----
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { db } from "@/lib/firebase/client";
+import { doc, getDoc } from "firebase/firestore";
+import { getRecentOrderIds } from "@/lib/orders/recent";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { SectionCard } from "@/components/ui/SectionCard";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function toMs(v: any) {
+  try {
+    if (!v) return 0;
+    if (typeof v?.toDate === "function") return v.toDate().getTime();
+    if (typeof v?.seconds === "number") return v.seconds * 1000;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+function fmtDate(v: any) {
+  try {
+    if (!v) return "â€”";
+    if (typeof v?.toDate === "function") return v.toDate().toLocaleString();
+    return String(v);
+  } catch {
+    return "â€”";
+  }
+}
+
+function StatusPill({ text }: { text: string }) {
+  const t = text.toLowerCase();
+  const cls =
+    t.includes("dispute") || t.includes("disputed")
+      ? "bg-red-50 text-red-700 border-red-100"
+      : t.includes("awaiting")
+        ? "bg-orange-50 text-orange-700 border-orange-100"
+        : t.includes("released")
+          ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+          : "bg-biz-cream text-biz-ink border-transparent";
+
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-extrabold border ${cls}`}>
+      {text}
+    </span>
+  );
+}
+
+export default function OrdersPage() {
+  const [loading, setLoading] = useState(true);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const ids = getRecentOrderIds();
+        if (!ids.length) {
+          setOrders([]);
+          return;
+        }
+
+        const out: any[] = [];
+        for (const id of ids.slice(0, 25)) {
+          const snap = await getDoc(doc(db, "orders", id));
+          if (snap.exists()) out.push({ id: snap.id, ...snap.data() });
+        }
+
+        out.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
+
+        if (!mounted) return;
+        setOrders(out);
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load orders");
+        setOrders([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const subtitle = useMemo(() => {
+    if (loading) return "Loading your ordersâ€¦";
+    if (orders.length === 0) return "No orders on this device yet";
+    return `${orders.length} order(s) found`;
+  }, [loading, orders.length]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Orders" subtitle={subtitle} showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && orders.length === 0 ? (
+          <EmptyState
+            title="No orders yet"
+            description="After you checkout, your order will appear here on this device."
+            ctaLabel="Go to Market"
+            onCta={() => (window.location.href = "/market")}
+          />
+        ) : null}
+
+        {!loading && orders.length > 0 ? (
+          <SectionCard title="Recent orders" subtitle="Tap any order to view details">
+            <div className="space-y-2">
+              {orders.map((o) => {
+                const amount = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+                const status = String(o.orderStatus || o.escrowStatus || "â€”");
+                return (
+                  <Link key={o.id} href={`/orders/${o.id}`} className="block">
+                    <div className="rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-extrabold text-biz-ink">
+                            Order #{String(o.id).slice(0, 8)}
+                          </p>
+                          <p className="text-[11px] text-biz-muted mt-1">
+                            Store: <b className="text-biz-ink">{o.businessSlug || "â€”"}</b>
+                          </p>
+
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
+                            <StatusPill text={status} />
+                            <span className="text-[11px] text-gray-500">{o.paymentType || "â€”"}</span>
+                          </div>
+
+                          <p className="text-[11px] text-gray-500 mt-2">
+                            Created: {fmtDate(o.createdAt)}
+                          </p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-extrabold text-biz-ink">
+                            {fmtNaira(amount)}
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+
+            <div className="mt-3">
+              <Link href="/market" className="block">
+                <Button variant="secondary">Continue shopping</Button>
+              </Link>
+            </div>
+          </SectionCard>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\api\vendor\assistant\summary\route.ts -----
+// FILE: src/app/api/vendor/assistant/summary/route.ts
+import { NextResponse } from "next/server";
+import { requireAnyRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+import { getAssistantLimitsResolved } from "@/lib/vendor/assistantLimitsServer";
+import { getTrustRules } from "@/lib/vendor/trustRulesServer";
+import { Timestamp } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function toMs(v: any) {
+  try {
+    if (!v) return 0;
+    if (typeof v?.toDate === "function") return v.toDate().getTime();
+    if (typeof v?.seconds === "number") return v.seconds * 1000;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+function startOfTodayMs() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    const access = await getAssistantLimitsResolved(me.businessId);
+    if (!access.limits.canUseAssistant) {
+      return NextResponse.json(
+        { ok: false, code: "FEATURE_LOCKED", error: "Upgrade to unlock the sales assistant." },
+        { status: 403 }
+      );
+    }
+
+    const bizSnap = await adminDb.collection("businesses").doc(me.businessId).get();
+    const biz = bizSnap.exists ? (bizSnap.data() as any) : {};
+    const slug = String(biz?.slug || me.businessSlug || "");
+    const storeName = String(biz?.name || slug || "Store");
+    const openDisputes = Number(biz?.trust?.openDisputes || 0);
+
+    const trustRules = await getTrustRules();
+    const warnAt = Number(trustRules.dispute.warnOpenDisputes || 2);
+    const reduceAt = Number(trustRules.dispute.reduceOpenDisputes || 4);
+
+    const disputeLevel =
+      openDisputes >= reduceAt ? "reduce" : openDisputes >= warnAt ? "warn" : "none";
+
+    // Fetch last 7 days orders (MVP: query by createdAt range if available)
+    const nowMs = Date.now();
+    const startToday = startOfTodayMs();
+    const startWeek = nowMs - 7 * 24 * 60 * 60 * 1000;
+
+    const startTs = Timestamp.fromMillis(startWeek);
+    const endTs = Timestamp.fromMillis(nowMs);
+
+    const snap = await adminDb
+      .collection("orders")
+      .where("businessId", "==", me.businessId)
+      .where("createdAt", ">=", startTs)
+      .where("createdAt", "<=", endTs)
+      .limit(2000)
+      .get();
+
+    const orders = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+
+    function within(ms: number, a: number, b: number) {
+      return ms >= a && ms <= b;
+    }
+
+    let todayOrders = 0;
+    let todayRevenue = 0;
+    let todayPaid = 0;
+    let todayChat = 0;
+
+    let weekOrders = 0;
+    let weekRevenue = 0;
+    let weekPaid = 0;
+    let weekChat = 0;
+
+    for (const o of orders) {
+      const ms = toMs(o.createdAt);
+      if (!ms) continue;
+
+      const amt = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+      const payType = String(o.paymentType || "");
+      const isPaid = payType === "paystack_escrow";
+      const isChat = payType === "chat_whatsapp";
+
+      if (within(ms, startWeek, nowMs)) {
+        weekOrders += 1;
+        weekRevenue += amt;
+        if (isPaid) weekPaid += 1;
+        if (isChat) weekChat += 1;
+      }
+
+      if (within(ms, startToday, nowMs)) {
+        todayOrders += 1;
+        todayRevenue += amt;
+        if (isPaid) todayPaid += 1;
+        if (isChat) todayChat += 1;
+      }
+    }
+
+    const summaryLines: string[] = [];
+    summaryLines.push(`BizHub summary â€” ${storeName}`);
+    summaryLines.push(`Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`);
+    summaryLines.push(`This week: ${weekOrders} order(s) â€¢ ${fmtNaira(weekRevenue)}`);
+    if (openDisputes > 0) summaryLines.push(`Open disputes: ${openDisputes}`);
+    summaryLines.push(`Store link: ${slug ? `${process.env.NEXT_PUBLIC_APP_URL}/b/${slug}` : "â€”"}`);
+
+    const whatsappText = summaryLines.join("\n");
+
+    return NextResponse.json({
+      ok: true,
+      meta: {
+        planKey: access.planKey,
+        limits: access.limits,
+      },
+      business: {
+        id: me.businessId,
+        slug: slug || null,
+        name: storeName || null,
+      },
+      dispute: {
+        openDisputes,
+        warnAt,
+        reduceAt,
+        level: disputeLevel, // none | warn | reduce
+      },
+      today: { orders: todayOrders, revenue: todayRevenue, paidOrders: todayPaid, chatOrders: todayChat },
+      week: { orders: weekOrders, revenue: weekRevenue, paidOrders: weekPaid, chatOrders: weekChat },
+      whatsappText,
+    });
+  } catch (e: any) {
+    if (e?.code === "VENDOR_LOCKED") {
+      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+    }
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\components\vendor\ImageUploader.tsx -----
+"use client";
+
+import { useRef, useState } from "react";
+import { auth } from "@/lib/firebase/client";
+
+type SignedPayload = {
+  ok: boolean;
+  cloudName: string;
+  apiKey: string;
+  folder: string;
+  timestamp: number;
+  signature: string;
+  error?: string;
+};
+
+export function ImageUploader({
+  label = "Upload images",
+  onUploaded,
+  multiple = true,
+}: {
+  label?: string;
+  multiple?: boolean;
+  onUploaded: (urls: string[]) => void;
+}) {
+  const [progress, setProgress] = useState<number | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [detail, setDetail] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  async function getSigned(): Promise<SignedPayload> {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Not logged in");
+
+    const r = await fetch("/api/uploads/cloudinary/sign", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ folderBase: "bizhub/uploads" }),
+    });
+
+    const data = (await r.json().catch(() => ({}))) as SignedPayload;
+    if (!r.ok || !data?.ok) throw new Error(data?.error || "Failed to sign upload");
+    return data;
+  }
+
+  function uploadOneToCloudinary(params: {
+    cloudName: string;
+    apiKey: string;
+    folder: string;
+    timestamp: number;
+    signature: string;
+    file: File;
+    onProgress: (pct: number) => void;
+  }) {
+    const url = `https://api.cloudinary.com/v1_1/${params.cloudName}/image/upload`;
+
+    return new Promise<string>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      const form = new FormData();
+
+      form.append("file", params.file);
+      form.append("api_key", params.apiKey);
+      form.append("timestamp", String(params.timestamp));
+      form.append("signature", params.signature);
+      form.append("folder", params.folder);
+
+      xhr.upload.onprogress = (e) => {
+        if (!e.lengthComputable) return;
+        const pct = Math.round((e.loaded / e.total) * 100);
+        params.onProgress(Math.max(0, Math.min(100, pct)));
+      };
+
+      xhr.onerror = () => reject(new Error("Network error uploading to Cloudinary"));
+      xhr.onabort = () => reject(new Error("Upload aborted"));
+
+      xhr.onload = () => {
+        try {
+          const json = JSON.parse(xhr.responseText || "{}");
+          if (xhr.status >= 200 && xhr.status < 300) {
+            const secureUrl = String(json.secure_url || "");
+            if (!secureUrl) return reject(new Error("Upload succeeded but no secure_url returned"));
+            return resolve(secureUrl);
+          }
+          reject(new Error(String(json?.error?.message || "Cloudinary upload failed")));
+        } catch (e: any) {
+          reject(new Error(e?.message || "Failed to parse Cloudinary response"));
+        }
+      };
+
+      xhr.open("POST", url);
+      xhr.send(form);
+    });
+  }
+
+  async function upload(files: FileList | null) {
+    if (!files || files.length === 0) return;
+
+    setErr(null);
+    setDetail(null);
+
+    const user = auth.currentUser;
+    if (!user?.uid) {
+      setErr("Please login first");
+      return;
+    }
+
+    // quick file type guard
+    for (const f of Array.from(files)) {
+      if (!f.type?.startsWith("image/")) {
+        setErr("Only image files are allowed.");
+        return;
+      }
+    }
+
+    setProgress(0);
+
+    try {
+      const signed = await getSigned();
+      const urls: string[] = [];
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        setDetail(`Uploading ${i + 1}/${files.length}â€¦`);
+
+        const url = await uploadOneToCloudinary({
+          cloudName: signed.cloudName,
+          apiKey: signed.apiKey,
+          folder: signed.folder,
+          timestamp: signed.timestamp,
+          signature: signed.signature,
+          file,
+          onProgress: (pct) => setProgress(pct),
+        });
+
+        urls.push(url);
+      }
+
+      setProgress(null);
+      setDetail(null);
+      setErr(null);
+
+      if (inputRef.current) inputRef.current.value = "";
+      onUploaded(urls);
+    } catch (e: any) {
+      setProgress(null);
+      setDetail(null);
+      setErr(e?.message || "Upload failed");
+    }
+  }
+
+  return (
+    <div>
+      <label className="block text-sm font-bold text-biz-ink">{label}</label>
+
+      <input
+        ref={inputRef}
+        className="mt-2 block w-full text-sm"
+        type="file"
+        accept="image/*"
+        multiple={multiple}
+        onChange={(e) => upload(e.target.files)}
+      />
+
+      {progress != null ? (
+        <p className="mt-2 text-xs text-biz-muted">
+          Uploadingâ€¦ {progress}% {detail ? `â€¢ ${detail}` : ""}
+        </p>
+      ) : null}
+
+      {err ? <p className="mt-2 text-xs text-red-700">{err}</p> : null}
+    </div>
+  );
+}
+
+----- FILE: src\app\payment\subscription\callback\page.tsx -----
+"use client";
+
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
+
+export default function SubscriptionCallbackPage() {
+  const sp = useSearchParams();
+  const reference = sp.get("reference") ?? sp.get("trxref");
+
+  const [status, setStatus] = useState<"loading" | "error" | "ok">("loading");
+  const [msg, setMsg] = useState("Confirming subscriptionâ€¦");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        if (!reference) {
+          setStatus("error");
+          setMsg("Missing Paystack reference.");
+          return;
+        }
+
+        const r = await fetch("/api/subscriptions/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reference }),
+        });
+
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Confirmation failed");
+
+        if (!mounted) return;
+        setStatus("ok");
+        setMsg("Subscription activated successfully.");
+      } catch (e: any) {
+        if (!mounted) return;
+        setStatus("error");
+        setMsg(e?.message || "Failed");
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [reference]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Subscription" subtitle="Payment confirmation" showBack={true} />
+
+      <div className="px-4 pb-24">
+        <Card className="p-5 text-center">
+          {status === "loading" ? (
+            <>
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-biz-cream flex items-center justify-center">
+                <Loader2 className="h-6 w-6 text-orange-700 animate-spin" />
+              </div>
+              <p className="mt-4 text-base font-extrabold text-biz-ink">Processingâ€¦</p>
+              <p className="text-sm text-biz-muted mt-2">{msg}</p>
+            </>
+          ) : null}
+
+          {status === "ok" ? (
+            <>
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              </div>
+              <p className="mt-4 text-base font-extrabold text-biz-ink">Done</p>
+              <p className="text-sm text-biz-muted mt-2">{msg}</p>
+            </>
+          ) : null}
+
+          {status === "error" ? (
+            <>
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <p className="mt-4 text-base font-extrabold text-biz-ink">Issue</p>
+              <p className="text-sm text-red-700 mt-2">{msg}</p>
+            </>
+          ) : null}
+
+          <p className="text-[11px] text-gray-500 mt-3 break-all">
+            Reference: {reference || "â€”"}
+          </p>
+
+          <div className="mt-4 space-y-2">
+            <Link href="/vendor" className="block">
+              <Button>Go to dashboard</Button>
+            </Link>
+            <Link href="/vendor/subscription" className="block">
+              <Button variant="secondary">View plans</Button>
+            </Link>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\app\vendor\settings\payouts\page.tsx -----
+"use client";
+
+import { useEffect, useState } from "react";
+import { auth } from "@/lib/firebase/client";
+import { Card } from "@/components/Card";
+import { GradientHeader } from "@/components/GradientHeader";
+
+export default function VendorPayoutSettingsPage() {
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function api(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await api("/api/vendor/payout-details");
+        const p = data?.payoutDetails || {};
+        setBankName(p.bankName || "");
+        setAccountNumber(p.accountNumber || "");
+        setAccountName(p.accountName || "");
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load");
+      }
+    })();
+  }, []);
+
+  async function save() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      await api("/api/vendor/payout-details", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bankName, accountNumber, accountName }),
+      });
+      setMsg("Saved.");
+    } catch (e: any) {
+      setMsg(e?.message || "Save failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      <GradientHeader title="Payout Details" showBack={true} />
+      <div className="px-4 -mt-4 pb-24 space-y-3">
+        <Card className="p-4">
+          <p className="font-semibold text-gray-900">Bank details</p>
+
+          <div className="mt-4 space-y-2">
+            <input className="w-full border rounded-xl p-3" placeholder="Bank name" value={bankName} onChange={(e) => setBankName(e.target.value)} />
+            <input className="w-full border rounded-xl p-3" placeholder="Account number" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
+            <input className="w-full border rounded-xl p-3" placeholder="Account name" value={accountName} onChange={(e) => setAccountName(e.target.value)} />
+          </div>
+
+          <button className="mt-4 w-full rounded-2xl bg-black py-3 text-sm font-semibold text-white disabled:opacity-50" onClick={save} disabled={loading}>
+            {loading ? "Saving..." : "Save"}
+          </button>
+
+          {msg ? <p className="mt-3 text-sm text-gray-700">{msg}</p> : null}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+----- FILE: src\lib\types.ts -----
+export type AppRole = "customer" | "owner" | "admin";
+
+/** Business */
+export type Business = {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string;
+
+  ownerId?: string;
+  createdAt?: any;
+  updatedAt?: any;
+
+  payoutDetails?: {
+    bankName: string;
+    accountNumber: string;
+    accountName: string;
+  };
+};
+
+/** Product options + variants */
+export type ProductOptionGroup = {
+  name: string; // e.g. "Size", "Color"
+  values: string[]; // e.g. ["38","39"] or ["Black","White"]
+};
+
+export type ProductVariant = {
+  key: string; // e.g. "Size=38|Color=Black"
+  price: number; // override price for this combo
+  stock?: number; // optional stock per variant
+};
+
+/** Product */
+export type Product = {
+  id: string;
+  businessId: string;
+
+  // optional denormalized fields for easy linking in UI
+  businessSlug?: string;
+  businessName?: string;
+
+  name: string;
+  description?: string;
+
+  price: number;
+  stock?: number;
+
+  images?: string[];
+  videos?: string[];
+
+  // variants
+  optionGroups?: ProductOptionGroup[];
+  variants?: ProductVariant[];
+
+  createdAt?: any;
+  updatedAt?: any;
+};
+
+/** Cart */
+export type CartItem = {
+  productId: string;
+  name: string;
+  price: number;
+  qty: number;
+  imageUrl?: string;
+};
+
+export type CartState = {
+  storeSlug: string | null;
+  items: CartItem[];
+};
+
+/** Orders */
+export type PaymentType = "paystack_escrow" | "direct_transfer";
+export type EscrowStatus = "held" | "released" | "refunded" | "disputed" | "none";
+export type OrderStatus =
+  | "paid_held"
+  | "released_to_vendor_wallet"
+  | "refunded"
+  | "awaiting_vendor_confirmation"
+  | "disputed";
+
+export type Order = {
+  id: string;
+  businessId: string;
+  businessSlug: string;
+
+  items: CartItem[];
+
+  customer?: {
+    fullName?: string;
+    phone?: string;
+    address?: string;
+    email?: string;
+  };
+
+  paymentType: PaymentType;
+  escrowStatus: EscrowStatus;
+  orderStatus: OrderStatus;
+
+  amount: number;
+  amountKobo: number;
+  currency?: string;
+
+  holdUntilMs?: number;
+
+  payment?: {
+    provider?: "paystack";
+    reference?: string;
+    status?: string;
+    channel?: string | null;
+    paidAt?: string | null;
+    feesKobo?: number | null;
+  };
+
+  createdAt?: any;
+  updatedAt?: any;
+};
+
+/** Wallet */
+export type Wallet = {
+  businessId: string;
+  pendingBalanceKobo: number;
+  availableBalanceKobo: number;
+  totalEarnedKobo: number;
+  updatedAt?: any;
+};
+
+/** Disputes */
+export type DisputeStatus = "open" | "closed";
+
+export type Dispute = {
+  id: string;
+  orderId: string;
+  businessId?: string | null;
+  reason: string;
+  details?: string;
+  status: DisputeStatus;
+  adminDecision?: "release" | "refund" | string;
+  createdAt?: any;
+  resolvedAt?: any;
+};
+
+----- FILE: src\lib\checkout\coupon.ts -----
+export type AppliedCoupon = {
+  storeSlug: string;
+  code: string;
+  subtotalKobo: number;
+  discountKobo: number;
+  totalKobo: number;
+  appliedAtMs: number;
+};
+
+const KEY = "bizhub_checkout_coupon_v1";
+
+function safeParse(raw: string | null): AppliedCoupon | null {
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    if (!v || typeof v !== "object") return null;
+
+    const storeSlug = String(v.storeSlug || "");
+    const code = String(v.code || "").toUpperCase();
+    const subtotalKobo = Number(v.subtotalKobo || 0);
+    const discountKobo = Number(v.discountKobo || 0);
+    const totalKobo = Number(v.totalKobo || 0);
+    const appliedAtMs = Number(v.appliedAtMs || 0);
+
+    if (!storeSlug || !code) return null;
+    if (!Number.isFinite(subtotalKobo) || subtotalKobo <= 0) return null;
+    if (!Number.isFinite(discountKobo) || discountKobo < 0) return null;
+    if (!Number.isFinite(totalKobo) || totalKobo < 0) return null;
+
+    return { storeSlug, code, subtotalKobo, discountKobo, totalKobo, appliedAtMs };
+  } catch {
+    return null;
+  }
+}
+
+export function loadAppliedCoupon(): AppliedCoupon | null {
+  if (typeof window === "undefined") return null;
+  return safeParse(window.localStorage.getItem(KEY));
+}
+
+export function saveAppliedCoupon(c: AppliedCoupon) {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(KEY, JSON.stringify(c));
+}
+
+export function clearAppliedCoupon() {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(KEY);
+}
+
+/**
+ * Returns coupon only if it matches this store AND this subtotal.
+ * If cart changed, coupon is considered stale.
+ */
+export function getCouponForCheckout(params: { storeSlug: string; subtotalKobo: number }) {
+  const c = loadAppliedCoupon();
+  if (!c) return null;
+  if (c.storeSlug !== params.storeSlug) return null;
+  if (c.subtotalKobo !== params.subtotalKobo) return null;
+  return c;
+}
+
+----- FILE: src\app\api\uploads\cloudinary\sign\route.ts -----
+import { NextResponse } from "next/server";
+import crypto from "node:crypto";
+import { requireMe } from "@/lib/auth/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function cleanFolderPart(s: string) {
+  return String(s || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9/_-]/g, "")
+    .replace(/\/+/g, "/")
+    .replace(/^\/|\/$/g, "");
+}
+
+function cloudinarySign(params: Record<string, string | number>, apiSecret: string) {
+  const entries = Object.entries(params)
+    .filter(([, v]) => v !== undefined && v !== null && v !== "")
+    .sort(([a], [b]) => a.localeCompare(b));
+
+  const base = entries.map(([k, v]) => `${k}=${v}`).join("&");
+  return crypto.createHash("sha1").update(base + apiSecret).digest("hex");
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireMe(req);
+
+    const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
+    const apiKey = process.env.CLOUDINARY_API_KEY;
+    const apiSecret = process.env.CLOUDINARY_API_SECRET;
+
+    if (!cloudName || !apiKey || !apiSecret) {
+      return NextResponse.json(
+        { ok: false, error: "Missing Cloudinary env vars (CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET)" },
+        { status: 500 }
+      );
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const folderBase = cleanFolderPart(body.folderBase || "bizhub");
+
+    // Tie uploads to user UID to prevent abuse
+    const folder = `${folderBase}/${me.uid}`;
+    const timestamp = Math.floor(Date.now() / 1000);
+
+    const paramsToSign = { folder, timestamp };
+    const signature = cloudinarySign(paramsToSign, apiSecret);
+
+    return NextResponse.json({
+      ok: true,
+      cloudName,
+      apiKey,
+      folder,
+      timestamp,
+      signature,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\admin\plan-config\route.ts -----
+// FILE: src/app/api/admin/plan-config/route.ts
+import { NextResponse } from "next/server";
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { fallbackPlanConfig } from "@/lib/vendor/planConfigServer";
+import { FieldValue } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    await requireRole(req, "admin");
+
+    const snap = await adminDb.collection("platform").doc("planConfig").get();
+    const cfg = snap.exists ? (snap.data() as any) : null;
+
+    return NextResponse.json({
+      ok: true,
+      config: cfg?.plans ? cfg : fallbackPlanConfig(),
+      exists: !!cfg?.plans,
+    });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    await requireRole(req, "admin");
+
+    const body = await req.json().catch(() => ({}));
+    const plans = body?.plans;
+
+    if (!plans || typeof plans !== "object") {
+      return NextResponse.json({ ok: false, error: "plans object required" }, { status: 400 });
+    }
+
+    await adminDb.collection("platform").doc("planConfig").set(
+      {
+        plans,
+        updatedAt: FieldValue.serverTimestamp(),
+        updatedAtMs: Date.now(),
+      },
+      { merge: true }
+    );
+
+    return NextResponse.json({ ok: true });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+----- FILE: src\app\api\paystack\verify\route.ts -----
+import { NextResponse } from "next/server";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function POST(req: Request) {
+  const secret = process.env.PAYSTACK_SECRET_KEY;
+  if (!secret) {
+    return NextResponse.json(
+      { error: "Missing PAYSTACK_SECRET_KEY" },
+      { status: 500 }
+    );
+  }
+
+  const { reference } = await req.json();
+  if (!reference) {
+    return NextResponse.json({ error: "reference is required" }, { status: 400 });
+  }
+
+  const res = await fetch(
+    `https://api.paystack.co/transaction/verify/${reference}`,
+    {
+      headers: { Authorization: `Bearer ${secret}` },
+    }
+  );
+
+  const data = await res.json();
+
+  if (!data.status) {
+    return NextResponse.json(
+      { error: data.message || "Verify failed", raw: data },
+      { status: 400 }
+    );
+  }
+
+  return NextResponse.json({
+    status: data.data.status, // "success" | etc
+    reference: data.data.reference,
+    amount: data.data.amount,
+    paidAt: data.data.paid_at,
+    currency: data.data.currency,
+    customer: data.data.customer,
+    metadata: data.data.metadata,
+  });
+}
+
+----- FILE: src\lib\vendor\lockServer.ts -----
+// FILE: src/lib/vendor/lockServer.ts
+import { adminDb } from "@/lib/firebase/admin";
+import { computeVendorAccessState } from "@/lib/vendor/access";
+
+export type VendorLockResult = {
+  business: any;
+  locked: boolean;
+  freeEndsAtMs: number | null;
+  reason: string;
+};
+
+/**
+ * Batch 8 change:
+ * - Vendor is NEVER locked out of the app for not paying.
+ * - This function is kept for backwards compatibility with existing endpoints.
+ */
+export async function requireVendorUnlocked(businessId: string): Promise<VendorLockResult> {
+  const snap = await adminDb.collection("businesses").doc(businessId).get();
+  if (!snap.exists) {
+    const err: any = new Error("Business not found");
+    err.code = "BUSINESS_NOT_FOUND";
+    throw err;
+  }
+
+  const business = { id: snap.id, ...(snap.data() as any) };
+  const state = computeVendorAccessState(business);
+
+  return {
+    business,
+    locked: false,
+    freeEndsAtMs: null,
+    reason: state.reason,
+  };
+}
+
+----- FILE: package.json -----
+{
+  "name": "bizhub",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "^1.9.0",
+    "cloudinary": "^2.9.0",
+    "clsx": "^2.1.1",
+    "firebase": "^12.8.0",
+    "firebase-admin": "^13.6.0",
+    "lucide-react": "^0.563.0",
+    "next": "16.1.6",
+    "nodemailer": "^7.0.13",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "tailwind-merge": "^3.4.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.1.6",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
+
+
+----- FILE: src\app\vendor\layout.tsx -----
+// FILE: src/app/vendor/layout.tsx
+import { AuthGate } from "@/components/AuthGate";
+import { VendorShell } from "@/components/vendor/VendorShell";
+import { VendorAccessGate } from "@/components/vendor/VendorAccessGate";
+
+export default function VendorLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <AuthGate requireRole={["owner", "staff"]}>
+      <VendorAccessGate>
+        <VendorShell>{children}</VendorShell>
+      </VendorAccessGate>
+    </AuthGate>
+  );
+}
+
+----- FILE: src\app\page.tsx -----
+import { redirect } from "next/navigation";
+
+export default function HomePage() {
+  redirect("/market");
+}

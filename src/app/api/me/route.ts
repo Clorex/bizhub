@@ -1,0 +1,23 @@
+import { NextResponse } from "next/server";
+import { requireMe } from "@/lib/auth/server";
+import { adminAuth } from "@/lib/firebase/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireMe(req);
+    const u = await adminAuth.getUser(me.uid);
+
+    return NextResponse.json({
+      ok: true,
+      me: { ...me, emailVerified: !!u.emailVerified },
+    });
+  } catch (e: any) {
+    return NextResponse.json(
+      { ok: false, error: e?.message || "Unauthorized" },
+      { status: 401 }
+    );
+  }
+}
