@@ -23,10 +23,31 @@ function buildSystemPrompt() {
   ].join("\n");
 }
 
-async function geminiReply(params: { apiKey: string; message: string; history: HistoryMsg[] }) {
+function modelCandidates() {
+  const envModel = String(process.env.GEMINI_MODEL || "").trim();
+  const list = [
+    envModel,
+    "gemini-1.5-flash-latest",
+    "gemini-1.5-flash",
+    "gemini-1.5-pro-latest",
+    "gemini-1.5-pro",
+    "gemini-1.0-pro",
+    "gemini-pro",
+  ].filter(Boolean);
+
+  // unique
+  return Array.from(new Set(list));
+}
+
+async function tryGeminiModel(params: {
+  apiKey: string;
+  model: string;
+  message: string;
+  history: HistoryMsg[];
+}) {
   const url =
-    "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=" +
-    encodeURIComponent(params.apiKey);
+    `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(params.model)}:generateContent` +
+    `?key=${encodeURIComponent(params.apiKey)}`;
 
   const sys = buildSystemPrompt();
 
@@ -52,12 +73,32 @@ async function geminiReply(params: { apiKey: string; message: string; history: H
   });
 
   const j = await r.json().catch(() => ({} as any));
-  if (!r.ok) throw new Error(j?.error?.message || "AI support is unavailable right now");
+  if (!r.ok) {
+    const msg = String(j?.error?.message || "AI request failed");
+    return { ok: false as const, error: msg };
+  }
 
   const text =
     j?.candidates?.[0]?.content?.parts?.map((p: any) => String(p?.text || "")).join("") || "";
 
-  return cleanText(text, 2500);
+  const out = cleanText(text, 2500);
+  if (!out) return { ok: false as const, error: "Empty reply" };
+
+  return { ok: true as const, text: out };
+}
+
+async function geminiReply(params: { apiKey: string; message: string; history: HistoryMsg[] }) {
+  const models = modelCandidates();
+
+  let lastErr = "";
+  for (const model of models) {
+    const res = await tryGeminiModel({ ...params, model });
+    if (res.ok) return res.text;
+    lastErr = res.error;
+    // try next model
+  }
+
+  throw new Error(lastErr || "AI support is unavailable right now");
 }
 
 export async function POST(req: Request) {
@@ -69,10 +110,8 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({} as any));
     const message = cleanText(body?.message, 2000);
-
     const historyIn = Array.isArray(body?.history) ? (body.history as any[]) : [];
 
-    // ✅ FIX: Force map() to return HistoryMsg so role stays "user" | "assistant"
     const history: HistoryMsg[] = historyIn
       .map((x: any): HistoryMsg => ({
         role: x?.role === "assistant" ? "assistant" : "user",
@@ -84,22 +123,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
     }
 
-    const apiKey = process.env.GEMINI_API_KEY || "";
+    const apiKey = String(process.env.GEMINI_API_KEY || "").trim();
 
+    // If no key, keep chat usable without crashing the app
     if (!apiKey) {
       return NextResponse.json({
         ok: true,
         reply:
-          "Support chat is getting set up.\n\nFor now, please describe the problem and include:\n- What page you were on\n- What you clicked\n- The message you saw\n\nThen try again after an update.",
+          "Support chat is getting set up.\n\nFor now, please tell me:\n- What page you were on\n- What you clicked\n- What message you saw\n\nI’ll guide you with the next steps.",
       });
     }
 
-    const reply = await geminiReply({ apiKey, message, history });
-
-    return NextResponse.json({
-      ok: true,
-      reply: reply || "I didn’t understand. Please tell me what you’re trying to do and what went wrong.",
-    });
+    try {
+      const reply = await geminiReply({ apiKey, message, history });
+      return NextResponse.json({ ok: true, reply });
+    } catch {
+      // ✅ Do NOT expose provider error text to UI
+      return NextResponse.json({
+        ok: true,
+        reply:
+          "Support chat is having trouble right now.\n\nPlease try again in a minute.\nIf it keeps happening, tell me what you were trying to do and what message you saw.",
+      });
+    }
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
