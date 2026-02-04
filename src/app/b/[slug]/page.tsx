@@ -68,59 +68,6 @@ function saleBadgeText(p: any) {
   return pct > 0 ? `${pct}% OFF` : "Sale";
 }
 
-function Tile({
-  title,
-  subtitle,
-  image,
-  badges,
-  onClick,
-}: {
-  title: string;
-  subtitle?: React.ReactNode;
-  image?: string;
-  badges?: string[];
-  onClick: () => void;
-}) {
-  return (
-    <button onClick={onClick} className="text-left w-full">
-      <Card className="p-3 hover:bg-black/[0.02] transition">
-        <div className="h-24 w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative">
-          {image ? (
-            <CloudImage
-              src={image}
-              alt={title}
-              w={420}
-              h={240}
-              sizes="(max-width: 430px) 45vw, 200px"
-              className="h-full w-full object-cover"
-            />
-          ) : null}
-
-          {badges?.length ? (
-            <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-              {badges.slice(0, 2).map((b) => (
-                <div
-                  key={b}
-                  className={
-                    b.toLowerCase().includes("off") || b.toLowerCase().includes("sale")
-                      ? "px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100"
-                      : "px-2 py-1 rounded-full text-[10px] font-extrabold bg-white/90 border border-black/5"
-                  }
-                >
-                  {b}
-                </div>
-              ))}
-            </div>
-          ) : null}
-        </div>
-
-        <p className="mt-2 text-sm font-extrabold text-biz-ink line-clamp-2">{title}</p>
-        {subtitle ? <div className="mt-1 text-xs text-biz-muted">{subtitle}</div> : null}
-      </Card>
-    </button>
-  );
-}
-
 function ProductTileWithAdd({
   title,
   subtitle,
@@ -227,8 +174,8 @@ export default function StorefrontPage() {
 
   const [trustBadge, setTrustBadge] = useState<TrustBadgeType>(null);
 
+  // ✅ products only: filter out accidental services if any exist
   const products = useMemo(() => items.filter((x) => String(x.listingType || "product") !== "service"), [items]);
-  const services = useMemo(() => items.filter((x) => String(x.listingType || "product") === "service"), [items]);
 
   const cartCount = useMemo(() => {
     const list = Array.isArray(cart?.items) ? cart.items : [];
@@ -368,14 +315,7 @@ export default function StorefrontPage() {
                 <div className="flex items-start gap-3">
                   <div className="h-14 w-14 rounded-2xl bg-biz-cream overflow-hidden border border-biz-line shrink-0">
                     {logo ? (
-                      <CloudImage
-                        src={logo}
-                        alt="Logo"
-                        w={160}
-                        h={160}
-                        sizes="56px"
-                        className="h-full w-full object-cover"
-                      />
+                      <CloudImage src={logo} alt="Logo" w={160} h={160} sizes="56px" className="h-full w-full object-cover" />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center">
                         <Store className="h-6 w-6 text-orange-700" />
@@ -430,11 +370,7 @@ export default function StorefrontPage() {
                     WhatsApp
                   </Button>
 
-                  <Button
-                    variant="secondary"
-                    leftIcon={<Package className="h-4 w-4" />}
-                    onClick={() => router.push("/cart")}
-                  >
+                  <Button variant="secondary" leftIcon={<Package className="h-4 w-4" />} onClick={() => router.push("/cart")}>
                     <span className="inline-flex items-center gap-2">
                       Cart
                       {cartCount > 0 ? (
@@ -447,53 +383,6 @@ export default function StorefrontPage() {
                 </div>
               </div>
             </Card>
-
-            <SectionCard title="Services" subtitle="Book a service or pay to book (depending on the service)">
-              {services.length === 0 ? (
-                <div className="text-sm text-biz-muted">No services yet.</div>
-              ) : (
-                <div className="grid grid-cols-2 gap-3">
-                  {services.map((p: any) => {
-                    const img = Array.isArray(p?.images) ? p.images[0] : "";
-                    const mode = String(p?.serviceMode || "book");
-                    const bookOnly = mode === "book";
-
-                    const onSale = !bookOnly && saleIsActive(p);
-                    const base = Number(p?.price || 0);
-                    const final = onSale ? computeSalePriceNgn(p) : base;
-
-                    const subtitle = bookOnly ? (
-                      "Book only"
-                    ) : onSale ? (
-                      <>
-                        <span className="line-through text-gray-400 mr-1">{fmtNaira(base)}</span>
-                        <span className="text-emerald-700 font-extrabold">{fmtNaira(final)}</span>
-                      </>
-                    ) : (
-                      fmtNaira(base)
-                    );
-
-                    const badges: string[] = [];
-                    badges.push("Service");
-                    if (onSale) badges.push(saleBadgeText(p));
-
-                    return (
-                      <Tile
-                        key={p.id}
-                        title={p?.name || "Service"}
-                        subtitle={subtitle}
-                        image={img}
-                        badges={badges}
-                        onClick={() => {
-                          track({ type: "store_product_click", businessId: biz.id, businessSlug: slug, productId: p.id });
-                          router.push(`/b/${slug}/p/${p.id}`);
-                        }}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </SectionCard>
 
             <SectionCard title="Products" subtitle="Shop items from this store">
               {products.length === 0 ? (

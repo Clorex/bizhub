@@ -30,14 +30,6 @@ function keywordsFor(name: string) {
   return Array.from(out).slice(0, 40);
 }
 
-function cleanListingType(v: any): "product" | "service" {
-  return String(v || "product") === "service" ? "service" : "product";
-}
-
-function cleanServiceMode(v: any): "book" | "pay" {
-  return String(v || "book") === "pay" ? "pay" : "book";
-}
-
 async function getStaffPerms(uid: string) {
   const uSnap = await adminDb.collection("users").doc(uid).get();
   const u = uSnap.exists ? (uSnap.data() as any) : {};
@@ -81,8 +73,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ productId: 
     const { data } = await getOwnedProduct(me, productIdClean);
     if (!data) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
 
+    // ✅ services removed: always product in responses
+    data.listingType = "product";
+    data.serviceMode = null;
+
     if (typeof data.marketEnabled === "undefined") data.marketEnabled = true;
-    if (!data.listingType) data.listingType = "product";
     if (Array.isArray(data.images)) data.images = cleanImages(data.images);
 
     return NextResponse.json({ ok: true, product: data });
@@ -118,8 +113,8 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ productId: 
 
     const body = await req.json().catch(() => ({}));
 
-    const listingType = cleanListingType(body.listingType ?? existing.listingType ?? "product");
-    const serviceMode = cleanServiceMode(body.serviceMode ?? existing.serviceMode ?? "book");
+    // ✅ services removed: product-only
+    const listingType: "product" = "product";
 
     const name = String(body.name ?? existing.name ?? "").trim();
     const description = String(body.description ?? existing.description ?? "");
@@ -128,14 +123,7 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ productId: 
     const packaging = String(body.packaging ?? existing.packaging ?? "Box");
 
     if (!name) return NextResponse.json({ ok: false, error: "name is required" }, { status: 400 });
-
-    if (listingType === "product") {
-      if (!(price > 0)) return NextResponse.json({ ok: false, error: "price must be > 0 for products" }, { status: 400 });
-    } else {
-      if (serviceMode === "pay" && !(price > 0)) {
-        return NextResponse.json({ ok: false, error: "price must be > 0 for pay-to-book services" }, { status: 400 });
-      }
-    }
+    if (!(price > 0)) return NextResponse.json({ ok: false, error: "price must be > 0" }, { status: 400 });
 
     const images = cleanImages(typeof body.images !== "undefined" ? body.images : Array.isArray(existing.images) ? existing.images : []);
     const optionGroups = Array.isArray(body.optionGroups)
@@ -148,14 +136,14 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ productId: 
 
     const update: any = {
       listingType,
-      serviceMode: listingType === "service" ? serviceMode : null,
+      serviceMode: null,
 
       name,
       nameLower: name.toLowerCase(),
       description,
 
       price: Number.isFinite(price) ? price : 0,
-      stock: listingType === "product" ? (Number.isFinite(stock) ? stock : 0) : 0,
+      stock: Number.isFinite(stock) ? stock : 0,
 
       packaging,
       images,

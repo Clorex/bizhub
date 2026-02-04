@@ -31,14 +31,6 @@ function keywordsFor(name: string) {
   return Array.from(out).slice(0, 40);
 }
 
-function cleanListingType(v: any): "product" | "service" {
-  return String(v || "product") === "service" ? "service" : "product";
-}
-
-function cleanServiceMode(v: any): "book" | "pay" {
-  return String(v || "book") === "pay" ? "pay" : "book";
-}
-
 async function getStaffPerms(uid: string) {
   const uSnap = await adminDb.collection("users").doc(uid).get();
   const u = uSnap.exists ? (uSnap.data() as any) : {};
@@ -92,7 +84,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // ✅ plan-config driven limits
+    // plan-config driven limits
     const plan = await getBusinessPlanResolved(me.businessId);
     const maxProducts = Number(plan?.limits?.maxProducts || 0);
 
@@ -121,8 +113,8 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
 
-    const listingType = cleanListingType(body.listingType);
-    const serviceMode = cleanServiceMode(body.serviceMode);
+    // ✅ SERVICES REMOVED: force product-only
+    const listingType: "product" = "product";
 
     const name = String(body.name || "").trim();
     const description = String(body.description || "");
@@ -131,21 +123,13 @@ export async function POST(req: Request) {
     const packaging = String(body.packaging || "Box");
 
     if (!name) return NextResponse.json({ ok: false, error: "name is required" }, { status: 400 });
-
-    // Price rules
-    if (listingType === "product") {
-      if (!(price > 0)) return NextResponse.json({ ok: false, error: "price must be > 0 for products" }, { status: 400 });
-    } else {
-      if (serviceMode === "pay" && !(price > 0)) {
-        return NextResponse.json({ ok: false, error: "price must be > 0 for pay-to-book services" }, { status: 400 });
-      }
-    }
+    if (!(price > 0)) return NextResponse.json({ ok: false, error: "price must be > 0" }, { status: 400 });
 
     const images = cleanImages(body.images);
     const optionGroups = Array.isArray(body.optionGroups) ? body.optionGroups : [];
     const marketEnabled = body.marketEnabled === false ? false : true;
 
-    // ✅ Marketplace flags stored on product for /market filtering
+    // Marketplace flags stored on product for /market filtering
     const biz = plan.business || {};
     const marketAllowed = !!plan.features?.marketplace;
     const businessHasActiveSubscription = !!plan.hasActiveSubscription;
@@ -163,7 +147,7 @@ export async function POST(req: Request) {
       marketTier: Number(biz?.verificationTier || 0),
 
       listingType,
-      serviceMode: listingType === "service" ? serviceMode : null,
+      serviceMode: null, // legacy field kept as null
 
       name,
       nameLower: name.toLowerCase(),
@@ -171,7 +155,7 @@ export async function POST(req: Request) {
 
       description,
       price: Number.isFinite(price) ? price : 0,
-      stock: listingType === "product" ? (Number.isFinite(stock) ? stock : 0) : 0,
+      stock: Number.isFinite(stock) ? stock : 0,
 
       packaging,
       images,

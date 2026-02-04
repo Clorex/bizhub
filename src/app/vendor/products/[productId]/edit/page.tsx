@@ -8,14 +8,10 @@ import { auth } from "@/lib/firebase/client";
 import { ImageUploader } from "@/components/vendor/ImageUploader";
 import { OptionGroup, VariationBuilder } from "@/components/vendor/VariationBuilder";
 import { Button } from "@/components/ui/Button";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Megaphone } from "lucide-react";
 
 const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
 const MAX_IMAGES = 10;
-
-type ListingType = "product" | "service";
-type ServiceMode = "book" | "pay";
 
 function digitsOnly(s: string) {
   return String(s || "").replace(/[^\d]/g, "");
@@ -49,9 +45,6 @@ export default function VendorEditProductPage() {
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const [listingType, setListingType] = useState<ListingType>("product");
-  const [serviceMode, setServiceMode] = useState<ServiceMode>("book");
-
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
@@ -65,8 +58,6 @@ export default function VendorEditProductPage() {
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
   const [marketEnabled, setMarketEnabled] = useState(true);
 
-  const isService = listingType === "service";
-
   const price = useMemo(() => parseNumberText(priceText), [priceText]);
   const stock = useMemo(() => parseNumberText(stockText), [stockText]);
 
@@ -77,12 +68,8 @@ export default function VendorEditProductPage() {
 
   const canSave = useMemo(() => {
     if (!name.trim()) return false;
-
-    if (listingType === "product") return price > 0 && !saving;
-    if (listingType === "service" && serviceMode === "pay") return price > 0 && !saving;
-
-    return !saving;
-  }, [name, price, saving, listingType, serviceMode]);
+    return price > 0 && !saving;
+  }, [name, price, saving]);
 
   async function authedFetch(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
@@ -111,12 +98,6 @@ export default function VendorEditProductPage() {
 
         if (!mounted) return;
 
-        const lt: ListingType = String(p?.listingType || "product") === "service" ? "service" : "product";
-        const sm: ServiceMode = String(p?.serviceMode || "book") === "pay" ? "pay" : "book";
-
-        setListingType(lt);
-        setServiceMode(sm);
-
         setName(String(p?.name || ""));
         setDescription(String(p?.description || ""));
 
@@ -124,7 +105,7 @@ export default function VendorEditProductPage() {
         setPriceText(loadedPrice > 0 ? loadedPrice.toLocaleString("en-NG") : "");
 
         const loadedStock = Number(p?.stock ?? 0);
-        setStockText(loadedStock > 0 ? loadedStock.toLocaleString("en-NG") : "");
+        setStockText(loadedStock >= 0 ? loadedStock.toLocaleString("en-NG") : "");
 
         const savedPackaging = String(p?.packaging || "Box");
         if ((PACKAGING as readonly string[]).includes(savedPackaging)) {
@@ -139,7 +120,7 @@ export default function VendorEditProductPage() {
         setOptionGroups(Array.isArray(p?.optionGroups) ? p.optionGroups : []);
         setMarketEnabled(p?.marketEnabled !== false);
       } catch (e: any) {
-        setMsg(e?.message || "Failed to load listing");
+        setMsg(e?.message || "Failed to load product");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -159,24 +140,19 @@ export default function VendorEditProductPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          listingType,
-          serviceMode: listingType === "service" ? serviceMode : undefined,
-
+          // ✅ services removed: product-only payload
           name,
           description,
           price,
-          stock: listingType === "product" ? stock : 0,
+          stock,
           packaging: packagingFinal,
-
           images: images.slice(0, MAX_IMAGES),
           optionGroups,
-
           marketEnabled,
         }),
       });
 
       setMsg("Saved successfully.");
-      if (listingType === "service") setStockText("");
     } catch (e: any) {
       setMsg(e?.message || "Save failed");
     } finally {
@@ -185,7 +161,7 @@ export default function VendorEditProductPage() {
   }
 
   async function del() {
-    const ok = confirm("Delete this listing? This cannot be undone.");
+    const ok = confirm("Delete this product? This cannot be undone.");
     if (!ok) return;
 
     setSaving(true);
@@ -202,63 +178,19 @@ export default function VendorEditProductPage() {
 
   return (
     <div className="min-h-screen">
-      <GradientHeader
-        title={isService ? "Edit service" : "Edit product"}
-        showBack={true}
-        subtitle={productId ? `#${productId.slice(0, 8)}` : undefined}
-      />
+      <GradientHeader title="Edit product" showBack={true} subtitle={productId ? `#${productId.slice(0, 8)}` : undefined} />
 
       <div className="px-4 pb-6 space-y-3">
         {loading ? <Card className="p-4">Loading…</Card> : null}
-
         {msg ? <Card className={msg.includes("Saved") ? "p-4 text-green-700" : "p-4 text-red-700"}>{msg}</Card> : null}
 
         {!loading ? (
           <>
             <Card className="p-4 space-y-3">
-              <div>
-                <p className="text-sm font-bold text-biz-ink">Listing type</p>
-                <div className="mt-2">
-                  <SegmentedControl<ListingType>
-                    value={listingType}
-                    onChange={(v) => {
-                      setListingType(v);
-                      if (v === "service") {
-                        setServiceMode("book");
-                        setStockText("");
-                      }
-                    }}
-                    options={[
-                      { value: "product", label: "Product" },
-                      { value: "service", label: "Service" },
-                    ]}
-                  />
-                </div>
-              </div>
-
-              {listingType === "service" ? (
-                <div>
-                  <p className="text-sm font-bold text-biz-ink">Service mode</p>
-                  <div className="mt-2">
-                    <SegmentedControl<ServiceMode>
-                      value={serviceMode}
-                      onChange={setServiceMode}
-                      options={[
-                        { value: "book", label: "Book only" },
-                        { value: "pay", label: "Pay to book" },
-                      ]}
-                    />
-                  </div>
-                  <p className="mt-2 text-[11px] text-biz-muted">
-                    Book only → customers contact you via WhatsApp. Pay to book → customers pay at checkout.
-                  </p>
-                </div>
-              ) : null}
-
               <div className="space-y-2">
                 <input
                   className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-                  placeholder={isService ? "Service name" : "Product name"}
+                  placeholder="Product name"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                 />
@@ -288,13 +220,10 @@ export default function VendorEditProductPage() {
                   inputMode="numeric"
                   value={stockText}
                   onChange={(e) => setStockText(formatNumberText(e.target.value))}
-                  disabled={isService}
                 />
 
-                {isService ? <p className="text-[11px] text-biz-muted">Stock is not required for services.</p> : null}
-
                 <div className="mt-2">
-                  <p className="text-sm font-bold text-biz-ink">{isService ? "Category" : "Packaging"}</p>
+                  <p className="text-sm font-bold text-biz-ink">Packaging</p>
                   <select
                     className="mt-2 w-full border border-biz-line rounded-2xl p-3 text-sm bg-white"
                     value={packagingChoice}
@@ -310,7 +239,7 @@ export default function VendorEditProductPage() {
                   {packagingChoice === "Other" ? (
                     <input
                       className="mt-2 w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-                      placeholder={isService ? "Type category (e.g. Lash, Nails)" : "Type packaging"}
+                      placeholder="Type packaging"
                       value={packagingOther}
                       onChange={(e) => setPackagingOther(e.target.value)}
                     />
@@ -321,7 +250,7 @@ export default function VendorEditProductPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold text-biz-ink">Marketplace</p>
-                      <p className="text-xs text-biz-muted mt-1">If OFF, this listing will not appear on /market search.</p>
+                      <p className="text-xs text-biz-muted mt-1">If OFF, this product will not appear on /market search.</p>
                     </div>
 
                     <button
@@ -338,21 +267,16 @@ export default function VendorEditProductPage() {
                 </div>
 
                 <p className="text-xs text-biz-muted">
-                  Preview: <b className="text-biz-ink">{isService && serviceMode === "book" && price <= 0 ? "Book only" : fmtNaira(price)}</b>
-                  {isService ? null : (
-                    <>
-                      {" "}
-                      • Stock: <b className="text-biz-ink">{stockText || "—"}</b>
-                    </>
-                  )}{" "}
-                  • {isService ? "Category" : "Packaging"}: <b className="text-biz-ink">{packagingFinal}</b>
+                  Preview: <b className="text-biz-ink">{fmtNaira(price)}</b> • Stock:{" "}
+                  <b className="text-biz-ink">{stockText || "—"}</b> • Packaging:{" "}
+                  <b className="text-biz-ink">{packagingFinal}</b>
                 </p>
               </div>
             </Card>
 
             <Card className="p-4">
               <ImageUploader
-                label={isService ? "Service images" : "Product images"}
+                label="Product images"
                 value={images}
                 onChange={setImages}
                 max={MAX_IMAGES}
@@ -364,18 +288,14 @@ export default function VendorEditProductPage() {
 
             <Card className="p-4">
               <VariationBuilder value={optionGroups} onChange={setOptionGroups} maxGroups={10} />
-              <p className="mt-2 text-[11px] text-biz-muted">
-                Optional. For services, variations can represent different packages or styles.
-              </p>
             </Card>
 
             <Card className="p-4 space-y-2">
               <Button
                 onClick={() => router.push(`/vendor/promote?productId=${encodeURIComponent(productId)}`)}
-                disabled={isService}
                 leftIcon={<Megaphone className="h-4 w-4" />}
               >
-                Promote this {isService ? "service (coming)" : "product"}
+                Promote this product
               </Button>
 
               <Button onClick={save} disabled={!canSave} loading={saving}>
@@ -383,18 +303,10 @@ export default function VendorEditProductPage() {
               </Button>
 
               <Button variant="danger" onClick={del} disabled={saving}>
-                Delete listing
+                Delete product
               </Button>
 
-              {!canSave ? (
-                <p className="text-[11px] text-red-700">
-                  {listingType === "product"
-                    ? "Product requires a price greater than 0."
-                    : serviceMode === "pay"
-                      ? "Pay-to-book service requires a price greater than 0."
-                      : "Enter a name to continue."}
-                </p>
-              ) : null}
+              {!canSave ? <p className="text-[11px] text-red-700">Product requires a price greater than 0.</p> : null}
             </Card>
           </>
         ) : null}
