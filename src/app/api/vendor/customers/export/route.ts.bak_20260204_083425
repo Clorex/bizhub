@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -156,13 +156,13 @@ export async function GET(req: Request) {
     let customers = Array.from(map.values()).sort((a, b) => (b.lastOrderMs || 0) - (a.lastOrderMs || 0));
     customers = customers.slice(0, caps.customerCap);
 
-    // âœ… Notes only if packages allows it
+    // ✅ Notes only if packages allows it
     const notesAllowed = !!access?.features?.customerNotes;
     const notesMap = new Map<string, any>();
 
     if (notesAllowed && customers.length > 0) {
       const refs = customers.map((c) =>
-        adminDb.collection("customerNotes").doc(noteDocId(me.businessId, String((c as any).customerKey || "")))
+        adminDb.collection("customerNotes").doc(noteDocId(me.businessId, c.customerKey))
       );
 
       const anyDb: any = adminDb as any;
