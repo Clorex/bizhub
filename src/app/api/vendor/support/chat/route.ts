@@ -12,6 +12,14 @@ function cleanText(v: any, max = 2000) {
   return s.length <= max ? s : s.slice(0, max).trim();
 }
 
+function cleanModel(v: any) {
+  return String(v || "")
+    .trim()
+    .replace(/^["']+/, "")
+    .replace(/["']+$/, "")
+    .trim();
+}
+
 function buildSystemPrompt() {
   return [
     "You are BizHub customer care for vendors.",
@@ -19,23 +27,13 @@ function buildSystemPrompt() {
     "Give step-by-step help with short bullets.",
     "If you need more details, ask 1–2 questions only.",
     "Do not ask for passwords, OTP codes, bank PINs, or card numbers.",
-    "If the user asks for something unsafe, warn them and redirect to safe steps.",
   ].join("\n");
 }
 
 function fallbackSupportReply(messageRaw: string) {
   const m = cleanText(messageRaw, 5000).toLowerCase();
 
-  // Growth / views / sales
-  if (
-    m.includes("views") ||
-    m.includes("sales") ||
-    m.includes("customers") ||
-    m.includes("grow") ||
-    m.includes("market") ||
-    m.includes("promotion") ||
-    m.includes("promote")
-  ) {
+  if (m.includes("views") || m.includes("sales") || m.includes("customers") || m.includes("grow")) {
     return [
       "To get more views and sales, do these 6 things:",
       "",
@@ -50,59 +48,18 @@ function fallbackSupportReply(messageRaw: string) {
       "- Out of stock = people stop clicking",
       "",
       "4) Add 3–5 photos",
-      "- Front, back, close-up, and how it looks in real life",
+      "- Front, back, close-up, and real-life photo",
       "",
       "5) Share your store link consistently",
-      "- WhatsApp status",
-      "- WhatsApp groups",
-      "- Instagram bio + stories",
+      "- WhatsApp status, WhatsApp groups, Instagram stories",
       "",
-      "6) Promote your best product (if available)",
+      "6) Promote your best product (if you have promotion)",
       "- Start with your best seller, not your slowest product",
       "",
-      "If you tell me your product name + price, I’ll suggest a better title and the best photo order.",
+      "If you tell me your product name + price, I’ll suggest a better title and photo order.",
     ].join("\n");
   }
 
-  // Payment issues
-  if (m.includes("payment") || m.includes("paystack") || m.includes("card") || m.includes("failed")) {
-    return [
-      "For payment issues, try this:",
-      "",
-      "1) Ask the customer to try again",
-      "2) If it still fails, try a different card or network",
-      "3) If you have a payment reference, share it here and I’ll tell you what it means",
-      "",
-      "Tip: Don’t share OTP codes or card details.",
-    ].join("\n");
-  }
-
-  // Withdrawals / payout
-  if (m.includes("withdraw") || m.includes("payout") || m.includes("wallet") || m.includes("balance")) {
-    return [
-      "For withdrawals, check these:",
-      "",
-      "1) Confirm your payout details are complete (bank name, account number, account name)",
-      "2) Make sure your withdrawal steps are completed",
-      "3) If you see an error message, paste it here exactly",
-      "",
-      "If you tell me what you see on the withdrawal page, I’ll guide you step-by-step.",
-    ].join("\n");
-  }
-
-  // Login / account
-  if (m.includes("login") || m.includes("sign in") || m.includes("password") || m.includes("otp")) {
-    return [
-      "For account access:",
-      "",
-      "- If you can’t login, confirm you are using the correct email",
-      "- If you’re asked for a code, check your email inbox and spam folder",
-      "",
-      "Important: Never share your OTP code with anyone.",
-    ].join("\n");
-  }
-
-  // Default
   return [
     "I can help.",
     "",
@@ -112,15 +69,12 @@ function fallbackSupportReply(messageRaw: string) {
   ].join("\n");
 }
 
-async function callGroq(params: { apiKey: string; model: string; message: string; history: HistoryMsg[] }) {
+async function groqRequest(params: {
+  apiKey: string;
+  model: string;
+  messages: Array<{ role: string; content: string }>;
+}) {
   const url = "https://api.groq.com/openai/v1/chat/completions";
-  const system = buildSystemPrompt();
-
-  const messages = [
-    { role: "system", content: system },
-    ...params.history.map((m) => ({ role: m.role, content: cleanText(m.text, 1500) })),
-    { role: "user", content: params.message },
-  ];
 
   const r = await fetch(url, {
     method: "POST",
@@ -130,7 +84,7 @@ async function callGroq(params: { apiKey: string; model: string; message: string
     },
     body: JSON.stringify({
       model: params.model,
-      messages,
+      messages: params.messages,
       temperature: 0.35,
       max_tokens: 350,
     }),
@@ -148,6 +102,37 @@ async function callGroq(params: { apiKey: string; model: string; message: string
   if (!out) return { ok: false as const, status: 500, error: "Empty reply" };
 
   return { ok: true as const, text: out };
+}
+
+function modelFallbackList(primary: string) {
+  // Try a few common Groq model IDs (some accounts differ)
+  const list = [
+    primary,
+    "llama-3.1-70b-versatile",
+    "llama-3.1-8b-instant",
+    "llama3-70b-8192",
+    "mixtral-8x7b-32768",
+  ].map(cleanModel);
+
+  return Array.from(new Set(list.filter(Boolean)));
+}
+
+function buildMessagesWithSystem(system: string, history: HistoryMsg[], message: string) {
+  return [
+    { role: "system", content: system },
+    ...history.map((m) => ({ role: m.role, content: cleanText(m.text, 1500) })),
+    { role: "user", content: message },
+  ];
+}
+
+// Some providers reject role=system depending on model/account.
+// This fallback format removes system role and places it inside the first user message.
+function buildMessagesWithoutSystem(system: string, history: HistoryMsg[], message: string) {
+  const sysAsUser = `Support rules:\n${system}\n\nCustomer message:\n`;
+  return [
+    { role: "user", content: sysAsUser + message },
+    ...history.map((m) => ({ role: m.role, content: cleanText(m.text, 1500) })),
+  ];
 }
 
 export async function POST(req: Request) {
@@ -173,9 +158,10 @@ export async function POST(req: Request) {
     }
 
     const apiKey = String(process.env.GROQ_API_KEY || "").trim();
-    const model = String(process.env.GROQ_MODEL || "llama-3.1-70b-versatile").trim();
+    const envModel = cleanModel(process.env.GROQ_MODEL || "llama-3.1-70b-versatile");
+    const models = modelFallbackList(envModel);
+    const system = buildSystemPrompt();
 
-    // If no key in this environment, still reply (never blank)
     if (!apiKey) {
       return NextResponse.json({
         ok: true,
@@ -184,35 +170,38 @@ export async function POST(req: Request) {
       });
     }
 
-    const res = await callGroq({ apiKey, model, message, history });
+    let last: any = null;
 
-    if (res.ok) {
-      return NextResponse.json({ ok: true, reply: res.text, meta: { mode: "groq", model } });
+    for (const model of models) {
+      // 1) Try normal system role
+      let res = await groqRequest({
+        apiKey,
+        model,
+        messages: buildMessagesWithSystem(system, history, message),
+      });
+
+      // 2) If Groq says request is invalid (400), retry without system role format
+      if (!res.ok && res.status === 400) {
+        res = await groqRequest({
+          apiKey,
+          model,
+          messages: buildMessagesWithoutSystem(system, history, message),
+        });
+      }
+
+      if (res.ok) {
+        return NextResponse.json({ ok: true, reply: res.text, meta: { mode: "groq", model } });
+      }
+
+      last = { status: res.status, error: res.error, model };
     }
 
-    // Log the real failure for you in Vercel logs (no key is logged)
-    console.error("GROQ_SUPPORT_CHAT_FAILED", {
-      status: res.status,
-      error: res.error,
-      model,
-    });
-
-    // Return helpful fallback answer to user
-    // (so chat still feels “alive” even when Groq is down / rate-limited)
-    const fallback = fallbackSupportReply(message);
-
-    // If it looks like auth/key issues, add a small admin hint (still friendly)
-    const hint =
-      res.status === 401
-        ? "\n\n(Quick note: Support assistant needs a valid key in production.)"
-        : res.status === 429
-          ? "\n\n(Quick note: Support assistant is busy right now. Try again shortly.)"
-          : "";
+    console.error("GROQ_SUPPORT_CHAT_FAILED", last);
 
     return NextResponse.json({
       ok: true,
-      reply: fallback + hint,
-      meta: { mode: "fallback_after_error", status: res.status },
+      reply: fallbackSupportReply(message),
+      meta: { mode: "fallback_after_error", lastStatus: last?.status || 0, lastModel: last?.model || null },
     });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
