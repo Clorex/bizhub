@@ -310,15 +310,11 @@ export default function StorefrontPage() {
         productId: String(p.id),
         name: String(p?.name || "Product"),
         price: finalPrice,
-        imageUrl: img || null,
-        selectedOptions: null,
+        imageUrl: img || undefined,
+        selectedOptions: undefined,
       },
       1
     );
-
-    try {
-      if (biz?.id) track({ type: "add_to_cart", businessId: String(biz.id), businessSlug: slug, productId: String(p.id) });
-    } catch {}
 
     setToast("Added to cart");
   }
@@ -372,7 +368,14 @@ export default function StorefrontPage() {
                 <div className="flex items-start gap-3">
                   <div className="h-14 w-14 rounded-2xl bg-biz-cream overflow-hidden border border-biz-line shrink-0">
                     {logo ? (
-                      <CloudImage src={logo} alt="Logo" w={160} h={160} sizes="56px" className="h-full w-full object-cover" />
+                      <CloudImage
+                        src={logo}
+                        alt="Logo"
+                        w={160}
+                        h={160}
+                        sizes="56px"
+                        className="h-full w-full object-cover"
+                      />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center">
                         <Store className="h-6 w-6 text-orange-700" />
@@ -427,7 +430,11 @@ export default function StorefrontPage() {
                     WhatsApp
                   </Button>
 
-                  <Button variant="secondary" leftIcon={<Package className="h-4 w-4" />} onClick={() => router.push("/cart")}>
+                  <Button
+                    variant="secondary"
+                    leftIcon={<Package className="h-4 w-4" />}
+                    onClick={() => router.push("/cart")}
+                  >
                     <span className="inline-flex items-center gap-2">
                       Cart
                       {cartCount > 0 ? (

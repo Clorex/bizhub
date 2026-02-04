@@ -51,11 +51,16 @@ function noteDocId(businessId: string, customerKey: string) {
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
-    await requireVendorUnlocked(me.businessId);
+    // ✅ IMPORTANT: capture as a guaranteed string for TS + callbacks
+    const businessId = me.businessId;
+    if (!businessId) {
+      return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    }
 
-    const access = await getVendorLimitsResolved(me.businessId);
+    await requireVendorUnlocked(businessId);
+
+    const access = await getVendorLimitsResolved(businessId);
     const planKey = String(access.planKey || "FREE").toUpperCase();
 
     const caps = listCaps(planKey);
@@ -66,7 +71,7 @@ export async function GET(req: Request) {
     // Orders scan (one where + limit, sort in-memory)
     const oSnap = await adminDb
       .collection("orders")
-      .where("businessId", "==", me.businessId)
+      .where("businessId", "==", businessId)
       .limit(caps.orderScanCap)
       .get();
 
@@ -133,7 +138,7 @@ export async function GET(req: Request) {
 
     if (notesAllowed && customers.length > 0) {
       const refs = customers.map((c) =>
-        adminDb.collection("customerNotes").doc(noteDocId(me.businessId, c.customerKey))
+        adminDb.collection("customerNotes").doc(noteDocId(businessId, c.customerKey))
       );
 
       const anyDb: any = adminDb as any;
@@ -229,7 +234,10 @@ export async function GET(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." },
+        { status: 403 }
+      );
     }
     return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }

@@ -5,9 +5,11 @@ import dynamic from "next/dynamic";
 import { auth } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/Button";
 import { cloudinaryOptimizedUrl } from "@/lib/cloudinary/url";
+import "cropperjs/dist/cropper.css";
 
 // Lazy-load Cropper to keep initial pages lighter/smoother
-const Cropper = dynamic(() => import("react-cropper").then((m: any) => m.default), { ssr: false });
+// ✅ FIX: type dynamic component as any so TS allows Cropper props like `src`, `aspectRatio`, etc.
+const Cropper = dynamic<any>(() => import("react-cropper").then((m: any) => m.default), { ssr: false });
 
 type SignedPayload = {
   ok: boolean;

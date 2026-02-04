@@ -60,11 +60,15 @@ function safeRotationKey(v: any) {
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    const businessId = me.businessId;
 
-    await requireVendorUnlocked(me.businessId);
+    if (!businessId) {
+      return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    }
 
-    const plan = await getBusinessPlanResolved(me.businessId);
+    await requireVendorUnlocked(businessId);
+
+    const plan = await getBusinessPlanResolved(businessId);
     const planKey = String(plan.planKey || "FREE").toUpperCase() as PlanKey;
 
     const reengagementEnabled = !!plan?.features?.reengagement;
@@ -105,6 +109,7 @@ export async function POST(req: Request) {
     if (segment === "vip" && !allowVip) segment = "buyers_all";
 
     const peopleRaw = Array.isArray(body.people) ? body.people : [];
+
     const people: ReengagementPerson[] = peopleRaw
       .map((x: any) => ({
         key: String(x?.key || "").trim(),
@@ -116,7 +121,8 @@ export async function POST(req: Request) {
         lastOrderMs: Number(x?.lastOrderMs || 0) || 0,
         lastOrderId: x?.lastOrderId ? String(x.lastOrderId) : null,
       }))
-      .filter((x) => !!x.key && !!x.phone)
+      // ✅ build fix: explicitly type callback param so noImplicitAny doesn't fail
+      .filter((x: any) => !!x.key && !!x.phone)
       .slice(0, 500);
 
     if (!baseText) return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
@@ -125,7 +131,7 @@ export async function POST(req: Request) {
     const mod = moderateOutboundText(baseText);
     if (!mod.ok) {
       await adminDb.collection("vendorPolicyViolations").doc().set({
-        businessId: me.businessId,
+        businessId,
         businessSlug: me.businessSlug ?? null,
         type: "message_blocked",
         reason: mod.reason,
@@ -142,7 +148,7 @@ export async function POST(req: Request) {
     }
 
     const dk = dayKey();
-    const counterRef = adminDb.collection("businesses").doc(me.businessId).collection("reengagementCounters").doc(dk);
+    const counterRef = adminDb.collection("businesses").doc(businessId).collection("reengagementCounters").doc(dk);
 
     const countRequested = people.length;
 
@@ -196,16 +202,16 @@ export async function POST(req: Request) {
         : baseText;
 
       return {
-        key: p.key,
-        phone: cleanPhone(p.phone || ""),
-        fullName: p.fullName || null,
+        key: String((p as any)?.key || ""),
+        phone: cleanPhone((p as any)?.phone || ""),
+        fullName: (p as any)?.fullName || null,
         text,
       };
     });
 
     const campaignRef = adminDb.collection("reengagementCampaigns").doc();
     await campaignRef.set({
-      businessId: me.businessId,
+      businessId,
       businessSlug: me.businessSlug ?? null,
       segment,
       baseText,
@@ -234,7 +240,10 @@ export async function POST(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." },
+        { status: 403 }
+      );
     }
     return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }

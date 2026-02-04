@@ -27,19 +27,17 @@ function lowerEmail(v: string) {
   return String(v || "").trim().toLowerCase();
 }
 
-function csvEscape(value: any) {
-  const s = value == null ? "" : String(value);
-  const q = s.replace(/"/g, '""');
-  if (/[",\n\r]/.test(q)) return `"${q}"`;
-  return q;
+function listCaps(planKey: string) {
+  const k = String(planKey || "FREE").toUpperCase();
+  if (k === "APEX") return { orderScanCap: 10000, customersVisible: 3000 };
+  if (k === "MOMENTUM") return { orderScanCap: 6000, customersVisible: 1000 };
+  if (k === "LAUNCH") return { orderScanCap: 2000, customersVisible: 300 };
+  return { orderScanCap: 800, customersVisible: 50 };
 }
 
-function planCaps(planKey: string) {
+function exportUnlocked(planKey: string) {
   const k = String(planKey || "FREE").toUpperCase();
-  if (k === "APEX") return { orderScanCap: 10000, customerCap: 5000 };
-  if (k === "MOMENTUM") return { orderScanCap: 6000, customerCap: 2000 };
-  if (k === "LAUNCH") return { orderScanCap: 2000, customerCap: 500 };
-  return { orderScanCap: 0, customerCap: 0 };
+  return k !== "FREE";
 }
 
 function safeCustomerKey(v: string) {
@@ -50,36 +48,44 @@ function noteDocId(businessId: string, customerKey: string) {
   return `${businessId}__${safeCustomerKey(customerKey)}`;
 }
 
+function csvEscape(v: any) {
+  const s = String(v ?? "");
+  // escape quotes and wrap always (simple + safe)
+  return `"${s.replaceAll(`"`, `""`)}"`;
+}
+
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
-    await requireVendorUnlocked(me.businessId);
+    // ✅ capture as guaranteed string for TS + callbacks
+    const businessId = me.businessId;
+    if (!businessId) {
+      return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    }
 
-    const access = await getVendorLimitsResolved(me.businessId);
+    await requireVendorUnlocked(businessId);
+
+    const access = await getVendorLimitsResolved(businessId);
     const planKey = String(access.planKey || "FREE").toUpperCase();
-    const caps = planCaps(planKey);
 
-    if (caps.customerCap <= 0) {
+    if (!exportUnlocked(planKey)) {
       return NextResponse.json(
-        { ok: false, code: "FEATURE_LOCKED", error: "Customer export is locked on your plan. Upgrade to export customers." },
+        { ok: false, code: "FEATURE_LOCKED", error: "Upgrade your plan to export customers." },
         { status: 403 }
       );
     }
 
-    const url = new URL(req.url);
-    const includeContacts = url.searchParams.get("includeContacts") === "1";
+    const caps = listCaps(planKey);
 
-    const storeSlug = String(me.businessSlug || "").trim().toLowerCase();
-
-    const snap = await adminDb
+    // Orders scan
+    const oSnap = await adminDb
       .collection("orders")
-      .where("businessId", "==", me.businessId)
+      .where("businessId", "==", businessId)
       .limit(caps.orderScanCap)
       .get();
 
-    const orders = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+    const orders = oSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
     orders.sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt));
 
     type Agg = {
@@ -87,15 +93,8 @@ export async function GET(req: Request) {
       fullName: string;
       phone: string;
       email: string;
-
       ordersCount: number;
-      paystackCount: number;
-      directCount: number;
-      disputedCount: number;
-
       totalSpent: number;
-
-      firstOrderMs: number;
       lastOrderMs: number;
       lastOrderId: string;
     };
@@ -105,16 +104,12 @@ export async function GET(req: Request) {
     for (const o of orders) {
       const phone = digitsOnly(String(o?.customer?.phone || ""));
       const email = lowerEmail(String(o?.customer?.email || ""));
-
       const customerKey = phone ? `phone:${phone}` : email ? `email:${email}` : "";
       if (!customerKey) continue;
 
       const fullName = String(o?.customer?.fullName || "").trim();
       const ms = toMs(o.createdAt);
       const amt = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
-
-      const pt = String(o.paymentType || "");
-      const disputed = String(o.orderStatus || "") === "disputed" || String(o.escrowStatus || "") === "disputed";
 
       const cur =
         map.get(customerKey) ||
@@ -124,11 +119,7 @@ export async function GET(req: Request) {
           phone,
           email,
           ordersCount: 0,
-          paystackCount: 0,
-          directCount: 0,
-          disputedCount: 0,
           totalSpent: 0,
-          firstOrderMs: ms || 0,
           lastOrderMs: ms || 0,
           lastOrderId: String(o.id || ""),
         } as Agg);
@@ -136,15 +127,10 @@ export async function GET(req: Request) {
       cur.ordersCount += 1;
       cur.totalSpent += Math.max(0, amt);
 
-      if (pt === "paystack_escrow") cur.paystackCount += 1;
-      if (pt === "direct_transfer") cur.directCount += 1;
-      if (disputed) cur.disputedCount += 1;
-
       if (!cur.fullName && fullName) cur.fullName = fullName;
       if (!cur.phone && phone) cur.phone = phone;
       if (!cur.email && email) cur.email = email;
 
-      if (ms && (!cur.firstOrderMs || ms < cur.firstOrderMs)) cur.firstOrderMs = ms;
       if (ms && (!cur.lastOrderMs || ms > cur.lastOrderMs)) {
         cur.lastOrderMs = ms;
         cur.lastOrderId = String(o.id || "");
@@ -154,15 +140,15 @@ export async function GET(req: Request) {
     }
 
     let customers = Array.from(map.values()).sort((a, b) => (b.lastOrderMs || 0) - (a.lastOrderMs || 0));
-    customers = customers.slice(0, caps.customerCap);
+    customers = customers.slice(0, caps.customersVisible);
 
-    // âœ… Notes only if packages allows it
+    // Notes (optional)
     const notesAllowed = !!access?.features?.customerNotes;
     const notesMap = new Map<string, any>();
 
     if (notesAllowed && customers.length > 0) {
       const refs = customers.map((c) =>
-        adminDb.collection("customerNotes").doc(noteDocId(me.businessId, String((c as any).customerKey || "")))
+        adminDb.collection("customerNotes").doc(noteDocId(businessId, c.customerKey))
       );
 
       const anyDb: any = adminDb as any;
@@ -181,136 +167,57 @@ export async function GET(req: Request) {
           vip: !!d.vip,
           debt: !!d.debt,
           issue: !!d.issue,
-          debtAmount: Number(d.debtAmount || 0),
           note: String(d.note || ""),
+          debtAmount: Number(d.debtAmount || 0),
           updatedAtMs: Number(d.updatedAtMs || 0),
         });
       }
     }
 
-    // opt-out sets
-    const globalOptOutEmails = new Set<string>();
-    const storeOptOutEmails = new Set<string>();
-
-    const globalSnap = await adminDb
-      .collection("users")
-      .where("marketingPrefs.globalOptOut", "==", true)
-      .limit(20000)
-      .get();
-
-    for (const d of globalSnap.docs) {
-      const u = d.data() as any;
-      const e = lowerEmail(String(u.emailLower || u.email || ""));
-      if (e) globalOptOutEmails.add(e);
-    }
-
-    if (storeSlug) {
-      const storeSnap = await adminDb
-        .collection("users")
-        .where("marketingPrefs.storeOptOutSlugs", "array-contains", storeSlug)
-        .limit(20000)
-        .get();
-
-      for (const d of storeSnap.docs) {
-        const u = d.data() as any;
-        const e = lowerEmail(String(u.emailLower || u.email || ""));
-        if (e) storeOptOutEmails.add(e);
-      }
-    }
-
-    const isLaunch = planKey === "LAUNCH";
-    const isMomentum = planKey === "MOMENTUM";
-    const isApex = planKey === "APEX";
-
-    const baseHeaders = [
+    const header = [
       "customerKey",
       "fullName",
       "phone",
       "email",
-      "marketingOptedOut",
-      "optOutScope",
       "ordersCount",
       "totalSpent",
-      "lastOrderAt",
+      "lastOrderMs",
+      "lastOrderId",
+      "vip",
+      "debt",
+      "issue",
+      "debtAmount",
+      "note",
+      "notesUpdatedAtMs",
     ];
 
-    const notesHeaders = ["vip", "debt", "issue", "debtAmount", "note", "noteUpdatedAt"];
-
-    const moreHeaders = ["averageOrderValue", "paystackCount", "directCount", "disputedCount", "lastOrderId"];
-    const apexHeaders = ["firstOrderAt"];
-
-    const headers =
-      isApex
-        ? [...baseHeaders, ...(notesAllowed ? notesHeaders : []), ...moreHeaders, ...apexHeaders]
-        : isMomentum
-        ? [...baseHeaders, ...(notesAllowed ? notesHeaders : []), ...moreHeaders]
-        : isLaunch
-        ? [...baseHeaders, ...(notesAllowed ? notesHeaders : [])]
-        : [...baseHeaders, ...(notesAllowed ? notesHeaders : [])];
-
-    const lines: string[] = [];
-    lines.push("\ufeff" + headers.join(","));
-
-    for (const c of customers) {
-      const lastOrderAt = c.lastOrderMs ? new Date(c.lastOrderMs).toISOString() : "";
-      const firstOrderAt = c.firstOrderMs ? new Date(c.firstOrderMs).toISOString() : "";
-
-      const aov = c.ordersCount > 0 ? c.totalSpent / c.ordersCount : 0;
-
-      const emailLower = lowerEmail(c.email);
-      const optedOutGlobal = !!emailLower && globalOptOutEmails.has(emailLower);
-      const optedOutStore = !!emailLower && storeOptOutEmails.has(emailLower);
-      const marketingOptedOut = optedOutGlobal || optedOutStore;
-
-      const optOutScope = optedOutGlobal ? "global" : optedOutStore ? "store" : "";
-
-      const phoneOut = marketingOptedOut && !includeContacts ? "" : c.phone || "";
-      const emailOut = marketingOptedOut && !includeContacts ? "" : c.email || "";
-
+    const rows = customers.map((c) => {
       const n = notesAllowed ? notesMap.get(c.customerKey) || null : null;
-      const noteUpdatedAt = n?.updatedAtMs ? new Date(Number(n.updatedAtMs)).toISOString() : "";
 
-      const record: Record<string, any> = {
-        customerKey: c.customerKey,
-        fullName: c.fullName || "",
-        phone: phoneOut,
-        email: emailOut,
-        marketingOptedOut: marketingOptedOut ? "true" : "false",
-        optOutScope,
-        ordersCount: c.ordersCount,
-        totalSpent: Number(c.totalSpent.toFixed(2)),
-        lastOrderAt,
-      };
+      return [
+        c.customerKey,
+        c.fullName || "",
+        c.phone || "",
+        c.email || "",
+        c.ordersCount,
+        Number(c.totalSpent.toFixed(2)),
+        c.lastOrderMs || 0,
+        c.lastOrderId || "",
+        n ? (n.vip ? "yes" : "no") : "",
+        n ? (n.debt ? "yes" : "no") : "",
+        n ? (n.issue ? "yes" : "no") : "",
+        n ? Number(n.debtAmount || 0) : "",
+        n ? String(n.note || "") : "",
+        n ? Number(n.updatedAtMs || 0) : "",
+      ].map(csvEscape);
+    });
 
-      if (notesAllowed) {
-        record.vip = n?.vip ? "true" : "false";
-        record.debt = n?.debt ? "true" : "false";
-        record.issue = n?.issue ? "true" : "false";
-        record.debtAmount = Number(n?.debtAmount || 0);
-        record.note = String(n?.note || "");
-        record.noteUpdatedAt = noteUpdatedAt;
-      }
+    const csv = [header.map(csvEscape).join(","), ...rows.map((r) => r.join(","))].join("\n");
 
-      if (isMomentum || isApex) {
-        record.averageOrderValue = Number(aov.toFixed(2));
-        record.paystackCount = c.paystackCount;
-        record.directCount = c.directCount;
-        record.disputedCount = c.disputedCount;
-        record.lastOrderId = c.lastOrderId || "";
-      }
-
-      if (isApex) {
-        record.firstOrderAt = firstOrderAt;
-      }
-
-      lines.push(headers.map((h) => csvEscape(record[h])).join(","));
-    }
-
-    const csv = lines.join("\r\n");
-    const filename = `bizhub_customers_${me.businessId}_${new Date().toISOString().slice(0, 10)}.csv`;
+    const day = new Date().toISOString().slice(0, 10);
+    const filename = `customers_${me.businessSlug || "store"}_${day}.csv`;
 
     return new NextResponse(csv, {
-      status: 200,
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${filename}"`,
@@ -319,8 +226,11 @@ export async function GET(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return NextResponse.json(
+        { ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." },
+        { status: 403 }
+      );
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return NextResponse.json({ ok: false, error: e?.message || "Export failed" }, { status: 500 });
   }
 }
