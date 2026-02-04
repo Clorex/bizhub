@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
-import { Button } from "@/components/ui/Button";
 
 type VendorPrefs = {
   notificationsOrders: boolean;
@@ -18,37 +17,37 @@ type VendorPrefs = {
 
 const KEY = "bizhub_vendor_prefs_v1";
 
+const FALLBACK: VendorPrefs = {
+  notificationsOrders: true,
+  notificationsPayments: true,
+  notificationsTips: true,
+
+  defaultMarketEnabled: true,
+  openWhatsAppInNewTab: true,
+
+  reduceDataUsage: false,
+};
+
 function loadPrefs(): VendorPrefs {
-  const fallback: VendorPrefs = {
-    notificationsOrders: true,
-    notificationsPayments: true,
-    notificationsTips: true,
-
-    defaultMarketEnabled: true,
-    openWhatsAppInNewTab: true,
-
-    reduceDataUsage: false,
-  };
-
-  if (typeof window === "undefined") return fallback;
+  if (typeof window === "undefined") return FALLBACK;
 
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return fallback;
+    if (!raw) return FALLBACK;
 
     const v = JSON.parse(raw);
     return {
-      notificationsOrders: typeof v?.notificationsOrders === "boolean" ? v.notificationsOrders : fallback.notificationsOrders,
-      notificationsPayments: typeof v?.notificationsPayments === "boolean" ? v.notificationsPayments : fallback.notificationsPayments,
-      notificationsTips: typeof v?.notificationsTips === "boolean" ? v.notificationsTips : fallback.notificationsTips,
+      notificationsOrders: typeof v?.notificationsOrders === "boolean" ? v.notificationsOrders : FALLBACK.notificationsOrders,
+      notificationsPayments: typeof v?.notificationsPayments === "boolean" ? v.notificationsPayments : FALLBACK.notificationsPayments,
+      notificationsTips: typeof v?.notificationsTips === "boolean" ? v.notificationsTips : FALLBACK.notificationsTips,
 
-      defaultMarketEnabled: typeof v?.defaultMarketEnabled === "boolean" ? v.defaultMarketEnabled : fallback.defaultMarketEnabled,
-      openWhatsAppInNewTab: typeof v?.openWhatsAppInNewTab === "boolean" ? v.openWhatsAppInNewTab : fallback.openWhatsAppInNewTab,
+      defaultMarketEnabled: typeof v?.defaultMarketEnabled === "boolean" ? v.defaultMarketEnabled : FALLBACK.defaultMarketEnabled,
+      openWhatsAppInNewTab: typeof v?.openWhatsAppInNewTab === "boolean" ? v.openWhatsAppInNewTab : FALLBACK.openWhatsAppInNewTab,
 
-      reduceDataUsage: typeof v?.reduceDataUsage === "boolean" ? v.reduceDataUsage : fallback.reduceDataUsage,
+      reduceDataUsage: typeof v?.reduceDataUsage === "boolean" ? v.reduceDataUsage : FALLBACK.reduceDataUsage,
     };
   } catch {
-    return fallback;
+    return FALLBACK;
   }
 }
 
@@ -103,7 +102,8 @@ export default function VendorPreferencesPage() {
     const t = setTimeout(() => {
       savePrefs(prefs);
       setMsg("Saved.");
-      setTimeout(() => setMsg(null), 1200);
+      const t2 = setTimeout(() => setMsg(null), 1200);
+      return () => clearTimeout(t2);
     }, 250);
     return () => clearTimeout(t);
   }, [prefs]);
@@ -116,8 +116,7 @@ export default function VendorPreferencesPage() {
   function reset() {
     const ok = confirm("Reset preferences to default?");
     if (!ok) return;
-    const next = loadPrefs();
-    setPrefs(next);
+    setPrefs(FALLBACK);
     setMsg("Reset done.");
     setTimeout(() => setMsg(null), 1200);
   }
@@ -132,9 +131,7 @@ export default function VendorPreferencesPage() {
         <Card className="p-4">
           <p className="text-sm font-extrabold text-biz-ink">Overview</p>
           <p className="text-xs text-biz-muted mt-1">{summary}</p>
-          <p className="text-[11px] text-biz-muted mt-2">
-            These settings are saved on this device.
-          </p>
+          <p className="text-[11px] text-biz-muted mt-2">These settings are saved on this device.</p>
         </Card>
 
         <Card className="p-4 space-y-2">
@@ -190,15 +187,17 @@ export default function VendorPreferencesPage() {
             onChange={(v) => setPrefs((p) => ({ ...p, reduceDataUsage: v }))}
           />
 
-          <p className="text-[11px] text-biz-muted mt-2">
-            Tip: If your phone is slow, turn this ON.
-          </p>
+          <p className="text-[11px] text-biz-muted mt-2">Tip: If your phone is slow, turn this ON.</p>
         </Card>
 
         <Card className="p-4">
-          <Button variant="secondary" onClick={reset}>
+          <button
+            type="button"
+            onClick={reset}
+            className="w-full rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink hover:bg-black/[0.02] transition"
+          >
             Reset preferences
-          </Button>
+          </button>
         </Card>
       </div>
     </div>
