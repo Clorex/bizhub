@@ -1,0 +1,79 @@
+=== BUILD DIAGNOSE ===
+Time: 02/04/2026 08:24:11
+--- Node / npm ---
+node: v24.12.0
+npm: 11.6.2
+--- Git ---
+branch: main
+commit: 63079e3 Deploy
+--- npm run build (output) ---
+
+> bizhub@0.1.0 build
+> next build
+
+Gû¦ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+G£ô Compiled successfully in 10.7s
+  Running TypeScript ...
+Failed to compile.
+System.Management.Automation.RemoteException
+.next/dev/types/validator.ts:396:31
+Type error: Type 'typeof import("C:/Users/USER/Desktop/bizhub/src/app/vendor/discounts/page")' does not satisfy the constraint 'AppPageConfig<"/vendor/discounts">'.
+  Property 'default' is missing in type 'typeof import("C:/Users/USER/Desktop/bizhub/src/app/vendor/discounts/page")' but required in type 'AppPageConfig<"/vendor/discounts">'.
+System.Management.Automation.RemoteException
+[0m [90m 394 |[39m   type __IsExpected[33m<[39m[33mSpecific[39m [36mextends[39m [33mAppPageConfig[39m[33m<[39m[32m"/vendor/discounts"[39m[33m>>[39m [33m=[39m [33mSpecific[39m
+ [90m 395 |[39m   [36mconst[39m handler [33m=[39m {} [36mas[39m [36mtypeof[39m [36mimport[39m([32m"../../../src/app/vendor/discounts/page.js"[39m)
+[31m[1m>[22m[39m[90m 396 |[39m   type __Check [33m=[39m __IsExpected[33m<[39m[36mtypeof[39m handler[33m>[39m
+ [90m     |[39m                               [31m[1m^[22m[39m
+ [90m 397 |[39m   [90m// @ts-ignore[39m
+ [90m 398 |[39m   type __Unused [33m=[39m __Check
+ [90m 399 |[39m }[0m
+Next.js build worker exited with code: 1 and signal: null
+
+--- Last 120 lines (quick view) ---
+
+> bizhub@0.1.0 build
+> next build
+
+Gû¦ Next.js 16.1.6 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+G£ô Compiled successfully in 10.7s
+  Running TypeScript ...
+node.exe : Failed to compile.
+At line:1 char:1
++ & "C:\Program Files\nodejs/node.exe" "C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~
+    + CategoryInfo          : NotSpecified: (Failed to compile. 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+
+.next/dev/types/validator.ts:396:31
+Type error: Type 'typeof import("C:/Users/USER/Desktop/bizhub/sr
+c/app/vendor/discounts/page")' does not satisfy the constraint 
+'AppPageConfig<"/vendor/discounts">'.
+  Property 'default' is missing in type 'typeof import("C:/Users
+/USER/Desktop/bizhub/src/app/vendor/discounts/page")' but 
+required in type 'AppPageConfig<"/vendor/discounts">'.
+
+[0m [90m 394 |[39m   type 
+__IsExpected[33m<[39m[33mSpecific[39m [36mextends[39m [33
+mAppPageConfig[39m[33m<[39m[32m"/vendor/discounts"[39m[33m
+>>[39m [33m=[39m [33mSpecific[39m
+ [90m 395 |[39m   [36mconst[39m handler [33m=[39m {} 
+[36mas[39m [36mtypeof[39m [36mimport[39m([32m"../../../sr
+c/app/vendor/discounts/page.js"[39m)
+[31m[1m>[22m[39m[90m 396 |[39m   type __Check [33m=[39m 
+__IsExpected[33m<[39m[36mtypeof[39m handler[33m>[39m
+ [90m     |[39m                               
+[31m[1m^[22m[39m
+ [90m 397 |[39m   [90m// @ts-ignore[39m
+ [90m 398 |[39m   type __Unused [33m=[39m __Check
+ [90m 399 |[39m }[0m
+Next.js build worker exited with code: 1 and signal: null
