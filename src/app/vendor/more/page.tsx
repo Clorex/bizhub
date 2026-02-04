@@ -1,4 +1,3 @@
-// FILE: src/app/vendor/more/page.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
@@ -19,11 +18,13 @@ import {
   Crown,
   Megaphone,
   Users,
-  Percent,
   MessageCircle,
   BadgeCheck,
   Sparkles,
   Send,
+  BadgePercent,
+  TicketPercent,
+  ShoppingBag,
 } from "lucide-react";
 import { auth } from "@/lib/firebase/client";
 import { signOut } from "firebase/auth";
@@ -49,7 +50,10 @@ function Row({
   onClick: () => void;
 }) {
   return (
-    <button onClick={onClick} className="w-full text-left rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition">
+    <button
+      onClick={onClick}
+      className="w-full text-left rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition"
+    >
       <div className="flex items-start gap-3">
         <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center shrink-0">{icon}</div>
         <div className="flex-1 min-w-0">
@@ -87,7 +91,9 @@ export default function VendorMorePage() {
           <Row icon={<Send className="h-5 w-5 text-orange-700" />} title="Re‑engagement" desc="Message past buyers and follow up" onClick={() => router.push("/vendor/reengagement")} />
           <Row icon={<ClipboardList className="h-5 w-5 text-orange-700" />} title="Orders" desc="View and manage your orders" onClick={() => router.push("/vendor/orders")} />
           <Row icon={<BarChart3 className="h-5 w-5 text-orange-700" />} title="Business analysis" desc="Sales tips, insights & performance" onClick={() => router.push("/vendor/analytics")} />
-          <Row icon={<Percent className="h-5 w-5 text-orange-700" />} title="Discounts" desc="Coupon codes for checkout" onClick={() => router.push("/vendor/coupon")} />
+          <Row icon={<BarChart3 className="h-5 w-5 text-orange-700" />} title="Best‑selling products" desc="Launch: Top 5 (7 days) • Momentum: Top 20 (30 days) • Apex: Top 50 (90 days)" onClick={() => router.push("/vendor/best-sellers")} />
+          <Row icon={<BadgePercent className="h-5 w-5 text-orange-700" />} title="Sales" desc="Run discounts on products (shows on store & marketplace)" onClick={() => router.push("/vendor/discounts")} />
+          <Row icon={<TicketPercent className="h-5 w-5 text-orange-700" />} title="Coupon codes" desc="Discount codes used at checkout" onClick={() => router.push("/vendor/coupon")} />
         </Group>
 
         <Group title="Team">
@@ -100,6 +106,10 @@ export default function VendorMorePage() {
 
         <Group title="Payments">
           <Row icon={<Crown className="h-5 w-5 text-orange-700" />} title="Subscription" desc="Upgrade your plan to unlock more features" onClick={() => router.push("/vendor/subscription")} />
+
+          {/* ✅ NEW */}
+          <Row icon={<ShoppingBag className="h-5 w-5 text-orange-700" />} title="Plan purchases" desc="Buy add-ons and bundles based on your plan" onClick={() => router.push("/vendor/purchases")} />
+
           <Row icon={<Wallet className="h-5 w-5 text-orange-700" />} title="BizHub Balance" desc="Pending, available & withdrawals" onClick={() => router.push("/vendor/wallet")} />
           <Row icon={<Banknote className="h-5 w-5 text-orange-700" />} title="Payout details" desc="Bank name, account number, account name" onClick={() => router.push("/vendor/settings/payouts")} />
         </Group>

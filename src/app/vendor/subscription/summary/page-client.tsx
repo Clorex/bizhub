@@ -1,33 +1,33 @@
 ﻿"use client";
 
-
-
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { auth } from "@/lib/firebase/client";
-import {
-  BIZHUB_PLANS,
-  type BizhubBillingCycle,
-  type BizhubPlanKey,
-} from "@/lib/bizhubPlans";
 import { CheckCircle2 } from "lucide-react";
 
+type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
+type BizhubBillingCycle = "monthly" | "quarterly" | "biannually" | "yearly";
 type TabKey = "benefits" | "purchases" | "history";
 
+const NAIRA = "\u20A6"; // ₦
+const BULLET = "\u2022"; // •
+const EM_DASH = "\u2014"; // —
+
 function fmtNaira(n: number) {
+  const amount = Number(n || 0);
   try {
-    return `â‚¦${Number(n || 0).toLocaleString()}`;
+    return `${NAIRA}${new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(amount)}`;
   } catch {
-    return `â‚¦${n}`;
+    return `${NAIRA}${amount}`;
   }
 }
 
 function fmtDateTime(ms?: number) {
-  if (!ms) return "â€”";
+  if (!ms) return EM_DASH;
   try {
     return new Date(ms).toLocaleString();
   } catch {
@@ -35,23 +35,26 @@ function fmtDateTime(ms?: number) {
   }
 }
 
-function DetailsList({
-  groups,
-}: {
-  groups: Record<string, string[]>;
-}) {
+function flattenGroups(groups: Record<string, string[]>) {
+  const out: string[] = [];
+  for (const [, items] of Object.entries(groups || {})) {
+    for (const t of items || []) {
+      const s = String(t || "").trim();
+      if (s) out.push(s);
+    }
+  }
+  const seen = new Set<string>();
+  return out.filter((x) => (seen.has(x) ? false : (seen.add(x), true)));
+}
+
+function DetailsList({ groups }: { groups: Record<string, string[]> }) {
   return (
     <div className="space-y-2">
-      {Object.entries(groups).map(([k, items]) => (
-        <details
-          key={k}
-          className="rounded-2xl border border-biz-line bg-white p-3"
-        >
-          <summary className="cursor-pointer text-sm font-extrabold text-biz-ink">
-            {k}
-          </summary>
+      {Object.entries(groups || {}).map(([k, items]) => (
+        <details key={k} className="rounded-2xl border border-biz-line bg-white p-3">
+          <summary className="cursor-pointer text-sm font-extrabold text-biz-ink">{k}</summary>
           <div className="mt-2 space-y-2">
-            {items.map((t) => (
+            {(items || []).map((t) => (
               <div key={t} className="flex items-start gap-2 text-sm text-gray-700">
                 <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
                 <span>{t}</span>
@@ -64,15 +67,41 @@ function DetailsList({
   );
 }
 
-export default function SubscriptionSummaryPage() {
+type PlansResponse = {
+  ok: boolean;
+  plans: Record<
+    BizhubPlanKey,
+    {
+      key: BizhubPlanKey;
+      name: string;
+      tagline: string;
+      recommendedFor?: string;
+      priceNgn: Record<BizhubBillingCycle, number>;
+      benefits: Record<string, string[]>;
+      purchases: Record<string, string[]>;
+    }
+  >;
+};
+
+export default function SubscriptionSummaryPageClient() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const planFromUrl = String(sp.get("plan") || "LAUNCH") as BizhubPlanKey;
-  const cycleFromUrl = String(sp.get("cycle") || "yearly") as BizhubBillingCycle;
+  const planFromUrl = String(sp.get("plan") || "LAUNCH").toUpperCase();
+  const cycleFromUrl = String(sp.get("cycle") || "yearly").toLowerCase();
+
+  const planKey: BizhubPlanKey = (["FREE", "LAUNCH", "MOMENTUM", "APEX"] as BizhubPlanKey[]).includes(planFromUrl as any)
+    ? (planFromUrl as BizhubPlanKey)
+    : "LAUNCH";
+
+  const initialCycle: BizhubBillingCycle = (["monthly", "quarterly", "biannually", "yearly"] as BizhubBillingCycle[]).includes(
+    cycleFromUrl as any
+  )
+    ? (cycleFromUrl as BizhubBillingCycle)
+    : "yearly";
 
   const [tab, setTab] = useState<TabKey>("benefits");
-  const [cycle, setCycle] = useState<BizhubBillingCycle>(cycleFromUrl);
+  const [cycle, setCycle] = useState<BizhubBillingCycle>(initialCycle);
 
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
@@ -80,13 +109,12 @@ export default function SubscriptionSummaryPage() {
 
   const [history, setHistory] = useState<any[]>([]);
   const [entitlement, setEntitlement] = useState<any>(null);
+  const [plans, setPlans] = useState<PlansResponse["plans"] | null>(null);
 
-  const planKey: BizhubPlanKey = (["FREE", "LAUNCH", "MOMENTUM", "APEX"] as BizhubPlanKey[]).includes(planFromUrl)
-    ? planFromUrl
-    : "LAUNCH";
+  const mountedRef = useRef(true);
 
-  const plan = BIZHUB_PLANS[planKey];
-  const price = plan.priceNgn[cycle];
+  const plan = plans?.[planKey] || null;
+  const price = Number(plan?.priceNgn?.[cycle] ?? 0);
 
   async function authedFetch(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
@@ -95,41 +123,43 @@ export default function SubscriptionSummaryPage() {
       headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data?.error || "Request failed");
+    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
     return data;
   }
 
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
 
     async function load() {
       setLoading(true);
       setMsg(null);
       try {
-        const data = await authedFetch("/api/subscriptions/my");
-        if (!mounted) return;
+        const [plansData, subData] = await Promise.all([
+          authedFetch("/api/vendor/plans") as Promise<PlansResponse>,
+          authedFetch("/api/subscriptions/my"),
+        ]);
 
-        setHistory(Array.isArray(data.purchases) ? data.purchases : []);
-        setEntitlement(data.entitlement || null);
+        if (!mountedRef.current) return;
+
+        if (!plansData?.ok || !plansData?.plans) throw new Error("Failed to load plan config");
+
+        setPlans(plansData.plans);
+        setHistory(Array.isArray(subData.purchases) ? subData.purchases : []);
+        setEntitlement(subData.entitlement || null);
       } catch (e: any) {
-        if (!mounted) return;
+        if (!mountedRef.current) return;
         setMsg(e?.message || "Failed to load");
       } finally {
-        if (mounted) setLoading(false);
+        if (mountedRef.current) setLoading(false);
       }
     }
 
     load();
     return () => {
-      mounted = false;
+      mountedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const headline = useMemo(() => {
-    if (planKey === "FREE") return "Free plan";
-    return `${plan.name} plan`;
-  }, [planKey, plan.name]);
 
   const canPay = planKey !== "FREE" && price > 0;
 
@@ -153,15 +183,24 @@ export default function SubscriptionSummaryPage() {
     }
   }
 
-  const entPlanKey = String(entitlement?.planKey || "FREE");
-  const entSource = String(entitlement?.source || "free");
+  const entPlanKey = String(entitlement?.planKey || "FREE") as BizhubPlanKey;
   const entExpiry = Number(entitlement?.expiresAtMs || 0);
+  const entName = plans?.[entPlanKey]?.name || (entPlanKey === "FREE" ? "Free access" : entPlanKey);
+
+  const headline = useMemo(() => {
+    return planKey === "FREE" ? "Free access" : `${plan?.name || planKey}`;
+  }, [planKey, plan?.name]);
+
+  const highlights = useMemo(() => {
+    const flat = flattenGroups(plan?.benefits || {});
+    return flat.slice(0, 4);
+  }, [plan]);
 
   return (
     <div className="min-h-screen">
       <GradientHeader
         title="Summary"
-        subtitle="Review plan details and continue"
+        subtitle="Review your plan and continue"
         showBack={true}
         right={
           <button
@@ -173,39 +212,38 @@ export default function SubscriptionSummaryPage() {
         }
       />
 
-      <div className="px-4 pb-6 space-y-3">
+      <div className="px-4 pb-24 space-y-3">
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
-        {/* Current access banner */}
         <Card className="p-4">
           <p className="text-xs text-biz-muted">Current access</p>
-          <p className="text-sm font-extrabold text-biz-ink mt-1">
-            {entPlanKey === "FREE" ? "Free plan" : `${BIZHUB_PLANS[entPlanKey as BizhubPlanKey]?.name || entPlanKey} â€¢ ${entSource}`}
-          </p>
+          <p className="text-sm font-extrabold text-biz-ink mt-1">{entName}</p>
           <p className="text-[11px] text-gray-500 mt-1">
-            {entPlanKey === "FREE" ? "Upgrade anytime." : `Expires: ${fmtDateTime(entExpiry)}`}
+            {entPlanKey === "FREE" ? "Upgrade anytime to unlock more tools." : `Active until: ${fmtDateTime(entExpiry)}`}
           </p>
         </Card>
 
-        {/* Plan card */}
         <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="text-xs opacity-95">Selected plan</p>
               <p className="text-xl font-extrabold mt-1">{headline}</p>
-              <p className="text-[11px] opacity-95 mt-1">{plan.tagline}</p>
+              <p className="text-[11px] opacity-95 mt-1">{plan?.tagline || ""}</p>
+              {plan?.recommendedFor ? (
+                <p className="text-[11px] opacity-95 mt-2">
+                  Recommended for: <b>{plan.recommendedFor}</b>
+                </p>
+              ) : null}
             </div>
 
             <div className="text-right">
-              <p className="text-sm font-extrabold">
-                {price === 0 ? "Free" : fmtNaira(price)}
-              </p>
+              <p className="text-sm font-extrabold">{price === 0 ? "Free" : fmtNaira(price)}</p>
               <p className="text-[11px] opacity-95 mt-1">{cycle}</p>
             </div>
           </div>
 
           <div className="mt-3 space-y-2">
-            {plan.highlights.slice(0, 4).map((t) => (
+            {highlights.map((t) => (
               <div key={t} className="flex items-start gap-2 text-sm">
                 <span className="mt-1 h-2 w-2 rounded-full bg-white/90" />
                 <span className="opacity-95">{t}</span>
@@ -214,7 +252,6 @@ export default function SubscriptionSummaryPage() {
           </div>
         </div>
 
-        {/* Cycle selector (like the concept) */}
         <SegmentedControl<BizhubBillingCycle>
           value={cycle}
           onChange={setCycle}
@@ -226,115 +263,107 @@ export default function SubscriptionSummaryPage() {
           ]}
         />
 
-        {/* Tabs */}
         <Card className="p-2">
           <div className="grid grid-cols-3 gap-2">
             <button
-              className={tab === "benefits"
-                ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
-                : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"}
+              className={
+                tab === "benefits"
+                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+              }
               onClick={() => setTab("benefits")}
+              type="button"
             >
               Benefits
             </button>
 
             <button
-              className={tab === "purchases"
-                ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
-                : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"}
+              className={
+                tab === "purchases"
+                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+              }
               onClick={() => setTab("purchases")}
+              type="button"
             >
-              Purchases
+              Extras
             </button>
 
             <button
-              className={tab === "history"
-                ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
-                : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"}
+              className={
+                tab === "history"
+                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+              }
               onClick={() => setTab("history")}
+              type="button"
             >
               History
             </button>
           </div>
         </Card>
 
-        {/* Tab content */}
         <Card className="p-4">
           {tab === "benefits" ? (
             <>
               <p className="font-extrabold text-biz-ink">Plan benefits</p>
-              <p className="text-xs text-biz-muted mt-1">
-                Whatâ€™s included in this plan.
-              </p>
+              <p className="text-xs text-biz-muted mt-1">What you get on this plan.</p>
               <div className="mt-3">
-                <DetailsList groups={plan.benefits} />
+                <DetailsList groups={plan?.benefits || {}} />
               </div>
             </>
           ) : null}
 
           {tab === "purchases" ? (
             <>
-              <p className="font-extrabold text-biz-ink">Plan purchases</p>
-              <p className="text-xs text-biz-muted mt-1">
-                Extras you can add to grow faster.
-              </p>
+              <p className="font-extrabold text-biz-ink">Optional extras</p>
+              <p className="text-xs text-biz-muted mt-1">Other tools you can add later.</p>
               <div className="mt-3">
-                <DetailsList groups={plan.purchases} />
+                <DetailsList groups={plan?.purchases || {}} />
               </div>
             </>
           ) : null}
 
           {tab === "history" ? (
             <>
-              <p className="font-extrabold text-biz-ink">Subscription purchases</p>
-              <p className="text-xs text-biz-muted mt-1">
-                Your recent subscription payments.
-              </p>
+              <p className="font-extrabold text-biz-ink">Payments</p>
+              <p className="text-xs text-biz-muted mt-1">Your recent subscription payments.</p>
 
               {loading ? (
-                <div className="mt-3 text-sm text-biz-muted">Loadingâ€¦</div>
+                <div className="mt-3 text-sm text-biz-muted">Loading</div>
               ) : history.length === 0 ? (
-                <div className="mt-3 text-sm text-biz-muted">
-                  No subscription payments yet.
-                </div>
+                <div className="mt-3 text-sm text-biz-muted">No subscription payments yet.</div>
               ) : (
                 <div className="mt-3 space-y-2">
-                  {history.map((h) => (
-                    <div
-                      key={h.id}
-                      className="rounded-2xl border border-biz-line bg-white p-3"
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-extrabold text-biz-ink">
-                            {String(h.planKey || "â€”")} â€¢ {String(h.cycle || "â€”")}
-                          </p>
-                          <p className="text-[11px] text-gray-500 mt-1 break-all">
-                            Ref: {String(h.reference || h.id)}
-                          </p>
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            Started: {fmtDateTime(Number(h.startedAtMs || 0))}
-                          </p>
-                        </div>
+                  {history
+                    .slice(0, 20)
+                    .sort((a: any, b: any) => Number(b.startedAtMs || 0) - Number(a.startedAtMs || 0))
+                    .map((h: any) => (
+                      <div key={h.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-extrabold text-biz-ink">
+                              {String(h.planKey || EM_DASH)} {BULLET} {String(h.cycle || EM_DASH)}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-1 break-all">Ref: {String(h.reference || h.id)}</p>
+                            <p className="text-[11px] text-gray-500 mt-1">Started: {fmtDateTime(Number(h.startedAtMs || 0))}</p>
+                          </div>
 
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-extrabold text-biz-ink">
-                            {fmtNaira(Number(h.amount || (h.amountKobo ? h.amountKobo / 100 : 0) || 0))}
-                          </p>
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            {String(h.status || "â€”")}
-                          </p>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-extrabold text-biz-ink">
+                              {fmtNaira(Number(h.amount || (h.amountKobo ? h.amountKobo / 100 : 0) || 0))}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-1">{String(h.status || EM_DASH)}</p>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  ))}
+                    ))}
                 </div>
               )}
             </>
           ) : null}
         </Card>
 
-        {/* Bottom action */}
         <div className="fixed bottom-0 left-0 right-0 z-40">
           <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
             <Card className="p-4 space-y-2">
@@ -343,7 +372,7 @@ export default function SubscriptionSummaryPage() {
                   Back to plans
                 </Button>
               ) : (
-                <Button onClick={payNow} loading={paying} disabled={!canPay}>
+                <Button onClick={payNow} loading={paying} disabled={!canPay || !plan}>
                   Pay {fmtNaira(price)}
                 </Button>
               )}
@@ -355,7 +384,6 @@ export default function SubscriptionSummaryPage() {
           </div>
         </div>
 
-        {/* Spacer so content not hidden behind fixed CTA */}
         <div className="h-28" />
       </div>
     </div>

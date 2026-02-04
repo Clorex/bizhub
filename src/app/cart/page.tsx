@@ -1,3 +1,4 @@
+// FILE: src/app/cart/page.tsx
 "use client";
 
 import Link from "next/link";
@@ -132,7 +133,9 @@ export default function CartPage() {
       for (const it of cart.items) {
         const opts =
           it.selectedOptions && Object.keys(it.selectedOptions).length
-            ? ` (${Object.entries(it.selectedOptions).map(([k, v]) => `${k}: ${v}`).join(", ")})`
+            ? ` (${Object.entries(it.selectedOptions)
+                .map(([k, v]) => `${k}: ${v}`)
+                .join(", ")})`
             : "";
         lines.push(`- ${it.qty} × ${it.name}${opts}`);
       }
@@ -164,6 +167,24 @@ export default function CartPage() {
               Clear cart
             </button>
           </div>
+
+          {storeSlug ? (
+            <div className="mt-3">
+              <Link href={`/b/${storeSlug}`} className="block">
+                <Button variant="secondary" size="sm">
+                  Continue shopping
+                </Button>
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <Link href="/market" className="block">
+                <Button variant="secondary" size="sm">
+                  Go to Market
+                </Button>
+              </Link>
+            </div>
+          )}
 
           {chatMsg ? <p className="mt-2 text-[11px] text-red-700">{chatMsg}</p> : null}
         </Card>
@@ -261,8 +282,6 @@ export default function CartPage() {
                   <Link href={`/b/${cart.storeSlug}`} className="block">
                     <Button variant="secondary">Continue shopping</Button>
                   </Link>
-
-                  {/* If vendor has it OFF / not subscribed, we say nothing (strict, quiet). */}
                 </div>
               </Card>
             </div>

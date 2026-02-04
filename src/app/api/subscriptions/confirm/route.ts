@@ -1,8 +1,12 @@
-// FILE: src/app/api/subscriptions/confirm/route.ts
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
-import { computeExpiryMs, priceKoboFor, type BizhubBillingCycle, type BizhubPlanKey } from "@/lib/bizhubPlans";
+import {
+  computeExpiryMs,
+  priceKoboFor,
+  type BizhubBillingCycle,
+  type BizhubPlanKey,
+} from "@/lib/bizhubPlans";
 import { syncBusinessSignalsToProducts } from "@/lib/vendor/syncBusinessSignals";
 
 export const runtime = "nodejs";
@@ -12,12 +16,13 @@ async function verifyPaystack(reference: string) {
   const secret = process.env.PAYSTACK_SECRET_KEY;
   if (!secret) throw new Error("Missing PAYSTACK_SECRET_KEY");
 
-  const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-    headers: { Authorization: `Bearer ${secret}` },
-  });
+  const res = await fetch(
+    `https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`,
+    { headers: { Authorization: `Bearer ${secret}` } }
+  );
 
-  const data = await res.json();
-  if (!data.status) throw new Error(data.message || "Paystack verify failed");
+  const data = await res.json().catch(() => ({}));
+  if (!data?.status) throw new Error(data?.message || "Paystack verify failed");
   return data.data;
 }
 
@@ -49,6 +54,7 @@ export async function POST(req: Request) {
     }
 
     const businessId = String(md.businessId || "");
+    const businessSlug = md.businessSlug ?? null;
     const planKey = String(md.planKey || "") as BizhubPlanKey;
     const cycle = String(md.cycle || "") as BizhubBillingCycle;
 
@@ -79,6 +85,9 @@ export async function POST(req: Request) {
     const businessRef = adminDb.collection("businesses").doc(businessId);
     const txRef = adminDb.collection("transactions").doc(String(reference));
 
+    // ✅ NEW: admin notification log
+    const adminNotifRef = adminDb.collection("adminNotifications").doc();
+
     const result = await adminDb.runTransaction(async (t) => {
       const existing = await t.get(subRef);
       if (existing.exists) {
@@ -98,7 +107,7 @@ export async function POST(req: Request) {
       t.set(subRef, {
         reference: String(reference),
         businessId,
-        businessSlug: md.businessSlug ?? null,
+        businessSlug,
 
         planKey,
         cycle,
@@ -115,6 +124,8 @@ export async function POST(req: Request) {
 
         createdAt: FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
+        createdAtMs: now,
+        updatedAtMs: now,
       });
 
       t.set(
@@ -128,7 +139,7 @@ export async function POST(req: Request) {
             expiresAtMs,
             lastPaymentReference: String(reference),
           },
-          // ✅ no trials anymore, clean if old data exists
+          // no trials anymore, clean if old data exists
           trial: FieldValue.delete(),
           updatedAt: FieldValue.serverTimestamp(),
         },
@@ -150,29 +161,50 @@ export async function POST(req: Request) {
         type: "subscription",
         reference: String(reference),
         businessId,
+        businessSlug,
         planKey,
         cycle,
         amountKobo: paidKobo,
         currency: paystackTx.currency || "NGN",
         createdAt: FieldValue.serverTimestamp(),
+        createdAtMs: now,
       });
 
       t.set(txRef, {
         purpose: "subscription",
         reference: String(reference),
         businessId,
+        businessSlug,
         planKey,
         cycle,
         amountKobo: paidKobo,
         amount: paidKobo / 100,
         status: "paid",
         createdAt: FieldValue.serverTimestamp(),
+        createdAtMs: now,
+      });
+
+      // ✅ NEW: Admin notification (used for “Admin must be notified when people upgrade”)
+      t.set(adminNotifRef, {
+        type: "subscription_paid",
+        reference: String(reference),
+        businessId,
+        businessSlug,
+        planKey,
+        cycle,
+        amountKobo: paidKobo,
+        currency: paystackTx.currency || "NGN",
+        paidAt: paystackTx.paid_at || null,
+        expiresAtMs,
+        createdAt: FieldValue.serverTimestamp(),
+        createdAtMs: now,
+        read: false,
       });
 
       return { ok: true, alreadyProcessed: false, businessId, planKey, expiresAtMs };
     });
 
-    // ✅ Important: after subscription activates, refresh product market flags
+    // Important: after subscription activates, refresh product market flags
     // so Market can start showing this vendor immediately.
     await syncBusinessSignalsToProducts({ businessId });
 

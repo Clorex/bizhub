@@ -102,7 +102,7 @@ function PaymentCallbackInner() {
               </div>
               <p className="mt-4 text-base font-bold text-biz-ink">Processingâ€¦</p>
               <p className="text-sm text-biz-muted mt-2">{msg}</p>
-              <p className="text-[11px] text-gray-500 mt-3 break-all">Reference: {reference || "â€”"}</p>
+              <p className="text-[11px] text-gray-500 mt-3 break-all">Payment ID: {reference || "â€”"}</p>
             </>
           ) : null}
 
@@ -113,7 +113,7 @@ function PaymentCallbackInner() {
               </div>
               <p className="mt-4 text-base font-bold text-biz-ink">Payment issue</p>
               <p className="text-sm text-red-700 mt-2">{msg}</p>
-              <p className="text-[11px] text-gray-500 mt-3 break-all">Reference: {reference || "â€”"}</p>
+              <p className="text-[11px] text-gray-500 mt-3 break-all">Payment ID: {reference || "â€”"}</p>
 
               <div className="mt-4 space-y-2">
                 <Link href="/orders" className="block">
@@ -180,3 +180,4 @@ export default function PaymentCallbackPage() {
     </Suspense>
   );
 }
+

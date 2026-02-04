@@ -1,4 +1,3 @@
-// FILE: src/app/orders/[orderId]/dispute/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -29,7 +28,6 @@ export default function DisputePage() {
 
   const [evidenceUrls, setEvidenceUrls] = useState<string[]>([]);
 
-  // Must be logged in
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setAuthLoading(false);
@@ -112,10 +110,6 @@ export default function DisputePage() {
     }
   }
 
-  function removeEvidence(url: string) {
-    setEvidenceUrls((prev) => prev.filter((x) => x !== url));
-  }
-
   if (authLoading || !loggedIn) {
     return (
       <div className="min-h-screen">
@@ -175,29 +169,12 @@ export default function DisputePage() {
               <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
                 <ImageUploader
                   label="Upload evidence (screenshots/photos)"
-                  multiple={true}
-                  onUploaded={(urls) => setEvidenceUrls((prev) => [...prev, ...urls].slice(0, 10))}
+                  value={evidenceUrls}
+                  onChange={setEvidenceUrls}
+                  max={10}
+                  folderBase="bizhub/uploads/disputes/buyer-evidence"
+                  disabled={sending}
                 />
-
-                {evidenceUrls.length ? (
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    {evidenceUrls.map((u) => (
-                      <div key={u} className="rounded-2xl border border-biz-line overflow-hidden bg-white">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={u} alt="Evidence" className="h-24 w-full object-cover" />
-                        <button
-                          className="w-full py-2 text-xs font-bold text-red-600 bg-white"
-                          type="button"
-                          onClick={() => removeEvidence(u)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="mt-2 text-[11px] text-biz-muted">No evidence uploaded yet.</p>
-                )}
               </div>
 
               <div className="mt-3">
@@ -206,7 +183,9 @@ export default function DisputePage() {
                 </Button>
               </div>
 
-              <p className="mt-2 text-[11px] text-biz-muted">Important: disputes freeze buyer actions until resolved.</p>
+              <p className="mt-2 text-[11px] text-biz-muted">
+                Disputes are reviewed by BizHub. Provide clear evidence to help resolve faster.
+              </p>
             </SectionCard>
 
             <Card className="p-4">

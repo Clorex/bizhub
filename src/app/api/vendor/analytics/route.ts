@@ -1,4 +1,3 @@
-// FILE: src/app/api/vendor/analytics/route.ts
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
@@ -14,6 +13,7 @@ function toMs(v: any) {
     if (!v) return 0;
     if (typeof v?.toDate === "function") return v.toDate().getTime();
     if (typeof v?.seconds === "number") return v.seconds * 1000;
+    if (typeof v === "number") return v;
     return 0;
   } catch {
     return 0;
@@ -25,6 +25,21 @@ function dayKey(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const dd = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${dd}`;
+}
+
+function tierFor(planKey: string) {
+  const k = String(planKey || "FREE").toUpperCase();
+  if (k === "APEX") return 3;
+  if (k === "MOMENTUM") return 2;
+  if (k === "LAUNCH") return 1;
+  return 0; // FREE
+}
+
+function fetchCapsForTier(tier: number) {
+  if (tier >= 3) return { ordersCap: 2500, productsCap: 1500, chartMaxDays: 30 };
+  if (tier >= 2) return { ordersCap: 1500, productsCap: 1000, chartMaxDays: 14 };
+  if (tier >= 1) return { ordersCap: 800, productsCap: 800, chartMaxDays: 7 };
+  return { ordersCap: 250, productsCap: 300, chartMaxDays: 7 };
 }
 
 function rangeWindow(range: string, month?: string | null) {
@@ -45,61 +60,85 @@ function rangeWindow(range: string, month?: string | null) {
   return { startMs: now - 7 * 24 * 60 * 60 * 1000, endMs: now };
 }
 
+function safeDiv(a: number, b: number) {
+  if (!Number.isFinite(a) || !Number.isFinite(b) || b === 0) return 0;
+  return a / b;
+}
+
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     const url = new URL(req.url);
-    const requestedRange = url.searchParams.get("range") || "week";
-    const requestedMonth = url.searchParams.get("month");
+    const requestedRange = String(url.searchParams.get("range") || "week");
+    const requestedMonth = url.searchParams.get("month"); // YYYY-MM
 
     const { business, entitlement } = await getBusinessEntitlementById(me.businessId);
 
-    const planKey = String(entitlement.planKey || "FREE");
+    const planKey = String(entitlement.planKey || "FREE").toUpperCase();
     const source = String(entitlement.source || "free");
 
-    const hasActiveSubscription =
-      !!business?.subscription?.planKey && Number(business?.subscription?.expiresAtMs || 0) > Date.now();
+    const tier = tierFor(planKey);
+    const caps = fetchCapsForTier(tier);
 
-    const monthUnlocked = hasActiveSubscription;
+    // Tier feature flags
+    const canUseMonthRange = tier >= 1;      // LAUNCH+
+    const canUseMonthHistory = tier >= 2;    // MOMENTUM+
+    const canUseDeepInsights = tier >= 2;    // MOMENTUM+
+    const canUseAdvanced = tier >= 3;        // APEX
 
     let usedRange = requestedRange;
-    let usedMonth = requestedMonth || null;
+    let usedMonth: string | null = requestedMonth || null;
     let notice: string | null = null;
 
-    if (!monthUnlocked) {
-      if (requestedRange === "month") {
-        usedRange = "week";
-        notice = "Month analytics is locked. Subscribe to unlock month reports.";
-      }
-      if (requestedMonth) {
-        usedMonth = null;
-        usedRange = "week";
-        notice = "Month history is locked. Subscribe to unlock history.";
-      }
+    // Hard restrictions per plan
+    if (!canUseMonthRange && usedRange === "month") {
+      usedRange = "week";
+      notice = "Month analytics is locked on Free. Upgrade to unlock month reports.";
+    }
+
+    if (!canUseMonthHistory && usedMonth) {
+      usedMonth = null;
+      usedRange = usedRange === "month" ? "month" : "week";
+      notice = "Month history is available on Momentum and above.";
+    }
+
+    // FREE gets only week/today at most
+    if (tier === 0 && usedRange !== "week" && usedRange !== "today") {
+      usedRange = "week";
+      notice = "Free plan analytics is limited to weekly view.";
     }
 
     const { startMs, endMs } = rangeWindow(usedRange, usedMonth);
     const dayKeys = dayKeysBetween(startMs, endMs);
 
-    const oSnap = await adminDb.collection("orders").where("businessId", "==", me.businessId).limit(800).get();
+    // Orders (fetch a capped set, then filter by window in-memory to avoid index requirements)
+    const oSnap = await adminDb
+      .collection("orders")
+      .where("businessId", "==", me.businessId)
+      .limit(caps.ordersCap)
+      .get();
+
     const ordersAll = oSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
-    const orders = ordersAll.filter((o) => {
+
+    const ordersWin = ordersAll.filter((o) => {
       const ms = toMs(o.createdAt);
       return ms >= startMs && ms <= endMs;
     });
 
     // payment breakdown (window)
-    const paystackOrders = orders.filter((o) => o.paymentType === "paystack_escrow").length;
-    const directOrders = orders.filter((o) => o.paymentType === "direct_transfer").length;
-    const chatOrders = orders.filter((o) => o.paymentType === "chat_whatsapp").length;
+    const paystackOrders = ordersWin.filter((o) => o.paymentType === "paystack_escrow").length;
+    const directOrders = ordersWin.filter((o) => o.paymentType === "direct_transfer").length;
+    const chatOrders = ordersWin.filter((o) => o.paymentType === "chat_whatsapp").length;
 
-    const disputedOrders = orders.filter((o) => String(o.orderStatus || "") === "disputed" || String(o.escrowStatus || "") === "disputed").length;
+    const disputedOrders = ordersWin.filter(
+      (o) => String(o.orderStatus || "") === "disputed" || String(o.escrowStatus || "") === "disputed"
+    ).length;
 
-    const awaitingConfirmOrders = orders.filter(
+    const awaitingConfirmOrders = ordersWin.filter(
       (o) => o.paymentType === "direct_transfer" && String(o.orderStatus || "").includes("awaiting")
     ).length;
 
@@ -107,9 +146,14 @@ export async function GET(req: Request) {
     let revenueReleased = 0;
     let revenueDirect = 0;
     let productsSold = 0;
-    const customerSet = new Set<string>();
 
-    for (const o of orders) {
+    const customerCounts = new Map<string, number>(); // for repeat buyers (Momentum+)
+    const customerSet = new Set<string>();            // for unique customers
+
+    // Top products (Momentum+ gives top 3, Apex gives top 5)
+    const productAgg = new Map<string, { productId: string; name: string; qty: number; revenue: number }>();
+
+    for (const o of ordersWin) {
       const amt = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
 
       if (o.paymentType === "paystack_escrow") {
@@ -120,36 +164,78 @@ export async function GET(req: Request) {
       }
 
       const items = Array.isArray(o.items) ? o.items : [];
-      for (const it of items) productsSold += Number(it.qty || 1);
+      for (const it of items) {
+        const q = Number(it?.qty || 1);
+        productsSold += q;
+
+        if (canUseDeepInsights) {
+          const pid = String(it?.productId || it?.id || "").trim();
+          const name = String(it?.name || "Item").trim();
+          const price = Number(it?.price || 0);
+          const rev = Math.max(0, price) * Math.max(1, q);
+
+          if (pid) {
+            const cur = productAgg.get(pid) || { productId: pid, name, qty: 0, revenue: 0 };
+            cur.qty += Math.max(1, q);
+            cur.revenue += Math.max(0, rev);
+            if (!cur.name && name) cur.name = name;
+            productAgg.set(pid, cur);
+          }
+        }
+      }
 
       const phone = String(o?.customer?.phone || "").trim();
       const email = String(o?.customer?.email || "").trim().toLowerCase();
       const key = phone || email;
-      if (key) customerSet.add(key);
+      if (key) {
+        customerSet.add(key);
+        if (canUseDeepInsights) customerCounts.set(key, (customerCounts.get(key) || 0) + 1);
+      }
     }
 
     const totalRevenue = revenueHeld + revenueReleased + revenueDirect;
 
-    // Chart (last 7 days from all orders)
-    const days: any[] = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-      const k = dayKey(d);
-      days.push({ dayKey: k, label: k, revenue: 0 });
+    // Daily metrics (visits/leads/views)
+    const metricDocs = await fetchBusinessDailyMetrics({ businessId: me.businessId, dayKeys });
+    let visits = 0;
+    let leads = 0;
+    let views = 0;
+    for (const m of metricDocs) {
+      visits += Number(m.visits || 0);
+      leads += Number(m.leads || 0);
+      views += Number(m.views || 0);
     }
-    const dayMap = new Map(days.map((d) => [d.dayKey, d]));
-    for (const o of ordersAll) {
+
+    // Chart: build daily revenue bars for the window, but cap length by tier
+    const chartMap = new Map<string, { dayKey: string; label: string; revenue: number }>();
+    for (const k of dayKeys) chartMap.set(k, { dayKey: k, label: k, revenue: 0 });
+
+    for (const o of ordersWin) {
       const ms = toMs(o.createdAt);
       if (!ms) continue;
       const k = dayKey(new Date(ms));
-      const row = dayMap.get(k);
+      const row = chartMap.get(k);
       if (!row) continue;
       const amt = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
       row.revenue += amt;
     }
 
-    // Product stock signals (server-side; no client Firestore reads)
-    const pSnap = await adminDb.collection("products").where("businessId", "==", me.businessId).limit(800).get();
+    let chartDays = Array.from(chartMap.values());
+    if (chartDays.length > caps.chartMaxDays) chartDays = chartDays.slice(chartDays.length - caps.chartMaxDays);
+
+    // Best day (Momentum+)
+    let bestDay: any = null;
+    if (canUseDeepInsights && chartDays.length) {
+      bestDay = chartDays.reduce((a, b) => (Number(b.revenue || 0) > Number(a.revenue || 0) ? b : a), chartDays[0]);
+    }
+
+    // Product stock signals
+    const pSnap = await adminDb
+      .collection("products")
+      .where("businessId", "==", me.businessId)
+      .limit(caps.productsCap)
+      .get();
+
     const products = pSnap.docs.map((d) => d.data() as any);
 
     const outOfStockCount = products.filter((p) => Number(p.stock ?? 0) <= 0).length;
@@ -158,24 +244,112 @@ export async function GET(req: Request) {
       return s > 0 && s <= 3;
     }).length;
 
+    // All-time signals (capped by ordersCap)
     const disputedCountAll = ordersAll.filter((o) => o.escrowStatus === "disputed").length;
     const awaitingConfirmCountAll = ordersAll.filter(
       (o) => o.paymentType === "direct_transfer" && String(o.orderStatus || "").includes("awaiting")
     ).length;
 
-    const metricDocs = await fetchBusinessDailyMetrics({ businessId: me.businessId, dayKeys });
+    const recentOrders = [...ordersAll]
+      .sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt))
+      .slice(0, tier === 0 ? 3 : tier === 1 ? 5 : 10)
+      .map((o: any) => ({
+        id: o.id,
+        createdAt: o.createdAt ?? null,
+        amount: o.amount ?? null,
+        amountKobo: o.amountKobo ?? null,
+        currency: o.currency ?? "NGN",
+        paymentType: o.paymentType ?? null,
+        escrowStatus: o.escrowStatus ?? null,
+        orderStatus: o.orderStatus ?? null,
+      }));
 
-    let visits = 0;
-    let leads = 0;
-    let views = 0;
+    // Deep insights (Momentum+)
+    let insights: any = null;
+    if (canUseDeepInsights) {
+      const aov = safeDiv(totalRevenue, Math.max(1, ordersWin.length));
+      const conversionOrders = safeDiv(ordersWin.length, Math.max(1, visits));
+      const leadRate = safeDiv(leads, Math.max(1, visits));
 
-    for (const m of metricDocs) {
-      visits += Number(m.visits || 0);
-      leads += Number(m.leads || 0);
-      views += Number(m.views || 0);
+      const repeatBuyers = Array.from(customerCounts.values()).filter((n) => n >= 2).length;
+
+      const topProducts = Array.from(productAgg.values())
+        .sort((a, b) => (b.revenue || 0) - (a.revenue || 0))
+        .slice(0, canUseAdvanced ? 5 : 3);
+
+      insights = {
+        aov,
+        conversionOrders, // orders/visits
+        leadRate,         // leads/visits
+        bestDay,
+        repeatBuyers,
+        topProducts,
+      };
     }
 
-    const recentOrders = [...ordersAll].sort((a, b) => toMs(b.createdAt) - toMs(a.createdAt)).slice(0, 10);
+    // Advanced comparisons (Apex only)
+    let comparisons: any = null;
+    if (canUseAdvanced) {
+      const win = Math.max(1, endMs - startMs);
+      const prevStartMs = startMs - win;
+      const prevEndMs = startMs - 1;
+
+      const prevOrders = ordersAll.filter((o) => {
+        const ms = toMs(o.createdAt);
+        return ms >= prevStartMs && ms <= prevEndMs;
+      });
+
+      let prevRevenue = 0;
+      for (const o of prevOrders) {
+        const amt = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+        prevRevenue += amt;
+      }
+
+      const revenueDelta = totalRevenue - prevRevenue;
+      const revenueDeltaPct = prevRevenue > 0 ? (revenueDelta / prevRevenue) * 100 : null;
+
+      const ordersDelta = ordersWin.length - prevOrders.length;
+      const ordersDeltaPct = prevOrders.length > 0 ? (ordersDelta / prevOrders.length) * 100 : null;
+
+      comparisons = {
+        previousWindow: {
+          startMs: prevStartMs,
+          endMs: prevEndMs,
+          revenue: prevRevenue,
+          orders: prevOrders.length,
+        },
+        deltas: {
+          revenueDelta,
+          revenueDeltaPct,
+          ordersDelta,
+          ordersDeltaPct,
+        },
+      };
+    }
+
+    // Response trimming for “Free taste”
+    const overviewBase: any = {
+      totalRevenue,
+      orders: ordersWin.length,
+      paystackOrders,
+      directOrders,
+      chatOrders,
+      disputedOrders,
+      awaitingConfirmOrders,
+    };
+
+    const overviewExtra: any = {
+      revenueHeld,
+      revenueReleased,
+      revenueDirect,
+      productsSold,
+      customers: customerSet.size,
+      visits,
+      leads,
+      views,
+    };
+
+    const overview = tier === 0 ? overviewBase : { ...overviewBase, ...overviewExtra };
 
     return NextResponse.json({
       ok: true,
@@ -188,36 +362,26 @@ export async function GET(req: Request) {
         access: {
           planKey,
           source,
-          monthAnalyticsUnlocked: monthUnlocked,
+          tier,
+          features: {
+            canUseMonthRange,
+            canUseMonthHistory,
+            canUseDeepInsights,
+            canUseAdvanced,
+          },
           entitlementExpiresAtMs: Number(entitlement.expiresAtMs || 0) || null,
         },
       },
-      overview: {
-        totalRevenue,
-        revenueHeld,
-        revenueReleased,
-        revenueDirect,
-
-        orders: orders.length,
-        paystackOrders,
-        directOrders,
-        chatOrders,
-        disputedOrders,
-        awaitingConfirmOrders,
-
-        productsSold,
-        customers: customerSet.size,
-        visits,
-        leads,
-        views,
-      },
-      chartDays: days,
+      overview,
+      chartDays: tier === 0 ? chartDays.slice(-7) : chartDays,
       todo: {
         outOfStockCount,
         lowStockCount,
         awaitingConfirmCount: awaitingConfirmCountAll,
         disputedCount: disputedCountAll,
       },
+      insights,
+      comparisons,
       recentOrders,
     });
   } catch (e: any) {

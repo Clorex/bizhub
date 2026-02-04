@@ -1,4 +1,3 @@
-// FILE: src/app/market/page.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -12,10 +11,12 @@ import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { trackBatch, track } from "@/lib/track/client";
 import { Chip } from "@/components/ui/Chip";
+import { CloudImage } from "@/components/CloudImage";
+import { BadgeCheck } from "lucide-react";
 
 function fmtNaira(n: number) {
   try {
-    return `₦${Number(n || 0).toLocaleString()}`;
+    return `₦${Number(n || 0).toLocaleString("en-NG")}`;
   } catch {
     return `₦${n}`;
   }
@@ -35,19 +36,69 @@ const CATEGORIES = [
   { label: "Services", hint: "Lash, nails" },
 ];
 
-function listingSubtitle(p: any) {
-  const isService = String(p?.listingType || "product") === "service";
-  const serviceMode = String(p?.serviceMode || "book");
-  if (!isService) return fmtNaira(p?.price || 0);
-  return serviceMode === "pay" ? fmtNaira(p?.price || 0) : "Book only";
-}
-
 function tierLabel(n: any) {
   const t = Number(n || 0);
   if (t >= 3) return "Tier 3";
   if (t === 2) return "Tier 2";
   if (t === 1) return "Tier 1";
   return "Tier 0";
+}
+
+/** --- Sale helpers --- */
+function saleIsActive(p: any, now = Date.now()) {
+  if (p?.saleActive !== true) return false;
+
+  const start = Number(p?.saleStartsAtMs || 0);
+  const end = Number(p?.saleEndsAtMs || 0);
+
+  if (start && now < start) return false;
+  if (end && now > end) return false;
+
+  const t = String(p?.saleType || "");
+  return t === "percent" || t === "fixed";
+}
+
+function computeSalePriceNgn(p: any) {
+  const base = Number(p?.price || 0);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+
+  if (!saleIsActive(p)) return Math.floor(base);
+
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return Math.max(0, Math.floor(base - Math.max(0, off)));
+  }
+
+  const pct = Math.max(0, Math.min(90, Number(p?.salePercent || 0)));
+  const off = Math.floor((base * pct) / 100);
+  return Math.max(0, Math.floor(base - off));
+}
+
+function saleBadgeText(p: any) {
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    if (off > 0) return `${fmtNaira(off)} OFF`;
+    return "Sale";
+  }
+  const pct = Number(p?.salePercent || 0);
+  if (pct > 0) return `${pct}% OFF`;
+  return "Sale";
+}
+
+function marketRankScore(p: any) {
+  const base = Number(p?.marketScore || 0);
+
+  // ✅ Verified Apex badge boost (earned + maintained)
+  const apexBoost = p?.apexBadgeActive === true ? 2500 : 0;
+
+  // ✅ Risk shield penalty (quiet). If risk is high, down-rank a bit.
+  const risk = Math.max(0, Math.min(100, Number(p?.apexRiskScore || 0) || 0));
+  const riskPenalty = risk * 6; // up to -600
+
+  // Keep “promoted” as separate signal; your code already mixes boosted+latest.
+  return base + apexBoost - riskPenalty;
 }
 
 export default function MarketPage() {
@@ -57,16 +108,19 @@ export default function MarketPage() {
   const [items, setItems] = useState<DocumentData[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
 
+  const [deals, setDeals] = useState<DocumentData[]>([]);
+  const [dealsLoading, setDealsLoading] = useState(false);
+
   const [tierFilter, setTierFilter] = useState<number | null>(null);
   const [stateFilter, setStateFilter] = useState<string>("");
   const [cityFilter, setCityFilter] = useState<string>("");
+
+  const [saleOnly, setSaleOnly] = useState(false);
 
   const token = useMemo(() => tokenForSearch(qText), [qText]);
   const impressed = useRef(new Set<string>());
 
   function applyMarketRules(list: any[]) {
-    // ✅ Rule: FREE vendors do NOT appear on Market.
-    // We enforce this via a denormalized product field: businessHasActiveSubscription.
     return list
       .filter((p: any) => p?.marketEnabled !== false)
       .filter((p: any) => !!p?.businessSlug)
@@ -83,10 +137,31 @@ export default function MarketPage() {
         if (!cityFilter.trim()) return true;
         return String(p?.businessCity || "").toLowerCase().includes(cityFilter.trim().toLowerCase());
       })
-      .sort((a: any, b: any) => {
-        // Higher marketScore first (tier boosts, dispute penalties reduce)
-        return Number(b.marketScore || 0) - Number(a.marketScore || 0);
-      });
+      .filter((p: any) => {
+        if (!saleOnly) return true;
+        const isService = String(p?.listingType || "product") === "service";
+        const serviceMode = String(p?.serviceMode || "book");
+        const bookOnly = isService && serviceMode === "book";
+        if (bookOnly) return false;
+        return saleIsActive(p);
+      })
+      .sort((a: any, b: any) => marketRankScore(b) - marketRankScore(a));
+  }
+
+  async function loadDeals() {
+    setDealsLoading(true);
+    try {
+      const qRef = query(collection(db, "products"), where("saleMarketBoost", "==", true), limit(120));
+      const snap = await getDocs(qRef);
+      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      const filtered = applyMarketRules(rows).filter((p: any) => saleIsActive(p));
+      setDeals(filtered.slice(0, 12));
+    } catch {
+      setDeals([]);
+    } finally {
+      setDealsLoading(false);
+    }
   }
 
   async function loadTrending() {
@@ -116,7 +191,6 @@ export default function MarketPage() {
       }
 
       const filtered = applyMarketRules(merged);
-
       setItems(filtered);
 
       const events = filtered
@@ -156,7 +230,6 @@ export default function MarketPage() {
       const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
       const filtered = applyMarketRules(rows);
-
       setItems(filtered);
 
       const events = filtered
@@ -185,14 +258,15 @@ export default function MarketPage() {
 
   useEffect(() => {
     loadTrending();
+    loadDeals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    // re-apply filters without refetch
     setItems((prev) => applyMarketRules(prev));
+    setDeals((prev) => applyMarketRules(prev).filter((p: any) => saleIsActive(p)).slice(0, 12));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tierFilter, stateFilter, cityFilter]);
+  }, [tierFilter, stateFilter, cityFilter, saleOnly]);
 
   function openProduct(p: any) {
     const slug = String(p?.businessSlug || "");
@@ -208,6 +282,81 @@ export default function MarketPage() {
     }
 
     router.push(`/b/${slug}/p/${p.id}`);
+  }
+
+  function renderCard(p: any) {
+    const img = Array.isArray(p?.images) ? p.images[0] : "";
+    const boosted = Number(p?.boostUntilMs || 0) > Date.now();
+    const tier = Number(p?.marketTier ?? p?.verificationTier ?? 0);
+
+    const isService = String(p?.listingType || "product") === "service";
+    const serviceMode = String(p?.serviceMode || "book");
+    const bookOnly = isService && serviceMode === "book";
+
+    const basePrice = Number(p?.price || 0);
+    const onSale = !bookOnly && saleIsActive(p);
+    const finalPrice = onSale ? computeSalePriceNgn(p) : basePrice;
+
+    const apexBadgeActive = p?.apexBadgeActive === true;
+
+    return (
+      <button key={p.id} onClick={() => openProduct(p)} className="text-left">
+        <Card className="p-3">
+          <div className="h-28 w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative">
+            {img ? (
+              <CloudImage
+                src={img}
+                alt={p?.name || "Listing"}
+                w={520}
+                h={320}
+                sizes="(max-width: 430px) 45vw, 220px"
+                className="h-full w-full object-cover"
+              />
+            ) : null}
+
+            {apexBadgeActive ? (
+              <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 inline-flex items-center gap-1">
+                <BadgeCheck className="h-3.5 w-3.5" />
+                Verified Apex
+              </div>
+            ) : boosted ? (
+              <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5">
+                Promoted
+              </div>
+            ) : null}
+
+            {onSale ? (
+              <div className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                {saleBadgeText(p)}
+              </div>
+            ) : null}
+
+            <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5">
+              {tierLabel(tier)}
+            </div>
+          </div>
+
+          <p className="mt-2 text-sm font-bold text-biz-ink line-clamp-2">{p?.name || "Unnamed"}</p>
+
+          <p className="mt-1 text-xs text-biz-muted">
+            {bookOnly ? (
+              "Book only"
+            ) : onSale ? (
+              <>
+                <span className="line-through text-gray-400 mr-1">{fmtNaira(basePrice)}</span>
+                <span className="text-emerald-700 font-extrabold">{fmtNaira(finalPrice)}</span>
+              </>
+            ) : (
+              fmtNaira(basePrice)
+            )}
+          </p>
+
+          <p className="mt-1 text-[11px] text-gray-500">
+            Store: <b className="text-biz-ink">{p?.businessSlug || "—"}</b>
+          </p>
+        </Card>
+      </button>
+    );
   }
 
   return (
@@ -256,6 +405,9 @@ export default function MarketPage() {
                   {t == null ? "All tiers" : `Tier ${t}`}
                 </Chip>
               ))}
+              <Chip active={saleOnly} onClick={() => setSaleOnly((v) => !v)}>
+                On sale
+              </Chip>
             </div>
 
             <div className="mt-2 grid grid-cols-2 gap-2">
@@ -264,7 +416,16 @@ export default function MarketPage() {
             </div>
 
             <div className="mt-2">
-              <Button variant="secondary" size="sm" onClick={() => { setTierFilter(null); setStateFilter(""); setCityFilter(""); }}>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => {
+                  setTierFilter(null);
+                  setStateFilter("");
+                  setCityFilter("");
+                  setSaleOnly(false);
+                }}
+              >
                 Clear filters
               </Button>
             </div>
@@ -273,6 +434,19 @@ export default function MarketPage() {
       </div>
 
       <div className="px-4 pb-24 space-y-3">
+        <Card className="p-4">
+          <p className="font-bold text-biz-ink">Hot deals</p>
+          <p className="text-[11px] text-biz-muted mt-1">Discounts from top sellers.</p>
+
+          {dealsLoading ? (
+            <p className="text-sm text-biz-muted mt-3">Loading…</p>
+          ) : deals.length === 0 ? (
+            <p className="text-sm text-biz-muted mt-3">No deals right now.</p>
+          ) : (
+            <div className="mt-3 grid grid-cols-2 gap-3">{deals.slice(0, 6).map((p: any) => renderCard(p))}</div>
+          )}
+        </Card>
+
         <Card className="p-4">
           <p className="font-bold text-biz-ink">Categories</p>
           <div className="mt-3 grid grid-cols-3 gap-2">
@@ -302,43 +476,7 @@ export default function MarketPage() {
             <p className="text-sm text-biz-muted mt-1">Try another keyword or adjust filters.</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-2 gap-3">
-            {items.map((p: any) => {
-              const img = Array.isArray(p?.images) ? p.images[0] : "";
-              const boosted = Number(p?.boostUntilMs || 0) > Date.now();
-              const tier = Number(p?.marketTier ?? p?.verificationTier ?? 0);
-
-              return (
-                <button key={p.id} onClick={() => openProduct(p)} className="text-left">
-                  <Card className="p-3">
-                    <div className="h-28 w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative">
-                      {img ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={img} alt={p?.name || "Listing"} className="h-full w-full object-cover" />
-                      ) : null}
-
-                      {boosted ? (
-                        <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5">
-                          Promoted
-                        </div>
-                      ) : null}
-
-                      <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5">
-                        {tierLabel(tier)}
-                      </div>
-                    </div>
-
-                    <p className="mt-2 text-sm font-bold text-biz-ink line-clamp-2">{p?.name || "Unnamed"}</p>
-                    <p className="mt-1 text-xs text-biz-muted">{listingSubtitle(p)}</p>
-
-                    <p className="mt-1 text-[11px] text-gray-500">
-                      Store: <b className="text-biz-ink">{p?.businessSlug || "—"}</b>
-                    </p>
-                  </Card>
-                </button>
-              );
-            })}
-          </div>
+          <div className="grid grid-cols-2 gap-3">{items.map((p: any) => renderCard(p))}</div>
         )}
       </div>
     </div>

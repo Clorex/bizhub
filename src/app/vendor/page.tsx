@@ -1,4 +1,3 @@
-// FILE: src/app/vendor/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -22,6 +21,8 @@ import {
   AlertTriangle,
   MessageCircle,
   Gem,
+  BadgePercent,
+  Shield,
 } from "lucide-react";
 
 type Range = "today" | "week" | "month";
@@ -145,11 +146,17 @@ export default function VendorDashboardPage() {
   const monthUnlocked = !!access?.monthAnalyticsUnlocked;
 
   const accessSource = String(access?.source || "free");
-  const accessPlanKey = String(access?.planKey || "FREE");
+  const accessPlanKey = String(access?.planKey || "FREE").toUpperCase();
   const subscribed = accessSource === "subscription" && accessPlanKey !== "FREE";
 
   const disputeLevel = String(assistant?.dispute?.level || "none");
   const openDisputes = Number(assistant?.dispute?.openDisputes || 0);
+
+  const riskShieldEnabled = assistant?.riskShield?.enabled === true;
+  const riskShieldMode = String(assistant?.riskShield?.mode || "off");
+  const riskNotes: string[] = Array.isArray(assistant?.riskShield?.notes) ? assistant.riskShield.notes : [];
+
+  const momentumPlan = accessPlanKey === "MOMENTUM";
 
   return (
     <div className="min-h-screen">
@@ -159,7 +166,6 @@ export default function VendorDashboardPage() {
         showBack={false}
         right={
           <div className="flex items-center gap-2">
-            {/* PRO/Upgrade (only for FREE) */}
             {!subscribed ? (
               <button
                 type="button"
@@ -204,8 +210,7 @@ export default function VendorDashboardPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-biz-ink">Dispute warning</p>
                 <p className="text-xs text-biz-muted mt-1">
-                  You have <b className="text-biz-ink">{openDisputes}</b> open dispute(s). If ignored, your marketplace
-                  visibility reduces.
+                  You have <b className="text-biz-ink">{openDisputes}</b> open dispute(s). If ignored, your marketplace visibility reduces.
                 </p>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <Button onClick={() => router.push("/vendor/orders")}>View orders</Button>
@@ -213,12 +218,53 @@ export default function VendorDashboardPage() {
                     More
                   </Button>
                 </div>
-                <p className="mt-2 text-[11px] text-biz-muted">
-                  Tip: update delivery progress and respond fast to prevent disputes.
-                </p>
+                <p className="mt-2 text-[11px] text-biz-muted">Tip: update delivery progress and respond fast to prevent disputes.</p>
               </div>
             </div>
           </Card>
+        ) : null}
+
+        {/* Risk Shield (quiet monitoring) */}
+        {!loading && assistant && momentumPlan ? (
+          riskShieldEnabled ? (
+            <Card className="p-4 border border-biz-line bg-white">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
+                  <Shield className="h-5 w-5 text-orange-700" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-extrabold text-biz-ink">Risk Shield (quiet)</p>
+                  <p className="text-[11px] text-biz-muted mt-1">
+                    Monitoring enabled. You’ll see early warnings, but no action tools.
+                    {riskShieldMode ? ` • Mode: ${riskShieldMode}` : ""}
+                  </p>
+
+                  {riskNotes.length ? (
+                    <div className="mt-2 space-y-1">
+                      {riskNotes.slice(0, 3).map((t: string) => (
+                        <p key={t} className="text-[11px] text-gray-600">
+                          • {t}
+                        </p>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            </Card>
+          ) : (
+            <Card className="p-4 border border-biz-line bg-white">
+              <p className="text-sm font-extrabold text-biz-ink">Risk Shield (quiet) is not enabled</p>
+              <p className="text-[11px] text-biz-muted mt-1">
+                Buy the <b className="text-biz-ink">Risk & Trust Pack</b> to enable monitoring + priority review + temporary Apex badge.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <Button onClick={() => router.push("/vendor/purchases")}>Buy Risk & Trust Pack</Button>
+                <Button variant="secondary" onClick={() => router.push("/vendor/subscription")}>
+                  Upgrade
+                </Button>
+              </div>
+            </Card>
+          )
         ) : null}
 
         {!loading && data ? (
@@ -253,7 +299,6 @@ export default function VendorDashboardPage() {
               </div>
             </div>
 
-            {/* Assistant summary card */}
             {assistant ? (
               <SectionCard
                 title="Assistant"
@@ -273,17 +318,13 @@ export default function VendorDashboardPage() {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="rounded-2xl border border-biz-line bg-white p-3">
                     <p className="text-[11px] text-biz-muted">Today</p>
-                    <p className="text-sm font-bold text-biz-ink mt-1">
-                      {Number(assistant?.today?.orders || 0)} order(s)
-                    </p>
+                    <p className="text-sm font-bold text-biz-ink mt-1">{Number(assistant?.today?.orders || 0)} order(s)</p>
                     <p className="text-[11px] text-gray-500 mt-1">{fmtNaira(Number(assistant?.today?.revenue || 0))}</p>
                   </div>
 
                   <div className="rounded-2xl border border-biz-line bg-white p-3">
                     <p className="text-[11px] text-biz-muted">This week</p>
-                    <p className="text-sm font-bold text-biz-ink mt-1">
-                      {Number(assistant?.week?.orders || 0)} order(s)
-                    </p>
+                    <p className="text-sm font-bold text-biz-ink mt-1">{Number(assistant?.week?.orders || 0)} order(s)</p>
                     <p className="text-[11px] text-gray-500 mt-1">{fmtNaira(Number(assistant?.week?.revenue || 0))}</p>
                   </div>
                 </div>
@@ -354,7 +395,17 @@ export default function VendorDashboardPage() {
                 <Button variant="secondary" onClick={() => router.push("/vendor/store")}>
                   Store settings
                 </Button>
+
+                <Button
+                  variant="secondary"
+                  className="col-span-2"
+                  leftIcon={<BadgePercent className="h-4 w-4" />}
+                  onClick={() => router.push("/vendor/discounts")}
+                >
+                  Sales
+                </Button>
               </div>
+
               <p className="mt-3 text-[11px] text-biz-muted">
                 Use the <b className="text-biz-ink">Gem</b> icon above to upgrade and unlock more tools.
               </p>
@@ -374,15 +425,11 @@ export default function VendorDashboardPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div>
                           <p className="text-sm font-bold text-biz-ink">Order #{String(o.id).slice(0, 8)}</p>
-                          <p className="text-xs text-biz-muted mt-1">
-                            {o.paymentType || "—"} • {o.orderStatus || o.escrowStatus || "—"}
-                          </p>
+                          <p className="text-xs text-biz-muted mt-1">{o.paymentType || "—"} • {o.orderStatus || o.escrowStatus || "—"}</p>
                           <p className="text-[11px] text-gray-500 mt-1">Created: {fmtDate(o.createdAt)}</p>
                         </div>
                         <div className="text-right">
-                          <p className="text-sm font-bold text-biz-ink">
-                            {fmtNaira(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0))}
-                          </p>
+                          <p className="text-sm font-bold text-biz-ink">{fmtNaira(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0))}</p>
                         </div>
                       </div>
                     </button>
@@ -397,15 +444,7 @@ export default function VendorDashboardPage() {
   );
 }
 
-function TodoRow({
-  label,
-  value,
-  onClick,
-}: {
-  label: string;
-  value: number;
-  onClick: () => void;
-}) {
+function TodoRow({ label, value, onClick }: { label: string; value: number; onClick: () => void }) {
   return (
     <button
       className="w-full rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between hover:bg-black/[0.02] transition"

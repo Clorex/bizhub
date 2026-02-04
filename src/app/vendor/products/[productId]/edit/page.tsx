@@ -11,14 +11,30 @@ import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { Megaphone } from "lucide-react";
 
-const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"];
+const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
+const MAX_IMAGES = 10;
 
 type ListingType = "product" | "service";
 type ServiceMode = "book" | "pay";
 
+function digitsOnly(s: string) {
+  return String(s || "").replace(/[^\d]/g, "");
+}
+
+function formatNumberText(s: string) {
+  const d = digitsOnly(s);
+  if (!d) return "";
+  return Number(d).toLocaleString("en-NG");
+}
+
+function parseNumberText(s: string) {
+  const d = digitsOnly(s);
+  return d ? Number(d) : 0;
+}
+
 function fmtNaira(n: number) {
   try {
-    return `₦${Number(n || 0).toLocaleString()}`;
+    return `₦${Number(n || 0).toLocaleString("en-NG")}`;
   } catch {
     return `₦${n}`;
   }
@@ -38,8 +54,9 @@ export default function VendorEditProductPage() {
 
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
-  const [price, setPrice] = useState<number>(0);
-  const [stock, setStock] = useState<number>(0);
+
+  const [priceText, setPriceText] = useState<string>("");
+  const [stockText, setStockText] = useState<string>("");
 
   const [packagingChoice, setPackagingChoice] = useState<string>("Box");
   const [packagingOther, setPackagingOther] = useState<string>("");
@@ -50,6 +67,9 @@ export default function VendorEditProductPage() {
 
   const isService = listingType === "service";
 
+  const price = useMemo(() => parseNumberText(priceText), [priceText]);
+  const stock = useMemo(() => parseNumberText(stockText), [stockText]);
+
   const packagingFinal = useMemo(() => {
     if (packagingChoice === "Other") return packagingOther.trim() || "Other";
     return packagingChoice;
@@ -58,11 +78,10 @@ export default function VendorEditProductPage() {
   const canSave = useMemo(() => {
     if (!name.trim()) return false;
 
-    // server enforces these too
     if (listingType === "product") return price > 0 && !saving;
     if (listingType === "service" && serviceMode === "pay") return price > 0 && !saving;
 
-    return !saving; // service book-only can be 0
+    return !saving;
   }, [name, price, saving, listingType, serviceMode]);
 
   async function authedFetch(path: string, init?: RequestInit) {
@@ -100,11 +119,15 @@ export default function VendorEditProductPage() {
 
         setName(String(p?.name || ""));
         setDescription(String(p?.description || ""));
-        setPrice(Number(p?.price || 0));
-        setStock(Number(p?.stock ?? 0));
+
+        const loadedPrice = Number(p?.price || 0);
+        setPriceText(loadedPrice > 0 ? loadedPrice.toLocaleString("en-NG") : "");
+
+        const loadedStock = Number(p?.stock ?? 0);
+        setStockText(loadedStock > 0 ? loadedStock.toLocaleString("en-NG") : "");
 
         const savedPackaging = String(p?.packaging || "Box");
-        if (PACKAGING.includes(savedPackaging)) {
+        if ((PACKAGING as readonly string[]).includes(savedPackaging)) {
           setPackagingChoice(savedPackaging);
           setPackagingOther("");
         } else {
@@ -112,7 +135,7 @@ export default function VendorEditProductPage() {
           setPackagingOther(savedPackaging);
         }
 
-        setImages(Array.isArray(p?.images) ? p.images : []);
+        setImages(Array.isArray(p?.images) ? p.images.slice(0, MAX_IMAGES) : []);
         setOptionGroups(Array.isArray(p?.optionGroups) ? p.optionGroups : []);
         setMarketEnabled(p?.marketEnabled !== false);
       } catch (e: any) {
@@ -144,14 +167,16 @@ export default function VendorEditProductPage() {
           price,
           stock: listingType === "product" ? stock : 0,
           packaging: packagingFinal,
-          images,
+
+          images: images.slice(0, MAX_IMAGES),
           optionGroups,
+
           marketEnabled,
         }),
       });
 
       setMsg("Saved successfully.");
-      if (listingType === "service") setStock(0);
+      if (listingType === "service") setStockText("");
     } catch (e: any) {
       setMsg(e?.message || "Save failed");
     } finally {
@@ -175,10 +200,6 @@ export default function VendorEditProductPage() {
     }
   }
 
-  function removeImage(url: string) {
-    setImages((prev) => prev.filter((x) => x !== url));
-  }
-
   return (
     <div className="min-h-screen">
       <GradientHeader
@@ -190,11 +211,7 @@ export default function VendorEditProductPage() {
       <div className="px-4 pb-6 space-y-3">
         {loading ? <Card className="p-4">Loading…</Card> : null}
 
-        {msg ? (
-          <Card className={msg.includes("Saved") ? "p-4 text-green-700" : "p-4 text-red-700"}>
-            {msg}
-          </Card>
-        ) : null}
+        {msg ? <Card className={msg.includes("Saved") ? "p-4 text-green-700" : "p-4 text-red-700"}>{msg}</Card> : null}
 
         {!loading ? (
           <>
@@ -208,7 +225,7 @@ export default function VendorEditProductPage() {
                       setListingType(v);
                       if (v === "service") {
                         setServiceMode("book");
-                        setStock(0);
+                        setStockText("");
                       }
                     }}
                     options={[
@@ -254,26 +271,27 @@ export default function VendorEditProductPage() {
                   rows={4}
                 />
 
-                <input
-                  className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-                  placeholder={isService && serviceMode === "book" ? "Price (optional)" : "Price (NGN)"}
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(Number(e.target.value))}
-                />
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-biz-muted">₦</span>
+                  <input
+                    className="w-full border border-biz-line rounded-2xl p-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                    placeholder="Price"
+                    inputMode="numeric"
+                    value={priceText}
+                    onChange={(e) => setPriceText(formatNumberText(e.target.value))}
+                  />
+                </div>
 
                 <input
                   className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
                   placeholder="Stock"
-                  type="number"
-                  value={stock}
-                  onChange={(e) => setStock(Number(e.target.value))}
+                  inputMode="numeric"
+                  value={stockText}
+                  onChange={(e) => setStockText(formatNumberText(e.target.value))}
                   disabled={isService}
                 />
 
-                {isService ? (
-                  <p className="text-[11px] text-biz-muted">Stock is not required for services.</p>
-                ) : null}
+                {isService ? <p className="text-[11px] text-biz-muted">Stock is not required for services.</p> : null}
 
                 <div className="mt-2">
                   <p className="text-sm font-bold text-biz-ink">{isService ? "Category" : "Packaging"}</p>
@@ -303,9 +321,7 @@ export default function VendorEditProductPage() {
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-bold text-biz-ink">Marketplace</p>
-                      <p className="text-xs text-biz-muted mt-1">
-                        If OFF, this listing will not appear on /market search.
-                      </p>
+                      <p className="text-xs text-biz-muted mt-1">If OFF, this listing will not appear on /market search.</p>
                     </div>
 
                     <button
@@ -322,17 +338,13 @@ export default function VendorEditProductPage() {
                 </div>
 
                 <p className="text-xs text-biz-muted">
-                  Preview:{" "}
-                  <b className="text-biz-ink">
-                    {isService && serviceMode === "book" && Number(price || 0) <= 0 ? "Book only" : fmtNaira(price)}
-                  </b>
+                  Preview: <b className="text-biz-ink">{isService && serviceMode === "book" && price <= 0 ? "Book only" : fmtNaira(price)}</b>
                   {isService ? null : (
                     <>
                       {" "}
-                      • Stock: <b className="text-biz-ink">{stock}</b>
+                      • Stock: <b className="text-biz-ink">{stockText || "—"}</b>
                     </>
-                  )}
-                  {" "}
+                  )}{" "}
                   • {isService ? "Category" : "Packaging"}: <b className="text-biz-ink">{packagingFinal}</b>
                 </p>
               </div>
@@ -341,34 +353,13 @@ export default function VendorEditProductPage() {
             <Card className="p-4">
               <ImageUploader
                 label={isService ? "Service images" : "Product images"}
-                multiple={true}
-                onUploaded={(urls) => setImages((prev) => [...prev, ...urls])}
+                value={images}
+                onChange={setImages}
+                max={MAX_IMAGES}
+                folderBase="bizhub/uploads/products"
+                disabled={saving}
               />
-
-              {images.length ? (
-                <>
-                  <p className="mt-3 text-xs text-biz-muted">
-                    Uploaded: <b className="text-biz-ink">{images.length}</b> image(s)
-                  </p>
-
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    {images.slice(0, 9).map((u) => (
-                      <div key={u} className="rounded-2xl border border-biz-line overflow-hidden bg-white">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={u} alt="Media" className="h-24 w-full object-cover" />
-                        <button
-                          className="w-full py-2 text-xs font-bold text-red-600 bg-white"
-                          onClick={() => removeImage(u)}
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <p className="mt-3 text-xs text-biz-muted">No images yet.</p>
-              )}
+              <p className="mt-2 text-[11px] text-biz-muted">Tip: The first image is your cover photo.</p>
             </Card>
 
             <Card className="p-4">

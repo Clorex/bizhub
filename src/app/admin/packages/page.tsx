@@ -1,4 +1,3 @@
-// FILE: src/app/admin/packages/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -49,7 +48,6 @@ export default function AdminPackagesPage() {
   }, []);
 
   const plans: PlanKey[] = ["FREE", "LAUNCH", "MOMENTUM", "APEX"];
-
   const canSave = useMemo(() => !!cfg?.plans, [cfg]);
 
   async function save() {
@@ -116,6 +114,8 @@ export default function AdminPackagesPage() {
               const f = cfg?.plans?.[p]?.features || {};
               const l = cfg?.plans?.[p]?.limits || {};
 
+              const isApex = p === "APEX";
+
               return (
                 <Card key={p} className="p-4 space-y-3">
                   <p className="text-sm font-bold text-biz-ink">{p}</p>
@@ -129,10 +129,45 @@ export default function AdminPackagesPage() {
                       <Toggle label="Continue in Chat" value={!!f.continueInChat} onClick={(v) => setFeature(p, "continueInChat", v)} />
                       <Toggle label="Coupons" value={!!f.coupons} onClick={(v) => setFeature(p, "coupons", v)} />
                       <Toggle label="Assistant" value={!!f.assistant} onClick={(v) => setFeature(p, "assistant", v)} />
+
                       <Toggle label="Re‑engagement" value={!!f.reengagement} onClick={(v) => setFeature(p, "reengagement", v)} />
+                      <Toggle label="Re‑engagement smart groups" value={!!f.reengagementSmartGroups} onClick={(v) => setFeature(p, "reengagementSmartGroups", v)} />
+                      <Toggle label="Re‑engagement smart messages" value={!!f.reengagementSmartMessages} onClick={(v) => setFeature(p, "reengagementSmartMessages", v)} />
+                      <Toggle label="Re‑engagement AI remix (Apex)" value={!!f.reengagementAiRemix} onClick={(v) => setFeature(p, "reengagementAiRemix", v)} />
+
+                      {/* ✅ NEW APEX-ONLY TRUST + RISK + DISPUTE */}
+                      <Toggle
+                        label="Verified Apex badge (earned)"
+                        value={!!f.apexVerifiedBadge}
+                        disabled={!isApex}
+                        helper={!isApex ? "Apex only" : "Badge is earned + maintained"}
+                        onClick={(v) => setFeature(p, "apexVerifiedBadge", v)}
+                      />
+                      <Toggle
+                        label="Smart Risk Shield"
+                        value={!!f.apexSmartRiskShield}
+                        disabled={!isApex}
+                        helper={!isApex ? "Apex only" : "Quiet monitoring + risk score"}
+                        onClick={(v) => setFeature(p, "apexSmartRiskShield", v)}
+                      />
+                      <Toggle
+                        label="Priority dispute override"
+                        value={!!f.apexPriorityDisputeOverride}
+                        disabled={!isApex}
+                        helper={!isApex ? "Apex only" : "Queue jump + extra evidence"}
+                        onClick={(v) => setFeature(p, "apexPriorityDisputeOverride", v)}
+                      />
+
                       <Toggle label="Staff" value={!!f.staff} onClick={(v) => setFeature(p, "staff", v)} />
                       <Toggle label="Promotions" value={!!f.promotions} onClick={(v) => setFeature(p, "promotions", v)} />
                       <Toggle label="Month analytics" value={!!f.monthAnalytics} onClick={(v) => setFeature(p, "monthAnalytics", v)} />
+
+                      <Toggle label="Best sellers" value={!!f.bestSellers} onClick={(v) => setFeature(p, "bestSellers", v)} />
+                      <Toggle label="Dead stock" value={!!f.deadStock} onClick={(v) => setFeature(p, "deadStock", v)} />
+                      <Toggle label="Follow‑ups" value={!!f.followUps} onClick={(v) => setFeature(p, "followUps", v)} />
+                      <Toggle label="Proof of payment" value={!!f.proofOfPayment} onClick={(v) => setFeature(p, "proofOfPayment", v)} />
+                      <Toggle label="Customer notes" value={!!f.customerNotes} onClick={(v) => setFeature(p, "customerNotes", v)} />
+                      <Toggle label="Installment plans" value={!!f.installmentPlans} onClick={(v) => setFeature(p, "installmentPlans", v)} />
                     </div>
 
                     <p className="mt-3 text-[11px] text-biz-muted">
@@ -152,6 +187,19 @@ export default function AdminPackagesPage() {
                       <LimitInput label="Coupons max" value={safeNum(l.couponsMax, 0)} onChange={(n) => setLimit(p, "couponsMax", n)} />
                       <LimitInput label="Shipping options max" value={safeNum(l.shippingOptionsMax, 0)} onChange={(n) => setLimit(p, "shippingOptionsMax", n)} />
                       <LimitInput label="Promotions max active" value={safeNum(l.promotionsMaxActive, 0)} onChange={(n) => setLimit(p, "promotionsMaxActive", n)} />
+
+                      <LimitInput label="Follow‑ups cap (72h)" value={safeNum(l.followUpsCap72h, 0)} onChange={(n) => setLimit(p, "followUpsCap72h", n)} />
+
+                      <LimitInput label="Best sellers max rows" value={safeNum(l.bestSellersMaxRows, 0)} onChange={(n) => setLimit(p, "bestSellersMaxRows", n)} />
+                      <LimitInput label="Best sellers max days" value={safeNum(l.bestSellersMaxDays, 0)} onChange={(n) => setLimit(p, "bestSellersMaxDays", n)} />
+
+                      <LimitInput label="Dead stock max rows" value={safeNum(l.deadStockMaxRows, 0)} onChange={(n) => setLimit(p, "deadStockMaxRows", n)} />
+                      <LimitInput label="Dead stock max days" value={safeNum(l.deadStockMaxDays, 0)} onChange={(n) => setLimit(p, "deadStockMaxDays", n)} />
+                      <LimitInput
+                        label="Dead stock ignore new (days)"
+                        value={safeNum(l.deadStockIgnoreNewerThanDays, 7)}
+                        onChange={(n) => setLimit(p, "deadStockIgnoreNewerThanDays", n)}
+                      />
                     </div>
                   </div>
                 </Card>
@@ -173,14 +221,34 @@ export default function AdminPackagesPage() {
   );
 }
 
-function Toggle({ label, value, onClick }: { label: string; value: boolean; onClick: (v: boolean) => void }) {
+function Toggle({
+  label,
+  value,
+  onClick,
+  disabled = false,
+  helper,
+}: {
+  label: string;
+  value: boolean;
+  onClick: (v: boolean) => void;
+  disabled?: boolean;
+  helper?: string;
+}) {
   return (
     <button
       type="button"
-      onClick={() => onClick(!value)}
-      className="rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between hover:bg-black/[0.02] transition"
+      disabled={disabled}
+      onClick={() => (!disabled ? onClick(!value) : undefined)}
+      className={[
+        "rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between hover:bg-black/[0.02] transition",
+        disabled ? "opacity-50 cursor-not-allowed" : "",
+      ].join(" ")}
+      title={helper || ""}
     >
-      <span className="text-xs font-bold text-biz-ink">{label}</span>
+      <span className="text-xs font-bold text-biz-ink">
+        {label}
+        {helper ? <span className="block text-[10px] font-normal text-biz-muted mt-1">{helper}</span> : null}
+      </span>
       <span
         className={
           value
@@ -198,12 +266,7 @@ function LimitInput({ label, value, onChange }: { label: string; value: number; 
   return (
     <div className="rounded-2xl border border-biz-line bg-white p-3">
       <p className="text-[11px] text-gray-500">{label}</p>
-      <Input
-        type="number"
-        value={String(value)}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="mt-2"
-      />
+      <Input type="number" value={String(value)} onChange={(e) => onChange(Number(e.target.value))} className="mt-2" />
     </div>
   );
 }

@@ -1,6 +1,5 @@
-// FILE: src/app/api/vendor/products/route.ts
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/auth/server";
+import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -8,6 +7,18 @@ import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const MAX_IMAGES = 10;
+
+function cleanImages(input: any) {
+  const arr = Array.isArray(input) ? input : [];
+  const urls = arr
+    .map((x) => String(x || "").trim())
+    .filter(Boolean)
+    .filter((u) => u.startsWith("http://") || u.startsWith("https://"));
+
+  return Array.from(new Set(urls)).slice(0, MAX_IMAGES);
+}
 
 function keywordsFor(name: string) {
   const n = name.toLowerCase().trim();
@@ -28,16 +39,33 @@ function cleanServiceMode(v: any): "book" | "pay" {
   return String(v || "book") === "pay" ? "pay" : "book";
 }
 
+async function getStaffPerms(uid: string) {
+  const uSnap = await adminDb.collection("users").doc(uid).get();
+  const u = uSnap.exists ? (uSnap.data() as any) : {};
+  const p = u?.staffPermissions && typeof u.staffPermissions === "object" ? u.staffPermissions : {};
+  return {
+    productsView: !!p.productsView,
+    productsManage: !!p.productsManage,
+  };
+}
+
 export async function GET(req: Request) {
   try {
-    const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
-    const snap = await adminDb.collection("products").where("businessId", "==", me.businessId).limit(200).get();
+    if (me.role === "staff") {
+      const perms = await getStaffPerms(me.uid);
+      if (!perms.productsView && !perms.productsManage) {
+        return NextResponse.json({ ok: false, error: "Not authorized" }, { status: 403 });
+      }
+    }
 
+    const snap = await adminDb.collection("products").where("businessId", "==", me.businessId).limit(200).get();
     const products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
     return NextResponse.json({ ok: true, products });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
@@ -52,13 +80,19 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
-    // kept for backward compatibility (never hard-locks now)
     await requireVendorUnlocked(me.businessId);
 
-    // ✅ plan-config driven limits (no hardcoded limits)
+    if (me.role === "staff") {
+      const perms = await getStaffPerms(me.uid);
+      if (!perms.productsManage) {
+        return NextResponse.json({ ok: false, error: "Not authorized" }, { status: 403 });
+      }
+    }
+
+    // ✅ plan-config driven limits
     const plan = await getBusinessPlanResolved(me.businessId);
     const maxProducts = Number(plan?.limits?.maxProducts || 0);
 
@@ -96,36 +130,34 @@ export async function POST(req: Request) {
     const stock = Number(body.stock ?? 0);
     const packaging = String(body.packaging || "Box");
 
-    if (!name) return NextResponse.json({ error: "name is required" }, { status: 400 });
+    if (!name) return NextResponse.json({ ok: false, error: "name is required" }, { status: 400 });
 
     // Price rules
     if (listingType === "product") {
-      if (!(price > 0)) return NextResponse.json({ error: "price must be > 0 for products" }, { status: 400 });
+      if (!(price > 0)) return NextResponse.json({ ok: false, error: "price must be > 0 for products" }, { status: 400 });
     } else {
       if (serviceMode === "pay" && !(price > 0)) {
-        return NextResponse.json({ error: "price must be > 0 for pay-to-book services" }, { status: 400 });
+        return NextResponse.json({ ok: false, error: "price must be > 0 for pay-to-book services" }, { status: 400 });
       }
     }
 
-    const images = Array.isArray(body.images) ? body.images : [];
+    const images = cleanImages(body.images);
     const optionGroups = Array.isArray(body.optionGroups) ? body.optionGroups : [];
     const marketEnabled = body.marketEnabled === false ? false : true;
 
     // ✅ Marketplace flags stored on product for /market filtering
     const biz = plan.business || {};
-    const marketAllowed = !!plan.features?.marketplace; // FREE => false
+    const marketAllowed = !!plan.features?.marketplace;
     const businessHasActiveSubscription = !!plan.hasActiveSubscription;
 
     const ref = adminDb.collection("products").doc();
     await ref.set({
       businessId: me.businessId,
-      businessSlug: me.businessSlug ?? null,
+      businessSlug: plan?.business?.slug ?? me.businessSlug ?? null,
 
-      // denormalized location for filters
       businessState: biz?.state ?? null,
       businessCity: biz?.city ?? null,
 
-      // marketplace gating + sorting helpers
       marketAllowed,
       businessHasActiveSubscription,
       marketTier: Number(biz?.verificationTier || 0),

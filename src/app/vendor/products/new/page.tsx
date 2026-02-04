@@ -1,7 +1,6 @@
-// FILE: src/app/vendor/products/new/page.tsx
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { auth } from "@/lib/firebase/client";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
@@ -11,10 +10,35 @@ import { OptionGroup, VariationBuilder } from "@/components/vendor/VariationBuil
 import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 
-const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"];
+const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
+const MAX_IMAGES = 10;
+const DRAFT_KEY = "bizhub_vendor_new_listing_draft_v2";
 
 type ListingType = "product" | "service";
 type ServiceMode = "book" | "pay";
+
+function digitsOnly(s: string) {
+  return String(s || "").replace(/[^\d]/g, "");
+}
+
+function formatNumberText(s: string) {
+  const d = digitsOnly(s);
+  if (!d) return "";
+  return Number(d).toLocaleString("en-NG");
+}
+
+function parseNumberText(s: string) {
+  const d = digitsOnly(s);
+  return d ? Number(d) : 0;
+}
+
+function fmtNaira(n: number) {
+  try {
+    return `₦${Number(n || 0).toLocaleString("en-NG")}`;
+  } catch {
+    return `₦${n}`;
+  }
+}
 
 export default function VendorNewProductPage() {
   const router = useRouter();
@@ -25,10 +49,14 @@ export default function VendorNewProductPage() {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
 
-  const [price, setPrice] = useState<number>(0);
-  const [stock, setStock] = useState<number>(0);
+  // formatted inputs (so placeholder shows + commas)
+  const [priceText, setPriceText] = useState<string>("");
+  const [stockText, setStockText] = useState<string>("");
 
-  const [packaging, setPackaging] = useState<string>("Box");
+  // better UX for "Other"
+  const [packagingChoice, setPackagingChoice] = useState<string>("Box");
+  const [packagingOther, setPackagingOther] = useState<string>("");
+
   const [images, setImages] = useState<string[]>([]);
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
 
@@ -38,12 +66,92 @@ export default function VendorNewProductPage() {
 
   const isService = listingType === "service";
 
+  const price = useMemo(() => parseNumberText(priceText), [priceText]);
+  const stock = useMemo(() => parseNumberText(stockText), [stockText]);
+
+  // --- Restore draft on mount ---
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+
+      const d = JSON.parse(raw || "{}");
+
+      if (d?.listingType) setListingType(d.listingType === "service" ? "service" : "product");
+      if (d?.serviceMode) setServiceMode(d.serviceMode === "pay" ? "pay" : "book");
+
+      if (typeof d?.name === "string") setName(d.name);
+      if (typeof d?.description === "string") setDescription(d.description);
+
+      if (typeof d?.priceText === "string") setPriceText(d.priceText);
+      if (typeof d?.stockText === "string") setStockText(d.stockText);
+
+      if (typeof d?.packagingChoice === "string") setPackagingChoice(d.packagingChoice);
+      if (typeof d?.packagingOther === "string") setPackagingOther(d.packagingOther);
+
+      if (Array.isArray(d?.images)) setImages(d.images.slice(0, MAX_IMAGES));
+      if (Array.isArray(d?.optionGroups)) setOptionGroups(d.optionGroups);
+    } catch {
+      // ignore
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const packagingFinal = useMemo(() => {
+    if (packagingChoice === "Other") return packagingOther.trim() || "Other";
+    return packagingChoice;
+  }, [packagingChoice, packagingOther]);
+
   const priceOk = useMemo(() => {
     if (!name.trim()) return false;
     if (listingType === "product") return price > 0;
     if (serviceMode === "pay") return price > 0;
     return price >= 0; // book-only service can be 0
   }, [listingType, serviceMode, price, name]);
+
+  const imagesOk = useMemo(() => {
+    if (isService) return true;
+    return images.length > 0;
+  }, [isService, images.length]);
+
+  const canCreate = priceOk && imagesOk && !loading;
+
+  // --- Persist draft (debounced) ---
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        sessionStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            listingType,
+            serviceMode,
+            name,
+            description,
+            priceText,
+            stockText,
+            packagingChoice,
+            packagingOther,
+            images: images.slice(0, MAX_IMAGES),
+            optionGroups,
+            ts: Date.now(),
+          })
+        );
+      } catch {}
+    }, 250);
+
+    return () => clearTimeout(t);
+  }, [
+    listingType,
+    serviceMode,
+    name,
+    description,
+    priceText,
+    stockText,
+    packagingChoice,
+    packagingOther,
+    images,
+    optionGroups,
+  ]);
 
   async function create() {
     setLoading(true);
@@ -69,8 +177,9 @@ export default function VendorNewProductPage() {
           price: Number(price || 0),
           stock: listingType === "product" ? Number(stock || 0) : 0,
 
-          packaging,
-          images,
+          packaging: packagingFinal,
+          images: images.slice(0, MAX_IMAGES),
+
           optionGroups,
           variants: [],
         }),
@@ -84,6 +193,10 @@ export default function VendorNewProductPage() {
         }
         throw new Error(data?.error || "Create failed");
       }
+
+      try {
+        sessionStorage.removeItem(DRAFT_KEY);
+      } catch {}
 
       router.push(`/vendor/products/${data.productId}/edit`);
     } catch (e: any) {
@@ -123,7 +236,10 @@ export default function VendorNewProductPage() {
               value={listingType}
               onChange={(v) => {
                 setListingType(v);
-                if (v === "service") setServiceMode("book");
+                if (v === "service") {
+                  setServiceMode("book");
+                  setStockText("");
+                }
               }}
               options={[
                 { value: "product", label: "Product" },
@@ -168,21 +284,26 @@ export default function VendorNewProductPage() {
             rows={4}
           />
 
-          <input
-            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-            placeholder={listingType === "service" && serviceMode === "book" ? "Price (optional)" : "Price (NGN)"}
-            type="number"
-            value={price}
-            onChange={(e) => setPrice(Number(e.target.value))}
-          />
+          {/* Price with ₦ sign + commas */}
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-biz-muted">₦</span>
+            <input
+              className="w-full border border-biz-line rounded-2xl p-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+              placeholder="Price"
+              inputMode="numeric"
+              value={priceText}
+              onChange={(e) => setPriceText(formatNumberText(e.target.value))}
+            />
+          </div>
 
+          {/* Stock with commas */}
           {listingType === "product" ? (
             <input
               className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
               placeholder="Stock"
-              type="number"
-              value={stock}
-              onChange={(e) => setStock(Number(e.target.value))}
+              inputMode="numeric"
+              value={stockText}
+              onChange={(e) => setStockText(formatNumberText(e.target.value))}
             />
           ) : (
             <div className="rounded-2xl border border-biz-line bg-white p-3">
@@ -192,10 +313,11 @@ export default function VendorNewProductPage() {
 
           <div className="mt-2">
             <p className="text-sm font-bold text-biz-ink">{isService ? "Category" : "Packaging"}</p>
+
             <select
               className="mt-2 w-full border border-biz-line rounded-2xl p-3 text-sm bg-white"
-              value={packaging}
-              onChange={(e) => setPackaging(e.target.value)}
+              value={packagingChoice}
+              onChange={(e) => setPackagingChoice(e.target.value)}
             >
               {PACKAGING.map((p) => (
                 <option key={p} value={p}>
@@ -204,22 +326,43 @@ export default function VendorNewProductPage() {
               ))}
             </select>
 
-            {packaging === "Other" ? (
+            {packagingChoice === "Other" ? (
               <input
                 className="mt-2 w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
                 placeholder={isService ? "Type category (e.g. Lash, Nails)" : "Type packaging"}
-                onChange={(e) => setPackaging(e.target.value)}
+                value={packagingOther}
+                onChange={(e) => setPackagingOther(e.target.value)}
               />
             ) : null}
           </div>
+
+          <p className="text-[11px] text-biz-muted">
+            Preview: <b className="text-biz-ink">{isService && serviceMode === "book" && price <= 0 ? "Book only" : fmtNaira(price)}</b>
+            {listingType === "product" ? (
+              <>
+                {" "}
+                • Stock: <b className="text-biz-ink">{stockText || "—"}</b>
+              </>
+            ) : null}{" "}
+            • {isService ? "Category" : "Packaging"}: <b className="text-biz-ink">{packagingFinal}</b>
+          </p>
         </Card>
 
         <Card className="p-4">
           <ImageUploader
             label={isService ? "Service images (optional)" : "Product images"}
-            multiple={true}
-            onUploaded={(urls) => setImages((prev) => [...prev, ...urls])}
+            value={images}
+            onChange={setImages}
+            max={MAX_IMAGES}
+            folderBase="bizhub/uploads/products"
+            disabled={loading}
           />
+
+          {!isService && images.length === 0 ? (
+            <p className="mt-2 text-[11px] text-red-700">Add at least 1 product image to continue.</p>
+          ) : (
+            <p className="mt-2 text-[11px] text-biz-muted">Tip: The first image is your cover photo.</p>
+          )}
         </Card>
 
         <Card className="p-4">
@@ -227,7 +370,7 @@ export default function VendorNewProductPage() {
         </Card>
 
         <Card className="p-4">
-          <Button onClick={create} loading={loading} disabled={!priceOk || loading}>
+          <Button onClick={create} loading={loading} disabled={!canCreate}>
             Create {isService ? "Service" : "Product"}
           </Button>
 

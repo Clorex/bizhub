@@ -90,7 +90,7 @@ function PromotionCallbackInner() {
             </>
           ) : null}
 
-          <p className="text-[11px] text-gray-500 mt-3 break-all">Reference: {reference || "â€”"}</p>
+          <p className="text-[11px] text-gray-500 mt-3 break-all">Payment ID: {reference || "â€”"}</p>
 
           <div className="mt-4 space-y-2">
             <Link href="/vendor/products" className="block">
@@ -123,3 +123,4 @@ export default function PromotionCallbackPage() {
     </Suspense>
   );
 }
+

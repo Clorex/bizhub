@@ -1,4 +1,3 @@
-// FILE: src/app/b/[slug]/checkout/page.tsx
 "use client";
 
 import { useCart } from "@/lib/cart/CartContext";
@@ -32,6 +31,10 @@ function fmtNaira(n: number) {
   }
 }
 
+function clampStr(v: any, max = 200) {
+  return String(v || "").trim().slice(0, max);
+}
+
 export default function CheckoutPage() {
   const router = useRouter();
   const params = useParams();
@@ -49,8 +52,8 @@ export default function CheckoutPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
 
-  // coupon UI state
-  const subtotalKobo = Math.floor(Number(subtotal || 0) * 100);
+  // coupon UI state (persisted)
+  const localSubtotalKobo = Math.floor(Number(subtotal || 0) * 100);
   const [couponCode, setCouponCode] = useState("");
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
@@ -62,22 +65,28 @@ export default function CheckoutPage() {
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [selectedShipId, setSelectedShipId] = useState<string>("");
 
+  // server quote state
+  const [quoteLoading, setQuoteLoading] = useState(false);
+  const [quoteMsg, setQuoteMsg] = useState<string | null>(null);
+  const [quote, setQuote] = useState<any>(null);
+
+  // Load persisted coupon for this store/subtotal
   useEffect(() => {
-    // load persisted coupon for this store/subtotal
-    const c = getCouponForCheckout({ storeSlug: slug, subtotalKobo });
+    const c = getCouponForCheckout({ storeSlug: slug, subtotalKobo: localSubtotalKobo });
     setApplied(c);
     setCouponCode(c?.code || "");
-  }, [slug, subtotalKobo]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug]);
 
+  // If subtotal changes after coupon applied, clear it (existing behavior)
   useEffect(() => {
-    // If subtotal changes after coupon applied, clear it
-    if (applied && applied.subtotalKobo !== subtotalKobo) {
+    if (applied && applied.subtotalKobo !== localSubtotalKobo) {
       clearAppliedCoupon();
       setApplied(null);
       setCouponMsg("Cart changed. Please re-apply discount code.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subtotalKobo]);
+  }, [localSubtotalKobo]);
 
   // Load saved shipping selection (store-specific)
   useEffect(() => {
@@ -145,17 +154,8 @@ export default function CheckoutPage() {
     return shippingOptions.find((o) => o.id === selectedShipId) || null;
   }, [selectedShipId, shippingOptions]);
 
-  const discountKobo = Number(applied?.discountKobo || 0);
-
-  // totals:
-  // baseTotal = subtotal - discount
-  const baseTotalKobo = Math.max(0, subtotalKobo - discountKobo);
-
-  // shipping added AFTER discount (assumption)
+  const shippingRequired = shippingOptions.length > 0;
   const shippingFeeKobo = Number(selectedShipping?.feeKobo || 0);
-  const grandTotalKobo = Math.max(0, baseTotalKobo + shippingFeeKobo);
-
-  const grandTotalNgn = grandTotalKobo / 100;
 
   // Force login before checkout
   useEffect(() => {
@@ -194,6 +194,66 @@ export default function CheckoutPage() {
     return () => unsub();
   }, [router, slug]);
 
+  // --- Build server quote (sale first, then coupon) ---
+  async function fetchQuote(opts?: { couponCode?: string | null; shippingFeeKobo?: number }) {
+    if (!validCart) return;
+
+    setQuoteLoading(true);
+    setQuoteMsg(null);
+
+    try {
+      const items = (cart.items || []).map((it: any) => ({
+        productId: String(it.productId || it.id || ""),
+        qty: Number(it.qty || 1),
+        selectedOptions: it.selectedOptions || null,
+      }));
+
+      const coupon = opts?.couponCode != null ? String(opts.couponCode) : applied?.code ? String(applied.code) : null;
+
+      const r = await fetch("/api/checkout/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storeSlug: slug,
+          items,
+          couponCode: coupon || null,
+          shippingFeeKobo: opts?.shippingFeeKobo != null ? Number(opts.shippingFeeKobo) : Number(shippingFeeKobo || 0),
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Failed to compute total");
+
+      setQuote(data);
+
+      // If coupon applied but server says coupon invalid now, clear it.
+      if (applied?.code && data?.couponResult && data.couponResult.ok === false) {
+        clearAppliedCoupon();
+        setApplied(null);
+        setCouponMsg(String(data?.couponResult?.error || "Coupon no longer valid."));
+      }
+    } catch (e: any) {
+      setQuote(null);
+      setQuoteMsg(e?.message || "Failed to compute total");
+    } finally {
+      setQuoteLoading(false);
+    }
+  }
+
+  // Recompute quote when shipping changes or applied coupon changes or cart items change
+  useEffect(() => {
+    if (!validCart) return;
+    fetchQuote({ shippingFeeKobo });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [validCart, slug, selectedShipId, shippingFeeKobo, applied?.code, cart.items.length]);
+
+  // If quantities/options change but item count same, above won't trigger; handle subtotal change too.
+  useEffect(() => {
+    if (!validCart) return;
+    fetchQuote({ shippingFeeKobo });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localSubtotalKobo]);
+
   if (!validCart) {
     return (
       <div className="min-h-screen">
@@ -225,6 +285,19 @@ export default function CheckoutPage() {
     );
   }
 
+  function selectShipping(opt: ShippingOption) {
+    setSelectedShipId(opt.id);
+    saveAppliedShipping({
+      storeSlug: slug,
+      optionId: opt.id,
+      type: opt.type,
+      name: opt.name,
+      feeKobo: Number(opt.feeKobo || 0),
+      selectedAtMs: Date.now(),
+    });
+    // quote refresh happens via effect
+  }
+
   async function applyCoupon() {
     setCouponLoading(true);
     setCouponMsg(null);
@@ -238,28 +311,59 @@ export default function CheckoutPage() {
         return;
       }
 
-      // ✅ FIX: correct endpoint
-      const r = await fetch("/api/vendor/coupons/validate", {
+      // Validate via server quote (coupon applies AFTER sale)
+      await fetchQuote({ couponCode: code, shippingFeeKobo });
+
+      // If quote failed, don't proceed
+      if (!quote && quoteMsg) throw new Error(quoteMsg);
+
+      // Use latest quote by fetching directly (fresh)
+      const items = (cart.items || []).map((it: any) => ({
+        productId: String(it.productId || it.id || ""),
+        qty: Number(it.qty || 1),
+        selectedOptions: it.selectedOptions || null,
+      }));
+
+      const r = await fetch("/api/checkout/quote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ storeSlug: slug, code, subtotalKobo }),
+        body: JSON.stringify({
+          storeSlug: slug,
+          items,
+          couponCode: code,
+          shippingFeeKobo,
+        }),
       });
 
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data?.error || "Invalid code");
+      if (!r.ok) throw new Error(data?.error || "Failed to apply code");
+
+      if (data?.couponResult?.ok !== true) {
+        throw new Error(String(data?.couponResult?.error || "Invalid code"));
+      }
+
+      const couponDiscountKobo = Number(data?.pricing?.couponDiscountKobo || 0);
+      const saleSubtotalKobo = Number(data?.pricing?.saleSubtotalKobo || 0);
 
       const next = {
         storeSlug: slug,
         code,
-        subtotalKobo,
-        discountKobo: Number(data.discountKobo || 0),
-        totalKobo: Number(data.totalKobo || subtotalKobo),
+        // keep compatibility with existing localStorage keying:
+        subtotalKobo: localSubtotalKobo,
+        // extra info (harmless):
+        serverSaleSubtotalKobo: saleSubtotalKobo,
+        discountKobo: couponDiscountKobo,
+        totalKobo: Math.max(0, saleSubtotalKobo - couponDiscountKobo),
         appliedAtMs: Date.now(),
       };
 
       saveAppliedCoupon(next);
       setApplied(next);
       setCouponMsg(`Applied ${code}.`);
+
+      // set quote to this response
+      setQuote(data);
+      setQuoteMsg(null);
     } catch (e: any) {
       clearAppliedCoupon();
       setApplied(null);
@@ -274,36 +378,87 @@ export default function CheckoutPage() {
     setApplied(null);
     setCouponCode("");
     setCouponMsg("Discount removed.");
+    fetchQuote({ couponCode: null, shippingFeeKobo });
   }
 
-  function selectShipping(opt: ShippingOption) {
-    setSelectedShipId(opt.id);
-    saveAppliedShipping({
-      storeSlug: slug,
-      optionId: opt.id,
-      type: opt.type,
-      name: opt.name,
-      feeKobo: Number(opt.feeKobo || 0),
-      selectedAtMs: Date.now(),
-    });
-  }
+  const pricing = quote?.pricing || null;
+
+  const totalKobo = pricing ? Number(pricing.totalKobo || 0) : Math.max(0, localSubtotalKobo + shippingFeeKobo);
+  const totalNgn = totalKobo / 100;
+
+  const originalSubtotalKobo = pricing ? Number(pricing.originalSubtotalKobo || 0) : localSubtotalKobo;
+  const saleSubtotalKobo = pricing ? Number(pricing.saleSubtotalKobo || 0) : localSubtotalKobo;
+  const saleDiscountKobo = pricing ? Number(pricing.saleDiscountKobo || 0) : 0;
+  const couponDiscountKobo = pricing ? Number(pricing.couponDiscountKobo || 0) : Number(applied?.discountKobo || 0);
+
+  const pickedPickup = selectedShipping?.type === "pickup";
+  const canPay =
+    !!fullName &&
+    !!phone &&
+    !!email &&
+    emailVerified &&
+    (!shippingRequired || !!selectedShipping) &&
+    (pickedPickup ? true : !!address) &&
+    !quoteLoading &&
+    !quoteMsg;
 
   async function handlePaystack() {
     saveCheckoutProfile({ email, fullName, phone, address });
+
+    // ✅ Always compute a fresh server quote right before payment
+    const items = (cart.items || []).map((it: any) => ({
+      productId: String(it.productId || it.id || ""),
+      qty: Number(it.qty || 1),
+      selectedOptions: it.selectedOptions || null,
+    }));
+
+    const coupon = applied?.code ? String(applied.code) : null;
+
+    const rQ = await fetch("/api/checkout/quote", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        storeSlug: slug,
+        items,
+        couponCode: coupon,
+        shippingFeeKobo,
+      }),
+    });
+
+    const qData = await rQ.json().catch(() => ({}));
+    if (!rQ.ok) {
+      alert(qData?.error || "Failed to compute final price");
+      return;
+    }
+
+    const amountKobo = Number(qData?.pricing?.totalKobo || 0);
+    if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
+      alert("Invalid total. Please refresh and try again.");
+      return;
+    }
+
+    // Build sanitized items list for metadata (use server normalized items)
+    const metaItems = Array.isArray(qData.normalizedItems)
+      ? qData.normalizedItems.map((it: any) => ({
+          productId: String(it.productId || ""),
+          name: String(it.name || "Item"),
+          qty: Number(it.qty || 1),
+          price: Number(it.finalUnitPriceKobo || 0) / 100, // NGN unit price (final)
+          selectedOptions: it.selectedOptions || null,
+        }))
+      : cart.items;
 
     const r = await fetch("/api/paystack/initialize", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         email,
-        amountKobo: grandTotalKobo,
+        amountKobo,
         metadata: {
           storeSlug: slug,
-          customer: { fullName, phone, address, email },
-          items: cart.items,
-          coupon: applied
-            ? { code: applied.code, discountKobo: applied.discountKobo, subtotalKobo: applied.subtotalKobo }
-            : null,
+          customer: { fullName: clampStr(fullName, 80), phone: clampStr(phone, 40), address: clampStr(address, 300), email: clampStr(email, 120) },
+          items: metaItems,
+          coupon: coupon ? { code: coupon } : null,
           shipping: selectedShipping
             ? {
                 optionId: selectedShipping.id,
@@ -312,6 +467,11 @@ export default function CheckoutPage() {
                 feeKobo: Number(selectedShipping.feeKobo || 0),
               }
             : null,
+          quote: {
+            pricing: qData.pricing || null,
+            couponResult: qData.couponResult || null,
+            createdAtMs: Date.now(),
+          },
         },
       }),
     });
@@ -327,20 +487,8 @@ export default function CheckoutPage() {
 
   function goBankTransfer() {
     saveCheckoutProfile({ email, fullName, phone, address });
-    // shipping selection already saved in localStorage
     router.push(`/b/${slug}/pay/direct?name=${encodeURIComponent(fullName)}&phone=${encodeURIComponent(phone)}`);
   }
-
-  const shippingRequired = shippingOptions.length > 0;
-  const pickedPickup = selectedShipping?.type === "pickup";
-
-  const canPay =
-    !!fullName &&
-    !!phone &&
-    !!email &&
-    emailVerified &&
-    (!shippingRequired || !!selectedShipping) &&
-    (pickedPickup ? true : !!address);
 
   return (
     <div className="min-h-screen">
@@ -353,23 +501,32 @@ export default function CheckoutPage() {
             Store: <b>{slug}</b>
           </p>
 
-          <p className="text-2xl font-bold mt-2">{fmtNaira(grandTotalNgn)}</p>
+          <p className="text-2xl font-bold mt-2">{fmtNaira(totalNgn)}</p>
 
           <p className="text-[11px] opacity-95 mt-2">
-            Subtotal: <b>{fmtNaira(subtotal)}</b>
-            {applied ? (
+            Original subtotal: <b>{fmtNaira(originalSubtotalKobo / 100)}</b>
+            {saleDiscountKobo > 0 ? (
               <>
                 {" "}
-                • Discount: <b>{fmtNaira(discountKobo / 100)}</b>
+                • Sale discount: <b>{fmtNaira(saleDiscountKobo / 100)}</b>
               </>
             ) : null}
-            {selectedShipping ? (
+            {couponDiscountKobo > 0 ? (
+              <>
+                {" "}
+                • Coupon: <b>{fmtNaira(couponDiscountKobo / 100)}</b>
+              </>
+            ) : null}
+            {shippingFeeKobo > 0 ? (
               <>
                 {" "}
                 • Shipping: <b>{fmtNaira(shippingFeeKobo / 100)}</b>
               </>
             ) : null}
           </p>
+
+          {quoteLoading ? <p className="text-[11px] opacity-95 mt-2">Updating total…</p> : null}
+          {quoteMsg ? <p className="text-[11px] text-red-100 mt-2">{quoteMsg}</p> : null}
         </div>
 
         <SectionCard title="Shipping" subtitle="Choose delivery or pickup">
@@ -409,7 +566,6 @@ export default function CheckoutPage() {
                           {o.areasText ? ` • ${o.areasText}` : ""}
                         </p>
                       </div>
-
                       <div className={active ? "text-white font-bold" : "text-gray-400 font-bold"}>›</div>
                     </div>
                   </button>
@@ -423,7 +579,7 @@ export default function CheckoutPage() {
           ) : null}
         </SectionCard>
 
-        <SectionCard title="Discount code" subtitle="Optional">
+        <SectionCard title="Discount code" subtitle="Optional (coupon applies after sale)">
           <div className="space-y-2">
             <Input placeholder="Enter coupon code" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} />
 
@@ -446,7 +602,6 @@ export default function CheckoutPage() {
             <Input placeholder="Full name" value={fullName} onChange={(e) => setFullName(e.target.value)} autoComplete="name" />
             <Input placeholder="Phone number" value={phone} onChange={(e) => setPhone(e.target.value)} autoComplete="tel" />
 
-            {/* Address required only for delivery */}
             {selectedShipping?.type !== "pickup" ? (
               <textarea
                 className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
@@ -478,7 +633,7 @@ export default function CheckoutPage() {
 
               {!canPay ? (
                 <p className="text-[11px] text-biz-muted">
-                  Ensure shipping is selected, and fill required fields (address required for delivery).
+                  Ensure shipping is selected, and fill required fields (address required for delivery). If total fails to update, refresh this page.
                 </p>
               ) : null}
             </Card>

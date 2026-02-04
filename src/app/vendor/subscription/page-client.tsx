@@ -1,51 +1,144 @@
 ﻿"use client";
 
-
-
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase/client";
-
+import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { SectionCard } from "@/components/ui/SectionCard";
-import { BIZHUB_PLANS, type BizhubBillingCycle, type BizhubPlanKey } from "@/lib/bizhubPlans";
-import { CheckCircle2, LogOut } from "lucide-react";
+import { auth } from "@/lib/firebase/client";
+import { CheckCircle2 } from "lucide-react";
+
+type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
+type BizhubBillingCycle = "monthly" | "quarterly" | "biannually" | "yearly";
+type InfoTab = "benefits" | "purchases";
+
+const SUMMARY_PATH = "/vendor/subscription/summary";
+const NAIRA = "\u20A6"; // ₦
+const EM_DASH = "\u2014"; // —
 
 function fmtNaira(n: number) {
+  const amount = Number(n || 0);
   try {
-    return `â‚¦${Number(n || 0).toLocaleString()}`;
+    return `${NAIRA}${new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(amount)}`;
   } catch {
-    return `â‚¦${n}`;
+    return `${NAIRA}${amount}`;
   }
 }
 
-function fmtDate(ms?: number) {
-  if (!ms) return "â€”";
-  try {
-    return new Date(ms).toLocaleDateString();
-  } catch {
-    return String(ms);
-  }
+function cycleLabel(cycle: BizhubBillingCycle) {
+  if (cycle === "monthly") return "Monthly";
+  if (cycle === "quarterly") return "Quarterly";
+  if (cycle === "biannually") return "Biannual";
+  return "Yearly";
 }
 
-const PLAN_ORDER: BizhubPlanKey[] = ["LAUNCH", "MOMENTUM", "APEX"];
+function cycleSuffix(cycle: BizhubBillingCycle) {
+  if (cycle === "monthly") return "/monthly";
+  if (cycle === "quarterly") return "/quarterly";
+  if (cycle === "biannually") return "/biannually";
+  return "/annually";
+}
 
-export default function VendorSubscriptionPage() {
+function flattenGroups(groups: Record<string, string[]>) {
+  const out: string[] = [];
+  for (const [, items] of Object.entries(groups || {})) {
+    for (const t of items || []) {
+      const s = String(t || "").trim();
+      if (s) out.push(s);
+    }
+  }
+  const seen = new Set<string>();
+  return out.filter((x) => (seen.has(x) ? false : (seen.add(x), true)));
+}
+
+function RadioRow(props: {
+  selected: boolean;
+  title: string;
+  subtitle: string;
+  right?: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      disabled={props.disabled}
+      className={[
+        "w-full text-left rounded-2xl border bg-white p-4 transition",
+        props.selected ? "border-emerald-300 ring-2 ring-emerald-100" : "border-biz-line hover:bg-black/[0.02]",
+        props.disabled ? "opacity-60 cursor-not-allowed" : "",
+      ].join(" ")}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div
+            className={[
+              "mt-1 h-5 w-5 rounded-full border flex items-center justify-center",
+              props.selected ? "border-emerald-600" : "border-gray-300",
+            ].join(" ")}
+          >
+            {props.selected ? <div className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-sm font-extrabold text-biz-ink">{props.title}</p>
+            <p className="text-[11px] text-gray-500 mt-1">{props.subtitle}</p>
+          </div>
+        </div>
+
+        {props.right ? <div className="shrink-0">{props.right}</div> : null}
+      </div>
+    </button>
+  );
+}
+
+type PlansResponse = {
+  ok: boolean;
+  plans: Record<
+    BizhubPlanKey,
+    {
+      key: BizhubPlanKey;
+      name: string;
+      tagline: string;
+      recommendedFor?: string;
+      priceNgn: Record<BizhubBillingCycle, number>;
+      benefits: Record<string, string[]>;
+      purchases: Record<string, string[]>;
+      features: any;
+      limits: any;
+    }
+  >;
+};
+
+export default function VendorSubscriptionPageClient() {
   const router = useRouter();
   const sp = useSearchParams();
-  const lockedMode = sp.get("locked") === "1";
 
-  const [cycle, setCycle] = useState<BizhubBillingCycle>("yearly");
-  const [selectedPlan, setSelectedPlan] = useState<BizhubPlanKey>("LAUNCH");
+  const planFromUrl = String(sp.get("plan") || "LAUNCH").toUpperCase();
+  const cycleFromUrl = String(sp.get("cycle") || "yearly").toLowerCase();
+
+  const initialPlan: BizhubPlanKey = (["LAUNCH", "MOMENTUM", "APEX"] as BizhubPlanKey[]).includes(planFromUrl as any)
+    ? (planFromUrl as BizhubPlanKey)
+    : "LAUNCH";
+
+  const initialCycle: BizhubBillingCycle = (["monthly", "quarterly", "biannually", "yearly"] as BizhubBillingCycle[]).includes(
+    cycleFromUrl as any
+  )
+    ? (cycleFromUrl as BizhubBillingCycle)
+    : "yearly";
+
+  const [planKey, setPlanKey] = useState<BizhubPlanKey>(initialPlan);
+  const [cycle, setCycle] = useState<BizhubBillingCycle>(initialCycle);
+  const [tab, setTab] = useState<InfoTab>("benefits");
 
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const [access, setAccess] = useState<any>(null);
-  const [my, setMy] = useState<any>(null);
+  const [plans, setPlans] = useState<PlansResponse["plans"] | null>(null);
+  const [entitlement, setEntitlement] = useState<any>(null);
+  const [showAll, setShowAll] = useState(false);
 
   async function authedFetch(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
@@ -54,200 +147,220 @@ export default function VendorSubscriptionPage() {
       headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data?.error || "Request failed");
+    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
     return data;
   }
 
-  async function load() {
-    setLoading(true);
-    setMsg(null);
-    try {
-      const [a, m] = await Promise.all([
-        authedFetch("/api/vendor/access"),
-        authedFetch("/api/subscriptions/my"),
-      ]);
-
-      setAccess(a);
-      setMy(m);
-
-      // If currently subscribed, default to that plan
-      const entPlan = String(m?.entitlement?.planKey || "FREE") as BizhubPlanKey;
-      if (entPlan !== "FREE") setSelectedPlan(entPlan);
-    } catch (e: any) {
-      setMsg(e?.message || "Failed to load");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      setLoading(true);
+      setMsg(null);
+      try {
+        const [plansData, subData] = await Promise.all([
+          authedFetch("/api/vendor/plans") as Promise<PlansResponse>,
+          authedFetch("/api/subscriptions/my"),
+        ]);
+
+        if (!mounted) return;
+
+        if (!plansData?.ok || !plansData?.plans) throw new Error("Failed to load plan config");
+        setPlans(plansData.plans);
+        setEntitlement(subData.entitlement || null);
+      } catch (e: any) {
+        if (!mounted) return;
+        setMsg(e?.message || "Failed to load");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  async function doSignOut() {
-    await signOut(auth);
-    router.replace("/market");
+  const plan = plans?.[planKey] || null;
+  const price = Number(plan?.priceNgn?.[cycle] ?? 0);
+
+  const entPlanKey = String(entitlement?.planKey || "FREE") as BizhubPlanKey;
+  const entExpiry = Number(entitlement?.expiresAtMs || 0);
+
+  const entName =
+    plans?.[entPlanKey]?.name || (entPlanKey === "FREE" ? "Free access" : String(entPlanKey || "Free access"));
+
+  const benefitsFlat = useMemo(() => flattenGroups(plan?.benefits || {}), [plan]);
+  const purchasesFlat = useMemo(() => flattenGroups(plan?.purchases || {}), [plan]);
+
+  const activeList = tab === "benefits" ? benefitsFlat : purchasesFlat;
+  const visibleCount = showAll ? activeList.length : Math.min(activeList.length, 8);
+  const visibleList = activeList.slice(0, visibleCount);
+
+  function continueToSummary() {
+    router.push(`${SUMMARY_PATH}?plan=${encodeURIComponent(planKey)}&cycle=${encodeURIComponent(cycle)}`);
   }
-
-  async function subscribe() {
-    setMsg(null);
-    try {
-      const data = await authedFetch("/api/subscriptions/initialize", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planKey: selectedPlan, cycle }),
-      });
-
-      window.location.href = data.authorization_url;
-    } catch (e: any) {
-      setMsg(e?.message || "Failed to start payment");
-    }
-  }
-
-  const plan = BIZHUB_PLANS[selectedPlan];
-  const price = plan.priceNgn[cycle];
-
-  const freeEndsAtMs = Number(access?.freeEndsAtMs || 0) || null;
-
-  const topHeader = (
-    <div className="relative">
-      <div className="h-2 w-full bg-gradient-to-r from-biz-accent2 to-biz-accent" />
-      <div className="px-4 pt-5 pb-5 bg-gradient-to-b from-biz-sand to-biz-bg">
-        <div className="flex items-start justify-between gap-3">
-          <button
-            onClick={doSignOut}
-            className="h-10 w-10 rounded-2xl bg-white border border-biz-line shadow-soft flex items-center justify-center"
-            aria-label="Sign out"
-            title="Sign out"
-          >
-            <LogOut className="h-5 w-5 text-gray-700" />
-          </button>
-
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold tracking-tight text-biz-ink">
-              Subscription<span className="text-biz-accent">.</span>
-            </h1>
-            <p className="text-xs text-biz-muted mt-1">
-              {lockedMode ? "Subscribe to continue using BizHub" : "Upgrade your plan"}
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="min-h-screen">
-      {topHeader}
+      <GradientHeader title="Subscription" subtitle="Pick a plan and continue" showBack={true} />
 
-      <div className="px-4 pb-6 space-y-3">
-        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+      <div className="px-4 pb-28 space-y-3">
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
-        {!loading ? (
-          <>
-            {lockedMode ? (
-              <Card className="p-4">
-                <p className="text-sm font-bold text-biz-ink">Free access ended</p>
-                <p className="text-xs text-biz-muted mt-1">
-                  Your 7â€‘day restricted access has ended. Subscribe to unlock and continue.
-                </p>
-                {freeEndsAtMs ? (
-                  <p className="text-[11px] text-gray-500 mt-2">
-                    Ended on: <b className="text-biz-ink">{fmtDate(freeEndsAtMs)}</b>
-                  </p>
-                ) : null}
-              </Card>
-            ) : null}
+        <Card className="p-4">
+          <p className="text-xs text-biz-muted">Current access</p>
+          <p className="text-sm font-extrabold text-biz-ink mt-1">{loading ? "Loading..." : entName}</p>
+          <p className="text-[11px] text-gray-500 mt-1">
+            {loading
+              ? EM_DASH
+              : entPlanKey === "FREE"
+                ? "Upgrade anytime to unlock more tools."
+                : entExpiry
+                  ? `Active until: ${new Date(entExpiry).toLocaleString()}`
+                  : EM_DASH}
+          </p>
+        </Card>
 
-            <SegmentedControl<BizhubBillingCycle>
-              value={cycle}
-              onChange={setCycle}
-              options={[
-                { value: "monthly", label: "Monthly" },
-                { value: "quarterly", label: "Quarterly" },
-                { value: "biannually", label: "Biannual" },
-                { value: "yearly", label: "Yearly" },
-              ]}
+        <Card className="p-3">
+          <p className="text-sm font-extrabold text-biz-ink mb-2">Choose a plan</p>
+
+          <SegmentedControl<BizhubPlanKey>
+            value={planKey}
+            onChange={(v) => {
+              setPlanKey(v);
+              setShowAll(false);
+            }}
+            options={[
+              { value: "LAUNCH", label: "Launch" },
+              { value: "MOMENTUM", label: "Momentum" },
+              { value: "APEX", label: "Apex" },
+            ]}
+          />
+
+          <p className="text-[11px] text-biz-muted mt-2">Pay with Paystack. Instant activation after payment.</p>
+        </Card>
+
+        {plan ? (
+          <div className="space-y-2">
+            <RadioRow
+              selected={cycle === "monthly"}
+              title={`${fmtNaira(plan.priceNgn.monthly)} ${cycleSuffix("monthly")}`}
+              subtitle={plan.tagline}
+              onClick={() => {
+                setCycle("monthly");
+                setShowAll(false);
+              }}
+              right={<span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("monthly")}</span>}
             />
 
-            <SectionCard title="Choose a plan" subtitle="Pay with Paystack â€¢ Instant activation">
-              <div className="space-y-2">
-                {PLAN_ORDER.map((k) => {
-                  const p = BIZHUB_PLANS[k];
-                  const active = selectedPlan === k;
-                  const pPrice = p.priceNgn[cycle];
+            <RadioRow
+              selected={cycle === "quarterly"}
+              title={`${fmtNaira(plan.priceNgn.quarterly)} ${cycleSuffix("quarterly")}`}
+              subtitle={plan.tagline}
+              onClick={() => {
+                setCycle("quarterly");
+                setShowAll(false);
+              }}
+              right={<span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("quarterly")}</span>}
+            />
 
-                  return (
-                    <button
-                      key={k}
-                      className={[
-                        "w-full text-left rounded-2xl border p-3 transition",
-                        active
-                          ? "border-transparent bg-gradient-to-br from-biz-accent2 to-biz-accent text-white shadow-float"
-                          : "border-biz-line bg-white hover:bg-black/[0.02]",
-                      ].join(" ")}
-                      onClick={() => setSelectedPlan(k)}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className={active ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
-                            {p.name}
-                          </p>
-                          <p className={active ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-biz-muted mt-1"}>
-                            {p.tagline}
-                          </p>
-                        </div>
+            <RadioRow
+              selected={cycle === "biannually"}
+              title={`${fmtNaira(plan.priceNgn.biannually)} ${cycleSuffix("biannually")}`}
+              subtitle={plan.tagline}
+              onClick={() => {
+                setCycle("biannually");
+                setShowAll(false);
+              }}
+              right={<span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("biannually")}</span>}
+            />
 
-                        <div className="text-right shrink-0">
-                          <p className={active ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
-                            {fmtNaira(pPrice)}
-                          </p>
-                          <p className={active ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-gray-500 mt-1"}>
-                            {cycle}
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-            </SectionCard>
+            <RadioRow
+              selected={cycle === "yearly"}
+              title={`${fmtNaira(plan.priceNgn.yearly)} ${cycleSuffix("yearly")}`}
+              subtitle={plan.tagline}
+              onClick={() => {
+                setCycle("yearly");
+                setShowAll(false);
+              }}
+              right={
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("yearly")}</span>
+                  <span className="px-2 py-1 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-100">
+                    Popular
+                  </span>
+                </div>
+              }
+            />
+          </div>
+        ) : (
+          <Card className="p-4">{loading ? "Loading plans…" : "Plans not available"}</Card>
+        )}
 
-            <SectionCard title="What you get" subtitle="Key benefits">
-              <div className="space-y-2">
-                {plan.highlights.map((t) => (
-                  <div key={t} className="flex items-start gap-2 text-sm text-gray-700">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
-                    <span>{t}</span>
-                  </div>
-                ))}
-              </div>
+        <Card className="p-3">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setTab("benefits");
+                setShowAll(false);
+              }}
+              className={
+                tab === "benefits"
+                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+              }
+            >
+              Plan benefits
+            </button>
 
-              <div className="mt-4 grid grid-cols-2 gap-2">
-                <Button onClick={() => router.push(`/vendor/subscription/summary?plan=${encodeURIComponent(selectedPlan)}&cycle=${encodeURIComponent(cycle)}`)}>
-                  Continue
-                </Button>
-                <Button variant="secondary" onClick={subscribe}>
-                  Pay now
-                </Button>
-              </div>
+            <button
+              type="button"
+              onClick={() => {
+                setTab("purchases");
+                setShowAll(false);
+              }}
+              className={
+                tab === "purchases"
+                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+              }
+            >
+              Plan purchases
+            </button>
+          </div>
 
-              <p className="mt-3 text-[11px] text-biz-muted">
-                In locked mode, only subscription and sign out are available.
-              </p>
-            </SectionCard>
+          <div className="mt-3 space-y-2">
+            {visibleList.length === 0 ? (
+              <p className="text-sm text-biz-muted">Nothing listed for this section.</p>
+            ) : (
+              visibleList.map((t) => (
+                <div key={t} className="flex items-start gap-2 rounded-2xl border border-biz-line bg-white p-3">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+                  <span className="text-sm text-gray-700">{t}</span>
+                </div>
+              ))
+            )}
+          </div>
 
-            {!lockedMode ? (
-              <Card className="p-4">
-                <Button variant="secondary" onClick={() => router.push("/vendor")}>
-                  Back to dashboard
-                </Button>
-              </Card>
-            ) : null}
-          </>
-        ) : null}
+          {activeList.length > 8 ? (
+            <button type="button" onClick={() => setShowAll((v) => !v)} className="mt-3 text-sm font-extrabold text-emerald-700">
+              {showAll ? "Show less" : "Show more"}
+            </button>
+          ) : null}
+        </Card>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+          <Card className="p-4">
+            <Button onClick={continueToSummary} disabled={!plan || loading}>
+              Continue ({fmtNaira(price)})
+            </Button>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -13,6 +13,9 @@ import { RefreshCw } from "lucide-react";
 type Range = "today" | "week" | "month";
 type Metric = "revenue" | "views" | "leads" | "visits";
 
+type PlanKey = "LAUNCH" | "MOMENTUM" | "APEX";
+type Cycle = "monthly" | "quarterly" | "biannually" | "yearly";
+
 function fmtNaira(n: number) {
   try {
     return `₦${Number(n || 0).toLocaleString()}`;
@@ -51,6 +54,15 @@ function fmtDate(ms?: number) {
   }
 }
 
+function fmtDateMs(ms?: number) {
+  if (!ms) return "—";
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
+  }
+}
+
 export default function AdminVendorDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -64,9 +76,16 @@ export default function AdminVendorDetailPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
 
-  async function api(path: string) {
+  // ✅ subscription control (manual override)
+  const [planKey, setPlanKey] = useState<PlanKey>("LAUNCH");
+  const [cycle, setCycle] = useState<Cycle>("monthly");
+  const [lastPaymentReference, setLastPaymentReference] = useState<string>("manual-admin");
+  const [savingSub, setSavingSub] = useState(false);
+  const [subMsg, setSubMsg] = useState<string | null>(null);
+
+  async function api(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
-    const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+    const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j?.error || "Request failed");
     return j;
@@ -75,6 +94,7 @@ export default function AdminVendorDetailPage() {
   async function load() {
     setLoading(true);
     setMsg(null);
+    setSubMsg(null);
     try {
       const qs =
         range === "month" && month
@@ -83,6 +103,15 @@ export default function AdminVendorDetailPage() {
 
       const j = await api(`/api/admin/vendors/${encodeURIComponent(businessId)}/analytics${qs}`);
       setData(j);
+
+      // prefill dropdown from current subscription (if any)
+      const s = j?.business?.subscription || null;
+      if (s?.planKey === "LAUNCH" || s?.planKey === "MOMENTUM" || s?.planKey === "APEX") {
+        setPlanKey(String(s.planKey) as PlanKey);
+      }
+      if (s?.cycle === "monthly" || s?.cycle === "quarterly" || s?.cycle === "biannually" || s?.cycle === "yearly") {
+        setCycle(String(s.cycle) as Cycle);
+      }
     } catch (e: any) {
       setMsg(e?.message || "Failed");
       setData(null);
@@ -119,6 +148,56 @@ export default function AdminVendorDetailPage() {
     return "Free";
   }, [biz]);
 
+  const sub = biz?.subscription || null;
+
+  async function activatePlan() {
+    if (!businessId) return;
+    setSavingSub(true);
+    setSubMsg(null);
+    try {
+      await api(`/api/admin/vendors/${encodeURIComponent(businessId)}/subscription`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "set",
+          planKey,
+          cycle,
+          lastPaymentReference: lastPaymentReference || "manual-admin",
+        }),
+      });
+
+      setSubMsg(`Activated ${planKey} (${cycle}).`);
+      await load();
+    } catch (e: any) {
+      setSubMsg(e?.message || "Failed to activate plan");
+    } finally {
+      setSavingSub(false);
+    }
+  }
+
+  async function removePlan() {
+    if (!businessId) return;
+    const ok = confirm("Remove this vendor subscription and return them to Free access?");
+    if (!ok) return;
+
+    setSavingSub(true);
+    setSubMsg(null);
+    try {
+      await api(`/api/admin/vendors/${encodeURIComponent(businessId)}/subscription`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear" }),
+      });
+
+      setSubMsg("Subscription removed.");
+      await load();
+    } catch (e: any) {
+      setSubMsg(e?.message || "Failed to remove subscription");
+    } finally {
+      setSavingSub(false);
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <GradientHeader
@@ -126,19 +205,86 @@ export default function AdminVendorDetailPage() {
         subtitle={biz?.slug ? `${biz.slug}` : "Vendor"}
         showBack={true}
         right={
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={load}
-            leftIcon={<RefreshCw className="h-4 w-4" />}
-            disabled={loading}
-          >
+          <Button variant="secondary" size="sm" onClick={load} leftIcon={<RefreshCw className="h-4 w-4" />} disabled={loading}>
             Refresh
           </Button>
         }
       />
 
       <div className="px-4 pb-24 space-y-3">
+        {/* ✅ Subscription control */}
+        <SectionCard title="Subscription control" subtitle="Admin manual upgrade (override anytime)">
+          <Card variant="soft" className="p-3">
+            <p className="text-sm font-bold text-biz-ink">Current</p>
+            <p className="text-[11px] text-gray-600 mt-1">
+              Plan: <b className="text-biz-ink">{planLabel}</b>
+            </p>
+            {sub?.expiresAtMs ? (
+              <p className="text-[11px] text-gray-600 mt-1">
+                Expires: <b className="text-biz-ink">{fmtDateMs(Number(sub.expiresAtMs))}</b>
+              </p>
+            ) : null}
+          </Card>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border border-biz-line bg-white p-3">
+              <p className="text-[11px] text-gray-500">Plan</p>
+              <select
+                value={planKey}
+                onChange={(e) => setPlanKey(e.target.value as PlanKey)}
+                className="mt-2 w-full rounded-2xl border border-biz-line bg-white px-3 py-2 text-sm font-bold"
+              >
+                <option value="LAUNCH">LAUNCH</option>
+                <option value="MOMENTUM">MOMENTUM</option>
+                <option value="APEX">APEX</option>
+              </select>
+            </div>
+
+            <div className="rounded-2xl border border-biz-line bg-white p-3">
+              <p className="text-[11px] text-gray-500">Cycle</p>
+              <select
+                value={cycle}
+                onChange={(e) => setCycle(e.target.value as Cycle)}
+                className="mt-2 w-full rounded-2xl border border-biz-line bg-white px-3 py-2 text-sm font-bold"
+              >
+                <option value="monthly">monthly</option>
+                <option value="quarterly">quarterly</option>
+                <option value="biannually">biannually</option>
+                <option value="yearly">yearly</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-2 rounded-2xl border border-biz-line bg-white p-3">
+            <p className="text-[11px] text-gray-500">Reference note (optional)</p>
+            <input
+              className="mt-2 w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none"
+              value={lastPaymentReference}
+              onChange={(e) => setLastPaymentReference(e.target.value)}
+              placeholder="manual-admin / bank transfer / etc"
+            />
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button onClick={activatePlan} loading={savingSub} disabled={savingSub}>
+              Activate plan
+            </Button>
+            <Button variant="secondary" onClick={removePlan} disabled={savingSub}>
+              Remove plan
+            </Button>
+          </div>
+
+          {subMsg ? (
+            <Card className={subMsg.toLowerCase().includes("failed") ? "p-3 text-red-700 mt-2" : "p-3 text-green-700 mt-2"}>
+              {subMsg}
+            </Card>
+          ) : null}
+
+          <p className="text-[11px] text-biz-muted mt-2">
+            Note: Paystack can still auto-activate plans. This is an admin override tool.
+          </p>
+        </SectionCard>
+
         <SegmentedControl<Range>
           value={range}
           onChange={setRange}

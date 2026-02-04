@@ -1,4 +1,3 @@
-// FILE: src/app/vendor/orders/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -8,7 +7,7 @@ import { Card } from "@/components/Card";
 import { auth } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Download } from "lucide-react";
 
 function fmtNaira(n: number) {
   try {
@@ -78,6 +77,8 @@ export default function VendorOrdersPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
   const [msg, setMsg] = useState<string | null>(null);
   const [orders, setOrders] = useState<any[]>([]);
   const [meta, setMeta] = useState<any>(null);
@@ -102,6 +103,50 @@ export default function VendorOrdersPage() {
       setMeta(null);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function exportCsv() {
+    try {
+      setExporting(true);
+      setMsg(null);
+
+      const token = await auth.currentUser?.getIdToken();
+      const r = await fetch("/api/vendor/orders/export", {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      // If blocked, show message
+      if (!r.ok) {
+        const data = await r.json().catch(() => ({}));
+        const err = String(data?.error || "Export failed");
+        const code = String(data?.code || "");
+        if (code === "FEATURE_LOCKED") {
+          setMsg(err);
+          return;
+        }
+        throw new Error(err);
+      }
+
+      const blob = await r.blob();
+
+      // try filename from header
+      const cd = r.headers.get("content-disposition") || "";
+      const m = cd.match(/filename="([^"]+)"/i);
+      const filename = m?.[1] || `orders_export_${new Date().toISOString().slice(0, 10)}.csv`;
+
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to export");
+    } finally {
+      setExporting(false);
     }
   }
 
@@ -136,7 +181,7 @@ export default function VendorOrdersPage() {
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         <Card className="p-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-start justify-between gap-3">
             <div>
               <p className="font-extrabold text-biz-ink">Overview</p>
               <p className="text-xs text-biz-muted mt-1">
@@ -150,10 +195,27 @@ export default function VendorOrdersPage() {
               ) : null}
             </div>
 
-            <Button variant="secondary" size="sm" onClick={load} loading={loading}>
-              Refresh
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={exportCsv}
+                loading={exporting}
+                disabled={loading || exporting}
+                leftIcon={<Download className="h-4 w-4" />}
+              >
+                Export CSV
+              </Button>
+
+              <Button variant="secondary" size="sm" onClick={load} loading={loading}>
+                Refresh
+              </Button>
+            </div>
           </div>
+
+          <p className="text-[11px] text-biz-muted mt-2">
+            Export is plan-based. If you get blocked, upgrade to unlock larger exports.
+          </p>
         </Card>
 
         {loading ? <Card className="p-4">Loading…</Card> : null}

@@ -1,4 +1,3 @@
-// FILE: src/app/api/orders/[orderId]/route.ts
 import { NextResponse, type NextRequest } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireMe } from "@/lib/auth/server";
@@ -8,7 +7,17 @@ export const dynamic = "force-dynamic";
 
 const OPS_KEYS = new Set(["new", "contacted", "paid", "in_transit", "delivered", "cancelled"]);
 
+function lowerEmail(v: any) {
+  return String(v || "").trim().toLowerCase();
+}
+
 function computeOpsEffective(o: any) {
+  const plan = o?.paymentPlan;
+  if (plan?.enabled) {
+    // If installments enabled, only show paid when completed
+    return plan?.completed ? "paid" : "new";
+  }
+
   const ops = String(o?.opsStatus || "").trim();
   if (OPS_KEYS.has(ops)) return ops;
 
@@ -22,8 +31,38 @@ function computeOpsEffective(o: any) {
   return null;
 }
 
-function lowerEmail(v: any) {
-  return String(v || "").trim().toLowerCase();
+function sanitizePaymentPlanForCustomer(plan: any) {
+  if (!plan || typeof plan !== "object") return null;
+  const installments = Array.isArray(plan.installments) ? plan.installments : [];
+
+  return {
+    enabled: !!plan.enabled,
+    type: String(plan.type || "installments"),
+    totalKobo: Number(plan.totalKobo || 0),
+    currency: String(plan.currency || "NGN"),
+    paidKobo: Number(plan.paidKobo || 0),
+    completed: !!plan.completed,
+    completedAtMs: Number(plan.completedAtMs || 0) || null,
+    createdAtMs: Number(plan.createdAtMs || 0) || null,
+    updatedAtMs: Number(plan.updatedAtMs || 0) || null,
+    installments: installments.map((x: any) => ({
+      idx: Number(x?.idx ?? 0),
+      label: String(x?.label || ""),
+      amountKobo: Number(x?.amountKobo || 0),
+      dueAtMs: Number(x?.dueAtMs || 0),
+
+      status: String(x?.status || "pending"),
+      submittedAtMs: x?.submittedAtMs ? Number(x.submittedAtMs) : null,
+      reviewedAtMs: x?.reviewedAtMs ? Number(x.reviewedAtMs) : null,
+      rejectReason: x?.rejectReason ? String(x.rejectReason) : null,
+
+      // customer can see their own proof link
+      proofUrl: x?.proof?.cloudinary?.secureUrl ? String(x.proof.cloudinary.secureUrl) : null,
+
+      // customer can see reference if they used paystack
+      paystackReference: x?.paystack?.reference ? String(x.paystack.reference) : null,
+    })),
+  };
 }
 
 // ✅ Next.js 16 route handler typing: params is a Promise
@@ -84,6 +123,8 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ orderId: st
 
         shipping: o.shipping ?? null,
         coupon: o.coupon ?? null,
+
+        paymentPlan: sanitizePaymentPlanForCustomer(o.paymentPlan),
       },
     });
   } catch (e: any) {

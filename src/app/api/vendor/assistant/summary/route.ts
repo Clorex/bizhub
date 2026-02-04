@@ -1,4 +1,3 @@
-// FILE: src/app/api/vendor/assistant/summary/route.ts
 import { NextResponse } from "next/server";
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
@@ -6,6 +5,7 @@ import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
 import { getAssistantLimitsResolved } from "@/lib/vendor/assistantLimitsServer";
 import { getTrustRules } from "@/lib/vendor/trustRulesServer";
 import { Timestamp } from "firebase-admin/firestore";
+import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -34,6 +34,18 @@ function fmtNaira(n: number) {
   }
 }
 
+function cleanPlanKey(v: any) {
+  const k = String(v || "FREE").toUpperCase();
+  return k === "LAUNCH" || k === "MOMENTUM" || k === "APEX" ? k : "FREE";
+}
+
+function addonIsActive(ent: any, nowMs: number) {
+  if (!ent || typeof ent !== "object") return false;
+  if (String(ent.status || "") !== "active") return false;
+  const exp = Number(ent.expiresAtMs || 0);
+  return !!(exp && exp > nowMs);
+}
+
 export async function GET(req: Request) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
@@ -55,14 +67,33 @@ export async function GET(req: Request) {
     const storeName = String(biz?.name || slug || "Store");
     const openDisputes = Number(biz?.trust?.openDisputes || 0);
 
+    // ✅ Risk Shield (quiet monitoring add-on on Momentum; core on Apex)
+    const resolved = await getBusinessPlanResolved(me.businessId).catch(() => null);
+    const planKey = cleanPlanKey(resolved?.planKey || access.planKey || "FREE");
+    const hasActiveSubscription = !!resolved?.hasActiveSubscription;
+
+    const entMap =
+      resolved?.business?.addonEntitlements && typeof resolved.business.addonEntitlements === "object"
+        ? resolved.business.addonEntitlements
+        : {};
+
+    const momentumRiskShield =
+      planKey === "MOMENTUM" &&
+      hasActiveSubscription &&
+      addonIsActive(entMap["addon_risk_shield_quiet"], Date.now());
+
+    const apexRiskShield =
+      planKey === "APEX" && hasActiveSubscription && !!resolved?.features?.apexSmartRiskShield;
+
+    const riskShieldEnabled = momentumRiskShield || apexRiskShield;
+    const riskShieldMode = apexRiskShield ? "apex" : momentumRiskShield ? "quiet" : "off";
+
     const trustRules = await getTrustRules();
     const warnAt = Number(trustRules.dispute.warnOpenDisputes || 2);
     const reduceAt = Number(trustRules.dispute.reduceOpenDisputes || 4);
 
-    const disputeLevel =
-      openDisputes >= reduceAt ? "reduce" : openDisputes >= warnAt ? "warn" : "none";
+    const disputeLevel = openDisputes >= reduceAt ? "reduce" : openDisputes >= warnAt ? "warn" : "none";
 
-    // Fetch last 7 days orders (MVP: query by createdAt range if available)
     const nowMs = Date.now();
     const startToday = startOfTodayMs();
     const startWeek = nowMs - 7 * 24 * 60 * 60 * 1000;
@@ -123,9 +154,19 @@ export async function GET(req: Request) {
     summaryLines.push(`Today: ${todayOrders} order(s) • ${fmtNaira(todayRevenue)}`);
     summaryLines.push(`This week: ${weekOrders} order(s) • ${fmtNaira(weekRevenue)}`);
     if (openDisputes > 0) summaryLines.push(`Open disputes: ${openDisputes}`);
+    if (riskShieldEnabled) {
+      summaryLines.push(`Risk Shield: ${disputeLevel === "none" ? "OK" : disputeLevel.toUpperCase()} (${riskShieldMode})`);
+    }
     summaryLines.push(`Store link: ${slug ? `${process.env.NEXT_PUBLIC_APP_URL}/b/${slug}` : "—"}`);
 
     const whatsappText = summaryLines.join("\n");
+
+    const riskNotes: string[] = [];
+    if (riskShieldEnabled) {
+      if (disputeLevel === "warn") riskNotes.push("Disputes are trending up. Reply fast, keep evidence, and avoid delays.");
+      if (disputeLevel === "reduce") riskNotes.push("High dispute volume. Improve fulfillment speed and proof collection immediately.");
+      if (disputeLevel === "none") riskNotes.push("No dispute risk signals right now.");
+    }
 
     return NextResponse.json({
       ok: true,
@@ -142,7 +183,12 @@ export async function GET(req: Request) {
         openDisputes,
         warnAt,
         reduceAt,
-        level: disputeLevel, // none | warn | reduce
+        level: disputeLevel,
+      },
+      riskShield: {
+        enabled: riskShieldEnabled,
+        mode: riskShieldMode, // off | quiet | apex
+        notes: riskNotes,
       },
       today: { orders: todayOrders, revenue: todayRevenue, paidOrders: todayPaid, chatOrders: todayChat },
       week: { orders: weekOrders, revenue: weekRevenue, paidOrders: weekPaid, chatOrders: weekChat },

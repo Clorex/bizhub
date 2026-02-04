@@ -20,12 +20,13 @@ export default function AccountPage() {
 
   const isOwner = role === "owner";
   const isAdmin = role === "admin";
+  const isStaff = role === "staff";
 
   const continuePath = useMemo(() => {
     if (isAdmin) return "/admin";
-    if (isOwner) return "/vendor";
+    if (isOwner || isStaff) return "/vendor";
     return "/orders";
-  }, [isAdmin, isOwner]);
+  }, [isAdmin, isOwner, isStaff]);
 
   useEffect(() => {
     return onAuthStateChanged(auth, async (u) => {
@@ -87,9 +88,7 @@ export default function AccountPage() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error || "Failed");
 
-      const next = optOut
-        ? Array.from(new Set([...optOutSlugs, slug]))
-        : optOutSlugs.filter((x) => x !== slug);
+      const next = optOut ? Array.from(new Set([...optOutSlugs, slug])) : optOutSlugs.filter((x) => x !== slug);
 
       setOptOutSlugs(next);
       saveOptOutPrefs({ globalOptOut: false, storeOptOutSlugs: next, updatedAtMs: Date.now() });
@@ -141,7 +140,11 @@ export default function AccountPage() {
             <div className="mt-4 grid grid-cols-3 gap-2">
               <Stat label="Orders" value="View" onClick={() => router.push("/orders")} />
               <Stat label="Cart" value="Open" onClick={() => router.push("/cart")} />
-              <Stat label={isOwner ? "Products" : "Market"} value="Go" onClick={() => router.push(isOwner ? "/vendor/products" : "/market")} />
+              <Stat
+                label={isOwner ? "Products" : "Market"}
+                value="Go"
+                onClick={() => router.push(isOwner ? "/vendor/products" : "/market")}
+              />
             </div>
           </div>
         </div>
@@ -209,9 +212,7 @@ export default function AccountPage() {
         {email ? (
           <Card className="p-4">
             <p className="text-sm font-extrabold text-biz-ink">Message preferences</p>
-            <p className="text-xs text-biz-muted mt-1">
-              Stop messages from specific stores (per-store opt-out).
-            </p>
+            <p className="text-xs text-biz-muted mt-1">Stop messages from specific stores (per-store opt-out).</p>
 
             <div className="mt-3 flex gap-2">
               <input
@@ -238,7 +239,10 @@ export default function AccountPage() {
               ) : (
                 <div className="space-y-2">
                   {optOutSlugs.slice(0, 50).map((s) => (
-                    <div key={s} className="rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between">
+                    <div
+                      key={s}
+                      className="rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between"
+                    >
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-biz-ink">{s}</p>
                         <p className="text-[11px] text-gray-500 mt-1">You opted out from this store.</p>
@@ -266,15 +270,7 @@ export default function AccountPage() {
   );
 }
 
-function Stat({
-  label,
-  value,
-  onClick,
-}: {
-  label: string;
-  value: string;
-  onClick: () => void;
-}) {
+function Stat({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
   return (
     <button onClick={onClick} className="rounded-2xl bg-white/15 p-3 text-left">
       <p className="text-[11px] opacity-95">{label}</p>

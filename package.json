@@ -6,28 +6,32 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "next lint --dir src"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
     "cloudinary": "^2.9.0",
     "clsx": "^2.1.1",
+    "cropperjs": "^1.6.2",
     "firebase": "^12.8.0",
     "firebase-admin": "^13.6.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
     "nodemailer": "^7.0.13",
     "react": "19.2.3",
+    "react-cropper": "^2.3.3",
     "react-dom": "19.2.3",
     "tailwind-merge": "^3.4.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.3.3",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/nodemailer": "^7.0.9",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "eslint": "^9",
+    "@vscode/ripgrep": "^1.17.0",
+    "eslint": "^9.39.2",
     "eslint-config-next": "16.1.6",
     "tailwindcss": "^4",
     "typescript": "^5"

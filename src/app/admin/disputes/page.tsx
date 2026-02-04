@@ -1,4 +1,3 @@
-// FILE: src/app/admin/disputes/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -53,7 +52,7 @@ export default function AdminDisputesPage() {
   }
 
   async function freezeBuyer(key: string, frozen: boolean) {
-    const reason = frozen ? "Open dispute" : "";
+    const reason = frozen ? "Admin freeze during investigation" : "";
     try {
       await api("/api/admin/buyers/freeze", {
         method: "POST",
@@ -81,7 +80,12 @@ export default function AdminDisputesPage() {
         ) : (
           items.map((d) => {
             const evidence: string[] = Array.isArray(d.evidenceUrls) ? d.evidenceUrls : [];
+            const screenshots: string[] = Array.isArray(d.screenshotUrls) ? d.screenshotUrls : [];
             const buyerKey = String(d.buyerKey || "").trim();
+
+            const apexOverride = d.apexPriorityOverride === true;
+            const freezeRequested = d.requestFreezeCustomer === true;
+            const priorityReview = d.priorityDisputeReview === true;
 
             return (
               <Card key={d.id} className="p-4">
@@ -102,13 +106,47 @@ export default function AdminDisputesPage() {
 
                 <p className="text-xs text-gray-600 mt-2">
                   From: <b>{String(d.createdByType || "—")}</b> • Priority: <b>{Number(d.priority || 1)}</b> • Plan:{" "}
-                  <b>{String(d.vendorPlanKey || "FREE")}</b>
+                  <b>{String(d.vendorPlanKey || "FREE")}</b>{" "}
+                  {apexOverride ? (
+                    <span className="ml-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                      Apex override
+                    </span>
+                  ) : null}
+                  {priorityReview ? (
+                    <span className="ml-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-orange-50 text-orange-700 border border-orange-100">
+                      Priority review
+                    </span>
+                  ) : null}
                 </p>
+
+                {freezeRequested ? (
+                  <p className="text-[11px] mt-2 font-bold text-orange-700">Vendor requested customer freeze</p>
+                ) : null}
 
                 {buyerKey ? (
                   <p className="text-[11px] text-gray-600 mt-2 break-all">
                     BuyerKey: <b className="text-gray-900">{buyerKey}</b>
                   </p>
+                ) : null}
+
+                {d.timelineText ? (
+                  <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-xs font-bold text-biz-ink">Timeline (Apex)</p>
+                    <p className="mt-2 text-[12px] text-gray-700 whitespace-pre-wrap">{String(d.timelineText)}</p>
+                  </div>
+                ) : null}
+
+                {d.voiceNoteUrl ? (
+                  <div className="mt-3">
+                    <a
+                      href={String(d.voiceNoteUrl)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-sm font-bold text-biz-accent underline"
+                    >
+                      Open voice note (Apex)
+                    </a>
+                  </div>
                 ) : null}
 
                 {evidence.length ? (
@@ -123,6 +161,20 @@ export default function AdminDisputesPage() {
                 ) : (
                   <p className="text-xs text-gray-500 mt-2">No evidence uploaded.</p>
                 )}
+
+                {screenshots.length ? (
+                  <div className="mt-3">
+                    <p className="text-xs font-bold text-biz-ink">Screenshots (Apex)</p>
+                    <div className="mt-2 grid grid-cols-3 gap-2">
+                      {screenshots.slice(0, 9).map((u) => (
+                        <a key={u} href={u} target="_blank" rel="noreferrer" className="block">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={u} alt="Screenshot" className="h-24 w-full object-cover rounded-2xl border" />
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
 
                 {d.status === "open" ? (
                   <div className="mt-3 grid grid-cols-2 gap-2">

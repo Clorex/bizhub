@@ -1,8 +1,8 @@
-// FILE: src/app/api/disputes/create/route.ts
 import { NextResponse } from "next/server";
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { buyerKeyFrom } from "@/lib/buyers/key";
+import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,9 +21,31 @@ function cleanUrls(arr: any) {
   return list.filter((u) => u.startsWith("https://")).slice(0, 10);
 }
 
-function planPriority(planKey: string) {
-  const k = String(planKey || "FREE").toUpperCase();
+function cleanUrlOne(v: any) {
+  const u = String(v || "").trim();
+  return u.startsWith("https://") ? u : "";
+}
+
+function cleanTimeline(v: any) {
+  return String(v || "").trim().slice(0, 5000);
+}
+
+function addonIsActive(ent: any, nowMs: number) {
+  if (!ent || typeof ent !== "object") return false;
+  if (String(ent.status || "") !== "active") return false;
+  const exp = Number(ent.expiresAtMs || 0);
+  return !!(exp && exp > nowMs);
+}
+
+function planPriority(args: { planKey: string; apexPriorityOverride: boolean; momentumPriorityReview: boolean }) {
+  const k = String(args.planKey || "FREE").toUpperCase();
+
+  if (k === "APEX" && args.apexPriorityOverride) return 10; // jump queue (override)
   if (k === "APEX") return 4;
+
+  // ✅ Momentum add-on: queue boost only (no override)
+  if (k === "MOMENTUM" && args.momentumPriorityReview) return 3.6;
+
   if (k === "MOMENTUM") return 3;
   if (k === "LAUNCH") return 2;
   return 1;
@@ -80,14 +102,21 @@ export async function POST(req: Request) {
       }
     }
 
-    let planKey = "FREE";
-    if (businessId) {
-      const bSnap = await adminDb.collection("businesses").doc(businessId).get();
-      const b = bSnap.exists ? (bSnap.data() as any) : {};
-      const exp = Number(b?.subscription?.expiresAtMs || 0);
-      const hasSub = !!(b?.subscription?.planKey && exp && exp > Date.now());
-      planKey = hasSub ? String(b?.subscription?.planKey || "LAUNCH") : "FREE";
-    }
+    const plan = businessId ? await getBusinessPlanResolved(businessId) : null;
+    const planKey = String(plan?.planKey || "FREE").toUpperCase();
+
+    const apexPriorityOverride =
+      !!plan?.features?.apexPriorityDisputeOverride && planKey === "APEX" && !!plan?.hasActiveSubscription;
+
+    // ✅ Momentum add-on: queue boost only (no override powers)
+    const entMap =
+      plan?.business?.addonEntitlements && typeof plan.business.addonEntitlements === "object"
+        ? plan.business.addonEntitlements
+        : {};
+    const momentumPriorityReview =
+      planKey === "MOMENTUM" &&
+      !!plan?.hasActiveSubscription &&
+      addonIsActive(entMap["addon_priority_dispute_review"], Date.now());
 
     const nowMs = Date.now();
 
@@ -97,7 +126,19 @@ export async function POST(req: Request) {
     });
 
     const disputeRef = adminDb.collection("disputes").doc();
+
     const evidenceUrls = cleanUrls(body.evidenceUrls);
+
+    // ✅ Apex extra evidence fields (only vendor + only Apex override enabled)
+    const timelineText = apexPriorityOverride && createdByType === "vendor" ? cleanTimeline(body.timelineText) : "";
+    const voiceNoteUrl = apexPriorityOverride && createdByType === "vendor" ? cleanUrlOne(body.voiceNoteUrl) : "";
+    const screenshotUrls =
+      apexPriorityOverride && createdByType === "vendor" ? cleanUrls(body.screenshotUrls).slice(0, 10) : [];
+
+    const requestFreezeCustomer =
+      apexPriorityOverride && createdByType === "vendor" ? body.requestFreezeCustomer === true : false;
+
+    const priority = planPriority({ planKey, apexPriorityOverride, momentumPriorityReview });
 
     await disputeRef.set({
       orderId,
@@ -105,7 +146,14 @@ export async function POST(req: Request) {
 
       reason: cleanReason(body.reason),
       details: cleanDetails(body.details),
+
       evidenceUrls,
+
+      // Apex extra evidence
+      timelineText: timelineText || null,
+      voiceNoteUrl: voiceNoteUrl || null,
+      screenshotUrls: screenshotUrls.length ? screenshotUrls : null,
+      requestFreezeCustomer,
 
       status: "open",
       createdAt: FieldValue.serverTimestamp(),
@@ -120,8 +168,12 @@ export async function POST(req: Request) {
       buyerPhone: buyerKeyObj.phone,
       buyerEmail: buyerKeyObj.email,
 
-      vendorPlanKey: String(planKey || "FREE").toUpperCase(),
-      priority: planPriority(planKey),
+      vendorPlanKey: planKey,
+      priority,
+      apexPriorityOverride: apexPriorityOverride ? true : false,
+
+      // ✅ Momentum queue boost flag
+      priorityDisputeReview: momentumPriorityReview ? true : false,
     });
 
     const isEscrow = order.paymentType === "paystack_escrow";
@@ -136,8 +188,8 @@ export async function POST(req: Request) {
       { merge: true }
     );
 
-    // Freeze buyer + increment open disputes
-    if (buyerKeyObj.key) {
+    // ✅ Buyer freeze becomes an Apex vendor request (not automatic for everyone)
+    if (buyerKeyObj.key && requestFreezeCustomer) {
       const bsRef = adminDb.collection("buyerSignals").doc(buyerKeyObj.key);
       await adminDb.runTransaction(async (t) => {
         const bsSnap = await t.get(bsRef);
@@ -153,7 +205,7 @@ export async function POST(req: Request) {
             email: buyerKeyObj.email,
 
             frozen: true,
-            frozenReason: "Open dispute",
+            frozenReason: "Vendor requested freeze during investigation",
             updatedAtMs: nowMs,
             updatedAt: FieldValue.serverTimestamp(),
 
@@ -164,9 +216,18 @@ export async function POST(req: Request) {
           { merge: true }
         );
       });
+    } else if (buyerKeyObj.key) {
+      const bsRef = adminDb.collection("buyerSignals").doc(buyerKeyObj.key);
+      await bsRef.set(
+        {
+          disputesCount: FieldValue.increment(1),
+          lastDisputeAtMs: nowMs,
+        },
+        { merge: true }
+      );
     }
 
-    // Vendor trust counters (used for marketplace visibility reduction)
+    // Vendor trust counters
     if (businessId) {
       await adminDb.collection("businesses").doc(businessId).set(
         {

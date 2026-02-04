@@ -1,4 +1,3 @@
-// FILE: src/app/b/[slug]/p/[productId]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -12,6 +11,8 @@ import { track } from "@/lib/track/client";
 import { Button } from "@/components/ui/Button";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { Input } from "@/components/ui/Input";
+import { CloudImage } from "@/components/CloudImage";
+import { BadgeCheck } from "lucide-react";
 
 type OptionGroup = { name: string; values: string[] };
 
@@ -34,7 +35,7 @@ type ChatAvailability = {
 
 function fmtNaira(n: number) {
   try {
-    return `₦${Number(n || 0).toLocaleString()}`;
+    return `₦${Number(n || 0).toLocaleString("en-NG")}`;
   } catch {
     return `₦${n}`;
   }
@@ -54,10 +55,61 @@ function makeClientOrderId() {
   try {
     const c: any = (globalThis as any).crypto;
     if (c?.randomUUID) return String(c.randomUUID());
-  } catch {
-    // ignore
-  }
+  } catch {}
   return `chat_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** --- Sale helpers (display + client pricing) --- */
+function saleIsActive(p: any, now = Date.now()) {
+  if (p?.saleActive !== true) return false;
+
+  const start = Number(p?.saleStartsAtMs || 0);
+  const end = Number(p?.saleEndsAtMs || 0);
+
+  if (start && now < start) return false;
+  if (end && now > end) return false;
+
+  const t = String(p?.saleType || "");
+  return t === "percent" || t === "fixed";
+}
+
+function computeSalePriceNgn(p: any) {
+  const base = Number(p?.price || 0);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+  if (!saleIsActive(p)) return Math.floor(base);
+
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return Math.max(0, Math.floor(base - Math.max(0, off)));
+  }
+
+  const pct = Math.max(0, Math.min(90, Number(p?.salePercent || 0)));
+  const off = Math.floor((base * pct) / 100);
+  return Math.max(0, Math.floor(base - off));
+}
+
+function saleBadgeText(p: any) {
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return off > 0 ? `${fmtNaira(off)} OFF` : "Sale";
+  }
+  const pct = Number(p?.salePercent || 0);
+  return pct > 0 ? `${pct}% OFF` : "Sale";
+}
+
+type TrustBadgeType = "earned_apex" | "temporary_apex" | null;
+
+function trustBadgeTypeFromTrust(j: any): TrustBadgeType {
+  const badge = j?.badge || null;
+  if (badge?.active === true) {
+    const t = String(badge?.type || "");
+    if (t === "earned_apex" || t === "temporary_apex") return t as any;
+  }
+  if (j?.apexBadgeActive === true) return "earned_apex";
+  if (j?.temporaryApexBadgeActive === true) return "temporary_apex";
+  return null;
 }
 
 export default function ProductPage() {
@@ -66,14 +118,18 @@ export default function ProductPage() {
   const slug = String((params as any)?.slug ?? "");
   const productId = String((params as any)?.productId ?? "");
 
-  const { addToCart } = useCart();
+  const { addToCart, cart } = useCart();
 
   const [loading, setLoading] = useState(true);
   const [p, setP] = useState<any>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, string>>({});
 
-  // Quick order (chat)
+  const [storeTrustBadge, setStoreTrustBadge] = useState<TrustBadgeType>(null);
+
+  const [activeImg, setActiveImg] = useState(0);
+
   const [qty, setQty] = useState<number>(1);
   const [deliveryLocation, setDeliveryLocation] = useState<string>("");
 
@@ -87,6 +143,10 @@ export default function ProductPage() {
   const images: string[] = useMemo(() => (Array.isArray(p?.images) ? p.images : []), [p]);
   const optionGroups: OptionGroup[] = useMemo(() => (Array.isArray(p?.optionGroups) ? p.optionGroups : []), [p]);
 
+  useEffect(() => {
+    setActiveImg(0);
+  }, [images.length, productId]);
+
   const selectedOptionsClean = useMemo(() => {
     const out: Record<string, string> = {};
     for (const g of optionGroups) {
@@ -96,10 +156,12 @@ export default function ProductPage() {
     return out;
   }, [selected, optionGroups]);
 
-  const listingType = String(p?.listingType || "product"); // product | service
-  const serviceMode = String(p?.serviceMode || "book"); // book | pay
+  const listingType = String(p?.listingType || "product");
+  const serviceMode = String(p?.serviceMode || "book");
 
   const isService = listingType === "service";
+  const bookOnly = isService && serviceMode === "book";
+
   const outOfStock = listingType === "product" && Number(p?.stock ?? 0) <= 0;
 
   const selectedShipping = useMemo(() => {
@@ -115,31 +177,46 @@ export default function ProductPage() {
     return !!(chatAvail?.ok && chatAvail?.enabled && chatAvail?.whatsapp);
   }, [chatAvail]);
 
-  const unitPriceNgn = Number(p?.price || 0);
+  const baseUnitPriceNgn = Number(p?.price || 0);
+  const onSale = !!p && !bookOnly && saleIsActive(p);
+  const unitPriceNgn = onSale ? computeSalePriceNgn(p) : Math.floor(baseUnitPriceNgn);
+
   const itemsSubtotalNgn = Math.max(0, Math.floor(Number(qty || 1)) * unitPriceNgn);
   const estimatedTotalNgn = itemsSubtotalNgn + shippingFeeNgn;
+
+  const cartCount = useMemo(() => {
+    const items = Array.isArray(cart?.items) ? cart.items : [];
+    return items.reduce((s: number, it: any) => s + Math.max(0, Number(it?.qty || 0)), 0);
+  }, [cart]);
 
   const canQuickOrderChat = useMemo(() => {
     const q = Math.max(1, Math.floor(Number(qty || 1)));
     if (!p) return false;
     if (!canChat) return false;
-
-    // Don’t quick-order book-only services (they should use vendor WhatsApp booking)
-    if (isService && serviceMode === "book") return false;
-
-    // If stock is tracked and it’s out, block
+    if (bookOnly) return false;
     if (outOfStock) return false;
-
-    // If store has shipping options, customer must pick one
     if (shippingRequired && !selectedShipping) return false;
-
-    // If delivery selected, require area/city (simple, chat-native)
     if (selectedShipping?.type !== "pickup") {
       if (deliveryLocation.trim().length < 2) return false;
     }
-
     return q >= 1;
-  }, [qty, p, canChat, isService, serviceMode, outOfStock, shippingRequired, selectedShipping, deliveryLocation]);
+  }, [qty, p, canChat, bookOnly, outOfStock, shippingRequired, selectedShipping, deliveryLocation]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    fetch(`/api/public/store/${encodeURIComponent(slug)}/trust`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!mounted) return;
+        setStoreTrustBadge(trustBadgeTypeFromTrust(j));
+      })
+      .catch(() => {});
+
+    return () => {
+      mounted = false;
+    };
+  }, [slug]);
 
   useEffect(() => {
     let mounted = true;
@@ -168,7 +245,6 @@ export default function ProductPage() {
         if (!mounted) return;
         setP(data);
 
-        // Track product view as "visit"
         if (data?.businessId) {
           track({
             type: "product_view",
@@ -191,7 +267,6 @@ export default function ProductPage() {
     };
   }, [productId, slug]);
 
-  // Load shipping options for quick order (delivery/pickup choice)
   useEffect(() => {
     let mounted = true;
 
@@ -209,7 +284,6 @@ export default function ProductPage() {
         setShippingOptions(opts);
 
         if (opts.length > 0) {
-          // default to first option
           setSelectedShipId(String(opts[0].id));
         } else {
           setSelectedShipId("");
@@ -230,7 +304,6 @@ export default function ProductPage() {
     };
   }, [slug]);
 
-  // Load chat availability (Continue in Chat)
   useEffect(() => {
     let mounted = true;
 
@@ -256,6 +329,12 @@ export default function ProductPage() {
     };
   }, [slug]);
 
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 1800);
+    return () => clearTimeout(t);
+  }, [toast]);
+
   function pick(groupName: string, value: string) {
     setSelected((prev) => ({ ...prev, [groupName]: prev[groupName] === value ? "" : value }));
   }
@@ -268,17 +347,17 @@ export default function ProductPage() {
       {
         productId: p.id,
         name: String(p?.name || "Item"),
-        price: Number(p?.price || 0),
+        price: unitPriceNgn,
         imageUrl: images[0],
         selectedOptions: selectedOptionsClean,
       },
       1
     );
 
-    router.push("/cart");
+    setToast("Added to cart");
   }
 
-  function bookOnly() {
+  function bookOnlyHandler() {
     alert("For services, booking will open WhatsApp from the store page.");
     router.push(`/b/${slug}`);
   }
@@ -293,7 +372,6 @@ export default function ProductPage() {
 
       const q = Math.max(1, Math.floor(Number(qty || 1)));
 
-      // Create an order record quickly (best-effort, no UI wait)
       const clientOrderId = makeClientOrderId();
 
       const payload = {
@@ -304,7 +382,7 @@ export default function ProductPage() {
             productId: String(p.id),
             name: String(p?.name || "Item"),
             qty: q,
-            price: Number(p?.price || 0),
+            price: unitPriceNgn,
             imageUrl: images[0] || null,
             selectedOptions: selectedOptionsClean,
           },
@@ -323,9 +401,7 @@ export default function ProductPage() {
             keepalive: true,
           }).catch(() => {});
         }
-      } catch {
-        // ignore (still open WhatsApp)
-      }
+      } catch {}
 
       const storeName = chatAvail?.storeName ? String(chatAvail.storeName) : slug;
       const refShort = String(clientOrderId).slice(0, 8);
@@ -347,6 +423,14 @@ export default function ProductPage() {
       lines.push(`Hello ${storeName}.`);
       lines.push(`I want to place a quick order from your BizHub store.`);
       lines.push(``);
+
+      if (onSale) {
+        lines.push(`Sale applied: ${saleBadgeText(p)}`);
+        lines.push(`Original unit price: ${fmtNaira(baseUnitPriceNgn)}`);
+        lines.push(`Sale unit price: ${fmtNaira(unitPriceNgn)}`);
+        lines.push(``);
+      }
+
       lines.push(`- ${q} × ${String(p?.name || "Item")}${optsTxt}`);
       lines.push(`Items subtotal: ${fmtNaira(itemsSubtotalNgn)}`);
 
@@ -373,6 +457,8 @@ export default function ProductPage() {
     }
   }
 
+  const activeUrl = images.length ? images[Math.max(0, Math.min(activeImg, images.length - 1))] : "";
+
   return (
     <div className="min-h-screen">
       <GradientHeader
@@ -381,34 +467,105 @@ export default function ProductPage() {
         subtitle={slug ? `Store: ${slug}` : undefined}
         right={
           <button
-            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft"
+            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft relative"
             onClick={() => router.push("/cart")}
           >
             Cart
+            {cartCount > 0 ? (
+              <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-biz-accent text-white text-[10px] font-extrabold flex items-center justify-center">
+                {cartCount}
+              </span>
+            ) : null}
           </button>
         }
       />
 
       <div className="px-4 pb-24 space-y-3">
-        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {loading ? <Card className="p-4">Loading…</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+        {toast ? <Card className="p-4 text-emerald-700">{toast}</Card> : null}
 
         {!loading && p ? (
           <>
-            {/* Media + title */}
             <Card className="p-4">
-              <div className="h-56 w-full rounded-3xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden">
-                {images[0] ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={images[0]} alt={p?.name || "Item"} className="h-full w-full object-cover" />
+              <div className="h-56 w-full rounded-3xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative">
+                {activeUrl ? (
+                  <CloudImage
+                    src={activeUrl}
+                    alt={p?.name || "Item"}
+                    w={980}
+                    h={520}
+                    priority={true}
+                    sizes="(max-width: 430px) 100vw, 430px"
+                    className="h-full w-full object-cover"
+                  />
+                ) : null}
+
+                {onSale ? (
+                  <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                    {saleBadgeText(p)}
+                  </div>
                 ) : null}
               </div>
 
-              <p className="mt-3 text-lg font-extrabold text-biz-ink">{p?.name}</p>
+              {images.length > 1 ? (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {images.slice(0, 10).map((u, idx) => {
+                    const active = idx === activeImg;
+                    return (
+                      <button
+                        key={`${u}_${idx}`}
+                        type="button"
+                        onClick={() => setActiveImg(idx)}
+                        className={[
+                          "h-14 w-14 rounded-2xl overflow-hidden border shrink-0",
+                          active ? "border-biz-accent shadow-soft" : "border-biz-line bg-white",
+                        ].join(" ")}
+                        aria-label={`Image ${idx + 1}`}
+                      >
+                        <CloudImage src={u} alt={`Preview ${idx + 1}`} w={160} h={160} sizes="56px" className="h-full w-full object-cover" />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
 
-              <p className="mt-1 text-sm text-gray-700">
-                {listingType === "service" && serviceMode === "book" ? "Book only" : fmtNaira(p?.price || 0)}
-              </p>
+              <div className="mt-3 flex items-center gap-2 flex-wrap">
+                <p className="text-lg font-extrabold text-biz-ink">{p?.name}</p>
+
+                {storeTrustBadge === "earned_apex" ? (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100"
+                    title="Verified Apex badge (earned + maintained)"
+                  >
+                    <BadgeCheck className="h-4 w-4" />
+                    Verified Apex
+                  </span>
+                ) : null}
+
+                {storeTrustBadge === "temporary_apex" ? (
+                  <span
+                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-extrabold bg-white text-orange-700 border border-orange-200"
+                    title="Temporary / probation Apex badge"
+                  >
+                    <BadgeCheck className="h-4 w-4" />
+                    Apex (Temporary)
+                  </span>
+                ) : null}
+              </div>
+
+              <div className="mt-1 text-sm text-gray-700">
+                {bookOnly ? (
+                  "Book only"
+                ) : onSale ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="line-through text-gray-400">{fmtNaira(baseUnitPriceNgn)}</span>
+                    <span className="font-extrabold text-emerald-700">{fmtNaira(unitPriceNgn)}</span>
+                  </div>
+                ) : (
+                  fmtNaira(baseUnitPriceNgn)
+                )}
+              </div>
 
               <div className="mt-2 flex items-center justify-between text-xs text-biz-muted">
                 <span>
@@ -427,12 +584,9 @@ export default function ProductPage() {
                 </span>
               </div>
 
-              {p?.description ? (
-                <p className="mt-3 text-sm text-gray-700 whitespace-pre-wrap">{String(p.description)}</p>
-              ) : null}
+              {p?.description ? <p className="mt-3 text-sm text-gray-700 whitespace-pre-wrap">{String(p.description)}</p> : null}
             </Card>
 
-            {/* Variations */}
             {optionGroups.length ? (
               <SectionCard title="Variations" subtitle="Optional choices (price/stock stays the same)">
                 <div className="space-y-4">
@@ -471,8 +625,7 @@ export default function ProductPage() {
               </SectionCard>
             ) : null}
 
-            {/* Quick order (chat-native) */}
-            {!isService || serviceMode === "pay" ? (
+            {!bookOnly ? (
               <SectionCard title="Quick order" subtitle="Send your order details in WhatsApp">
                 {!canChat ? (
                   <div className="rounded-2xl border border-biz-line bg-white p-3">
@@ -494,12 +647,7 @@ export default function ProductPage() {
                       >
                         −
                       </button>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={String(qty)}
-                        onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value || 1))))}
-                      />
+                      <Input type="number" min={1} value={String(qty)} onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value || 1))))} />
                       <button
                         type="button"
                         className="h-10 w-10 rounded-2xl border border-biz-line bg-white font-extrabold"
@@ -512,6 +660,8 @@ export default function ProductPage() {
                     <p className="mt-2 text-[11px] text-biz-muted">
                       Items subtotal: <b className="text-biz-ink">{fmtNaira(itemsSubtotalNgn)}</b>
                     </p>
+
+                    {onSale ? <p className="mt-1 text-[11px] text-emerald-700 font-bold">Sale applied: {saleBadgeText(p)}</p> : null}
                   </div>
 
                   <div className="rounded-2xl border border-biz-line bg-white p-3">
@@ -521,15 +671,13 @@ export default function ProductPage() {
                     {shipMsg ? <p className="text-sm text-red-700 mt-2">{shipMsg}</p> : null}
 
                     {!shipLoading && !shipMsg && shippingOptions.length === 0 ? (
-                      <p className="text-[11px] text-biz-muted mt-2">
-                        This store has not set delivery options yet.
-                      </p>
+                      <p className="text-[11px] text-biz-muted mt-2">This store has not set delivery options yet.</p>
                     ) : null}
 
                     {shippingOptions.length > 0 ? (
                       <div className="mt-2 space-y-2">
                         {shippingOptions.map((o) => {
-                          const active = o.id === selectedShipId;
+                          const activeBtn = o.id === selectedShipId;
                           const feeNgn = Number(o.feeKobo || 0) / 100;
                           return (
                             <button
@@ -538,15 +686,15 @@ export default function ProductPage() {
                               onClick={() => setSelectedShipId(o.id)}
                               className={[
                                 "w-full text-left rounded-2xl border p-3 transition",
-                                active
+                                activeBtn
                                   ? "border-transparent bg-gradient-to-br from-biz-accent2 to-biz-accent text-white shadow-float"
                                   : "border-biz-line bg-white hover:bg-black/[0.02]",
                               ].join(" ")}
                             >
-                              <p className={active ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
+                              <p className={activeBtn ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
                                 {o.name} {o.type === "pickup" ? "(Pickup)" : "(Delivery)"}
                               </p>
-                              <p className={active ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-biz-muted mt-1"}>
+                              <p className={activeBtn ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-biz-muted mt-1"}>
                                 Fee: <b>{fmtNaira(feeNgn)}</b>
                                 {o.etaDays ? ` • ETA: ${o.etaDays} day(s)` : ""}
                                 {o.areasText ? ` • ${o.areasText}` : ""}
@@ -569,27 +717,20 @@ export default function ProductPage() {
                     <div className="rounded-2xl border border-biz-line bg-white p-3">
                       <p className="text-xs text-biz-muted">Delivery location (area/city)</p>
                       <div className="mt-2">
-                        <Input
-                          placeholder="Example: Lekki, Ajah, Wuse"
-                          value={deliveryLocation}
-                          onChange={(e) => setDeliveryLocation(e.target.value)}
-                        />
+                        <Input placeholder="Example: Lekki, Ajah, Wuse" value={deliveryLocation} onChange={(e) => setDeliveryLocation(e.target.value)} />
                       </div>
-                      <p className="mt-2 text-[11px] text-biz-muted">
-                        Keep it short — the seller will confirm full address in chat.
-                      </p>
+                      <p className="mt-2 text-[11px] text-biz-muted">Keep it short — the seller will confirm full address in chat.</p>
                     </div>
                   ) : null}
                 </div>
               </SectionCard>
             ) : null}
 
-            {/* Bottom actions */}
             <div className="fixed bottom-0 left-0 right-0 z-40">
               <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
                 <Card className="p-4 space-y-2">
-                  {listingType === "service" && serviceMode === "book" ? (
-                    <Button onClick={bookOnly}>Book service</Button>
+                  {bookOnly ? (
+                    <Button onClick={bookOnlyHandler}>Book service</Button>
                   ) : canChat ? (
                     <>
                       <Button onClick={continueInChatQuickOrder} disabled={!canQuickOrderChat}>

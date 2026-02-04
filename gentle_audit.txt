@@ -1,0 +1,528 @@
+﻿== GENTLE AUDIT ==
+Date: 02/02/2026 00:16:06
+
+== 1) TECH TERMS IN UI (should be removed) ==
+
+--- escrow ---
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:170  const status = String(o.orderStatus || o.escrowStatus || "—");
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:41  const r = await fetch("/api/escrow/confirm", {
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:71  await fetch("/api/escrow/release", {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:114  const disputed = orders.filter((o) => String(o?.escrowStatus || "").toLowerCase() === "disputed").length;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:179  const statusText = ops ? labelOps(ops) : String(o.orderStatus || o.escrowStatus || "—");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:99  Escrow orders move from Pending to Available after the hold time if there’s no dispute.
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:378  {o.paymentType || "—"} • {o.orderStatus || o.escrowStatus || "—"}
+
+--- slug ---
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:26  const [businessSlug, setBusinessSlug] = useState("");
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:55  businessSlug: businessSlug.trim(),
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:147  placeholder="Business slug (optional)"
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:148  value={businessSlug}
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:149  onChange={(e) => setBusinessSlug(e.target.value)}
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:152  Your store link will be: <b>/b/your-slug</b>
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:16  const [optOutSlugs, setOptOutSlugs] = useState<string[]>([]);
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:45  setOptOutSlugs(local.storeOptOutSlugs || []);
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:51  const slugs: string[] = Array.isArray(jj.storeOptOutSlugs) ? jj.storeOptOutSlugs : [];
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:52  setOptOutSlugs(slugs);
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:53  saveOptOutPrefs({ globalOptOut: false, storeOptOutSlugs: slugs, updatedAtMs: Date.now() });
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:71  async function updateOptOut(storeSlug: string, optOut: boolean) {
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:72  const slug = String(storeSlug || "").trim().toLowerCase();
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:73  if (!slug) return;
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:84  body: JSON.stringify({ storeSlug: slug, optOut }),
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:91  ? Array.from(new Set([...optOutSlugs, slug]))
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:92  : optOutSlugs.filter((x) => x !== slug);
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:94  setOptOutSlugs(next);
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:95  saveOptOutPrefs({ globalOptOut: false, storeOptOutSlugs: next, updatedAtMs: Date.now() });
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:97  setOptMsg(optOut ? `Opted out from ${slug}` : `Opt-in restored for ${slug}`);
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:219  placeholder="Enter store slug (e.g. miracle-store)"
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:236  {optOutSlugs.length === 0 ? (
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:240  {optOutSlugs.slice(0, 50).map((s) => (
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\page.tsx:109  <Input placeholder="Search by store name or slug…" value={q} onChange={(e) => setQ(e.target.value)} />
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\page.tsx:152  <span className="text-biz-muted">({v.slug || "—"})</span>
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:100  {biz?.name || "Business"} <span className="text-biz-muted">({biz?.slug || "—"})</span>
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:105  Business: <b className="text-biz-ink">{w.businessId}</b> • Slug: <b className="text-biz-ink">{w.businessSlug || "—"}</b>
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:54  const storeSlug = cart.storeSlug ?? null;
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:59  async function loadAvail(slug: string) {
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:64  const r = await fetch(`/api/vendor/chat/availability?storeSlug=${encodeURIComponent(slug)}`);
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:81  if (storeSlug) loadAvail(storeSlug);
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:86  }, [storeSlug]);
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:94  if (!storeSlug) return;
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:103  storeSlug,
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:125  const storeName = chatAvail?.storeName ? String(chatAvail.storeName) : storeSlug;
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:161  Store: <b className="text-biz-ink">{cart.storeSlug ?? "None"}</b>
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:240  {cart.items.length > 0 && cart.storeSlug ? (
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:250  <Link href={`/b/${cart.storeSlug}/checkout`} className="block">
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:261  <Link href={`/b/${cart.storeSlug}`} className="block">
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:72  .filter((p: any) => !!p?.businessSlug)
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:133  businessSlug: String(p.businessSlug || ""),
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:173  businessSlug: String(p.businessSlug || ""),
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:198  const slug = String(p?.businessSlug || "");
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:199  if (!slug) return;
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:205  businessSlug: slug,
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:210  router.push(`/b/${slug}/p/${p.id}`);
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:335  Store: <b className="text-biz-ink">{p?.businessSlug || "—"}</b>
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:178  Store: <b className="text-biz-ink">{o.businessSlug || "—"}</b>
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:22  const [storeSlug, setStoreSlug] = useState<string | null>(null);
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:55  const slug = String(data.businessSlug || data.storeSlug || "");
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:61  setStoreSlug(slug);
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:147  {storeSlug ? (
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:148  <Link href={`/b/${storeSlug}`} className="block">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:85  <p className="text-xs opacity-95 mt-1">Store: {me?.businessSlug || "—"}</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:53  const slug = String(p?.businessSlug || "");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:55  const link = slug && p?.id ? `${origin}/b/${slug}/p/${p.id}` : "";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:225  const slug = String(p?.businessSlug || "");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:266  <Button variant="secondary" size="sm" onClick={() => router.push(`/b/${slug}/p/${p.id}`)} disabled={!slug}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:279  <Button size="sm" variant="secondary" leftIcon={<Share2 className="h-4 w-4" />} onClick={() => openShare(p)} disabled={!slug}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:67  if (!me?.businessSlug) return "";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:69  return `${window.location.origin}/b/${me.businessSlug}`;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:230  Store: <b>{me?.businessSlug || "—"}</b>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:248  onClick={() => router.push(`/b/${me?.businessSlug || ""}`)}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:249  disabled={!me?.businessSlug}
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:12  slug,
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:15  slug: string;
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:26  href={`/b/${slug}/p/${product.id}`}
+
+--- uid ---
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:426  By: <b className="text-biz-ink">{String(w.createdByEmail || w.createdByUid || "—")}</b>
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:29  // Firestore doc ids must not include "/" — uuid is safe.
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:32  if (c?.randomUUID) return String(c.randomUUID());
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:173  async function removeStaff(staffUid: string) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:176  await authedFetch(`/api/vendor/staff?staffUid=${encodeURIComponent(staffUid)}`, { method: "DELETE" });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:181  Guidance: take a clear photo of your face (front), and if you can, add extra angles.
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:104  if (!user?.uid) {
+
+--- token ---
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:63  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:66  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\login\login-client.tsx:26  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\account\login\login-client.tsx:27  const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:45  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:46  if (!token) throw new Error("Missing auth token");
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:52  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:64  headers: { Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:73  headers: { Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\verify-client.tsx:19  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\verify-client.tsx:24  Authorization: `Bearer ${token}`,
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:38  const token = await u.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:39  const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:48  const rr = await fetch("/api/marketing/optout", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:78  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:79  if (!token) throw new Error("Not logged in");
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:83  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:52  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:54  headers: { Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:31  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:32  const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:25  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:26  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:92  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:95  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:26  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:27  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\reports\page.tsx:16  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\admin\reports\page.tsx:19  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\admin\reports\page.tsx:83  Automation is optional. If you want free daily automation, use GitHub Actions to call the POST endpoint with a token.
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\page.tsx:47  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\page.tsx:48  const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:27  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:28  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:35  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:36  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\page.tsx:18  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\admin\page.tsx:19  const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:24  function tokenForSearch(q: string) {
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:64  const token = useMemo(() => tokenForSearch(qText), [qText]);
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:147  const t = tokenForSearch(qText);
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:240  {token ? (
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:242  Searching: <b className="text-biz-ink">{token}</b>
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:97  const token = await auth.currentUser.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:101  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:31  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:32  if (!token) throw new Error("Not logged in");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:34  const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:40  const r = await fetch(`/api/vendor/analytics?range=week`, { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:66  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:69  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:80  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:81  const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:90  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:91  const r = await fetch("/api/vendor/orders", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:54  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:55  if (!token) throw new Error("Not logged in");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:60  Authorization: `Bearer ${token}`,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:89  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:92  fetch("/api/vendor/access", { headers: { Authorization: `Bearer ${token}` } }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:93  fetch("/api/vendor/products", { headers: { Authorization: `Bearer ${token}` } }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:64  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:67  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:64  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:67  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:53  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:56  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:16  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:19  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:45  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:48  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:90  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:93  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:106  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:107  const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:36  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:39  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:92  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:95  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:51  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:54  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:54  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:55  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:33  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:34  if (!token) throw new Error("Not logged in");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:36  const r = await fetch("/api/vendor/wallet", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:40  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:41  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:79  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:80  if (!token) throw new Error("Not logged in");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:82  const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:88  headers: { Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:104  const ra = await fetch("/api/vendor/assistant/summary", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:25  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:26  if (!token) throw new Error("Not logged in");
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:30  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:31  const token = await auth.currentUser?.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:32  if (!token) throw new Error("Not logged in");
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:38  Authorization: `Bearer ${token}`,
+C:\Users\USER\Desktop\bizhub\src\components\AuthGate.tsx:36  const token = await u.getIdToken();
+C:\Users\USER\Desktop\bizhub\src\components\AuthGate.tsx:38  headers: { Authorization: `Bearer ${token}` },
+
+--- bearer ---
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:66  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\login\login-client.tsx:27  const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:52  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:64  headers: { Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:73  headers: { Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\verify-client.tsx:24  Authorization: `Bearer ${token}`,
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:39  const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:48  const rr = await fetch("/api/marketing/optout", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:83  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:54  headers: { Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:32  const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:26  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:95  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:27  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\reports\page.tsx:19  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\page.tsx:48  const r = await fetch(path, { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:28  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:36  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\admin\page.tsx:19  const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:101  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:34  const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:40  const r = await fetch(`/api/vendor/analytics?range=week`, { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:69  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:81  const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:91  const r = await fetch("/api/vendor/orders", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:60  Authorization: `Bearer ${token}`,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:92  fetch("/api/vendor/access", { headers: { Authorization: `Bearer ${token}` } }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:93  fetch("/api/vendor/products", { headers: { Authorization: `Bearer ${token}` } }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:67  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:67  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:56  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:19  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:48  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:93  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:107  const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:39  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:95  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:54  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:55  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:36  const r = await fetch("/api/vendor/wallet", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:41  const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:82  const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:88  headers: { Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:104  const ra = await fetch("/api/vendor/assistant/summary", { headers: { Authorization: `Bearer ${token}` } });
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:30  headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:38  Authorization: `Bearer ${token}`,
+C:\Users\USER\Desktop\bizhub\src\components\AuthGate.tsx:38  headers: { Authorization: `Bearer ${token}` },
+
+--- kobo ---
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:13  function fmtNairaFromKobo(kobo: number) {
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:14  const n = Number(kobo || 0) / 100;
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:163  const balanceKobo = useMemo(() => Number(finance?.balanceKobo || 0), [finance]);
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:164  const subKobo = useMemo(() => Number(finance?.subscriptionRevenueKobo || 0), [finance]);
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:165  const boostKobo = useMemo(() => Number(finance?.boostRevenueKobo || 0), [finance]);
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:220  const amountKobo = Math.floor(Math.max(0, Number(withdrawAmountNgn || 0)) * 100);
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:226  amountKobo,
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:276  <p className="text-3xl font-bold mt-2">{fmtNairaFromKobo(balanceKobo)}</p>
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:286  <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(subKobo)}</p>
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:290  <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(boostKobo)}</p>
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:430  <p className="text-sm font-bold text-biz-ink">{fmtNairaFromKobo(Number(w.amountKobo || 0))}</p>
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:452  const amountKobo = Number(row.amountKobo || 0);
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:487  <p className="text-sm font-bold text-biz-ink">{fmtNairaFromKobo(amountKobo)}</p>
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:10  function fmtNairaFromKobo(kobo: number) {
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:11  const n = Number(kobo || 0) / 100;
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:125  {fmtNairaFromKobo(Number(w.amountKobo || 0))}
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:169  const amount = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:15  function fmtNairaFromKobo(kobo: number) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:16  const n = Number(kobo || 0) / 100;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:112  amountOffKobo: type === "fixed" ? Math.max(0, Math.floor(amountOffNgn * 100)) : undefined,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:113  minOrderKobo: Math.max(0, Math.floor(minOrderNgn * 100)),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:114  maxDiscountKobo: maxDiscountNgn > 0 ? Math.floor(maxDiscountNgn * 100) : 0,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:149  amountOffKobo: c.amountOffKobo ?? 0,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:150  minOrderKobo: c.minOrderKobo ?? 0,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:151  maxDiscountKobo: c.maxDiscountKobo ?? 0,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:307  ? `Fixed: ${fmtNairaFromKobo(Number(c.amountOffKobo || 0))}`
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:180  const amount = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:166  dailyBudgetKobo: safeDaily * 100,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:13  function fmtNairaFromKobo(kobo: number) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:14  const n = Number(kobo || 0) / 100;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:168  const daily = Number(c.dailyBudgetKobo || 0);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:169  const total = Number(c.totalBudgetKobo || 0);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:192  Daily: <b className="text-biz-ink">{fmtNairaFromKobo(daily)}</b> • Total:{" "}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:193  <b className="text-biz-ink">{fmtNairaFromKobo(total)}</b>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:14  function toNgnFromKobo(kobo: number) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:15  return Math.round(Number(kobo || 0) / 100);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:17  function toKoboFromNgn(ngn: number) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:88  setFeeNgn(toNgnFromKobo(Number(o.feeKobo || 0)));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:105  feeKobo: type === "pickup" ? 0 : toKoboFromNgn(feeNgn),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:224  const feeKobo = Number(o.feeKobo || 0);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:235  <b className="text-biz-ink">₦{(feeKobo / 100).toLocaleString()}</b> • ETA:{" "}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:322  {fmtNaira(Number(h.amount || (h.amountKobo ? h.amountKobo / 100 : 0) || 0))}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:10  function fmtNairaFromKobo(kobo: number) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:11  const n = Number(kobo || 0) / 100;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:56  const pending = useMemo(() => Number(wallet?.pendingBalanceKobo || 0), [wallet]);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:57  const available = useMemo(() => Number(wallet?.availableBalanceKobo || 0), [wallet]);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:58  const hold = useMemo(() => Number(wallet?.withdrawHoldKobo || 0), [wallet]);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:59  const total = useMemo(() => Number(wallet?.totalEarnedKobo || 0), [wallet]);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:73  <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(available)}</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:81  Pending withdrawals (hold): <b>{fmtNairaFromKobo(hold)}</b>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:88  <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(pending)}</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:92  <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(total)}</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:11  function fmtNairaFromKobo(kobo: number) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:12  const n = Number(kobo || 0) / 100;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:67  const availableKobo = useMemo(() => Number(wallet?.availableBalanceKobo || 0), [wallet]);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:68  const holdKobo = useMemo(() => Number(wallet?.withdrawHoldKobo || 0), [wallet]);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:74  const amountKobo = Math.floor(Number(amountNgn || 0) * 100);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:78  body: JSON.stringify({ amountKobo }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:102  <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(availableKobo)}</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:104  On hold: <b>{fmtNairaFromKobo(holdKobo)}</b>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:150  {fmtNairaFromKobo(Number(w.amountKobo || 0))}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:384  {fmtNaira(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0))}
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:20  product?.priceKobo != null ? Number(product.priceKobo) / 100 : product?.price;
+
+--- json ---
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:66  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:67  body: JSON.stringify({ code }),
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:70  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\account\login\login-client.tsx:28  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:52  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:53  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:59  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:66  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\verify-client.tsx:27  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\verify-client.tsx:53  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\verify-client.tsx:54  body: JSON.stringify({ code }),
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:40  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:49  const jj = await rr.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:83  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:84  body: JSON.stringify({ storeSlug: slug, optOut }),
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:87  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:56  const j = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:33  const j = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:27  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:46  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:47  body: JSON.stringify({ disputeId, decision }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:60  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:61  body: JSON.stringify({ key, frozen, reason }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:97  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:173  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:174  body: JSON.stringify({ bankName, accountNumber, accountName }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:190  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:191  body: JSON.stringify({ pin }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:224  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:225  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:28  const j = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:62  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:63  body: JSON.stringify({ plans: cfg.plans }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\reports\page.tsx:21  const j = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\page.tsx:49  const j = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:29  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:52  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:53  body: JSON.stringify({ submissionId, tier, decision, note }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:37  const j = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:60  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:61  body: JSON.stringify({ withdrawalId, action, note }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\page.tsx:20  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:65  const data = (await r.json().catch(() => ({}))) as ChatAvailability;
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:110  const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:115  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:116  body: JSON.stringify(payload),
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:101  headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:102  body: JSON.stringify({ ids: ids.slice(0, 25) }),
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:105  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:43  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:44  body: JSON.stringify({ reference }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:47  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:73  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:74  body: JSON.stringify({ orderId: oid }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:34  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:35  body: JSON.stringify({ reference }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:38  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:34  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:35  body: JSON.stringify({ reference }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:38  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:35  const meData = await rMe.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:41  const j = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:71  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:82  const meData = await rMe.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:122  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:123  body: JSON.stringify(payload),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:159  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:160  body: JSON.stringify(payload),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:92  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:61  "Content-Type": "application/json",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:63  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:79  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:96  const pData = await pRes.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:97  const data = await prodRes.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:69  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:162  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:163  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:69  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:58  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:119  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:120  body: JSON.stringify({ audience, text, people: recipients }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:21  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:46  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:47  body: JSON.stringify({ bankName, accountNumber, accountName }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:50  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:100  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:101  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:95  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:108  const meData = await rMe.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:136  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:137  body: JSON.stringify({ name, email, permissions: perms }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:41  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:99  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:100  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:97  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:144  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:145  body: JSON.stringify({ planKey, cycle }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:56  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:98  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:99  body: JSON.stringify({ planKey: selectedPlan, cycle }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:56  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:104  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:105  body: JSON.stringify({ tier: "tier1", selfieUrls }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:122  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:123  body: JSON.stringify({ tier: "tier2", idType, idNumber }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:140  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:141  body: JSON.stringify({ tier: "tier3", proofUrls }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:37  const data = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:42  const j = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:77  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:78  body: JSON.stringify({ amountKobo }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:83  const meData = await rMe.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:90  const a = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:105  const aj = await ra.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:33  const j = await r.json().catch(() => ({}));
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:34  return { ok: r.ok, status: r.status, json: j };
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:43  const data = res.json as SessionRes;
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:74  const data = res.json as any;
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:92  headers: { "Content-Type": "application/json" },
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:93  body: JSON.stringify({ code: code.trim() }),
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:96  const data = res.json as any;
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:37  "Content-Type": "application/json",
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:40  body: JSON.stringify({ folderBase: "bizhub/uploads" }),
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:43  const data = (await r.json().catch(() => ({}))) as SignedPayload;
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:80  const json = JSON.parse(xhr.responseText || "{}");
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:82  const secureUrl = String(json.secure_url || "");
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:86  reject(new Error(String(json?.error?.message || "Cloudinary upload failed")));
+C:\Users\USER\Desktop\bizhub\src\components\AuthGate.tsx:41  const data = await r.json().catch(() => ({}));
+
+--- metadata ---
+
+--- reference ---
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:211  <p className="text-sm font-extrabold text-biz-ink">Message preferences</p>
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:454  const ref = String(row.reference || row.id || "");
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:17  const reference = sp.get("reference") ?? sp.get("trxref");
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:35  if (!reference) {
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:36  setMsg("Missing payment reference.");
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:44  body: JSON.stringify({ reference }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:90  }, [reference]);
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:105  <p className="text-[11px] text-gray-500 mt-3 break-all">Reference: {reference || "â€”"}</p>
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:116  <p className="text-[11px] text-gray-500 mt-3 break-all">Reference: {reference || "â€”"}</p>
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:16  const reference = sp.get("reference") ?? sp.get("trxref");
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:26  if (!reference) {
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:28  setMsg("Missing Paystack reference.");
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:35  body: JSON.stringify({ reference }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:55  }, [reference]);
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:93  <p className="text-[11px] text-gray-500 mt-3 break-all">Reference: {reference || "â€”"}</p>
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:16  const reference = sp.get("reference") ?? sp.get("trxref");
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:26  if (!reference) {
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:28  setMsg("Missing Paystack reference.");
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:35  body: JSON.stringify({ reference }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:55  }, [reference]);
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:93  <p className="text-[11px] text-gray-500 mt-3 break-all">Reference: {reference || "â€”"}</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:108  <Row icon={<Settings className="h-5 w-5 text-orange-700" />} title="Preferences" desc="More settings coming soon" onClick={() => alert("Next: preferences, notifications, team accounts.")} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:173  <div key={String(c.reference || c.id)} className="rounded-2xl border border-biz-line bg-white p-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:227  Ref: {String(c.reference || c.id)}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:313  Ref: {String(h.reference || h.id)}
+
+--- dev only ---
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\verify-client.tsx:103  DEV ONLY code: <b>{devCode}</b>
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:377  DEV ONLY code: <b className="text-biz-ink">{devOtp}</b>
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:151  DEV ONLY code: <b className="text-biz-ink">{devCode}</b>
+
+== 2) alert() usage (replace with toast later) ==
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:51  alert(e?.message || "Failed");
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:65  alert(e?.message || "Failed");
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:58  alert(e?.message || "Failed");
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:66  alert(e?.message || "Failed");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:108  <Row icon={<Settings className="h-5 w-5 text-orange-700" />} title="Preferences" desc="More settings coming soon" onClick={() => alert("Next: preferences, notifications, team accounts.")} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:109  <Row icon={<Shield className="h-5 w-5 text-orange-700" />} title="Security" desc="Extra verification for withdrawals (coming)" onClick={() => alert("Next: security center & withdrawal verification.")} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:126  alert(e?.message || "Delete failed");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:169  alert(e?.message || "Failed");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:179  alert(e?.message || "Failed");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:268  alert("Invite link copied");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:270  alert("Copy failed. Link: " + link);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:132  alert("Store link copied");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:134  alert("Copy failed");
+
+== 3) JSON.stringify shown in UI (must remove) ==
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:67  body: JSON.stringify({ code }),
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:53  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\verify-client.tsx:54  body: JSON.stringify({ code }),
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:84  body: JSON.stringify({ storeSlug: slug, optOut }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:47  body: JSON.stringify({ disputeId, decision }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:61  body: JSON.stringify({ key, frozen, reason }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:174  body: JSON.stringify({ bankName, accountNumber, accountName }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:191  body: JSON.stringify({ pin }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:225  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:63  body: JSON.stringify({ plans: cfg.plans }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:53  body: JSON.stringify({ submissionId, tier, decision, note }),
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:61  body: JSON.stringify({ withdrawalId, action, note }),
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:110  const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:116  body: JSON.stringify(payload),
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:102  body: JSON.stringify({ ids: ids.slice(0, 25) }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:44  body: JSON.stringify({ reference }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:74  body: JSON.stringify({ orderId: oid }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:35  body: JSON.stringify({ reference }),
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:35  body: JSON.stringify({ reference }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:123  body: JSON.stringify(payload),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:160  body: JSON.stringify(payload),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:63  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:163  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:120  body: JSON.stringify({ audience, text, people: recipients }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:47  body: JSON.stringify({ bankName, accountNumber, accountName }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:101  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:137  body: JSON.stringify({ name, email, permissions: perms }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:100  body: JSON.stringify({
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:145  body: JSON.stringify({ planKey, cycle }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:99  body: JSON.stringify({ planKey: selectedPlan, cycle }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:105  body: JSON.stringify({ tier: "tier1", selfieUrls }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:123  body: JSON.stringify({ tier: "tier2", idType, idNumber }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:141  body: JSON.stringify({ tier: "tier3", proofUrls }),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:78  body: JSON.stringify({ amountKobo }),
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:93  body: JSON.stringify({ code: code.trim() }),
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:40  body: JSON.stringify({ folderBase: "bizhub/uploads" }),
+
+== 4) Vendor nav contains Store tab? ==
+C:\Users\USER\Desktop\bizhub\src\components\vendor\VendorBottomNav.tsx:18  { href: "/vendor/store", label: "Store", Icon: Store },

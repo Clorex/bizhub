@@ -31,7 +31,15 @@ export default function LoginClient() {
       const role = data?.me?.role;
       const emailVerified = !!data?.me?.emailVerified;
 
-      const fallbackNext = role === "admin" ? "/admin" : role === "owner" ? "/vendor" : "/market";
+      const fallbackNext =
+        role === "admin"
+          ? "/admin"
+          : role === "owner"
+            ? "/vendor"
+            : role === "staff"
+              ? "/vendor"
+              : "/market";
+
       const dest = next || fallbackNext;
 
       if (!emailVerified) {

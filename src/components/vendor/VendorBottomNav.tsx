@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   Package,
   ClipboardList,
-  Store,
   MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -15,7 +14,6 @@ const items = [
   { href: "/vendor", label: "Dashboard", Icon: LayoutDashboard, exact: true },
   { href: "/vendor/products", label: "Products", Icon: Package },
   { href: "/vendor/orders", label: "Orders", Icon: ClipboardList },
-  { href: "/vendor/store", label: "Store", Icon: Store },
   { href: "/vendor/more", label: "More", Icon: MoreHorizontal },
 ];
 

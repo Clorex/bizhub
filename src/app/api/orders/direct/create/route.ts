@@ -1,8 +1,8 @@
-// FILE: src/app/api/orders/direct/create/route.ts
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { assertBuyerNotFrozen } from "@/lib/buyers/freezeServer";
+import { buildQuote } from "@/lib/checkout/pricingServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,23 +29,36 @@ function cleanShipping(s: any) {
   };
 }
 
+function safeItems(items: any[]) {
+  return (Array.isArray(items) ? items : [])
+    .map((it) => ({
+      productId: String(it?.productId || "").trim(),
+      qty: Math.max(1, Math.floor(Number(it?.qty || 1))),
+      selectedOptions: it?.selectedOptions && typeof it.selectedOptions === "object" ? it.selectedOptions : null,
+    }))
+    .filter((x) => !!x.productId)
+    .slice(0, 50);
+}
+
 export async function POST(req: Request) {
   try {
-    const { businessId, businessSlug, items, amountKobo, customer, coupon, shipping } = await req.json();
+    const body = await req.json().catch(() => ({} as any));
 
-    if (!businessId || !businessSlug) {
-      return NextResponse.json({ error: "businessId and businessSlug are required" }, { status: 400 });
+    const businessSlug = String(body.businessSlug || body.storeSlug || "").trim().toLowerCase();
+    if (!businessSlug) {
+      return NextResponse.json({ error: "businessSlug/storeSlug is required" }, { status: 400 });
     }
-    if (!Array.isArray(items) || items.length === 0) {
+
+    const itemsRaw = Array.isArray(body.items) ? body.items : [];
+    if (!itemsRaw.length) {
       return NextResponse.json({ error: "items required" }, { status: 400 });
     }
 
-    const amt = Number(amountKobo);
-    if (!Number.isFinite(amt) || amt <= 0) {
-      return NextResponse.json({ error: "amountKobo required" }, { status: 400 });
-    }
+    const customer = body.customer ?? {};
+    const shipping = cleanShipping(body.shipping);
+    const shippingFeeKobo = Number(shipping?.feeKobo || 0);
 
-    // ✅ Batch 4: buyer freeze enforcement (blocks new orders until resolved)
+    // ✅ Buyer freeze enforcement
     try {
       await assertBuyerNotFrozen({
         phone: customer?.phone || null,
@@ -61,30 +74,64 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: e?.message || "Blocked" }, { status: 403 });
     }
 
+    // Coupon code (optional)
+    const couponCode = body?.coupon?.code ? cleanCode(body.coupon.code) : "";
+
+    // ✅ Build server quote (sale first, then coupon)
+    const quote = await buildQuote({
+      storeSlug: businessSlug,
+      items: safeItems(itemsRaw),
+      couponCode: couponCode || null,
+      shippingFeeKobo,
+    });
+
+    const amountKobo = Number(quote?.pricing?.totalKobo || 0);
+    if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
+      return NextResponse.json({ error: "Invalid total" }, { status: 400 });
+    }
+
+    const amount = amountKobo / 100;
+
     const orderRef = adminDb.collection("orders").doc();
     const orderId = orderRef.id;
 
-    const couponCode = coupon?.code ? cleanCode(coupon.code) : "";
-    const discountKobo = coupon?.discountKobo != null ? Number(coupon.discountKobo) : null;
-    const subtotalKobo = coupon?.subtotalKobo != null ? Number(coupon.subtotalKobo) : null;
+    const couponApplied =
+      quote?.couponResult?.ok === true && Number(quote?.pricing?.couponDiscountKobo || 0) > 0 && couponCode
+        ? {
+            code: couponCode,
+            discountKobo: Number(quote.pricing.couponDiscountKobo || 0),
+          }
+        : null;
 
-    const shippingClean = cleanShipping(shipping);
+    const items = Array.isArray(quote.normalizedItems)
+      ? quote.normalizedItems.map((it: any) => ({
+          productId: String(it.productId || ""),
+          name: String(it.name || "Item"),
+          qty: Number(it.qty || 1),
+          price: Number(it.finalUnitPriceKobo || 0) / 100,
+          imageUrl: null,
+          selectedOptions: it.selectedOptions || null,
+          pricing: {
+            baseUnitPriceKobo: Number(it.baseUnitPriceKobo || 0),
+            finalUnitPriceKobo: Number(it.finalUnitPriceKobo || 0),
+            saleApplied: !!it.saleApplied,
+            saleId: it.saleId ?? null,
+            saleType: it.saleType ?? null,
+            salePercent: it.salePercent ?? null,
+            saleAmountOffNgn: it.saleAmountOffNgn ?? null,
+          },
+        }))
+      : [];
 
     await orderRef.set({
-      businessId,
-      businessSlug,
+      businessId: quote.businessId,
+      businessSlug: businessSlug,
+
       items,
       customer: customer ?? {},
 
-      coupon: couponCode
-        ? {
-            code: couponCode,
-            discountKobo: Number.isFinite(discountKobo as any) ? Number(discountKobo) : null,
-            subtotalKobo: Number.isFinite(subtotalKobo as any) ? Number(subtotalKobo) : null,
-          }
-        : null,
-
-      shipping: shippingClean,
+      coupon: couponApplied,
+      shipping: shipping || null,
 
       paymentType: "direct_transfer",
       paymentStatus: "pending",
@@ -95,26 +142,33 @@ export async function POST(req: Request) {
       opsUpdatedAtMs: Date.now(),
 
       currency: "NGN",
-      amountKobo: amt,
-      amount: amt / 100,
+      amountKobo,
+      amount,
+
+      pricing: {
+        ...quote.pricing,
+        computedAtMs: Date.now(),
+        rule: "sale_then_coupon",
+      },
 
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    if (couponCode) {
+    // Keep coupon usage increment for direct transfer only if coupon applied
+    if (couponApplied?.code) {
       await adminDb
         .collection("businesses")
-        .doc(businessId)
+        .doc(String(quote.businessId))
         .collection("coupons")
-        .doc(couponCode)
+        .doc(couponApplied.code)
         .set(
           { usedCount: FieldValue.increment(1), updatedAtMs: Date.now(), updatedAt: FieldValue.serverTimestamp() },
           { merge: true }
         );
     }
 
-    return NextResponse.json({ ok: true, orderId });
+    return NextResponse.json({ ok: true, orderId, amountKobo });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "Failed to create direct order" }, { status: 500 });
   }

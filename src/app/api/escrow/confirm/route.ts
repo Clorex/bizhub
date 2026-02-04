@@ -1,7 +1,7 @@
-// FILE: src/app/api/escrow/confirm/route.ts
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { buildQuote } from "@/lib/checkout/pricingServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -31,10 +31,15 @@ function normalizeMetadata(raw: any) {
   return raw;
 }
 
-function cleanCode(v: any) {
-  const raw = String(v || "").trim().toUpperCase();
-  const ok = /^[A-Z0-9]{3,20}$/.test(raw);
-  return ok ? raw : "";
+function safeItemsFromMetadata(items: any[]) {
+  return (Array.isArray(items) ? items : [])
+    .map((it) => ({
+      productId: String(it?.productId || "").trim(),
+      qty: Math.max(1, Math.floor(Number(it?.qty || 1))),
+      selectedOptions: it?.selectedOptions && typeof it.selectedOptions === "object" ? it.selectedOptions : null,
+    }))
+    .filter((x) => !!x.productId)
+    .slice(0, 50);
 }
 
 function cleanShipping(s: any) {
@@ -60,56 +65,81 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "reference is required" }, { status: 400 });
     }
 
-    const paystackTx = await verifyPaystack(reference);
+    const paystackTx = await verifyPaystack(String(reference));
 
     if (paystackTx.status !== "success") {
-      return NextResponse.json(
-        { error: `Payment not successful: ${paystackTx.status}`, raw: paystackTx },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: `Payment not successful: ${paystackTx.status}`, raw: paystackTx }, { status: 400 });
     }
 
     const metadata = normalizeMetadata(paystackTx.metadata);
-    const storeSlug = metadata.storeSlug || metadata.businessSlug || metadata.slug;
-
-    const items = Array.isArray(metadata.items) ? metadata.items : [];
-    const customer = metadata.customer || {};
-
-    const couponMeta = metadata.coupon || null;
-    const couponCode = couponMeta?.code ? cleanCode(couponMeta.code) : "";
-    const discountKobo = couponMeta?.discountKobo != null ? Number(couponMeta.discountKobo) : null;
-    const subtotalKobo = couponMeta?.subtotalKobo != null ? Number(couponMeta.subtotalKobo) : null;
-
-    const shipping = cleanShipping(metadata.shipping);
+    const storeSlug = String(metadata.storeSlug || metadata.businessSlug || metadata.slug || "").trim();
 
     if (!storeSlug) {
+      return NextResponse.json({ error: "Missing storeSlug in metadata (expected metadata.storeSlug)" }, { status: 400 });
+    }
+
+    const itemsMeta = safeItemsFromMetadata(Array.isArray(metadata.items) ? metadata.items : []);
+    if (itemsMeta.length < 1) {
+      return NextResponse.json({ error: "Missing items in metadata" }, { status: 400 });
+    }
+
+    const couponCode = metadata?.coupon?.code ? String(metadata.coupon.code) : null;
+    const shipping = cleanShipping(metadata.shipping);
+    const shippingFeeKobo = Number(shipping?.feeKobo || 0);
+
+    // ✅ Recompute the correct total on server (sale first, coupon after sale)
+    const quote = await buildQuote({
+      storeSlug,
+      items: itemsMeta,
+      couponCode,
+      shippingFeeKobo,
+    });
+
+    const expectedKobo = Number(quote?.pricing?.totalKobo || 0);
+    const paidKobo = Number(paystackTx.amount || 0);
+
+    if (!Number.isFinite(paidKobo) || paidKobo <= 0) {
+      return NextResponse.json({ error: "Invalid amount from Paystack", raw: paystackTx }, { status: 400 });
+    }
+
+    // ✅ If mismatch, DO NOT create order (prevents underpay exploit)
+    if (paidKobo !== expectedKobo) {
+      await adminDb.collection("paymentMismatches").doc(String(reference)).set(
+        {
+          reference: String(reference),
+          storeSlug,
+          expectedKobo,
+          paidKobo,
+          currency: paystackTx.currency || "NGN",
+          createdAtMs: Date.now(),
+          createdAt: FieldValue.serverTimestamp(),
+          metadata: {
+            couponCode: couponCode ? String(couponCode).toUpperCase() : null,
+            shippingFeeKobo,
+          },
+          quotePricing: quote.pricing,
+        },
+        { merge: true }
+      );
+
       return NextResponse.json(
-        { error: "Missing storeSlug in metadata (expected metadata.storeSlug)" },
+        {
+          error: "Amount mismatch. Please refresh checkout and try again.",
+          code: "AMOUNT_MISMATCH",
+          expectedKobo,
+          paidKobo,
+        },
         { status: 400 }
       );
     }
 
-    const bizSnap = await adminDb.collection("businesses").where("slug", "==", storeSlug).limit(1).get();
-
-    if (bizSnap.empty) {
-      return NextResponse.json({ error: "Business not found for slug" }, { status: 404 });
-    }
-
-    const bizDoc = bizSnap.docs[0];
-    const businessId = bizDoc.id;
-
-    const amountKobo = Number(paystackTx.amount || 0);
-    if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
-      return NextResponse.json({ error: "Invalid amount from Paystack", raw: paystackTx }, { status: 400 });
-    }
-
-    const amount = amountKobo / 100;
+    const customer = metadata.customer || {};
 
     const nowMs = Date.now();
-    const holdMs = 5 * 60 * 1000; // ✅ 5 minutes max (your instruction)
+    const holdMs = 5 * 60 * 1000; // 5 minutes max
     const holdUntilMs = nowMs + holdMs;
 
-    const txRef = adminDb.collection("transactions").doc(reference);
+    const txRef = adminDb.collection("transactions").doc(String(reference));
 
     const result = await adminDb.runTransaction(async (t) => {
       const existingTxSnap = await t.get(txRef);
@@ -128,30 +158,48 @@ export async function POST(req: Request) {
       const orderRef = adminDb.collection("orders").doc();
       const orderId = orderRef.id;
 
-      const coupon =
-        couponCode
-          ? {
-              code: couponCode,
-              discountKobo: Number.isFinite(discountKobo as any) ? Number(discountKobo) : null,
-              subtotalKobo: Number.isFinite(subtotalKobo as any) ? Number(subtotalKobo) : null,
-            }
+      // Normalize items with server final prices (NGN)
+      const items = Array.isArray(quote.normalizedItems)
+        ? quote.normalizedItems.map((it: any) => ({
+            productId: String(it.productId || ""),
+            name: String(it.name || "Item"),
+            qty: Number(it.qty || 1),
+            price: Number(it.finalUnitPriceKobo || 0) / 100,
+            imageUrl: null,
+            selectedOptions: it.selectedOptions || null,
+            pricing: {
+              baseUnitPriceKobo: Number(it.baseUnitPriceKobo || 0),
+              finalUnitPriceKobo: Number(it.finalUnitPriceKobo || 0),
+              saleApplied: !!it.saleApplied,
+              saleId: it.saleId ?? null,
+              saleType: it.saleType ?? null,
+              salePercent: it.salePercent ?? null,
+              saleAmountOffNgn: it.saleAmountOffNgn ?? null,
+            },
+          }))
+        : [];
+
+      const couponApplied =
+        quote?.couponResult?.ok === true && Number(quote?.pricing?.couponDiscountKobo || 0) > 0
+          ? { code: String(couponCode || "").toUpperCase(), discountKobo: Number(quote.pricing.couponDiscountKobo || 0) }
           : null;
 
+      // Create order
       t.set(orderRef, {
-        businessId,
+        businessId: quote.businessId,
         businessSlug: storeSlug,
+
         items,
         customer,
 
-        coupon: coupon || null,
+        coupon: couponApplied,
         shipping: shipping || null,
 
         paymentType: "paystack_escrow",
         paymentStatus: "paid",
-
         payment: {
           provider: "paystack",
-          reference,
+          reference: String(reference),
           status: "success",
           channel: paystackTx.channel || null,
           paidAt: paystackTx.paid_at || null,
@@ -161,13 +209,19 @@ export async function POST(req: Request) {
         escrowStatus: "held",
         orderStatus: "paid_held",
 
-        // ops progress (Batch 2)
         opsStatus: "paid",
         opsUpdatedAtMs: nowMs,
 
         currency: paystackTx.currency || "NGN",
-        amount,
-        amountKobo,
+        amountKobo: paidKobo,
+        amount: paidKobo / 100,
+
+        // ✅ pricing breakdown stored
+        pricing: {
+          ...quote.pricing,
+          computedAtMs: nowMs,
+          rule: "sale_then_coupon",
+        },
 
         holdUntilMs,
         createdAt: FieldValue.serverTimestamp(),
@@ -176,23 +230,25 @@ export async function POST(req: Request) {
 
       t.set(txRef, {
         orderId,
-        businessId,
+        businessId: quote.businessId,
         businessSlug: storeSlug,
-        amount,
-        amountKobo,
+        amount: paidKobo / 100,
+        amountKobo: paidKobo,
         status: "held",
         provider: "paystack",
-        reference,
+        reference: String(reference),
         holdUntilMs,
+        pricing: quote.pricing,
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      const walletRef = adminDb.collection("wallets").doc(businessId);
+      // Wallet pending balance
+      const walletRef = adminDb.collection("wallets").doc(String(quote.businessId));
       t.set(
         walletRef,
         {
-          businessId,
-          pendingBalanceKobo: FieldValue.increment(amountKobo),
+          businessId: quote.businessId,
+          pendingBalanceKobo: FieldValue.increment(paidKobo),
           availableBalanceKobo: FieldValue.increment(0),
           totalEarnedKobo: FieldValue.increment(0),
           updatedAt: FieldValue.serverTimestamp(),
@@ -200,13 +256,10 @@ export async function POST(req: Request) {
         { merge: true }
       );
 
-      if (couponCode) {
-        const cRef = adminDb.collection("businesses").doc(businessId).collection("coupons").doc(couponCode);
-        t.set(
-          cRef,
-          { usedCount: FieldValue.increment(1), updatedAtMs: Date.now(), updatedAt: FieldValue.serverTimestamp() },
-          { merge: true }
-        );
+      // Coupon usage increment (only if coupon actually applied)
+      if (couponApplied?.code) {
+        const cRef = adminDb.collection("businesses").doc(String(quote.businessId)).collection("coupons").doc(couponApplied.code);
+        t.set(cRef, { usedCount: FieldValue.increment(1), updatedAtMs: Date.now(), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
       }
 
       return {

@@ -1,4 +1,3 @@
-// FILE: src/app/api/admin/disputes/route.ts
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
@@ -12,8 +11,23 @@ export async function GET(req: Request) {
   try {
     await requireRole(req, "admin");
 
-    const snap = await adminDb.collection("disputes").orderBy("createdAt", "desc").limit(150).get();
-    return NextResponse.json({ ok: true, disputes: snap.docs.map((d) => ({ id: d.id, ...d.data() })) });
+    // Fetch a larger batch then sort in-memory (avoids composite index issues)
+    const snap = await adminDb.collection("disputes").orderBy("createdAt", "desc").limit(300).get();
+    const disputes = snap.docs.map((d) => ({ id: d.id, ...d.data() })) as any[];
+
+    disputes.sort((a, b) => {
+      const aOpen = String(a.status || "open") === "open" ? 1 : 0;
+      const bOpen = String(b.status || "open") === "open" ? 1 : 0;
+      if (aOpen !== bOpen) return bOpen - aOpen; // open first
+
+      const ap = Number(a.priority || 1);
+      const bp = Number(b.priority || 1);
+      if (ap !== bp) return bp - ap;
+
+      return Number(b.createdAtMs || 0) - Number(a.createdAtMs || 0);
+    });
+
+    return NextResponse.json({ ok: true, disputes: disputes.slice(0, 150) });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
   }
@@ -33,7 +47,13 @@ export async function POST(req: Request) {
     const dispute = disputeSnap.data() as any;
 
     await disputeRef.set(
-      { status: "closed", adminDecision: decision, resolvedAt: FieldValue.serverTimestamp(), resolvedByUid: me.uid, resolvedAtMs: Date.now() },
+      {
+        status: "closed",
+        adminDecision: decision,
+        resolvedAt: FieldValue.serverTimestamp(),
+        resolvedByUid: me.uid,
+        resolvedAtMs: Date.now(),
+      },
       { merge: true }
     );
 
@@ -64,10 +84,7 @@ export async function POST(req: Request) {
     }
 
     if (decision === "refund") {
-      await orderRef.set(
-        { escrowStatus: "refunded", orderStatus: "refunded", updatedAt: FieldValue.serverTimestamp() },
-        { merge: true }
-      );
+      await orderRef.set({ escrowStatus: "refunded", orderStatus: "refunded", updatedAt: FieldValue.serverTimestamp() }, { merge: true });
     }
 
     const nowMs = Date.now();
@@ -87,6 +104,7 @@ export async function POST(req: Request) {
           bsRef,
           {
             openDisputes: nextOpen,
+            // if admin resolves and no more open disputes, clear freeze
             frozen: nextOpen > 0 ? true : false,
             frozenReason: nextOpen > 0 ? "Open dispute" : null,
             updatedAtMs: nowMs,

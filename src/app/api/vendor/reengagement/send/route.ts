@@ -1,11 +1,16 @@
-// FILE: src/app/api/vendor/reengagement/send/route.ts
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
-import { getAssistantLimitsResolved } from "@/lib/vendor/assistantLimitsServer";
 import { moderateOutboundText } from "@/lib/moderation/simpleTextGuard";
+import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
+import {
+  composeSmartMessage,
+  type ReengagementPerson,
+  type ReengagementSegment,
+  type PlanKey,
+} from "@/lib/vendor/reengagement/compose";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -15,10 +20,23 @@ function cleanPhone(raw: any) {
   return d.length >= 7 ? d : "";
 }
 
-function cleanAudience(v: any) {
-  const s = String(v || "buyers").trim();
-  if (s === "buyers" || s === "abandoned") return s;
-  return "buyers";
+function cleanSegment(v: any): ReengagementSegment {
+  const s = String(v || "").trim();
+  const allowed: ReengagementSegment[] = [
+    "buyers_all",
+    "buyers_first",
+    "buyers_repeat",
+    "inactive_30",
+    "inactive_60",
+    "inactive_90",
+    "abandoned",
+    "vip",
+  ];
+
+  if (s === "buyers") return "buyers_all";
+  if (s === "abandoned") return "abandoned";
+
+  return (allowed.includes(s as any) ? (s as ReengagementSegment) : "buyers_all") as ReengagementSegment;
 }
 
 function dayKey(d = new Date()) {
@@ -28,43 +46,83 @@ function dayKey(d = new Date()) {
   return `${y}-${m}-${dd}`;
 }
 
-function planDailyLimit(planKey: string) {
-  const k = String(planKey || "FREE").toUpperCase();
-  if (k === "APEX") return 150;
-  if (k === "MOMENTUM") return 60;
-  if (k === "LAUNCH") return 20;
-  return 0;
+function clampText(s: string, max = 1200) {
+  const t = String(s || "").trim();
+  if (t.length <= max) return t;
+  return t.slice(0, max).trim();
+}
+
+function safeRotationKey(v: any) {
+  const s = String(v || "").trim();
+  return s.replace(/[^a-zA-Z0-9:_-]/g, "").slice(0, 48) || dayKey();
 }
 
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
     if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
     await requireVendorUnlocked(me.businessId);
 
-    const access = await getAssistantLimitsResolved(me.businessId);
-    const planKey = String(access.planKey || "FREE");
-    const dailyLimit = planDailyLimit(planKey);
+    const plan = await getBusinessPlanResolved(me.businessId);
+    const planKey = String(plan.planKey || "FREE").toUpperCase() as PlanKey;
 
-    if (dailyLimit <= 0) {
-      return NextResponse.json({ ok: false, code: "FEATURE_LOCKED", error: "Upgrade to message past buyers." }, { status: 403 });
+    const reengagementEnabled = !!plan?.features?.reengagement;
+    if (!reengagementEnabled) {
+      return NextResponse.json(
+        { ok: false, code: "FEATURE_LOCKED", error: "Upgrade to message customers." },
+        { status: 403 }
+      );
     }
 
+    const dailyLimit = Number(plan?.limits?.reengagementDaily || 0);
+    if (!Number.isFinite(dailyLimit) || dailyLimit <= 0) {
+      return NextResponse.json(
+        { ok: false, code: "FEATURE_LOCKED", error: "Upgrade to message customers." },
+        { status: 403 }
+      );
+    }
+
+    const allowSmartGroups = !!plan?.features?.reengagementSmartGroups;
+    const allowSmartMessages = !!plan?.features?.reengagementSmartMessages;
+
+    // ✅ AI Remix is:
+    // - Apex core (enabled)
+    // - Launch/Momentum ONLY if purchased add-on (planConfigServer applies this)
+    const allowAiRemix = !!plan?.features?.reengagementAiRemix;
+
+    // VIP is Apex-only, and requires AI Remix ON
+    const allowVip = String(planKey || "").toUpperCase() === "APEX" && allowAiRemix;
+
     const body = await req.json().catch(() => ({}));
-    const audience = cleanAudience(body.audience);
-    const text = String(body.text || "").trim().slice(0, 1200);
+
+    let segment = cleanSegment(body.segment ?? body.audience);
+    const baseText = clampText(String(body.baseText ?? body.text ?? ""), 1200);
+    const rotationKey = safeRotationKey(body.rotationKey);
+
+    // Enforce toggles:
+    if (!allowSmartGroups && segment !== "abandoned") segment = "buyers_all";
+    if (segment === "vip" && !allowVip) segment = "buyers_all";
 
     const peopleRaw = Array.isArray(body.people) ? body.people : [];
-    const people = peopleRaw
-      .map((x: any) => ({ phone: cleanPhone(x?.phone), key: String(x?.key || "") }))
-      .filter((x: any) => !!x.phone)
+    const people: ReengagementPerson[] = peopleRaw
+      .map((x: any) => ({
+        key: String(x?.key || "").trim(),
+        phone: cleanPhone(x?.phone),
+        email: x?.email ? String(x.email) : null,
+        fullName: x?.fullName ? String(x.fullName) : null,
+        ordersCount: Number(x?.ordersCount || 0) || 0,
+        totalSpent: Number(x?.totalSpent || 0) || 0,
+        lastOrderMs: Number(x?.lastOrderMs || 0) || 0,
+        lastOrderId: x?.lastOrderId ? String(x.lastOrderId) : null,
+      }))
+      .filter((x) => !!x.key && !!x.phone)
       .slice(0, 500);
 
-    if (!text) return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
+    if (!baseText) return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
     if (people.length < 1) return NextResponse.json({ ok: false, error: "No recipients" }, { status: 400 });
 
-    // Moderation (policy violation)
-    const mod = moderateOutboundText(text);
+    const mod = moderateOutboundText(baseText);
     if (!mod.ok) {
       await adminDb.collection("vendorPolicyViolations").doc().set({
         businessId: me.businessId,
@@ -72,7 +130,7 @@ export async function POST(req: Request) {
         type: "message_blocked",
         reason: mod.reason,
         hit: mod.hit ?? null,
-        audience,
+        segment,
         createdAtMs: Date.now(),
         createdAt: FieldValue.serverTimestamp(),
       });
@@ -86,11 +144,12 @@ export async function POST(req: Request) {
     const dk = dayKey();
     const counterRef = adminDb.collection("businesses").doc(me.businessId).collection("reengagementCounters").doc(dk);
 
-    // Determine how many we can send today
     const countRequested = people.length;
+
     const allowed = await adminDb.runTransaction(async (t) => {
       const snap = await t.get(counterRef);
       const cur = snap.exists ? Number((snap.data() as any)?.sentCount || 0) : 0;
+
       const remaining = Math.max(0, dailyLimit - cur);
       const take = Math.max(0, Math.min(remaining, countRequested));
 
@@ -104,7 +163,9 @@ export async function POST(req: Request) {
           updatedAtMs: Date.now(),
           updatedAt: FieldValue.serverTimestamp(),
           createdAtMs: snap.exists ? (snap.data() as any)?.createdAtMs || Date.now() : Date.now(),
-          createdAt: snap.exists ? (snap.data() as any)?.createdAt || FieldValue.serverTimestamp() : FieldValue.serverTimestamp(),
+          createdAt: snap.exists
+            ? (snap.data() as any)?.createdAt || FieldValue.serverTimestamp()
+            : FieldValue.serverTimestamp(),
         },
         { merge: true }
       );
@@ -114,27 +175,62 @@ export async function POST(req: Request) {
 
     const recipients = people.slice(0, allowed.take);
 
-    // Campaign log
+    const businessName = String(plan?.business?.name || me.businessSlug || "").trim() || null;
+    const businessSlug = String(me.businessSlug || "").trim() || null;
+
+    const out = recipients.map((p) => {
+      const text = allowSmartMessages
+        ? composeSmartMessage({
+            planKey,
+            features: {
+              reengagementSmartMessages: true,
+              reengagementAiRemix: allowAiRemix,
+            },
+            businessSlug,
+            businessName,
+            segment,
+            baseText,
+            person: p,
+            rotationKey,
+          })
+        : baseText;
+
+      return {
+        key: p.key,
+        phone: cleanPhone(p.phone || ""),
+        fullName: p.fullName || null,
+        text,
+      };
+    });
+
     const campaignRef = adminDb.collection("reengagementCampaigns").doc();
     await campaignRef.set({
       businessId: me.businessId,
       businessSlug: me.businessSlug ?? null,
-      audience,
-      text,
-      recipientCount: recipients.length,
+      segment,
+      baseText,
+      rotationKey,
+      recipientCount: out.length,
       createdByUid: me.uid,
       createdAtMs: Date.now(),
       createdAt: FieldValue.serverTimestamp(),
       planKey,
+      flags: {
+        smartGroups: allowSmartGroups,
+        smartMessages: allowSmartMessages,
+        aiRemix: allowAiRemix,
+        vip: allowVip && segment === "vip",
+      },
     });
 
     return NextResponse.json({
       ok: true,
       campaignId: campaignRef.id,
-      audience,
-      text,
-      recipients,
-      limit: { planKey, ...allowed }, // ✅ removed duplicate dailyLimit key
+      segment,
+      baseText,
+      rotationKey,
+      recipients: out,
+      limit: { planKey, ...allowed },
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
