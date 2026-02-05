@@ -1,7 +1,7 @@
-// FILE: src/app/api/orders/chat/create/route.ts
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
+import { sendBusinessPush } from "@/lib/push/sendBusinessPush";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -126,7 +126,6 @@ export async function POST(req: Request) {
     }
 
     const subtotalKobo = computeSubtotalKoboFromItems(items);
-
     const orderRef = adminDb.collection("orders").doc(clientOrderId);
 
     const result = await adminDb.runTransaction(async (t) => {
@@ -146,7 +145,6 @@ export async function POST(req: Request) {
         escrowStatus: "none",
         orderStatus: "new",
 
-        // Batch 2: operational progress
         opsStatus: "new",
         opsUpdatedAtMs: nowMs,
 
@@ -176,6 +174,16 @@ export async function POST(req: Request) {
 
       return { ok: true, orderId: orderRef.id, alreadyExisted: false };
     });
+
+    // ✅ Push notify vendor devices (best-effort; never fail order creation)
+    if (result?.ok && !result?.alreadyExisted) {
+      sendBusinessPush({
+        businessId,
+        title: "New order",
+        body: "A customer started an order via WhatsApp.",
+        url: `/vendor/orders/${result.orderId}`,
+      }).catch(() => {});
+    }
 
     return NextResponse.json(result);
   } catch (e: any) {

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { requireRole } from "@/lib/auth/server";
+import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { dayKeysBetween, fetchBusinessDailyMetrics, monthRangeFromYYYYMM } from "@/lib/metrics/daily";
 import { getBusinessEntitlementById } from "@/lib/entitlements/server";
@@ -7,6 +7,14 @@ import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+type Nudge = {
+  id: string;
+  tone: "info" | "warn";
+  title: string;
+  body: string;
+  cta?: { label: string; url: string };
+};
 
 function toMs(v: any) {
   try {
@@ -65,18 +73,46 @@ function safeDiv(a: number, b: number) {
   return a / b;
 }
 
+function fmtNaira(n: number) {
+  try {
+    return `₦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `₦${n}`;
+  }
+}
+
+function startOfTodayMs() {
+  const d = new Date();
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+function viewerRoleFromMe(me: any): "owner" | "staff" {
+  const r = String(me?.role || me?.accountRole || "").toLowerCase();
+  if (r === "staff") return "staff";
+  return "owner";
+}
+
 export async function GET(req: Request) {
   try {
-    const me = await requireRole(req, "owner");
+    const me = await requireAnyRole(req, ["owner", "staff"]);
     if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
+
+    // ✅ Owner decides whether staff can see nudges
+    const viewerRole = viewerRoleFromMe(me);
+
+    const bizSnap = await adminDb.collection("businesses").doc(me.businessId).get();
+    const biz = bizSnap.exists ? (bizSnap.data() as any) : {};
+    const staffNudgesEnabled = !!biz?.settings?.notifications?.staffNudgesEnabled;
+
+    const allowNudgesForViewer = viewerRole !== "staff" || staffNudgesEnabled;
 
     const url = new URL(req.url);
     const requestedRange = String(url.searchParams.get("range") || "week");
     const requestedMonth = url.searchParams.get("month"); // YYYY-MM
 
-    const { business, entitlement } = await getBusinessEntitlementById(me.businessId);
+    const { entitlement } = await getBusinessEntitlementById(me.businessId);
 
     const planKey = String(entitlement.planKey || "FREE").toUpperCase();
     const source = String(entitlement.source || "free");
@@ -85,10 +121,10 @@ export async function GET(req: Request) {
     const caps = fetchCapsForTier(tier);
 
     // Tier feature flags
-    const canUseMonthRange = tier >= 1;      // LAUNCH+
-    const canUseMonthHistory = tier >= 2;    // MOMENTUM+
-    const canUseDeepInsights = tier >= 2;    // MOMENTUM+
-    const canUseAdvanced = tier >= 3;        // APEX
+    const canUseMonthRange = tier >= 1; // LAUNCH+
+    const canUseMonthHistory = tier >= 2; // MOMENTUM+
+    const canUseDeepInsights = tier >= 2; // MOMENTUM+
+    const canUseAdvanced = tier >= 3; // APEX
 
     let usedRange = requestedRange;
     let usedMonth: string | null = requestedMonth || null;
@@ -115,13 +151,8 @@ export async function GET(req: Request) {
     const { startMs, endMs } = rangeWindow(usedRange, usedMonth);
     const dayKeys = dayKeysBetween(startMs, endMs);
 
-    // Orders (fetch a capped set, then filter by window in-memory to avoid index requirements)
-    const oSnap = await adminDb
-      .collection("orders")
-      .where("businessId", "==", me.businessId)
-      .limit(caps.ordersCap)
-      .get();
-
+    // Orders (fetch capped set, filter in-memory)
+    const oSnap = await adminDb.collection("orders").where("businessId", "==", me.businessId).limit(caps.ordersCap).get();
     const ordersAll = oSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
 
     const ordersWin = ordersAll.filter((o) => {
@@ -147,10 +178,11 @@ export async function GET(req: Request) {
     let revenueDirect = 0;
     let productsSold = 0;
 
-    const customerCounts = new Map<string, number>(); // for repeat buyers (Momentum+)
-    const customerSet = new Set<string>();            // for unique customers
+    // Used for repeat-buyer nudge + deep insights
+    const customerCounts = new Map<string, number>();
+    const customerSet = new Set<string>();
 
-    // Top products (Momentum+ gives top 3, Apex gives top 5)
+    // Top products (insights)
     const productAgg = new Map<string, { productId: string; name: string; qty: number; revenue: number }>();
 
     for (const o of ordersWin) {
@@ -187,9 +219,10 @@ export async function GET(req: Request) {
       const phone = String(o?.customer?.phone || "").trim();
       const email = String(o?.customer?.email || "").trim().toLowerCase();
       const key = phone || email;
+
       if (key) {
         customerSet.add(key);
-        if (canUseDeepInsights) customerCounts.set(key, (customerCounts.get(key) || 0) + 1);
+        customerCounts.set(key, (customerCounts.get(key) || 0) + 1);
       }
     }
 
@@ -201,12 +234,12 @@ export async function GET(req: Request) {
     let leads = 0;
     let views = 0;
     for (const m of metricDocs) {
-      visits += Number(m.visits || 0);
-      leads += Number(m.leads || 0);
-      views += Number(m.views || 0);
+      visits += Number((m as any).visits || 0);
+      leads += Number((m as any).leads || 0);
+      views += Number((m as any).views || 0);
     }
 
-    // Chart: build daily revenue bars for the window, but cap length by tier
+    // Chart: daily revenue bars
     const chartMap = new Map<string, { dayKey: string; label: string; revenue: number }>();
     for (const k of dayKeys) chartMap.set(k, { dayKey: k, label: k, revenue: 0 });
 
@@ -237,6 +270,7 @@ export async function GET(req: Request) {
       .get();
 
     const products = pSnap.docs.map((d) => d.data() as any);
+    const productCount = products.length;
 
     const outOfStockCount = products.filter((p) => Number(p.stock ?? 0) <= 0).length;
     const lowStockCount = products.filter((p) => {
@@ -280,7 +314,7 @@ export async function GET(req: Request) {
       insights = {
         aov,
         conversionOrders, // orders/visits
-        leadRate,         // leads/visits
+        leadRate, // leads/visits
         bestDay,
         repeatBuyers,
         topProducts,
@@ -327,7 +361,7 @@ export async function GET(req: Request) {
       };
     }
 
-    // Response trimming for “Free taste”
+    // Response trimming for Free
     const overviewBase: any = {
       totalRevenue,
       orders: ordersWin.length,
@@ -351,6 +385,121 @@ export async function GET(req: Request) {
 
     const overview = tier === 0 ? overviewBase : { ...overviewBase, ...overviewExtra };
 
+    // ✅ Daily Business Check‑in
+    const todayStart = startOfTodayMs();
+    let todayOrders = 0;
+    let todayRevenue = 0;
+
+    for (const o of ordersAll) {
+      const ms = toMs(o.createdAt);
+      if (!ms || ms < todayStart) continue;
+      todayOrders += 1;
+      todayRevenue += Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+    }
+
+    const attentionCount = awaitingConfirmCountAll + disputedCountAll;
+
+    let suggestion = "Share one product link today and follow up with one past buyer.";
+    if (awaitingConfirmCountAll > 0) suggestion = "Confirm pending direct transfers so you can close sales faster.";
+    else if (disputedCountAll > 0) suggestion = "Respond to disputes quickly with clear delivery proof to protect visibility.";
+    else if (productCount === 0) suggestion = "Add your first product so customers can start ordering.";
+    else if (outOfStockCount > 0) suggestion = "Restock your out‑of‑stock products so customers don’t bounce.";
+    else if (lowStockCount > 0) suggestion = "Top up low stock items (especially your fast movers).";
+    else if (visits > 0 && ordersWin.length === 0) suggestion = "You have visits but no orders—try clearer prices and a stronger product photo.";
+
+    const checkin = {
+      title: "Daily business check‑in",
+      lines: [
+        `Today: ${todayOrders} order(s) • ${fmtNaira(todayRevenue)}`,
+        `This ${usedRange}: ${ordersWin.length} order(s) • ${fmtNaira(totalRevenue)}`,
+        attentionCount ? `Needs attention: ${attentionCount} order(s)` : "Needs attention: none",
+      ],
+      suggestion,
+    };
+
+    // ✅ Smart Nudge Alerts
+    const nudges: Nudge[] = [];
+
+    if (disputedCountAll > 0) {
+      nudges.push({
+        id: "disputes_open",
+        tone: "warn",
+        title: "Disputes need attention",
+        body: `You have ${disputedCountAll} disputed order(s). Reply quickly with clear proof to protect your visibility.`,
+        cta: { label: "View orders", url: "/vendor/orders" },
+      });
+    }
+
+    if (awaitingConfirmCountAll > 0) {
+      nudges.push({
+        id: "awaiting_confirm",
+        tone: "warn",
+        title: "Pending transfer confirmation",
+        body: `You have ${awaitingConfirmCountAll} direct transfer(s) waiting for confirmation.`,
+        cta: { label: "Open orders", url: "/vendor/orders" },
+      });
+    }
+
+    if (productCount === 0) {
+      nudges.push({
+        id: "no_products",
+        tone: "info",
+        title: "Add your first product",
+        body: "Your store is ready. Add one product so customers can start ordering.",
+        cta: { label: "Create product", url: "/vendor/products/new" },
+      });
+    } else if (outOfStockCount > 0) {
+      nudges.push({
+        id: "out_of_stock",
+        tone: "info",
+        title: "Some items are out of stock",
+        body: `${outOfStockCount} product(s) are out of stock. Restock to avoid losing ready buyers.`,
+        cta: { label: "Manage products", url: "/vendor/products" },
+      });
+    } else if (lowStockCount > 0) {
+      nudges.push({
+        id: "low_stock",
+        tone: "info",
+        title: "Low stock reminder",
+        body: `${lowStockCount} product(s) are low on stock. Top up your fast movers.`,
+        cta: { label: "Manage products", url: "/vendor/products" },
+      });
+    }
+
+    // Follow-up nudge (quiet)
+    const repeatBuyersEstimate = Array.from(customerCounts.values()).filter((n) => n >= 2).length;
+
+    let followedUpThisWeek = false;
+    try {
+      const cSnap = await adminDb
+        .collection("reengagementCampaigns")
+        .where("businessId", "==", me.businessId)
+        .limit(50)
+        .get();
+
+      let lastMs = 0;
+      for (const d of cSnap.docs) {
+        const x = d.data() as any;
+        const ms = Number(x?.createdAtMs || 0) || 0;
+        if (ms > lastMs) lastMs = ms;
+      }
+      if (lastMs && Date.now() - lastMs < 7 * 86400000) followedUpThisWeek = true;
+    } catch {
+      // ignore
+    }
+
+    if (repeatBuyersEstimate > 0 && !followedUpThisWeek) {
+      nudges.push({
+        id: "followup_repeat_buyers",
+        tone: "info",
+        title: "Quick follow‑up idea",
+        body: "You have repeat buyers. A short check‑in message can bring easy repeat sales this week.",
+        cta: { label: "Open re‑engagement", url: "/vendor/reengagement?segment=buyers_repeat" },
+      });
+    }
+
+    const nudgesOut = nudges.slice(0, 3);
+
     return NextResponse.json({
       ok: true,
       meta: {
@@ -371,6 +520,10 @@ export async function GET(req: Request) {
           },
           entitlementExpiresAtMs: Number(entitlement.expiresAtMs || 0) || null,
         },
+        viewer: {
+          role: viewerRole,
+          staffNudgesEnabled,
+        },
       },
       overview,
       chartDays: tier === 0 ? chartDays.slice(-7) : chartDays,
@@ -383,6 +536,10 @@ export async function GET(req: Request) {
       insights,
       comparisons,
       recentOrders,
+      checkin,
+
+      // ✅ If staff nudges are OFF, staff receives []
+      nudges: allowNudgesForViewer ? nudgesOut : [],
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
