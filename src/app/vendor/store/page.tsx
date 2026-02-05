@@ -138,7 +138,7 @@ export default function VendorStoreSettingsPage() {
               <Card className="p-4">
                 <p className="text-sm font-bold text-biz-ink">Free plan</p>
                 <p className="text-xs text-biz-muted mt-1">
-                  You can use BizHub’s default store design. Upgrade to unlock full store customization and marketplace visibility.
+                  You can use myBizHub’s default store design. Upgrade to unlock full store customization and marketplace visibility.
                 </p>
                 <div className="mt-3">
                   <Button onClick={() => window.location.href = "/vendor/subscription"}>Upgrade</Button>
@@ -183,14 +183,14 @@ export default function VendorStoreSettingsPage() {
                 />
               </div>
 
-              <p className="mt-2 text-xs text-biz-muted">Tip: remove “@” — BizHub will format it automatically.</p>
+              <p className="mt-2 text-xs text-biz-muted">Tip: remove “@” — myBizHub will format it automatically.</p>
             </SectionCard>
 
             <SectionCard title="Checkout & Chat" subtitle="Let customers continue in WhatsApp from cart">
               <div className="rounded-2xl border border-biz-line bg-white p-3">
                 <p className="text-sm font-bold text-biz-ink">Continue in Chat</p>
                 <p className="text-[11px] text-biz-muted mt-1">
-                  When ON, customers can tap “Continue in Chat” from their cart. BizHub creates an order record and opens WhatsApp with the order details.
+                  When ON, customers can tap “Continue in Chat” from their cart. myBizHub creates an order record and opens WhatsApp with the order details.
                 </p>
 
                 {!canEnableChat ? (
@@ -243,7 +243,7 @@ export default function VendorStoreSettingsPage() {
               {!canCustomize ? (
                 <div className="rounded-2xl border border-biz-line bg-white p-3">
                   <p className="text-xs text-biz-muted">
-                    You’re using BizHub default design. Upgrade to upload logo and banner.
+                    You’re using myBizHub default design. Upgrade to upload logo and banner.
                   </p>
                 </div>
               ) : (

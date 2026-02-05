@@ -99,7 +99,7 @@ export default function AdminHomePage() {
               className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold"
               onClick={() => router.push("/admin/finance")}
             >
-              BizHub Balance
+              myBizHub Balance
             </button>
 
             <button

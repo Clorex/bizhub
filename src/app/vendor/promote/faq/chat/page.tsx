@@ -25,7 +25,7 @@ function makeMsg(role: ChatMsg["role"], text: string): ChatMsg {
 
 export default function VendorSupportChatPage() {
   const [msgs, setMsgs] = useState<ChatMsg[]>([
-    makeMsg("assistant", "Hi. I’m BizHub support. Tell me what you’re trying to do, and what went wrong."),
+    makeMsg("assistant", "Hi. I’m myBizHub support. Tell me what you’re trying to do, and what went wrong."),
   ]);
 
   const [text, setText] = useState("");
@@ -103,7 +103,7 @@ export default function VendorSupportChatPage() {
                 m.role === "user" ? "bg-white" : "bg-biz-cream",
               ].join(" ")}
             >
-              <p className="text-[11px] text-gray-500 font-bold">{m.role === "user" ? "You" : "BizHub support"}</p>
+              <p className="text-[11px] text-gray-500 font-bold">{m.role === "user" ? "You" : "myBizHub support"}</p>
               <p className="mt-1 whitespace-pre-wrap text-gray-800">{m.text}</p>
             </div>
           ))}

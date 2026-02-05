@@ -42,7 +42,7 @@ export const BIZHUB_PLANS: Record<BizhubPlanKey, PlanCatalog> = {
     key: "FREE",
     name: "Free access",
     tagline: "Starter use to test the app and build trust.",
-    recommendedFor: "Trying BizHub and setting up your first products.",
+    recommendedFor: "Trying myBizHub and setting up your first products.",
     priceNgn: { monthly: 0, quarterly: 0, biannually: 0, yearly: 0 },
     limits: { maxProducts: 20 },
 

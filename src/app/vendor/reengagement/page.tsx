@@ -38,7 +38,7 @@ function defaultBaseFor(mode: Mode) {
   if (mode === "abandoned") {
     return `I noticed you started an order but didn’t complete payment.\n\nDo you still want it? I can help you complete it.`;
   }
-  return `Thank you for buying from my BizHub store.\n\nIf you need anything else or want to reorder, I’m available.`;
+  return `Thank you for buying from my myBizHub store.\n\nIf you need anything else or want to reorder, I’m available.`;
 }
 
 function fmtCountdown(msLeft: number) {

@@ -1,0 +1,46 @@
+[35msrc/app/account/invite/invite-client.tsx[m[36m:[m[32m23[m[36m:[m      return "Hi, I tried to accept the staff invite but your current plan does not allow adding staff. Please upgrade your [1;31mBizHub[m plan to add staff members.";
+[35msrc/app/account/invite/invite-client.tsx[m[36m:[m[32m26[m[36m:[m      return "Hi, I tried to accept the staff invite but your staff limit has been reached. Please upgrade your [1;31mBizHub[m plan or remove an old staff member, then resend the invite.";
+[35msrc/app/account/page.tsx[m[36m:[m[32m114[m[36m:[m              <p className="text-xs text-gray-600 mt-1">Your [1;31mBizHub[m account</p>
+[35msrc/app/admin/finance/page.tsx[m[36m:[m[32m67[m[36m:[m  // Platform payout details ([1;31mBizHub[m bank)
+[35msrc/app/admin/finance/page.tsx[m[36m:[m[32m257[m[36m:[m        title="[1;31mBizHub[m Balance"
+[35msrc/app/admin/page.tsx[m[36m:[m[32m102[m[36m:[m              [1;31mBizHub[m Balance
+[35msrc/app/api/admin/reports/daily/route.ts[m[36m:[m[32m68[m[36m:[m      subject: `[1;31mBizHub[m Daily Report — ${report.dayKey}`,
+[35msrc/app/api/auth/send-email-code/route.ts[m[36m:[m[32m42[m[36m:[m    subject: "[1;31mBizHub[m verification code",
+[35msrc/app/api/auth/send-email-code/route.ts[m[36m:[m[32m43[m[36m:[m    text: `Your [1;31mBizHub[m verification code is: ${code}\n\nIt expires in 10 minutes.`,
+[35msrc/app/api/vendor/assistant/summary/route.ts[m[36m:[m[32m153[m[36m:[m    summaryLines.push(`[1;31mBizHub[m summary — ${storeName}`);
+[35msrc/app/api/vendor/store/route.ts[m[36m:[m[32m48[m[36m:[m    // Store customization lock: FREE uses [1;31mBizHub[m default wallpaper (no logo/banner customization)
+[35msrc/app/api/vendor/support/chat/route.ts[m[36m:[m[32m25[m[36m:[m    "You are [1;31mBizHub[m customer care for vendors.",
+[35msrc/app/b/[slug]/p/[productId]/page.tsx[m[36m:[m[32m424[m[36m:[m      lines.push(`I want to place a quick order from your [1;31mBizHub[m store.`);
+[35msrc/app/b/[slug]/p/[productId]/page.tsx[m[36m:[m[32m452[m[36m:[m      lines.push(`[1;31mBizHub[m chat order ref: ${refShort}`);
+[35msrc/app/b/[slug]/page.tsx[m[36m:[m[32m366[m[36m:[m                      window.open(waLink(whatsapp, `Hello ${name}. I came from your [1;31mBizHub[m store (${slug}).`), "_blank");
+[35msrc/app/cart/page.tsx[m[36m:[m[32m131[m[36m:[m      lines.push(`I want to order the following items from your [1;31mBizHub[m store:`);
+[35msrc/app/cart/page.tsx[m[36m:[m[32m145[m[36m:[m      lines.push(`[1;31mBizHub[m chat order ref: ${refShort}`);
+[35msrc/app/market/page.tsx[m[36m:[m[32m370[m[36m:[m                [1;31mBizHub[m<span className="text-biz-accent">.</span>
+[35msrc/app/orders/[orderId]/dispute/page.tsx[m[36m:[m[32m187[m[36m:[m                Disputes are reviewed by [1;31mBizHub[m. Provide clear evidence to help resolve faster.
+[35msrc/app/vendor/more/page.tsx[m[36m:[m[32m189[m[36m:[m            title="[1;31mBizHub[m Balance"
+[35msrc/app/vendor/more/page.tsx[m[36m:[m[32m217[m[36m:[m            desc="How to sell more on [1;31mBizHub[m"
+[35msrc/app/vendor/orders/[orderId]/page.tsx[m[36m:[m[32m276[m[36m:[m          `Hello${custName ? ` ${custName}` : ""}, this is regarding your [1;31mBizHub[m order #${shortId}. Just checking in—any update for me?`
+[35msrc/app/vendor/orders/[orderId]/page.tsx[m[36m:[m[32m515[m[36m:[m    const text = `Hello, this is regarding your [1;31mBizHub[m order #${shortId}.`;
+[35msrc/app/vendor/preferences/page.tsx[m[36m:[m[32m126[m[36m:[m      <GradientHeader title="Preferences" subtitle="Control how [1;31mBizHub[m works for you" showBack={true} />
+[35msrc/app/vendor/preferences/page.tsx[m[36m:[m[32m174[m[36m:[m            subtitle="Keeps [1;31mBizHub[m open while you chat with customers."
+[35msrc/app/vendor/products/page.tsx[m[36m:[m[32m51[m[36m:[m  lines.push(`(You can checkout securely via [1;31mBizHub[m)`);
+[35msrc/app/vendor/promote/faq/chat/page.tsx[m[36m:[m[32m28[m[36m:[m    makeMsg("assistant", "Hi. I’m [1;31mBizHub[m support. Tell me what you’re trying to do, and what went wrong."),
+[35msrc/app/vendor/promote/faq/chat/page.tsx[m[36m:[m[32m106[m[36m:[m              <p className="text-[11px] text-gray-500 font-bold">{m.role === "user" ? "You" : "[1;31mBizHub[m support"}</p>
+[35msrc/app/vendor/promote/faq/page.tsx[m[36m:[m[32m214[m[36m:[m        a: "Best practices:\n- Don’t share your login code\n- Don’t share your password\n- Be careful with unknown links\n- Only trust what you see inside your [1;31mBizHub[m dashboard",
+[35msrc/app/vendor/promote/faq/page.tsx[m[36m:[m[32m217[m[36m:[m        q: "Someone is pretending to be [1;31mBizHub[m support",
+[35msrc/app/vendor/promote/faq/page.tsx[m[36m:[m[32m218[m[36m:[m        a: "[1;31mBizHub[m support will not ask for your password.\nIf someone asks for your password or OTP, ignore them and report it in support chat.",
+[35msrc/app/vendor/reengagement/page.tsx[m[36m:[m[32m41[m[36m:[m  return `Thank you for buying from my [1;31mBizHub[m store.\n\nIf you need anything else or want to reorder, I’m available.`;
+[35msrc/app/vendor/security/page.tsx[m[36m:[m[32m175[m[36m:[m            <li>Only trust messages you see inside your [1;31mBizHub[m dashboard.</li>
+[35msrc/app/vendor/store/page.tsx[m[36m:[m[32m141[m[36m:[m                  You can use [1;31mBizHub[m’s default store design. Upgrade to unlock full store customization and marketplace visibility.
+[35msrc/app/vendor/store/page.tsx[m[36m:[m[32m186[m[36m:[m              <p className="mt-2 text-xs text-biz-muted">Tip: remove “@” — [1;31mBizHub[m will format it automatically.</p>
+[35msrc/app/vendor/store/page.tsx[m[36m:[m[32m193[m[36m:[m                  When ON, customers can tap “Continue in Chat” from their cart. [1;31mBizHub[m creates an order record and opens WhatsApp with the order details.
+[35msrc/app/vendor/store/page.tsx[m[36m:[m[32m246[m[36m:[m                    You’re using [1;31mBizHub[m default design. Upgrade to upload logo and banner.
+[35msrc/app/vendor/wallet/page.tsx[m[36m:[m[32m63[m[36m:[m      <GradientHeader title="[1;31mBizHub[m Balance" subtitle="Earnings & withdrawals" showBack={true} />
+[35msrc/app/vendor/wallet/page.tsx.bak_before_remove_escrow_wording[m[36m:[m[32m63[m[36m:[m      <GradientHeader title="[1;31mBizHub[m Balance" subtitle="Earnings & withdrawals" showBack={true} />
+[35msrc/app/vendor/withdrawals/page.tsx[m[36m:[m[32m92[m[36m:[m      <GradientHeader title="Withdrawals" subtitle="Request payout from [1;31mBizHub[m Balance" showBack={true} />
+[35msrc/lib/admin/securityServer.ts[m[36m:[m[32m159[m[36m:[m    scope === "withdrawal" ? "[1;31mBizHub[m Admin withdrawal code" : "[1;31mBizHub[m Admin verification code";
+[35msrc/lib/admin/securityServer.ts[m[36m:[m[32m165[m[36m:[m    text: `Your [1;31mBizHub[m admin code is: ${code}\n\nIt expires in 10 minutes.`,
+[35msrc/lib/bizhubPlans.ts[m[36m:[m[32m45[m[36m:[m    recommendedFor: "Trying [1;31mBizHub[m and setting up your first products.",
+[35msrc/lib/reports/platformDaily.ts[m[36m:[m[32m80[m[36m:[m  lines.push(`[1;31mBizHub[m Daily Report — ${dkToday}`);
+[35msrc/lib/vendor/reengagement/compose.ts[m[36m:[m[32m83[m[36m:[m    [/\bmy bizhub store\b/gi, ["my [1;31mBizHub[m store", "my store on [1;31mBizHub[m", "my [1;31mBizHub[m shop"]],
+[35msrc/lib/vendor/reengagement/compose.ts[m[36m:[m[32m134[m[36m:[m  const closings = [`– ${store}`, `– ${store} ([1;31mBizHub[m)`, `– ${store} on [1;31mBizHub[m`];

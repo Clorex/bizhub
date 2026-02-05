@@ -421,7 +421,7 @@ export default function ProductPage() {
 
       const lines: string[] = [];
       lines.push(`Hello ${storeName}.`);
-      lines.push(`I want to place a quick order from your BizHub store.`);
+      lines.push(`I want to place a quick order from your myBizHub store.`);
       lines.push(``);
 
       if (onSale) {
@@ -449,7 +449,7 @@ export default function ProductPage() {
 
       lines.push(`Estimated total: ${fmtNaira(estimatedTotalNgn)}`);
       lines.push(``);
-      lines.push(`BizHub chat order ref: ${refShort}`);
+      lines.push(`myBizHub chat order ref: ${refShort}`);
 
       window.open(waLink(whatsapp, lines.join("\n")), "_blank");
     } catch (e: any) {

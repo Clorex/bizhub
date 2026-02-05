@@ -186,7 +186,7 @@ export default function VendorMorePage() {
 
           <Row
             icon={<Wallet className="h-5 w-5 text-orange-700" />}
-            title="BizHub Balance"
+            title="myBizHub Balance"
             desc="Pending, available & withdrawals"
             onClick={() => router.push("/vendor/wallet")}
           />
@@ -214,7 +214,7 @@ export default function VendorMorePage() {
           <Row
             icon={<HelpCircle className="h-5 w-5 text-orange-700" />}
             title="Help & support"
-            desc="How to sell more on BizHub"
+            desc="How to sell more on myBizHub"
             onClick={() => router.push("/vendor/promote/faq")}
           />
         </Group>

@@ -48,7 +48,7 @@ function buildShareCaption(p: any) {
   lines.push(name);
   if (price > 0) lines.push(`Price: ${fmtNaira(price)}`);
   if (link) lines.push(`Link: ${link}`);
-  lines.push(`(You can checkout securely via BizHub)`);
+  lines.push(`(You can checkout securely via myBizHub)`);
 
   return lines.join("\n");
 }

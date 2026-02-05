@@ -64,7 +64,7 @@ export default function AdminFinancePage() {
   const [finance, setFinance] = useState<any>(null);
   const [ledger, setLedger] = useState<any[]>([]);
 
-  // Platform payout details (BizHub bank)
+  // Platform payout details (myBizHub bank)
   const [pdLoading, setPdLoading] = useState(false);
   const [payoutDetails, setPayoutDetails] = useState<any>(null);
   const [bankName, setBankName] = useState("");
@@ -254,7 +254,7 @@ export default function AdminFinancePage() {
   return (
     <div className="min-h-screen">
       <GradientHeader
-        title="BizHub Balance"
+        title="myBizHub Balance"
         subtitle="Platform finance overview"
         showBack={true}
         right={

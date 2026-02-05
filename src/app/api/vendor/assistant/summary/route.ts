@@ -150,7 +150,7 @@ export async function GET(req: Request) {
     }
 
     const summaryLines: string[] = [];
-    summaryLines.push(`BizHub summary — ${storeName}`);
+    summaryLines.push(`myBizHub summary — ${storeName}`);
     summaryLines.push(`Today: ${todayOrders} order(s) • ${fmtNaira(todayRevenue)}`);
     summaryLines.push(`This week: ${weekOrders} order(s) • ${fmtNaira(weekRevenue)}`);
     if (openDisputes > 0) summaryLines.push(`Open disputes: ${openDisputes}`);

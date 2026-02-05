@@ -77,7 +77,7 @@ export async function buildDailyPlatformReport(params?: { date?: Date }) {
   }
 
   const lines: string[] = [];
-  lines.push(`BizHub Daily Report — ${dkToday}`);
+  lines.push(`myBizHub Daily Report — ${dkToday}`);
   lines.push(``);
   lines.push(`Traffic`);
   lines.push(`- Views:  ${tViews.toLocaleString()} (${pct(tViews, yViews) == null ? "—" : pct(tViews, yViews)!.toFixed(1) + "%"})`);

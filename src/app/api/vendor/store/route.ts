@@ -45,7 +45,7 @@ export async function POST(req: Request) {
 
     const plan = await getBusinessPlanResolved(me.businessId);
 
-    // Store customization lock: FREE uses BizHub default wallpaper (no logo/banner customization)
+    // Store customization lock: FREE uses myBizHub default wallpaper (no logo/banner customization)
     const canCustomize = !!(plan.features as any)?.storeCustomize;
 
     // Continue in Chat enabling is still subscription-only

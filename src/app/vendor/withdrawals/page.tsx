@@ -89,7 +89,7 @@ export default function VendorWithdrawalsPage() {
 
   return (
     <div className="min-h-screen">
-      <GradientHeader title="Withdrawals" subtitle="Request payout from BizHub Balance" showBack={true} />
+      <GradientHeader title="Withdrawals" subtitle="Request payout from myBizHub Balance" showBack={true} />
 
       <div className="px-4 pb-24 space-y-3">
         {loading ? <Card className="p-4">Loading…</Card> : null}

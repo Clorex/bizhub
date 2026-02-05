@@ -22,7 +22,7 @@ function cleanModel(v: any) {
 
 function buildSystemPrompt() {
   return [
-    "You are BizHub customer care for vendors.",
+    "You are myBizHub customer care for vendors.",
     "Speak in friendly business language. No technical terms.",
     "Give step-by-step help with short bullets.",
     "If you need more details, ask 1–2 questions only.",

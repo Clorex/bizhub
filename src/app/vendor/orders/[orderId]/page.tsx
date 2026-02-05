@@ -273,7 +273,7 @@ export default function VendorOrderDetailPage() {
       if (!followUpText) {
         const shortId = String(orderId).slice(0, 8);
         setFollowUpText(
-          `Hello${custName ? ` ${custName}` : ""}, this is regarding your BizHub order #${shortId}. Just checking in—any update for me?`
+          `Hello${custName ? ` ${custName}` : ""}, this is regarding your myBizHub order #${shortId}. Just checking in—any update for me?`
         );
       }
     } catch (e: any) {
@@ -512,7 +512,7 @@ export default function VendorOrderDetailPage() {
     }
 
     const shortId = String(orderId).slice(0, 8);
-    const text = `Hello, this is regarding your BizHub order #${shortId}.`;
+    const text = `Hello, this is regarding your myBizHub order #${shortId}.`;
 
     window.open(waLink(phone, text), "_blank");
   }

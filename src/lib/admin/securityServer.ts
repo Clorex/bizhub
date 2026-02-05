@@ -156,13 +156,13 @@ export async function sendAdminOtp(params: { uid: string; email: string; scope?:
   }
 
   const subject =
-    scope === "withdrawal" ? "BizHub Admin withdrawal code" : "BizHub Admin verification code";
+    scope === "withdrawal" ? "myBizHub Admin withdrawal code" : "myBizHub Admin verification code";
 
   await smtp.transporter.sendMail({
     from: smtp.from,
     to: params.email,
     subject,
-    text: `Your BizHub admin code is: ${code}\n\nIt expires in 10 minutes.`,
+    text: `Your myBizHub admin code is: ${code}\n\nIt expires in 10 minutes.`,
   });
 
   return { sent: true as const, devCode: undefined };

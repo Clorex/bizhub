@@ -39,8 +39,8 @@ async function sendEmail(to: string, code: string) {
   await transporter.sendMail({
     from,
     to,
-    subject: "BizHub verification code",
-    text: `Your BizHub verification code is: ${code}\n\nIt expires in 10 minutes.`,
+    subject: "myBizHub verification code",
+    text: `Your myBizHub verification code is: ${code}\n\nIt expires in 10 minutes.`,
   });
 
   return { sent: true };

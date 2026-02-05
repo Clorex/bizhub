@@ -184,7 +184,7 @@ export default function DisputePage() {
               </div>
 
               <p className="mt-2 text-[11px] text-biz-muted">
-                Disputes are reviewed by BizHub. Provide clear evidence to help resolve faster.
+                Disputes are reviewed by myBizHub. Provide clear evidence to help resolve faster.
               </p>
             </SectionCard>
 

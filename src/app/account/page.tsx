@@ -111,7 +111,7 @@ export default function AccountPage() {
               <p className="text-lg font-extrabold text-[#111827]">
                 Profile<span className="text-[#FF8A00]">.</span>
               </p>
-              <p className="text-xs text-gray-600 mt-1">Your BizHub account</p>
+              <p className="text-xs text-gray-600 mt-1">Your myBizHub account</p>
             </div>
 
             <button

@@ -60,7 +60,7 @@ export default function VendorBalancePage() {
 
   return (
     <div className="min-h-screen">
-      <GradientHeader title="BizHub Balance" subtitle="Earnings & withdrawals" showBack={true} />
+      <GradientHeader title="myBizHub Balance" subtitle="Earnings & withdrawals" showBack={true} />
 
       <div className="px-4 pb-24 space-y-3">
         {loading ? <Card className="p-4">Loading…</Card> : null}

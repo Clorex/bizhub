@@ -123,7 +123,7 @@ export default function VendorPreferencesPage() {
 
   return (
     <div className="min-h-screen">
-      <GradientHeader title="Preferences" subtitle="Control how BizHub works for you" showBack={true} />
+      <GradientHeader title="Preferences" subtitle="Control how myBizHub works for you" showBack={true} />
 
       <div className="px-4 pb-24 space-y-3">
         {msg ? <Card className="p-4 text-emerald-700">{msg}</Card> : null}
@@ -171,7 +171,7 @@ export default function VendorPreferencesPage() {
 
           <ToggleRow
             title="Open WhatsApp in a new tab"
-            subtitle="Keeps BizHub open while you chat with customers."
+            subtitle="Keeps myBizHub open while you chat with customers."
             value={prefs.openWhatsAppInNewTab}
             onChange={(v) => setPrefs((p) => ({ ...p, openWhatsAppInNewTab: v }))}
           />

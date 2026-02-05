@@ -80,7 +80,7 @@ function remixRewrite(base: string, seed: string) {
     [/\bif you need anything else\b/gi, ["If you need anything", "If you need help with anything", "If you need any assistance"]],
     [/\bavailable\b/gi, ["available", "here to help", "ready to assist"]],
     [/\breorder\b/gi, ["reorder", "order again", "restock"]],
-    [/\bmy bizhub store\b/gi, ["my BizHub store", "my store on BizHub", "my BizHub shop"]],
+    [/\bmy bizhub store\b/gi, ["my myBizHub store", "my store on myBizHub", "my myBizHub shop"]],
   ];
 
   for (const [re, options] of swaps) {
@@ -131,7 +131,7 @@ export function composeSmartMessage(args: {
   const seed = ["reengage", planKey, String(args.businessSlug || ""), String(args.person.key || ""), seg, rot].join("|");
 
   const greetVariants = fn ? [`Hi ${fn},`, `Hello ${fn},`, `Hey ${fn},`] : ["Hello,", "Hi,", "Hey,"];
-  const closings = [`– ${store}`, `– ${store} (BizHub)`, `– ${store} on BizHub`];
+  const closings = [`– ${store}`, `– ${store} (myBizHub)`, `– ${store} on myBizHub`];
 
   const extraLinesBySegment: Record<ReengagementSegment, string[]> = {
     buyers_all: [

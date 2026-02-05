@@ -367,7 +367,7 @@ export default function MarketPage() {
           <div className="flex items-center justify-between gap-3">
             <div>
               <p className="text-lg font-bold text-biz-ink">
-                BizHub<span className="text-biz-accent">.</span>
+                myBizHub<span className="text-biz-accent">.</span>
               </p>
               <p className="text-xs text-biz-muted mt-1">Marketplace</p>
             </div>

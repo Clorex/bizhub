@@ -363,7 +363,7 @@ export default function StorefrontPage() {
                         alert("Vendor WhatsApp not set yet.");
                         return;
                       }
-                      window.open(waLink(whatsapp, `Hello ${name}. I came from your BizHub store (${slug}).`), "_blank");
+                      window.open(waLink(whatsapp, `Hello ${name}. I came from your myBizHub store (${slug}).`), "_blank");
                     }}
                     disabled={!whatsapp}
                   >

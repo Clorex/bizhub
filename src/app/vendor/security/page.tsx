@@ -172,7 +172,7 @@ export default function VendorSecurityPage() {
           <ul className="mt-2 text-sm text-gray-700 list-disc pl-5 space-y-1">
             <li>Never share your login code (OTP) with anyone.</li>
             <li>Don’t share your password with staff or friends.</li>
-            <li>Only trust messages you see inside your BizHub dashboard.</li>
+            <li>Only trust messages you see inside your myBizHub dashboard.</li>
             <li>If something looks suspicious, use Help & support to report it.</li>
           </ul>
 

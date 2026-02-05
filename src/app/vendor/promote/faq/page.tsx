@@ -211,11 +211,11 @@ export default function VendorHelpCenterPage() {
     security: [
       {
         q: "How do I keep my account safe?",
-        a: "Best practices:\n- Don’t share your login code\n- Don’t share your password\n- Be careful with unknown links\n- Only trust what you see inside your BizHub dashboard",
+        a: "Best practices:\n- Don’t share your login code\n- Don’t share your password\n- Be careful with unknown links\n- Only trust what you see inside your myBizHub dashboard",
       },
       {
-        q: "Someone is pretending to be BizHub support",
-        a: "BizHub support will not ask for your password.\nIf someone asks for your password or OTP, ignore them and report it in support chat.",
+        q: "Someone is pretending to be myBizHub support",
+        a: "myBizHub support will not ask for your password.\nIf someone asks for your password or OTP, ignore them and report it in support chat.",
       },
     ],
   };

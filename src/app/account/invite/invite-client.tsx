@@ -20,10 +20,10 @@ export default function InviteAcceptClient() {
   const ownerMessage = useMemo(() => {
     if (!errCode) return "";
     if (errCode === "FEATURE_LOCKED") {
-      return "Hi, I tried to accept the staff invite but your current plan does not allow adding staff. Please upgrade your BizHub plan to add staff members.";
+      return "Hi, I tried to accept the staff invite but your current plan does not allow adding staff. Please upgrade your myBizHub plan to add staff members.";
     }
     if (errCode === "STAFF_LIMIT_REACHED") {
-      return "Hi, I tried to accept the staff invite but your staff limit has been reached. Please upgrade your BizHub plan or remove an old staff member, then resend the invite.";
+      return "Hi, I tried to accept the staff invite but your staff limit has been reached. Please upgrade your myBizHub plan or remove an old staff member, then resend the invite.";
     }
     return "Hi, I tried to accept the staff invite but it failed. Please check the invite and resend.";
   }, [errCode]);

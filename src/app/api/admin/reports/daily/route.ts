@@ -65,7 +65,7 @@ export async function POST(req: Request) {
     await t.transporter.sendMail({
       from: t.from,
       to,
-      subject: `BizHub Daily Report — ${report.dayKey}`,
+      subject: `myBizHub Daily Report — ${report.dayKey}`,
       text: report.text,
     });
 

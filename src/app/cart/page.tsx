@@ -128,7 +128,7 @@ export default function CartPage() {
 
       const lines: string[] = [];
       lines.push(`Hello ${storeName}.`);
-      lines.push(`I want to order the following items from your BizHub store:`);
+      lines.push(`I want to order the following items from your myBizHub store:`);
 
       for (const it of cart.items) {
         const opts =
@@ -142,7 +142,7 @@ export default function CartPage() {
 
       lines.push(``);
       lines.push(`Subtotal: ${fmtNaira(subtotal)}`);
-      lines.push(`BizHub chat order ref: ${refShort}`);
+      lines.push(`myBizHub chat order ref: ${refShort}`);
       lines.push(`(I may send screenshots in this chat.)`);
 
       const text = lines.join("\n");
