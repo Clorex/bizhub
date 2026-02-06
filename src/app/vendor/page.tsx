@@ -26,6 +26,13 @@ import {
 } from "lucide-react";
 
 type Range = "today" | "week" | "month";
+type Mood = "great" | "okay" | "slow";
+
+const MOOD_KEY = "mybizhub_mood_daily_v1";
+
+function lagosDayKey(now = new Date()) {
+  return now.toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" }); // YYYY-MM-DD
+}
 
 function fmtNaira(n: number) {
   try {
@@ -49,6 +56,23 @@ function waShareLink(text: string) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
+function loadMood(): any | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(MOOD_KEY);
+    if (!raw) return null;
+    const j = JSON.parse(raw);
+    return j && typeof j === "object" ? j : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveMood(v: any) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(MOOD_KEY, JSON.stringify(v));
+}
+
 export default function VendorDashboardPage() {
   const router = useRouter();
 
@@ -63,6 +87,19 @@ export default function VendorDashboardPage() {
 
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [moodState, setMoodState] = useState<any>(() => loadMood());
+  const [moodBusy, setMoodBusy] = useState(false);
+
+  // reset mood state if a new day
+  useEffect(() => {
+    const dk = lagosDayKey();
+    if (moodState?.dayKey && moodState.dayKey !== dk) {
+      setMoodState(null);
+      saveMood(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const storeUrl = useMemo(() => {
     if (!me?.businessSlug) return "";
@@ -136,6 +173,49 @@ export default function VendorDashboardPage() {
     }
   }
 
+  async function submitMood(mood: Mood) {
+    try {
+      setMoodBusy(true);
+
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not logged in");
+
+      const snapshot = {
+        range,
+        overview: data?.overview || {},
+        todo: data?.todo || {},
+        traffic: {
+          visits: Number(data?.overview?.visits || 0),
+          leads: Number(data?.overview?.leads || 0),
+          views: Number(data?.overview?.views || 0),
+        },
+      };
+
+      const r = await fetch("/api/vendor/mood/tip", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ mood, storeSlug: me?.businessSlug || null, snapshot }),
+      });
+
+      const j = await r.json().catch(() => ({} as any));
+      if (!r.ok || !j?.ok) throw new Error(j?.error || "Failed");
+
+      const next = {
+        dayKey: lagosDayKey(),
+        mood,
+        tip: String(j.tip || ""),
+        actions: Array.isArray(j.actions) ? j.actions : [],
+      };
+
+      setMoodState(next);
+      saveMood(next);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to get tip");
+    } finally {
+      setMoodBusy(false);
+    }
+  }
+
   const ov = data?.overview || {};
   const todo = data?.todo || {};
   const chartDays: any[] = Array.isArray(data?.chartDays) ? data.chartDays : [];
@@ -160,11 +240,6 @@ export default function VendorDashboardPage() {
   const riskNotes: string[] = Array.isArray(assistant?.riskShield?.notes) ? assistant.riskShield.notes : [];
 
   const momentumPlan = accessPlanKey === "MOMENTUM";
-
-  // Personal note (no "check-in" wording)
-  const personalTip =
-    String(data?.checkin?.suggestion || "").trim() ||
-    "How’s business today? Add one product, share your link, and follow up with one past buyer.";
 
   return (
     <div className="min-h-screen">
@@ -208,9 +283,9 @@ export default function VendorDashboardPage() {
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
         {loading ? <Card className="p-4">Loading…</Card> : null}
 
-        {/* ✅ Total sales FIRST */}
         {!loading && data ? (
           <>
+            {/* Total sales FIRST */}
             <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
               <p className="text-xs opacity-95">Total sales</p>
               <p className="text-2xl font-bold mt-1">{fmtNaira(ov.totalRevenue || 0)}</p>
@@ -241,18 +316,67 @@ export default function VendorDashboardPage() {
               </div>
             </div>
 
-            {/* Personal note (simple + human) */}
+            {/* ✅ Mood Tracker */}
             <Card className="p-4">
-              <p className="text-sm font-extrabold text-biz-ink">How’s business going today?</p>
-              <p className="text-xs text-biz-muted mt-1">{personalTip}</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
-                  Orders
-                </Button>
-                <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
-                  Products
-                </Button>
-              </div>
+              <p className="text-sm font-extrabold text-biz-ink">How’s business today?</p>
+
+              {!moodState ? (
+                <>
+                  <p className="text-xs text-biz-muted mt-1">Pick one. I’ll give you a quick tip.</p>
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => submitMood("great")}
+                      disabled={moodBusy}
+                      className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink disabled:opacity-50"
+                    >
+                      Great
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => submitMood("okay")}
+                      disabled={moodBusy}
+                      className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink disabled:opacity-50"
+                    >
+                      Okay
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => submitMood("slow")}
+                      disabled={moodBusy}
+                      className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink disabled:opacity-50"
+                    >
+                      Slow
+                    </button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-xs text-biz-muted mt-1">
+                    Mood: <b className="text-biz-ink">{String(moodState.mood).toUpperCase()}</b>
+                  </p>
+                  {moodState.tip ? <p className="text-sm text-gray-800 mt-2">{moodState.tip}</p> : null}
+
+                  {Array.isArray(moodState.actions) && moodState.actions.length ? (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {moodState.actions.slice(0, 2).map((a: any) => (
+                        <Button key={a.url} variant="secondary" onClick={() => router.push(a.url)}>
+                          {a.label || "Open"}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                        Orders
+                      </Button>
+                      <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
+                        Products
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
             </Card>
 
             {/* Dispute warning */}

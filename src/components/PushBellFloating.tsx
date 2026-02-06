@@ -36,7 +36,6 @@ function saveNum(key: string, v: number) {
 }
 
 function snoozeLater() {
-  // next appearance between 6 hours and 36 hours
   const next = now() + randInt(6, 36) * 3600_000;
   saveNum(PUSH_SNOOZE_UNTIL_KEY, next);
   saveNum(PUSH_LAST_PROMPT_KEY, now());
@@ -44,7 +43,7 @@ function snoozeLater() {
 
 export default function PushBellFloating() {
   const pathname = usePathname() || "/";
-  const onVendor = pathname.startsWith("/vendor"); // show prompts only in vendor app
+  const onVendor = pathname.startsWith("/vendor");
 
   const [perm, setPerm] = useState<NotificationPermission | "unsupported">("unsupported");
   const [busy, setBusy] = useState(false);
@@ -62,7 +61,6 @@ export default function PushBellFloating() {
     setPerm(getPerm());
   }, []);
 
-  // ✅ Auto prompt on entry (but not spam)
   useEffect(() => {
     if (!onVendor) return;
     if (typeof window === "undefined") return;
@@ -70,21 +68,15 @@ export default function PushBellFloating() {
     const p = getPerm();
     setPerm(p);
 
-    // if enabled already, never show again
     if (p === "granted" && localStorage.getItem(PUSH_TOKEN_KEY)) return;
-
-    // if blocked, don't show (nothing we can do)
     if (p === "denied") return;
 
-    // respect snooze
     const snoozeUntil = loadNum(PUSH_SNOOZE_UNTIL_KEY, 0);
     if (snoozeUntil && now() < snoozeUntil) return;
 
-    // not more than once every 12 hours
     const lastPrompt = loadNum(PUSH_LAST_PROMPT_KEY, 0);
     if (lastPrompt && now() - lastPrompt < 12 * 3600_000) return;
 
-    // show after a short delay so it feels smooth
     const t = setTimeout(() => {
       setOpen(true);
       saveNum(PUSH_LAST_PROMPT_KEY, now());
@@ -93,7 +85,6 @@ export default function PushBellFloating() {
     return () => clearTimeout(t);
   }, [onVendor, pathname]);
 
-  // ✅ Random “come back later” prompts on other pages
   useEffect(() => {
     if (!onVendor) return;
     if (typeof window === "undefined") return;
@@ -105,8 +96,7 @@ export default function PushBellFloating() {
     const snoozeUntil = loadNum(PUSH_SNOOZE_UNTIL_KEY, 0);
     if (snoozeUntil && now() < snoozeUntil) return;
 
-    // chance per page visit
-    const chance = 0.18; // 18%
+    const chance = 0.18;
     if (Math.random() < chance) {
       const t = setTimeout(() => {
         setOpen(true);
@@ -132,7 +122,6 @@ export default function PushBellFloating() {
       setPerm(granted);
 
       if (granted !== "granted") {
-        // user chose Not allowed / dismissed
         setOpen(false);
         snoozeLater();
         return;
@@ -152,7 +141,6 @@ export default function PushBellFloating() {
         return;
       }
 
-      // ✅ FCM SW route (must exist): src/app/fcm-sw/route.ts
       const reg = await navigator.serviceWorker.register("/fcm-sw", { scope: "/fcm" });
 
       const { getMessaging, getToken } = await import("firebase/messaging");
@@ -185,10 +173,8 @@ export default function PushBellFloating() {
       localStorage.setItem(PUSH_TOKEN_KEY, fcmToken);
       setTokenLocal(fcmToken);
 
-      // clear snooze so it never returns
       saveNum(PUSH_SNOOZE_UNTIL_KEY, 0);
 
-      // ✅ disappears completely after enable
       setOpen(false);
       setInfo(null);
     } catch (e: any) {
@@ -199,7 +185,6 @@ export default function PushBellFloating() {
     }
   }
 
-  // If already enabled OR not in vendor area, render nothing
   if (!onVendor) return null;
   if (enabled) return null;
 
@@ -210,9 +195,7 @@ export default function PushBellFloating() {
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <p className="text-sm font-extrabold text-biz-ink">Turn on notifications</p>
-              <p className="text-xs text-biz-muted mt-1">
-                So you don’t miss new orders and important updates.
-              </p>
+              <p className="text-xs text-biz-muted mt-1">So you don’t miss new orders and important updates.</p>
             </div>
 
             <button
@@ -251,10 +234,6 @@ export default function PushBellFloating() {
               Not now
             </button>
           </div>
-
-          <p className="mt-3 text-[11px] text-biz-muted">
-            You can turn it on later. We’ll remind you sometimes.
-          </p>
         </Card>
       </div>
     </div>
