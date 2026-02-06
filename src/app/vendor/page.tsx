@@ -23,23 +23,9 @@ import {
   Gem,
   BadgePercent,
   Shield,
-  Sparkles,
-  X,
-  Bell,
 } from "lucide-react";
 
 type Range = "today" | "week" | "month";
-
-type Nudge = {
-  id: string;
-  tone: "info" | "warn";
-  title: string;
-  body: string;
-  cta?: { label: string; url: string };
-};
-
-const NUDGE_DISMISS_KEY = "mybizhub_dismissed_nudges_v1";
-const PUSH_TOKEN_KEY = "mybizhub_push_token_v1";
 
 function fmtNaira(n: number) {
   try {
@@ -63,29 +49,6 @@ function waShareLink(text: string) {
   return `https://wa.me/?text=${encodeURIComponent(text)}`;
 }
 
-function loadDismissed(): Record<string, number> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(NUDGE_DISMISS_KEY);
-    if (!raw) return {};
-    const j = JSON.parse(raw);
-    return j && typeof j === "object" ? j : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveDismissed(v: Record<string, number>) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(NUDGE_DISMISS_KEY, JSON.stringify(v));
-}
-
-function getNotifPermission(): NotificationPermission | "unsupported" {
-  if (typeof window === "undefined") return "unsupported";
-  if (!("Notification" in window)) return "unsupported";
-  return Notification.permission;
-}
-
 export default function VendorDashboardPage() {
   const router = useRouter();
 
@@ -100,27 +63,6 @@ export default function VendorDashboardPage() {
 
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [dismissed, setDismissed] = useState<Record<string, number>>(() => loadDismissed());
-
-  const [pushPerm, setPushPerm] = useState<NotificationPermission | "unsupported">("unsupported");
-  const [pushBusy, setPushBusy] = useState(false);
-  const [pushInfo, setPushInfo] = useState<string | null>(null);
-  const [pushToken, setPushToken] = useState<string | null>(() => {
-    if (typeof window === "undefined") return null;
-    return localStorage.getItem(PUSH_TOKEN_KEY);
-  });
-
-  // owner controls
-  const viewerRole = String(data?.meta?.viewer?.role || "owner");
-  const isOwner = viewerRole !== "staff";
-
-  const [staffNudgesEnabled, setStaffNudgesEnabled] = useState<boolean>(!!data?.meta?.viewer?.staffNudgesEnabled);
-  const [staffPushEnabled, setStaffPushEnabled] = useState<boolean>(!!data?.meta?.viewer?.staffPushEnabled);
-
-  useEffect(() => {
-    setPushPerm(getNotifPermission());
-  }, []);
 
   const storeUrl = useMemo(() => {
     if (!me?.businessSlug) return "";
@@ -151,9 +93,6 @@ export default function VendorDashboardPage() {
 
       setData(a);
       setAccess(a?.meta?.access || null);
-
-      setStaffNudgesEnabled(!!a?.meta?.viewer?.staffNudgesEnabled);
-      setStaffPushEnabled(!!a?.meta?.viewer?.staffPushEnabled);
 
       const n = String(a?.meta?.notice || "");
       if (n) setNotice(n);
@@ -197,162 +136,17 @@ export default function VendorDashboardPage() {
     }
   }
 
-  function dismissNudge(id: string) {
-    const next = { ...dismissed, [id]: Date.now() };
-    setDismissed(next);
-    saveDismissed(next);
-  }
-
-  async function updateStaffNotifSettings(next: { staffNudgesEnabled?: boolean; staffPushEnabled?: boolean }) {
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
-
-      // store on business doc (simple)
-      // NOTE: we update directly through firestore via an API route later if you want,
-      // but for now keep it minimal: update using adminDb inside analytics route (already reads).
-      // We will use a small API route for settings in the next step if you request.
-      await fetch("/api/vendor/settings/notifications", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(next),
-      }).then(async (r) => {
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(j?.error || "Failed to update");
-      });
-
-      setPushInfo("Saved.");
-      setTimeout(() => setPushInfo(null), 1200);
-    } catch (e: any) {
-      setPushInfo(e?.message || "Failed to update");
-      setTimeout(() => setPushInfo(null), 1600);
-    }
-  }
-
-  async function enablePush() {
-    try {
-      setPushBusy(true);
-      setPushInfo(null);
-
-      const perm = getNotifPermission();
-      if (perm === "unsupported") {
-        setPushInfo("Your browser does not support notifications.");
-        return;
-      }
-
-      const granted = await Notification.requestPermission();
-      setPushPerm(granted);
-
-      if (granted !== "granted") {
-        setPushInfo("Notifications not enabled.");
-        return;
-      }
-
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
-
-      const { getMessaging, getToken, onMessage } = await import("firebase/messaging");
-      const { app } = await import("@/lib/firebase/client");
-
-      const reg = await navigator.serviceWorker.register("/firebase-messaging-sw.js");
-
-      const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
-      if (!vapidKey) {
-        setPushInfo("Missing NEXT_PUBLIC_FIREBASE_VAPID_KEY in env.");
-        return;
-      }
-
-      const messaging = getMessaging(app);
-      const fcmToken = await getToken(messaging, { vapidKey, serviceWorkerRegistration: reg });
-
-      if (!fcmToken) {
-        setPushInfo("Could not get device token.");
-        return;
-      }
-
-      await fetch("/api/vendor/push/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ token: fcmToken }),
-      }).then(async (r) => {
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(j?.error || "Register failed");
-      });
-
-      localStorage.setItem(PUSH_TOKEN_KEY, fcmToken);
-      setPushToken(fcmToken);
-
-      // foreground messages (when app open)
-      onMessage(messaging, (payload) => {
-        const title = payload?.notification?.title || "myBizHub";
-        const body = payload?.notification?.body || "You have an update.";
-        setPushInfo(`${title}: ${body}`);
-        setTimeout(() => setPushInfo(null), 4000);
-      });
-
-      setPushInfo("Notifications enabled.");
-      setTimeout(() => setPushInfo(null), 1500);
-    } catch (e: any) {
-      setPushInfo(e?.message || "Failed to enable notifications");
-      setTimeout(() => setPushInfo(null), 2000);
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
-  async function disablePush() {
-    try {
-      setPushBusy(true);
-      setPushInfo(null);
-
-      const t = pushToken || (typeof window !== "undefined" ? localStorage.getItem(PUSH_TOKEN_KEY) : null);
-      if (!t) {
-        setPushInfo("Notifications already off.");
-        return;
-      }
-
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
-
-      await fetch("/api/vendor/push/unregister", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ token: t }),
-      }).then(async (r) => {
-        const j = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(j?.error || "Unregister failed");
-      });
-
-      localStorage.removeItem(PUSH_TOKEN_KEY);
-      setPushToken(null);
-
-      setPushInfo("Notifications disabled.");
-      setTimeout(() => setPushInfo(null), 1500);
-    } catch (e: any) {
-      setPushInfo(e?.message || "Failed");
-      setTimeout(() => setPushInfo(null), 2000);
-    } finally {
-      setPushBusy(false);
-    }
-  }
-
   const ov = data?.overview || {};
   const todo = data?.todo || {};
   const chartDays: any[] = Array.isArray(data?.chartDays) ? data.chartDays : [];
   const recentOrders: any[] = Array.isArray(data?.recentOrders) ? data.recentOrders : [];
 
-  const checkin = data?.checkin || null;
-  const checkinTitle = String(checkin?.title || "Daily business check‑in");
-  const checkinLines: string[] = Array.isArray(checkin?.lines) ? checkin.lines.map(String) : [];
-  const checkinSuggestion = String(checkin?.suggestion || "");
-
-  const nudgesRaw: Nudge[] = Array.isArray(data?.nudges) ? data.nudges : [];
-  const nudges = nudgesRaw.filter((n) => n?.id && !dismissed[n.id]).slice(0, 3);
-
   const maxRev = Math.max(1, ...chartDays.map((d) => Number(d.revenue || 0)));
 
   const monthUnlocked =
-    access?.monthAnalyticsUnlocked !== undefined ? !!access.monthAnalyticsUnlocked : !!access?.features?.canUseMonthRange;
+    access?.monthAnalyticsUnlocked !== undefined
+      ? !!access.monthAnalyticsUnlocked
+      : !!access?.features?.canUseMonthRange;
 
   const accessSource = String(access?.source || "free");
   const accessPlanKey = String(access?.planKey || "FREE").toUpperCase();
@@ -366,6 +160,11 @@ export default function VendorDashboardPage() {
   const riskNotes: string[] = Array.isArray(assistant?.riskShield?.notes) ? assistant.riskShield.notes : [];
 
   const momentumPlan = accessPlanKey === "MOMENTUM";
+
+  // Personal note (no "check-in" wording)
+  const personalTip =
+    String(data?.checkin?.suggestion || "").trim() ||
+    "How’s business today? Add one product, share your link, and follow up with one past buyer.";
 
   return (
     <div className="min-h-screen">
@@ -408,225 +207,8 @@ export default function VendorDashboardPage() {
         {notice ? <Card className="p-4 text-orange-700">{notice}</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
         {loading ? <Card className="p-4">Loading…</Card> : null}
-        {pushInfo ? <Card className="p-4">{pushInfo}</Card> : null}
 
-        {/* ✅ Push notifications */}
-        <Card className="p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <p className="text-sm font-extrabold text-biz-ink">Notifications</p>
-              <p className="text-xs text-biz-muted mt-1">
-                Push alerts like OPay (new orders, important updates).
-              </p>
-              <p className="text-[11px] text-biz-muted mt-2">
-                Status:{" "}
-                <b className="text-biz-ink">
-                  {pushPerm === "unsupported"
-                    ? "Unsupported"
-                    : pushPerm === "granted"
-                      ? pushToken
-                        ? "Enabled"
-                        : "Allowed (not registered)"
-                      : pushPerm}
-                </b>
-              </p>
-            </div>
-
-            <div className="shrink-0 h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
-              <Bell className="h-5 w-5 text-orange-700" />
-            </div>
-          </div>
-
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={enablePush} disabled={pushBusy} loading={pushBusy}>
-              Enable
-            </Button>
-            <Button variant="secondary" onClick={disablePush} disabled={pushBusy} loading={pushBusy}>
-              Disable
-            </Button>
-          </div>
-
-          {isOwner ? (
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const next = !staffNudgesEnabled;
-                  setStaffNudgesEnabled(next);
-                  updateStaffNotifSettings({ staffNudgesEnabled: next });
-                }}
-                className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink hover:bg-black/[0.02] transition"
-              >
-                Staff nudges: {staffNudgesEnabled ? "ON" : "OFF"}
-              </button>
-
-              <button
-                type="button"
-                onClick={() => {
-                  const next = !staffPushEnabled;
-                  setStaffPushEnabled(next);
-                  updateStaffNotifSettings({ staffPushEnabled: next });
-                }}
-                className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink hover:bg-black/[0.02] transition"
-              >
-                Staff push: {staffPushEnabled ? "ON" : "OFF"}
-              </button>
-            </div>
-          ) : (
-            <p className="mt-3 text-[11px] text-biz-muted">
-              Staff push depends on what the owner allows.
-            </p>
-          )}
-        </Card>
-
-        {/* ✅ Smart Nudge Alerts */}
-        {!loading && nudges.length ? (
-          <Card className="p-4">
-            <p className="text-sm font-extrabold text-biz-ink">Smart nudges</p>
-            <p className="text-[11px] text-biz-muted mt-1">Small reminders. No noise.</p>
-
-            <div className="mt-3 space-y-2">
-              {nudges.map((n) => (
-                <div key={n.id} className="rounded-2xl border border-biz-line bg-white p-3">
-                  <div className="flex items-start gap-3">
-                    <div
-                      className={
-                        n.tone === "warn"
-                          ? "h-10 w-10 rounded-2xl bg-orange-50 flex items-center justify-center shrink-0"
-                          : "h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center shrink-0"
-                      }
-                    >
-                      <Sparkles className="h-5 w-5 text-orange-700" />
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-biz-ink">{n.title}</p>
-                      <p className="text-xs text-biz-muted mt-1">{n.body}</p>
-
-                      <div className="mt-2 flex items-center gap-3">
-                        {n.cta?.url ? (
-                          <button
-                            type="button"
-                            onClick={() => router.push(n.cta!.url)}
-                            className="text-xs font-bold text-orange-700 underline underline-offset-2"
-                          >
-                            {n.cta?.label || "Open"}
-                          </button>
-                        ) : null}
-
-                        <button
-                          type="button"
-                          onClick={() => dismissNudge(n.id)}
-                          className="text-xs font-bold text-gray-500 inline-flex items-center gap-1"
-                          aria-label="Dismiss"
-                          title="Dismiss"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                          Dismiss
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        ) : null}
-
-        {/* ✅ Daily Business Check‑in */}
-        {!loading && checkin ? (
-          <Card className="p-4 border border-biz-line bg-white">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
-                <Sparkles className="h-5 w-5 text-orange-700" />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-extrabold text-biz-ink">{checkinTitle}</p>
-
-                {checkinLines.length ? (
-                  <div className="mt-2 space-y-1">
-                    {checkinLines.slice(0, 4).map((t, i) => (
-                      <p key={`${t}-${i}`} className="text-xs text-biz-muted">
-                        • {t}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-
-                {checkinSuggestion ? (
-                  <p className="mt-3 text-xs text-gray-700">
-                    <b className="text-biz-ink">Suggestion:</b> {checkinSuggestion}
-                  </p>
-                ) : null}
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
-                    View orders
-                  </Button>
-                  <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
-                    Products
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </Card>
-        ) : null}
-
-        {/* Dispute warning */}
-        {!loading && assistant && disputeLevel !== "none" ? (
-          <Card className="p-4">
-            <div className="flex items-start gap-3">
-              <div className="h-10 w-10 rounded-2xl bg-red-50 flex items-center justify-center">
-                <AlertTriangle className="h-5 w-5 text-red-700" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-biz-ink">Dispute warning</p>
-                <p className="text-xs text-biz-muted mt-1">
-                  You have <b className="text-biz-ink">{openDisputes}</b> open dispute(s). If ignored, your marketplace visibility reduces.
-                </p>
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button onClick={() => router.push("/vendor/orders")}>View orders</Button>
-                  <Button variant="secondary" onClick={() => router.push("/vendor/more")}>
-                    More
-                  </Button>
-                </div>
-                <p className="mt-2 text-[11px] text-biz-muted">Tip: update delivery progress and respond fast to prevent disputes.</p>
-              </div>
-            </div>
-          </Card>
-        ) : null}
-
-        {/* Risk Shield (quiet monitoring) */}
-        {!loading && assistant && String(accessPlanKey) === "MOMENTUM" ? (
-          riskShieldEnabled ? (
-            <Card className="p-4 border border-biz-line bg-white">
-              <div className="flex items-start gap-3">
-                <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
-                  <Shield className="h-5 w-5 text-orange-700" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-extrabold text-biz-ink">Risk Shield (quiet)</p>
-                  <p className="text-[11px] text-biz-muted mt-1">
-                    Monitoring enabled. You’ll see early warnings, but no action tools.
-                    {riskShieldMode ? ` • Mode: ${riskShieldMode}` : ""}
-                  </p>
-
-                  {riskNotes.length ? (
-                    <div className="mt-2 space-y-1">
-                      {riskNotes.slice(0, 3).map((t: string) => (
-                        <p key={t} className="text-[11px] text-gray-600">
-                          • {t}
-                        </p>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </Card>
-          ) : null
-        ) : null}
-
+        {/* ✅ Total sales FIRST */}
         {!loading && data ? (
           <>
             <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
@@ -659,6 +241,75 @@ export default function VendorDashboardPage() {
               </div>
             </div>
 
+            {/* Personal note (simple + human) */}
+            <Card className="p-4">
+              <p className="text-sm font-extrabold text-biz-ink">How’s business going today?</p>
+              <p className="text-xs text-biz-muted mt-1">{personalTip}</p>
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                  Orders
+                </Button>
+                <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
+                  Products
+                </Button>
+              </div>
+            </Card>
+
+            {/* Dispute warning */}
+            {assistant && disputeLevel !== "none" ? (
+              <Card className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="h-10 w-10 rounded-2xl bg-red-50 flex items-center justify-center">
+                    <AlertTriangle className="h-5 w-5 text-red-700" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-biz-ink">Dispute warning</p>
+                    <p className="text-xs text-biz-muted mt-1">
+                      You have <b className="text-biz-ink">{openDisputes}</b> open dispute(s). If ignored, your marketplace visibility reduces.
+                    </p>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      <Button onClick={() => router.push("/vendor/orders")}>View orders</Button>
+                      <Button variant="secondary" onClick={() => router.push("/vendor/more")}>
+                        More
+                      </Button>
+                    </div>
+                    <p className="mt-2 text-[11px] text-biz-muted">Tip: update delivery progress and respond fast to prevent disputes.</p>
+                  </div>
+                </div>
+              </Card>
+            ) : null}
+
+            {/* Risk Shield (quiet monitoring) */}
+            {assistant && momentumPlan ? (
+              riskShieldEnabled ? (
+                <Card className="p-4 border border-biz-line bg-white">
+                  <div className="flex items-start gap-3">
+                    <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
+                      <Shield className="h-5 w-5 text-orange-700" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-extrabold text-biz-ink">Risk Shield (quiet)</p>
+                      <p className="text-[11px] text-biz-muted mt-1">
+                        Monitoring enabled. You’ll see early warnings, but no action tools.
+                        {riskShieldMode ? ` • Mode: ${riskShieldMode}` : ""}
+                      </p>
+
+                      {riskNotes.length ? (
+                        <div className="mt-2 space-y-1">
+                          {riskNotes.slice(0, 3).map((t: string) => (
+                            <p key={t} className="text-[11px] text-gray-600">
+                              • {t}
+                            </p>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
+                </Card>
+              ) : null
+            ) : null}
+
+            {/* Assistant */}
             {assistant ? (
               <SectionCard
                 title="Assistant"
