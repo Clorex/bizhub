@@ -1,4 +1,3 @@
-// FILE: src/app/vendor/staff/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -81,6 +80,13 @@ function Toggle({
   );
 }
 
+type NotifSettingsRes = {
+  ok: boolean;
+  staffNudgesEnabled?: boolean;
+  staffPushEnabled?: boolean;
+  error?: string;
+};
+
 export default function VendorStaffPage() {
   const router = useRouter();
 
@@ -91,6 +97,11 @@ export default function VendorStaffPage() {
   const [staff, setStaff] = useState<any[]>([]);
   const [invites, setInvites] = useState<any[]>([]);
   const [seats, setSeats] = useState<any>(null);
+
+  // ✅ staff notifications settings
+  const [staffNudgesEnabled, setStaffNudgesEnabled] = useState(false);
+  const [staffPushEnabled, setStaffPushEnabled] = useState(false);
+  const [notifBusy, setNotifBusy] = useState(false);
 
   // invite form
   const [name, setName] = useState("");
@@ -107,7 +118,6 @@ export default function VendorStaffPage() {
   const planKey = String(seats?.planKey || "").toUpperCase();
 
   const canInvite = isOwner && seatLimit > 0 && remainingSeats > 0;
-
   const showBuySeatAddon = isOwner && planKey === "LAUNCH" && seatLimit > 0 && remainingSeats <= 0;
 
   async function authedFetch(path: string, init?: RequestInit) {
@@ -119,6 +129,38 @@ export default function VendorStaffPage() {
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
     return data;
+  }
+
+  async function loadNotifSettings() {
+    try {
+      const j = (await authedFetch("/api/vendor/settings/notifications")) as NotifSettingsRes;
+      setStaffNudgesEnabled(!!j.staffNudgesEnabled);
+      setStaffPushEnabled(!!j.staffPushEnabled);
+    } catch {
+      // keep silent; default OFF
+      setStaffNudgesEnabled(false);
+      setStaffPushEnabled(false);
+    }
+  }
+
+  async function saveNotifSettings(next: { staffNudgesEnabled?: boolean; staffPushEnabled?: boolean }) {
+    try {
+      setNotifBusy(true);
+      setMsg(null);
+
+      await authedFetch("/api/vendor/settings/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+
+      setMsg("Saved.");
+      setTimeout(() => setMsg(null), 1200);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to save");
+    } finally {
+      setNotifBusy(false);
+    }
   }
 
   async function load() {
@@ -136,6 +178,9 @@ export default function VendorStaffPage() {
       setStaff(Array.isArray(data.staff) ? data.staff : []);
       setInvites(Array.isArray(data.invites) ? data.invites : []);
       setSeats(data.seats || null);
+
+      // owner-only setting; still safe to try
+      await loadNotifSettings();
     } catch (e: any) {
       setMsg(e?.message || "Failed to load staff");
       setStaff([]);
@@ -265,6 +310,35 @@ export default function VendorStaffPage() {
               </div>
             </Card>
 
+            {/* ✅ NEW: Staff notifications controls (owner-only) */}
+            <SectionCard title="Staff notifications" subtitle="Decide what staff can receive">
+              <div className="space-y-2">
+                <Toggle
+                  label="Allow staff nudges (in‑app reminders)"
+                  value={staffNudgesEnabled}
+                  disabled={notifBusy}
+                  onChange={(v) => {
+                    setStaffNudgesEnabled(v);
+                    saveNotifSettings({ staffNudgesEnabled: v });
+                  }}
+                />
+
+                <Toggle
+                  label="Allow staff push notifications (outside the app)"
+                  value={staffPushEnabled}
+                  disabled={notifBusy}
+                  onChange={(v) => {
+                    setStaffPushEnabled(v);
+                    saveNotifSettings({ staffPushEnabled: v });
+                  }}
+                />
+
+                <p className="text-[11px] text-biz-muted">
+                  Note: Staff still need to enable notifications on their own device (tap the floating “Notify” button).
+                </p>
+              </div>
+            </SectionCard>
+
             <SectionCard title="Invite staff" subtitle="Create a personalized invite">
               <div className="space-y-2">
                 <Input
@@ -385,7 +459,6 @@ export default function VendorStaffPage() {
                           variant="secondary"
                           size="sm"
                           onClick={async () => {
-                            // ✅ NEW: staff register link
                             const link = `${window.location.origin}/staff/register?code=${encodeURIComponent(inv.id)}`;
                             try {
                               await navigator.clipboard.writeText(link);
