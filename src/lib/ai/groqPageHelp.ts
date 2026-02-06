@@ -40,6 +40,13 @@ async function groqChatJSON(args: { system: string; user: string; temperature?: 
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("Missing GROQ_API_KEY");
 
+  // ✅ Use a supported model (old llama3-8b-8192 was deprecated)
+  const model =
+    args.model ||
+    process.env.GROQ_MODEL_PAGE_HELP ||
+    process.env.GROQ_MODEL ||
+    "llama-3.1-8b-instant";
+
   const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -47,7 +54,7 @@ async function groqChatJSON(args: { system: string; user: string; temperature?: 
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: args.model || "llama3-8b-8192",
+      model,
       temperature: typeof args.temperature === "number" ? args.temperature : 0.5,
       messages: [
         { role: "system", content: args.system },
@@ -74,14 +81,14 @@ export async function groqPageHelp(args: {
 }): Promise<PageHelpResponse> {
   const system = `
 You are myBizHub’s in-app helper.
-Goal: explain the CURRENT page simply and answer the user's question.
+Explain the CURRENT page simply and answer the user's question.
 Use plain everyday words. No jargon. No emojis.
 
 Return JSON only:
 {
   "answer": string,
-  "quickSteps": string[],    // 0-5 short steps
-  "actions": [{ "label": string, "url": string }]  // 0-4 actions
+  "quickSteps": string[],
+  "actions": [{ "label": string, "url": string }]
 }
 
 Only use allowed URLs:
@@ -98,10 +105,9 @@ Only use allowed URLs:
 - /vendor/more
 - /vendor/promote/faq/chat
 - /vendor/promote/faq
-- /b/<slug> (if mentioned)
-- /vendor/orders/<orderId> (if mentioned)
+- /b/<slug>
+- /vendor/orders/<orderId>
 
-If user is confused, include an action that takes them to the right page.
 Keep answer <= 1200 chars.
 `;
 
@@ -115,7 +121,7 @@ UserQuestion: ${args.question}
 
   const raw = await groqChatJSON({ system, user, temperature: 0.55 });
 
-  const answer = clamp(raw?.answer, 1200) || "I can help. Tell me what you’re trying to do on this page.";
+  const answer = clamp(raw?.answer, 1200) || "Tell me what you’re trying to do on this page.";
 
   const quickSteps = (Array.isArray(raw?.quickSteps) ? raw.quickSteps : [])
     .slice(0, 5)
