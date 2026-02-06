@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { IconButton } from "@/components/ui/IconButton";
 
-import { Plus, RefreshCw, Search, Megaphone, Share2, Copy, Lock, Store } from "lucide-react";
+import { Plus, RefreshCw, Search, Megaphone, Share2, Copy, Lock } from "lucide-react";
 import { cloudinaryOptimizedUrl } from "@/lib/cloudinary/url";
 
 function fmtNaira(n: number) {
@@ -113,7 +113,7 @@ export default function VendorProductsPage() {
         return;
       }
 
-      // 1) Load access FIRST (so planKey/features are correct even if products is forbidden)
+      // 1) Load access FIRST
       const pRes = await fetch("/api/vendor/access", { headers: { Authorization: `Bearer ${token}` } });
       const pData = (await pRes.json().catch(() => ({}))) as any;
       if (!pRes.ok) throw new Error(pData?.error || "Failed to load access");
@@ -122,7 +122,7 @@ export default function VendorProductsPage() {
       setPlanKey(String(pData?.planKey || "FREE").toUpperCase());
       setFeatures(pData?.features || {});
 
-      // 2) Load products (may be forbidden for some staff)
+      // 2) Load products
       const prodRes = await fetch("/api/vendor/products", { headers: { Authorization: `Bearer ${token}` } });
       const data = await prodRes.json().catch(() => ({}));
 
@@ -207,7 +207,7 @@ export default function VendorProductsPage() {
         {showNotAuthorized ? (
           <Card className="p-4">
             <p className="text-sm font-bold text-biz-ink">Not authorized</p>
-            <p className="text-xs text-biz-muted mt-1">Your staff account doesn’t have permission to view/manage products.</p>
+            <p className="text-xs text-gray-500 mt-1">This staff account can’t view/manage products.</p>
             <p className="text-[11px] text-gray-500 mt-2">
               Plan: <b className="text-biz-ink">{planKey}</b>
               {role === "staff" && access?.staff?.staffJobTitle ? (
@@ -217,9 +217,9 @@ export default function VendorProductsPage() {
                 </>
               ) : null}
             </p>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={() => router.push("/vendor")}>
-                Back to dashboard
+                Dashboard
               </Button>
               <Button variant="secondary" onClick={load} disabled={loading}>
                 Retry
@@ -235,17 +235,17 @@ export default function VendorProductsPage() {
                 <Lock className="h-5 w-5 text-orange-700" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold text-biz-ink">Marketplace visibility is off</p>
-                <p className="text-xs text-biz-muted mt-1">
-                  People can still buy with your store link, but products won’t show on Market on your current plan.
+                <p className="text-sm font-bold text-biz-ink">Marketplace is locked</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  People can still buy with your store link. Upgrade to show products on Market.
                 </p>
-                <div className="mt-3 flex gap-2">
+                <div className="mt-3 grid grid-cols-2 gap-2">
                   <Button onClick={() => router.push("/vendor/subscription")}>Upgrade</Button>
                   <Button variant="secondary" onClick={() => router.push("/vendor")}>
                     Dashboard
                   </Button>
                 </div>
-                <p className="mt-2 text-[11px] text-biz-muted">
+                <p className="mt-2 text-[11px] text-gray-500">
                   Plan: <b className="text-biz-ink">{planKey}</b>
                 </p>
               </div>
@@ -273,61 +273,40 @@ export default function VendorProductsPage() {
               Refresh
             </Button>
           </div>
-
-          <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
-            <p className="text-xs text-biz-muted">
-              Tip: Use <b className="text-biz-ink">Share</b> to send a ready caption + link to customers on WhatsApp.
-            </p>
-            <p className="text-[11px] text-gray-500 mt-2">
-              Plan: <b className="text-biz-ink">{planKey}</b>
-            </p>
-          </div>
         </Card>
 
         {loading && items.length === 0 ? <Card className="p-4">Loading…</Card> : null}
 
         {!loading && !showNotAuthorized && prodError ? <Card className="p-4 text-red-700">{prodError}</Card> : null}
 
-        {/* ✅ Calm empty state: no products */}
+        {/* ✅ Minimal empty state: no products */}
         {!loading && !showNotAuthorized && items.length === 0 ? (
-          <Card className="p-5">
-            <p className="text-base font-extrabold text-biz-ink">No products yet</p>
-            <p className="text-sm text-biz-muted mt-2">
-              Your first product will show here. Start with just one—name, price, and photo is enough.
-            </p>
-
-            <ul className="mt-3 text-sm text-gray-700 list-disc pl-5 space-y-1">
-              <li>Add one product</li>
-              <li>Set stock (even if it’s small)</li>
-              <li>Share it to WhatsApp after</li>
-            </ul>
+          <Card variant="soft" className="p-5">
+            <p className="text-sm font-extrabold text-biz-ink">No products yet</p>
+            <p className="text-xs text-gray-500 mt-1">Add one product to start selling.</p>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button onClick={() => router.push("/vendor/products/new")} disabled={!canManage} leftIcon={<Plus className="h-4 w-4" />}>
+              <Button variant="secondary" onClick={() => router.push("/vendor/products/new")} disabled={!canManage}>
                 Add product
               </Button>
-              <Button variant="secondary" onClick={() => router.push("/vendor/store")} leftIcon={<Store className="h-4 w-4" />}>
-                Store settings
-              </Button>
-
-              <Button variant="secondary" className="col-span-2" onClick={() => router.push("/vendor")}>
-                Back to dashboard
+              <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                Dashboard
               </Button>
             </div>
 
             {!canManage ? (
-              <p className="mt-3 text-[11px] text-orange-700">
-                You can’t add products with this account. Ask the owner to grant “Manage products”.
+              <p className="mt-3 text-[11px] text-gray-500">
+                You can’t add products with this account.
               </p>
             ) : null}
           </Card>
         ) : null}
 
-        {/* ✅ Calm empty state: no matches */}
+        {/* ✅ Minimal empty state: no matches */}
         {!loading && items.length > 0 && filtered.length === 0 ? (
-          <Card className="p-5 text-center">
-            <p className="text-base font-extrabold text-biz-ink">No matches</p>
-            <p className="text-sm text-biz-muted mt-2">Try a different keyword or clear your search.</p>
+          <Card variant="soft" className="p-5 text-center">
+            <p className="text-sm font-extrabold text-biz-ink">No matches</p>
+            <p className="text-xs text-gray-500 mt-1">Try another keyword.</p>
             <div className="mt-4">
               <Button variant="secondary" onClick={() => setQ("")}>
                 Clear search
@@ -351,13 +330,7 @@ export default function VendorProductsPage() {
                   <div className="h-16 w-16 rounded-2xl bg-biz-cream overflow-hidden shrink-0">
                     {img ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={img}
-                        alt={p?.name || "Product"}
-                        className="h-full w-full object-cover"
-                        loading="lazy"
-                        decoding="async"
-                      />
+                      <img src={img} alt={p?.name || "Product"} className="h-full w-full object-cover" loading="lazy" decoding="async" />
                     ) : null}
                   </div>
 
@@ -374,21 +347,11 @@ export default function VendorProductsPage() {
                     <p className="text-sm text-gray-700 mt-1">
                       {isService ? "Service" : fmtNaira(p?.price || 0)} • Stock: <b>{Number(p?.stock ?? 0)}</b>
                     </p>
-
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <Chip>{p?.packaging || "Packaging"}</Chip>
-                      {isService ? <Chip>Service</Chip> : null}
-                    </div>
                   </div>
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => (canManage ? router.push(`/vendor/products/${p.id}/edit`) : undefined)}
-                    disabled={!canManage}
-                  >
+                  <Button variant="secondary" size="sm" onClick={() => (canManage ? router.push(`/vendor/products/${p.id}/edit`) : undefined)} disabled={!canManage}>
                     Edit
                   </Button>
 
@@ -396,12 +359,7 @@ export default function VendorProductsPage() {
                     View
                   </Button>
 
-                  <Button
-                    size="sm"
-                    leftIcon={<Megaphone className="h-4 w-4" />}
-                    onClick={() => (canManage ? router.push(`/vendor/promote?productId=${encodeURIComponent(p.id)}`) : undefined)}
-                    disabled={!canManage || isService}
-                  >
+                  <Button size="sm" leftIcon={<Megaphone className="h-4 w-4" />} onClick={() => (canManage ? router.push(`/vendor/promote?productId=${encodeURIComponent(p.id)}`) : undefined)} disabled={!canManage || isService}>
                     Promote
                   </Button>
 
@@ -419,7 +377,7 @@ export default function VendorProductsPage() {
             <div className="w-full max-w-[430px] px-4 safe-pb pb-4">
               <Card className="p-4">
                 <p className="text-sm font-bold text-biz-ink">{shareTitle}</p>
-                <p className="text-[11px] text-biz-muted mt-1">This caption is auto-generated. You can edit before sending.</p>
+                <p className="text-[11px] text-gray-500 mt-1">You can edit before sending.</p>
 
                 <textarea
                   className="mt-3 w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"

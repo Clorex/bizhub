@@ -64,23 +64,9 @@ function remixCapForPlan(planKey: PlanKey) {
 }
 
 function remixSuggestionForLocked(planKey: PlanKey) {
-  if (planKey === "LAUNCH") {
-    return {
-      action: "buy_addon" as const,
-      sku: "addon_reengage_remix_lite",
-      title: "Buy Re‑engagement AI remix (lite)",
-      url: "/vendor/purchases",
-    };
-  }
-  if (planKey === "MOMENTUM") {
-    return {
-      action: "buy_addon" as const,
-      sku: "addon_reengage_remix_apex_capped",
-      title: "Buy Re‑engagement AI remix (Apex engine, capped)",
-      url: "/vendor/purchases",
-    };
-  }
-  return { action: "upgrade" as const, title: "Upgrade plan", url: "/vendor/subscription" };
+  if (planKey === "LAUNCH") return { title: "Buy AI remix", url: "/vendor/purchases" };
+  if (planKey === "MOMENTUM") return { title: "Buy AI remix", url: "/vendor/purchases" };
+  return { title: "Upgrade plan", url: "/vendor/subscription" };
 }
 
 type RemixUsage = {
@@ -131,17 +117,13 @@ export default function VendorReengagementPage() {
   const smartGroupsOn = !!features?.reengagementSmartGroups;
   const smartMessagesOn = !!features?.reengagementSmartMessages;
 
-  // ✅ AI remix is now purchasable on Launch/Momentum, core on Apex
   const aiRemixUnlocked = !!features?.reengagementAiRemix;
-
-  // VIP remains APEX-only (requires AI remix too)
   const vipAllowed = cleanPlanKey(planKey) === "APEX" && aiRemixUnlocked;
 
   const [sending, setSending] = useState(false);
   const sendQueueRef = useRef<any[]>([]);
   const sendIdxRef = useRef<number>(0);
 
-  // Remix cap UI state (rolling 24h)
   const [remixUsage, setRemixUsage] = useState<RemixUsage | null>(null);
   const [remixInfo, setRemixInfo] = useState<any>(null);
   const [remixing, setRemixing] = useState(false);
@@ -171,9 +153,7 @@ export default function VendorReengagementPage() {
 
       setBusinessSlug(String(data?.business?.slug || ""));
       setBusinessName(String(data?.business?.name || ""));
-    } catch {
-      // ignore
-    }
+    } catch {}
   }
 
   function currentSegment(): ReengagementSegment {
@@ -201,7 +181,6 @@ export default function VendorReengagementPage() {
       setPeople(list);
 
       setCounts(data?.counts || {});
-
       const initSel: Record<string, boolean> = {};
       for (const p of list.slice(0, 50)) initSel[String(p.key)] = true;
       setSelected(initSel);
@@ -272,7 +251,6 @@ export default function VendorReengagementPage() {
 
       const data = await r.json().catch(() => ({}));
 
-      // Endpoint uses soft-block: HTTP 200 with ok:false
       if (data?.ok) {
         const rk = String(data?.rotationKey || "").trim();
         if (rk) setRotationKey(rk);
@@ -287,18 +265,10 @@ export default function VendorReengagementPage() {
         }
 
         setRemixInfo(null);
-        if (!opts?.silent) setMsg("Remixed suggestions.");
+        if (!opts?.silent) setMsg("Remixed.");
       } else {
         setRemixInfo(data || null);
-        if (data?.usage) {
-          setRemixUsage({
-            cap: Number(data.usage.cap || 0),
-            used: Number(data.usage.used || 0),
-            windowStartMs: Number(data.usage.windowStartMs || 0) || 0,
-            resetAtMs: Number(data.usage.resetAtMs || 0) || 0,
-          });
-        }
-        if (!opts?.silent) setMsg(String(data?.error || "Remix unavailable right now."));
+        if (!opts?.silent) setMsg(String(data?.error || "Remix unavailable."));
       }
     } catch (e: any) {
       if (!opts?.silent) setMsg(e?.message || "Remix failed");
@@ -325,10 +295,7 @@ export default function VendorReengagementPage() {
         : baseText.trim();
 
       await navigator.clipboard.writeText(text);
-
-      setMsg(`Copied message for ${p.fullName || p.phone || "customer"}.`);
-
-      // ✅ Regenerate consumes prompt
+      setMsg(`Copied.`);
       if (aiRemixUnlocked && autoRemixAfterCopy) await requestRemix({ silent: true });
     } catch {
       setMsg("Copy failed.");
@@ -349,17 +316,12 @@ export default function VendorReengagementPage() {
       const data = await authedFetch("/api/vendor/reengagement/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          segment: seg,
-          baseText,
-          rotationKey,
-          people: recipients,
-        }),
+        body: JSON.stringify({ segment: seg, baseText, rotationKey, people: recipients }),
       });
 
       const list: any[] = Array.isArray(data.recipients) ? data.recipients : [];
       if (list.length === 0) {
-        setMsg("No recipients available under your plan limit today.");
+        setMsg("No recipients available today.");
         setSending(false);
         return;
       }
@@ -367,26 +329,16 @@ export default function VendorReengagementPage() {
       sendQueueRef.current = list;
       sendIdxRef.current = 0;
 
-      const lim = data?.limit;
-      setMsg(
-        `Starting WhatsApp send… (${list.length} recipient(s))` +
-          (lim?.remainingAfter != null ? ` • Remaining today: ${lim.remainingAfter}` : "")
-      );
-
       const tickSend = async () => {
         const i = sendIdxRef.current;
         const q2 = sendQueueRef.current;
-
         if (i >= q2.length) {
           setSending(false);
-          setMsg(`Done. Opened WhatsApp for ${q2.length} recipient(s).`);
+          setMsg("Done.");
           return;
         }
-
         const r = q2[i];
-        const url = waLink(String(r.phone || ""), String(r.text || baseText));
-        window.open(url, "_blank");
-
+        window.open(waLink(String(r.phone || ""), String(r.text || baseText)), "_blank");
         sendIdxRef.current = i + 1;
         setTimeout(tickSend, 650);
       };
@@ -413,7 +365,6 @@ export default function VendorReengagementPage() {
   const selectedPreview = useMemo(() => {
     if (!selectedPeople.length) return null;
     const p = selectedPeople[0];
-
     const text = smartMessagesOn
       ? composeSmartMessage({
           planKey,
@@ -426,42 +377,34 @@ export default function VendorReengagementPage() {
           rotationKey,
         })
       : baseText.trim();
-
     return { p, text };
   }, [selectedPeople, smartMessagesOn, planKey, aiRemixUnlocked, businessSlug, businessName, seg, baseText, rotationKey]);
-
-  const remixCap = remixCapForPlan(cleanPlanKey(planKey));
-  const capLabel =
-    remixCap === Infinity ? "Unlimited" : remixCap > 0 ? `${remixCap} prompts / 24h` : "—";
 
   const capResetAtMs = Number(remixUsage?.resetAtMs || remixInfo?.resetAtMs || 0);
   const countdownMs = capResetAtMs ? Math.max(0, capResetAtMs - Date.now()) : 0;
   const capReached = String(remixInfo?.code || "") === "REMIX_CAP_REACHED";
-  const remixLocked = String(remixInfo?.code || "") === "FEATURE_LOCKED";
 
-  const lockedSuggestion = remixSuggestionForLocked(cleanPlanKey(planKey));
-  const capSuggestion = remixInfo?.suggestion || null;
+  const noPeople = !loading && people.length === 0;
+  const noMatches = !loading && q.trim().length > 0 && people.length === 0;
 
   return (
     <div className="min-h-screen">
-      <GradientHeader title="Re‑engagement" subtitle="Message customers in smart groups" showBack={true} />
+      <GradientHeader title="Re‑engagement" subtitle="Message customers" showBack={true} />
 
       <div className="px-4 pb-24 space-y-3">
-        {msg ? (
-          <Card className={String(msg).toLowerCase().includes("blocked") ? "p-4 text-red-700" : "p-4"}>{msg}</Card>
-        ) : null}
+        {msg ? <Card className="p-4">{msg}</Card> : null}
 
         {!reengagementUnlocked ? (
           <Card className="p-4">
             <p className="text-sm font-bold text-biz-ink">Upgrade required</p>
-            <p className="text-xs text-biz-muted mt-1">Re‑engagement is available on paid plans.</p>
+            <p className="text-xs text-gray-500 mt-1">Re‑engagement is available on paid plans.</p>
             <div className="mt-3">
               <Button onClick={() => (window.location.href = "/vendor/subscription")}>Upgrade</Button>
             </div>
           </Card>
         ) : null}
 
-        <SectionCard title="Audience" subtitle="Choose who you want to message">
+        <SectionCard title="Audience" subtitle="Choose who to message">
           <SegmentedControl<Mode>
             value={mode}
             onChange={(v) => {
@@ -476,23 +419,10 @@ export default function VendorReengagementPage() {
 
           {mode === "abandoned" ? (
             <div className="mt-3">
-              <Input
-                type="number"
-                min={7}
-                max={365}
-                value={String(days)}
-                onChange={(e) => setDays(Number(e.target.value))}
-                placeholder="30"
-                disabled={sending}
-              />
-              <p className="text-[11px] text-biz-muted mt-1">Filters unpaid orders within the last X days.</p>
+              <Input type="number" min={7} max={365} value={String(days)} onChange={(e) => setDays(Number(e.target.value))} disabled={sending} />
             </div>
           ) : (
             <div className="mt-3">
-              <p className="text-[11px] text-biz-muted">
-                {smartGroupsOn ? "Auto groups:" : "Auto groups are locked on your package."}
-              </p>
-
               <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
                 {segmentButtons
                   .filter((x) => x.show)
@@ -522,115 +452,77 @@ export default function VendorReengagementPage() {
             <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center border border-transparent">
               <Search className="h-5 w-5 text-orange-700" />
             </div>
-            <Input placeholder="Search recipients…" value={q} onChange={(e) => setQ(e.target.value)} disabled={sending} />
-            <Button
-              variant="secondary"
-              onClick={loadAudience}
-              disabled={loading || sending}
-              leftIcon={<RefreshCw className="h-4 w-4" />}
-            >
+            <Input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} disabled={sending} />
+            <Button variant="secondary" onClick={loadAudience} disabled={loading || sending} leftIcon={<RefreshCw className="h-4 w-4" />}>
               Refresh
             </Button>
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => toggleAll(true)} disabled={sending}>
+            <Button variant="secondary" onClick={() => toggleAll(true)} disabled={sending || people.length === 0}>
               Select all
             </Button>
-            <Button variant="secondary" onClick={() => toggleAll(false)} disabled={sending}>
-              Clear all
+            <Button variant="secondary" onClick={() => toggleAll(false)} disabled={sending || people.length === 0}>
+              Clear
             </Button>
           </div>
+
+          {/* ✅ Minimal empty states */}
+          {noPeople ? (
+            <Card variant="soft" className="p-4 mt-3">
+              {noMatches ? (
+                <>
+                  <p className="text-sm font-extrabold text-biz-ink">No matches</p>
+                  <p className="text-xs text-gray-500 mt-1">Try another search.</p>
+                  <div className="mt-3">
+                    <Button variant="secondary" onClick={() => setQ("")}>
+                      Clear search
+                    </Button>
+                  </div>
+                </>
+              ) : mode === "buyers" ? (
+                <>
+                  <p className="text-sm font-extrabold text-biz-ink">No buyers yet</p>
+                  <p className="text-xs text-gray-500 mt-1">After your first order, buyers will show here.</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                      View orders
+                    </Button>
+                    <Button variant="secondary" onClick={() => router.push("/vendor/products/new")}>
+                      Add product
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-extrabold text-biz-ink">No abandoned orders</p>
+                  <p className="text-xs text-gray-500 mt-1">Nothing to follow up right now.</p>
+                  <div className="mt-3">
+                    <Button variant="secondary" onClick={loadAudience}>
+                      Refresh
+                    </Button>
+                  </div>
+                </>
+              )}
+            </Card>
+          ) : null}
         </SectionCard>
 
         <SectionCard
           title="Message"
-          subtitle={
-            smartMessagesOn
-              ? aiRemixUnlocked
-                ? cleanPlanKey(planKey) === "APEX"
-                  ? "AI remix + unique per customer (Apex)"
-                  : "AI remix (capped) + unique per customer"
-                : "Unique per customer"
-              : "Standard message (no smart personalization on your package)"
-          }
+          subtitle={smartMessagesOn ? "Personalized per customer" : "Standard message"}
           right={
             aiRemixUnlocked ? (
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => requestRemix()}
-                disabled={sending || remixing || capReached}
-                leftIcon={<Sparkles className="h-4 w-4" />}
-              >
+              <Button size="sm" variant="secondary" onClick={() => requestRemix()} disabled={sending || remixing || capReached} leftIcon={<Sparkles className="h-4 w-4" />}>
                 {capReached ? "Remix (limit)" : remixing ? "Remixing…" : "Remix"}
               </Button>
             ) : null
           }
         >
-          {!aiRemixUnlocked && reengagementUnlocked && (cleanPlanKey(planKey) === "LAUNCH" || cleanPlanKey(planKey) === "MOMENTUM") ? (
-            <Card variant="soft" className="p-3">
-              <p className="text-sm font-bold text-biz-ink">AI remix locked</p>
-              <p className="text-[11px] text-biz-muted mt-1">
-                AI remix is not included on your plan by default. Buy the add-on to unlock it.
-              </p>
-              <div className="mt-2 flex gap-2">
-                <Button size="sm" onClick={() => router.push(lockedSuggestion.url)}>
-                  Buy AI remix
-                </Button>
-                <Button size="sm" variant="secondary" onClick={() => router.push("/vendor/subscription")}>
-                  Upgrade
-                </Button>
-              </div>
-            </Card>
-          ) : null}
-
-          {aiRemixUnlocked ? (
-            <Card className="p-3">
-              <p className="text-sm font-bold text-biz-ink">AI remix usage</p>
-              <p className="text-[11px] text-gray-500 mt-1">
-                Cap: <b className="text-biz-ink">{capLabel}</b>
-                {remixUsage?.cap != null && Number.isFinite(remixUsage.cap) && remixUsage.cap > 0 ? (
-                  <>
-                    {" "}
-                    • Used: <b className="text-biz-ink">{Number(remixUsage.used || 0)}</b> /{" "}
-                    <b className="text-biz-ink">{Number(remixUsage.cap || 0)}</b>
-                  </>
-                ) : null}
-              </p>
-
-              {capResetAtMs ? (
-                <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-2">
-                  <Clock className="h-4 w-4" />
-                  Resets in: <b className="text-biz-ink">{fmtCountdown(countdownMs)}</b>
-                </p>
-              ) : (
-                <p className="text-[11px] text-gray-500 mt-1">
-                  Timer starts after your first remix prompt.
-                </p>
-              )}
-
-              {capReached ? (
-                <div className="mt-2">
-                  <p className="text-[11px] text-biz-muted">
-                    You’ve hit your AI remix cap. You can still send messages—just wait for the timer to reset to remix again.
-                  </p>
-                  <div className="mt-2">
-                    <Button size="sm" variant="secondary" onClick={() => router.push(String(capSuggestion?.url || "/vendor/subscription"))}>
-                      Upgrade
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-
-              {remixLocked ? (
-                <div className="mt-2">
-                  <Button size="sm" onClick={() => router.push(lockedSuggestion.url)}>
-                    Buy AI remix
-                  </Button>
-                </div>
-              ) : null}
-            </Card>
+          {capResetAtMs ? (
+            <p className="text-[11px] text-gray-500 mb-2 flex items-center gap-2">
+              <Clock className="h-4 w-4" /> Resets in: <b className="text-biz-ink">{fmtCountdown(countdownMs)}</b>
+            </p>
           ) : null}
 
           <textarea
@@ -641,54 +533,13 @@ export default function VendorReengagementPage() {
             disabled={sending}
           />
 
-          {aiRemixUnlocked ? (
-            <div className="mt-2 rounded-2xl border border-biz-line bg-white p-3">
-              <div className="flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-biz-ink">Auto‑remix after copy</p>
-                  <p className="text-[11px] text-biz-muted mt-1">
-                    When you copy a customer message, we’ll remix the next one automatically. (Consumes prompts)
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className={
-                    autoRemixAfterCopy
-                      ? "px-3 py-2 rounded-2xl text-xs font-bold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent"
-                      : "px-3 py-2 rounded-2xl text-xs font-bold border border-biz-line bg-white"
-                  }
-                  onClick={() => {
-                    const next = !autoRemixAfterCopy;
-                    setAutoRemixAfterCopy(next);
-                    try {
-                      localStorage.setItem("bizhub_reengage_auto_remix", next ? "1" : "0");
-                    } catch {}
-                  }}
-                  disabled={sending}
-                >
-                  {autoRemixAfterCopy ? "ON" : "OFF"}
-                </button>
-              </div>
-            </div>
-          ) : null}
-
           {selectedPreview ? (
             <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
-              <p className="text-xs font-bold text-biz-ink">Preview (first selected)</p>
-              <p className="text-[11px] text-biz-muted mt-1">
-                {selectedPreview.p.fullName || selectedPreview.p.phone} • Last order:{" "}
-                {selectedPreview.p.lastOrderMs ? fmtDate(Number(selectedPreview.p.lastOrderMs || 0)) : "—"}
-              </p>
+              <p className="text-xs font-bold text-biz-ink">Preview</p>
               <pre className="mt-2 whitespace-pre-wrap text-[12px] text-gray-800">{selectedPreview.text}</pre>
               <div className="mt-2">
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  onClick={() => copyForPerson(selectedPreview.p)}
-                  leftIcon={<Copy className="h-4 w-4" />}
-                  disabled={sending}
-                >
-                  Copy this preview
+                <Button size="sm" variant="secondary" onClick={() => copyForPerson(selectedPreview.p)} leftIcon={<Copy className="h-4 w-4" />} disabled={sending}>
+                  Copy
                 </Button>
               </div>
             </div>
@@ -701,80 +552,10 @@ export default function VendorReengagementPage() {
               </div>
               <div>
                 <p className="text-sm font-bold text-biz-ink">Safety policy</p>
-                <p className="text-[11px] text-biz-muted mt-1">Bullying/sexual harassment content is blocked and logged.</p>
+                <p className="text-[11px] text-gray-500 mt-1">Bullying/sexual harassment content is blocked.</p>
               </div>
             </div>
           </div>
-        </SectionCard>
-
-        <SectionCard
-          title="Recipients"
-          subtitle={loading ? "Loading…" : `${people.length} found • ${selectedPeople.length} selected • ${segmentLabel(seg)}`}
-        >
-          {loading ? <p className="text-sm text-biz-muted">Loading…</p> : null}
-          {!loading && people.length === 0 ? <p className="text-sm text-biz-muted">No recipients found.</p> : null}
-
-          {!loading && people.length > 0 ? (
-            <div className="space-y-2">
-              {people.slice(0, 120).map((p) => {
-                const on = !!selected[p.key];
-                return (
-                  <div key={p.key} className="rounded-2xl border border-biz-line bg-white p-3">
-                    <button
-                      className="w-full text-left"
-                      onClick={() => (!sending ? toggle(p.key) : undefined)}
-                      type="button"
-                      disabled={sending}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-biz-ink">{p.fullName || p.phone || "Customer"}</p>
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            {p.phone || "—"} • Orders: <b>{Number(p.ordersCount || 0)}</b> • Last:{" "}
-                            <b>{p.lastOrderMs ? fmtDate(Number(p.lastOrderMs || 0)) : "—"}</b>
-                          </p>
-                        </div>
-                        <span
-                          className={
-                            on
-                              ? "px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100"
-                              : "px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100"
-                          }
-                        >
-                          {on ? "Selected" : "Off"}
-                        </span>
-                      </div>
-                    </button>
-
-                    <div className="mt-2 flex gap-2">
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => copyForPerson(p)}
-                        disabled={sending}
-                        leftIcon={<Copy className="h-4 w-4" />}
-                      >
-                        Copy message
-                      </Button>
-
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        onClick={() => window.open(waLink(String(p.phone || ""), selectedPreview?.text || baseText), "_blank")}
-                        disabled={sending || !p.phone}
-                      >
-                        Open WhatsApp
-                      </Button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
-
-          {people.length > 120 ? (
-            <p className="mt-3 text-[11px] text-biz-muted">Showing first 120 to keep the page fast. Use search to find others.</p>
-          ) : null}
         </SectionCard>
 
         <div className="fixed bottom-0 left-0 right-0 z-40">
@@ -783,7 +564,7 @@ export default function VendorReengagementPage() {
               <Button onClick={startSend} disabled={!reengagementUnlocked || sending || !baseText.trim() || selectedPeople.length === 0}>
                 <span className="inline-flex items-center gap-2">
                   <MessageCircle className="h-4 w-4" />
-                  {sending ? "Sending…" : "Send to selected"}
+                  {sending ? "Sending…" : "Send"}
                 </span>
               </Button>
 
@@ -792,9 +573,8 @@ export default function VendorReengagementPage() {
               </Button>
 
               {limits?.reengagementDaily ? (
-                <p className="text-[11px] text-biz-muted text-center">
-                  Daily limit: <b className="text-biz-ink">{limits.reengagementDaily}</b> (plan:{" "}
-                  <b className="text-biz-ink">{planKey}</b>)
+                <p className="text-[11px] text-gray-500 text-center">
+                  Daily limit: <b className="text-biz-ink">{limits.reengagementDaily}</b>
                 </p>
               ) : null}
             </Card>

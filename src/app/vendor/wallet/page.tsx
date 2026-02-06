@@ -68,28 +68,18 @@ export default function VendorBalancePage() {
         {loading ? <Card className="p-4">Loading…</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
-        {/* ✅ Calm empty state */}
+        {/* ✅ Minimal empty state */}
         {allZero ? (
-          <Card className="p-5">
-            <p className="text-base font-extrabold text-biz-ink">No earnings yet</p>
-            <p className="text-sm text-biz-muted mt-2">
-              Your balance will show here after you start receiving paid orders.
-            </p>
-
-            <ul className="mt-3 text-sm text-gray-700 list-disc pl-5 space-y-1">
-              <li>Add at least one product</li>
-              <li>Share your store link on WhatsApp</li>
-              <li>When payments come in, they’ll appear here automatically</li>
-            </ul>
+          <Card variant="soft" className="p-5">
+            <p className="text-sm font-extrabold text-biz-ink">No earnings yet</p>
+            <p className="text-xs text-gray-500 mt-1">Your balance will show here after paid orders.</p>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button onClick={() => router.push("/vendor/products/new")}>Add product</Button>
+              <Button variant="secondary" onClick={() => router.push("/vendor/products/new")}>
+                Add product
+              </Button>
               <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
                 View orders
-              </Button>
-
-              <Button variant="secondary" className="col-span-2" onClick={() => router.push("/vendor")}>
-                Back to dashboard
               </Button>
             </div>
           </Card>

@@ -100,7 +100,6 @@ export default function VendorOrdersPage() {
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error("Not logged in");
 
-      // Load me (for store link)
       const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
       const meData = await rMe.json().catch(() => ({}));
       if (rMe.ok) setMe(meData?.me || null);
@@ -172,10 +171,10 @@ export default function VendorOrdersPage() {
         return;
       }
       await navigator.clipboard.writeText(storeUrl);
-      setMsg("Store link copied. Share it to get your first order.");
-      setTimeout(() => setMsg(null), 1800);
+      setMsg("Store link copied.");
+      setTimeout(() => setMsg(null), 1200);
     } catch {
-      setMsg("Copy failed. You can copy your store link from Dashboard.");
+      setMsg("Copy failed.");
     }
   }
 
@@ -213,7 +212,7 @@ export default function VendorOrdersPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="font-extrabold text-biz-ink">Overview</p>
-              <p className="text-xs text-biz-muted mt-1">
+              <p className="text-xs text-gray-500 mt-1">
                 {totals.count} order(s) • {totals.awaiting} awaiting • {totals.disputed} disputed
               </p>
               {meta ? (
@@ -232,7 +231,7 @@ export default function VendorOrdersPage() {
                 disabled={loading || exporting}
                 leftIcon={<Download className="h-4 w-4" />}
               >
-                Export CSV
+                Export
               </Button>
 
               <Button variant="secondary" size="sm" onClick={load} loading={loading}>
@@ -240,38 +239,22 @@ export default function VendorOrdersPage() {
               </Button>
             </div>
           </div>
-
-          <p className="text-[11px] text-biz-muted mt-2">
-            Export is plan-based. If you get blocked, upgrade to unlock larger exports.
-          </p>
         </Card>
 
         {loading ? <Card className="p-4">Loading…</Card> : null}
 
-        {/* ✅ Calm empty state */}
+        {/* ✅ Minimal empty state */}
         {!loading && orders.length === 0 ? (
-          <Card className="p-5">
-            <p className="text-base font-extrabold text-biz-ink">No orders yet</p>
-            <p className="text-sm text-biz-muted mt-2">
-              When your first order comes in, it will show here. If you want, start small:
-            </p>
-
-            <ul className="mt-3 text-sm text-gray-700 list-disc pl-5 space-y-1">
-              <li>Share your store link with 3 people</li>
-              <li>Add one more product (even one is fine)</li>
-              <li>Make sure your WhatsApp is correct in Store settings</li>
-            </ul>
+          <Card variant="soft" className="p-5">
+            <p className="text-sm font-extrabold text-biz-ink">No orders yet</p>
+            <p className="text-xs text-gray-500 mt-1">Your first order will show here.</p>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button onClick={copyStoreLink} leftIcon={<Link2 className="h-4 w-4" />} disabled={!storeUrl}>
-                Copy store link
+              <Button variant="secondary" onClick={copyStoreLink} disabled={!storeUrl} leftIcon={<Link2 className="h-4 w-4" />}>
+                Copy link
               </Button>
               <Button variant="secondary" onClick={() => router.push("/vendor/products/new")} leftIcon={<PackagePlus className="h-4 w-4" />}>
                 Add product
-              </Button>
-
-              <Button variant="secondary" className="col-span-2" onClick={() => router.push("/vendor/store")}>
-                Check Store settings
               </Button>
             </div>
           </Card>

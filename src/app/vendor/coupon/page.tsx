@@ -28,7 +28,6 @@ function clampInt(n: any, min: number, max: number) {
 }
 
 function toMsDateInput(v: string) {
-  // v = "YYYY-MM-DD"
   if (!v) return null;
   const d = new Date(v + "T00:00:00");
   const ms = d.getTime();
@@ -43,7 +42,6 @@ export default function VendorCouponsPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const [me, setMe] = useState<any>(null);
-
   const [coupons, setCoupons] = useState<any[]>([]);
 
   // create/update form
@@ -95,7 +93,6 @@ export default function VendorCouponsPage() {
 
   useEffect(() => {
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const isOwner = useMemo(() => String(me?.role || "") === "owner", [me]);
@@ -123,16 +120,12 @@ export default function VendorCouponsPage() {
         body: JSON.stringify(payload),
       });
 
-      setMsg("Saved coupon.");
+      setMsg("Saved.");
+      setTimeout(() => setMsg(null), 1200);
       setCode("");
       await load();
     } catch (e: any) {
-      // subscription required handling
-      if (String(e?.message || "").includes("SUBSCRIPTION_REQUIRED")) {
-        setMsg("Subscribe to create discount codes.");
-      } else {
-        setMsg(e?.message || "Failed");
-      }
+      setMsg(e?.message || "Failed");
     } finally {
       setSaving(false);
     }
@@ -168,27 +161,17 @@ export default function VendorCouponsPage() {
 
   return (
     <div className="min-h-screen">
-      <GradientHeader title="Discounts" subtitle="Create coupon codes for checkout" showBack={true} />
+      <GradientHeader title="Coupon codes" subtitle="Discount codes for checkout" showBack={true} />
 
       <div className="px-4 pb-24 space-y-3">
         {loading ? <Card className="p-4">Loading…</Card> : null}
-        {msg ? (
-          <Card className="p-4">
-            <p className="text-sm font-bold text-biz-ink">Notice</p>
-            <p className="text-sm text-gray-700 mt-2">{msg}</p>
-            {msg.toLowerCase().includes("subscribe") ? (
-              <div className="mt-3">
-                <Button onClick={() => router.push("/vendor/subscription")}>Upgrade</Button>
-              </div>
-            ) : null}
-          </Card>
-        ) : null}
+        {msg ? <Card className="p-4">{msg}</Card> : null}
 
         {!loading && !isOwner ? (
-          <Card className="p-4">
-            <p className="text-sm font-bold text-biz-ink">Owner only</p>
-            <p className="text-xs text-biz-muted mt-1">Only the owner can create and manage coupons.</p>
-            <div className="mt-3">
+          <Card variant="soft" className="p-5">
+            <p className="text-sm font-extrabold text-biz-ink">Owner only</p>
+            <p className="text-xs text-gray-500 mt-1">Only the owner can create and manage coupon codes.</p>
+            <div className="mt-4">
               <Button variant="secondary" onClick={() => router.push("/vendor")}>
                 Back
               </Button>
@@ -198,7 +181,7 @@ export default function VendorCouponsPage() {
 
         {!loading && isOwner ? (
           <>
-            <SectionCard title="Create coupon" subtitle="Subscription required">
+            <SectionCard title="Create coupon" subtitle="Keep it simple">
               <div className="space-y-2">
                 <Input placeholder="CODE (e.g. SAVE10)" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} />
 
@@ -244,7 +227,7 @@ export default function VendorCouponsPage() {
                     type="number"
                     min={0}
                     step={500}
-                    placeholder="Max discount (NGN, optional)"
+                    placeholder="Max discount (NGN)"
                     value={String(maxDiscountNgn)}
                     onChange={(e) => setMaxDiscountNgn(Number(e.target.value))}
                   />
@@ -260,37 +243,43 @@ export default function VendorCouponsPage() {
                 />
 
                 <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <p className="text-[11px] text-biz-muted mb-1">Start date (optional)</p>
-                    <Input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
-                  </div>
-                  <div>
-                    <p className="text-[11px] text-biz-muted mb-1">End date (optional)</p>
-                    <Input type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
-                  </div>
+                  <Input type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+                  <Input type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
                 </div>
 
-                <div className="rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between">
-                  <p className="text-sm font-bold text-biz-ink">Active</p>
-                  <button
-                    className={active ? "px-3 py-2 rounded-2xl text-xs font-bold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent" : "px-3 py-2 rounded-2xl text-xs font-bold border border-biz-line bg-white"}
-                    onClick={() => setActive((v) => !v)}
-                    type="button"
+                <button
+                  type="button"
+                  className="w-full rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between"
+                  onClick={() => setActive((v) => !v)}
+                >
+                  <span className="text-sm font-bold text-biz-ink">Active</span>
+                  <span
+                    className={
+                      active
+                        ? "px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100"
+                        : "px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100"
+                    }
                   >
                     {active ? "ON" : "OFF"}
-                  </button>
-                </div>
+                  </span>
+                </button>
 
                 <Button onClick={saveCoupon} loading={saving} disabled={saving || !code.trim()}>
-                  Save coupon
+                  Save
                 </Button>
               </div>
             </SectionCard>
 
-            <SectionCard title="Your coupons" subtitle="Tap to toggle active">
-              {coupons.length === 0 ? (
-                <p className="text-sm text-biz-muted">No coupons yet.</p>
-              ) : (
+            {/* ✅ Minimal empty state for coupons */}
+            {!loading && coupons.length === 0 ? (
+              <Card variant="soft" className="p-5">
+                <p className="text-sm font-extrabold text-biz-ink">No coupons yet</p>
+                <p className="text-xs text-gray-500 mt-1">Create one code and share it with customers.</p>
+              </Card>
+            ) : null}
+
+            {coupons.length > 0 ? (
+              <SectionCard title="Your coupons" subtitle="Tap to toggle active">
                 <div className="space-y-2">
                   {coupons.map((c) => (
                     <button
@@ -301,35 +290,29 @@ export default function VendorCouponsPage() {
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-biz-ink">{String(c.codeUpper || c.code || c.id)}</p>
+                          <p className="text-sm font-extrabold text-biz-ink">{String(c.codeUpper || c.code || c.id)}</p>
                           <p className="text-[11px] text-gray-500 mt-1">
                             {c.type === "fixed"
                               ? `Fixed: ${fmtNairaFromKobo(Number(c.amountOffKobo || 0))}`
                               : `Percent: ${Number(c.percent || 0)}%`}
                           </p>
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            Used: <b className="text-biz-ink">{Number(c.usedCount || 0)}</b>
-                            {c.usageLimitTotal ? ` / ${Number(c.usageLimitTotal)}` : ""}
-                          </p>
                         </div>
 
-                        <div className="text-right">
-                          <span
-                            className={
-                              c.active === false
-                                ? "inline-flex px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100"
-                                : "inline-flex px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100"
-                            }
-                          >
-                            {c.active === false ? "Inactive" : "Active"}
-                          </span>
-                        </div>
+                        <span
+                          className={
+                            c.active === false
+                              ? "inline-flex px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100"
+                              : "inline-flex px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100"
+                          }
+                        >
+                          {c.active === false ? "OFF" : "ON"}
+                        </span>
                       </div>
                     </button>
                   ))}
                 </div>
-              )}
-            </SectionCard>
+              </SectionCard>
+            ) : null}
           </>
         ) : null}
       </div>

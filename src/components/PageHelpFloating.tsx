@@ -7,7 +7,7 @@ import { auth } from "@/lib/firebase/client";
 import { HelpCircle, Search, X } from "lucide-react";
 
 const INSTALL_KEY = "mybizhub_install_ts_v1";
-const CACHE_KEY = "mybizhub_pagehelp_cache_v1";
+const CACHE_KEY = "mybizhub_pagehelp_cache_v2"; // bump version so new UI uses fresh cache
 
 type HelpRes = {
   ok: boolean;
@@ -65,36 +65,34 @@ export default function PageHelpFloating() {
 
   const showContextHelp = useMemo(() => daysSince(installTs) < 7, [installTs]);
 
-  // simple page hint map (you can expand later)
+  // Small per-page hints (kept short on purpose)
   const pageMeta = useMemo(() => {
     const map: Record<string, { title: string; hint: string }> = {
-      "/vendor": { title: "Dashboard", hint: "Business overview, sales, quick actions, check-in and nudges." },
-      "/vendor/orders": { title: "Orders", hint: "View and manage orders. Update status, confirm transfers, handle disputes." },
-      "/vendor/products": { title: "Products", hint: "Create and manage products, pricing, stock, and visibility." },
-      "/vendor/wallet": { title: "Balance", hint: "Earnings, pending/available amounts and withdrawals." },
-      "/vendor/more": { title: "More", hint: "Tools, settings, staff, payouts, support." },
-      "/vendor/store": { title: "Store settings", hint: "Business info, WhatsApp, banner, checkout/chat settings." },
-      "/vendor/reengagement": { title: "Re‑engagement", hint: "Message past buyers and follow up." },
+      "/vendor": { title: "Dashboard", hint: "Sales overview, quick actions, mood tip." },
+      "/vendor/orders": { title: "Orders", hint: "View and manage orders." },
+      "/vendor/products": { title: "Products", hint: "Create and manage products." },
+      "/vendor/wallet": { title: "Balance", hint: "Earnings and withdrawals." },
+      "/vendor/more": { title: "More", hint: "Tools, staff, payouts, support." },
+      "/vendor/store": { title: "Store settings", hint: "Brand info and WhatsApp settings." },
+      "/vendor/reengagement": { title: "Re‑engagement", hint: "Follow up with past buyers." },
     };
 
-    // fallback for dynamic routes
     const base = pathname.startsWith("/vendor/orders/") ? "/vendor/orders" : pathname;
-    return map[base] || { title: "This page", hint: "Explain what this page does and what to do here." };
+    return map[base] || { title: "Help", hint: "Explain what this page does and what to do here." };
   }, [pathname]);
 
   useEffect(() => {
-    // refresh installTs from storage in case it changes
     setInstallTs(loadInstallTs());
   }, []);
 
-  async function ask(question: string, useCacheForExplain = false) {
+  async function ask(question: string, useCache = false) {
     const trimmed = question.trim();
     if (!trimmed) return;
 
     const cache = loadCache();
     const cacheKey = `${pathname}::${trimmed.toLowerCase()}`;
 
-    if (useCacheForExplain) {
+    if (useCache) {
       const cached = cache[cacheKey];
       if (cached && nowMs() - Number(cached.ts || 0) < 24 * 3600 * 1000) {
         setRes({ ok: true, answer: cached.answer, quickSteps: cached.quickSteps, actions: cached.actions });
@@ -108,7 +106,7 @@ export default function PageHelpFloating() {
 
       const token = await auth.currentUser?.getIdToken();
       if (!token) {
-        setRes({ ok: false, error: "Please log in to use help." });
+        setRes({ ok: false, error: "Please log in again." });
         return;
       }
 
@@ -131,8 +129,7 @@ export default function PageHelpFloating() {
 
       setRes(j);
 
-      // cache explain-style queries
-      if (useCacheForExplain) {
+      if (useCache) {
         cache[cacheKey] = {
           ts: nowMs(),
           answer: String(j.answer || ""),
@@ -149,42 +146,40 @@ export default function PageHelpFloating() {
   }
 
   function openHelp() {
+    // After 7 days, we keep it very minimal: go straight to Help & support AI
     if (!showContextHelp) {
-      // after 7 days: go to Help & Support AI only
       router.push("/vendor/promote/faq/chat");
       return;
     }
 
     setOpen(true);
-
-    // auto-load explanation on open
-    const explainQ = "Explain what this page does and how to use it.";
-    ask(explainQ, true);
     setQ("");
+    setRes(null);
   }
 
   return (
     <>
-      {/* Floating Button */}
+      {/* Minimal floating button (icon-only) */}
       <button
         type="button"
         onClick={openHelp}
-        className="fixed bottom-20 right-4 z-[60] rounded-2xl border border-biz-line bg-white shadow-float px-3 py-3 inline-flex items-center gap-2"
+        className="fixed bottom-20 right-4 z-[60] h-11 w-11 rounded-full border border-biz-line bg-white shadow-float inline-flex items-center justify-center"
+        aria-label="Help"
+        title="Help"
       >
-        <HelpCircle className="h-5 w-5 text-orange-700" />
-        <span className="text-sm font-extrabold text-biz-ink">Help</span>
+        <HelpCircle className="h-5 w-5 text-gray-700" />
       </button>
 
-      {/* Modal */}
+      {/* Minimal bottom sheet */}
       {open ? (
-        <div className="fixed inset-0 z-[70] bg-black/40 backdrop-blur-sm p-4 flex items-end sm:items-center justify-center">
+        <div className="fixed inset-0 z-[70] bg-black/30 backdrop-blur-[2px] flex items-end justify-center p-4">
           <div className="w-full max-w-xl">
-            <Card className="p-4">
+            <Card className="p-4 rounded-[26px]">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="text-sm font-extrabold text-biz-ink">{pageMeta.title} help</p>
-                  <p className="text-[11px] text-biz-muted mt-1">
-                    Ask anything confusing on this page. I’ll point you to the right place.
+                  <p className="text-sm font-extrabold text-biz-ink">Help</p>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    {pageMeta.title} • Ask one quick question.
                   </p>
                 </div>
 
@@ -202,7 +197,7 @@ export default function PageHelpFloating() {
                 <input
                   value={q}
                   onChange={(e) => setQ(e.target.value)}
-                  placeholder="Search / Ask a question..."
+                  placeholder="Search / Ask…"
                   className="flex-1 rounded-2xl border border-biz-line px-3 py-3 text-sm outline-none"
                 />
                 <button
@@ -212,29 +207,51 @@ export default function PageHelpFloating() {
                   className="rounded-2xl border border-biz-line bg-white px-3 py-3 text-sm font-bold text-biz-ink disabled:opacity-50 inline-flex items-center gap-2"
                 >
                   <Search className="h-4 w-4" />
-                  {busy ? "..." : "Ask"}
+                  {busy ? "…" : "Ask"}
+                </button>
+              </div>
+
+              {/* Minimal helper actions */}
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => ask("Explain what this page does and what I should do here.", true)}
+                  disabled={busy}
+                  className="text-[11px] font-bold text-gray-600 underline underline-offset-2 disabled:opacity-50"
+                >
+                  Explain this page
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => router.push("/vendor/promote/faq/chat")}
+                  className="ml-auto text-[11px] font-bold text-gray-600 underline underline-offset-2"
+                >
+                  Open support AI
                 </button>
               </div>
 
               <div className="mt-3">
                 {res?.ok ? (
                   <div className="space-y-3">
-                    {res.answer ? <p className="text-sm text-gray-800">{res.answer}</p> : null}
+                    {res.answer ? <p className="text-sm text-gray-700">{res.answer}</p> : null}
 
+                    {/* Keep steps minimal */}
                     {Array.isArray(res.quickSteps) && res.quickSteps.length ? (
                       <div>
-                        <p className="text-xs font-extrabold text-biz-ink">Quick steps</p>
-                        <ul className="mt-2 list-disc pl-5 text-sm text-gray-700 space-y-1">
-                          {res.quickSteps.slice(0, 5).map((s, i) => (
+                        <p className="text-[11px] font-extrabold text-gray-700">Quick steps</p>
+                        <ul className="mt-2 list-disc pl-5 text-sm text-gray-600 space-y-1">
+                          {res.quickSteps.slice(0, 3).map((s, i) => (
                             <li key={i}>{s}</li>
                           ))}
                         </ul>
                       </div>
                     ) : null}
 
+                    {/* Keep action buttons minimal */}
                     {Array.isArray(res.actions) && res.actions.length ? (
-                      <div className="flex flex-wrap gap-2">
-                        {res.actions.slice(0, 4).map((a, i) => (
+                      <div className="grid grid-cols-2 gap-2">
+                        {res.actions.slice(0, 2).map((a, i) => (
                           <button
                             key={i}
                             type="button"
@@ -242,26 +259,18 @@ export default function PageHelpFloating() {
                               setOpen(false);
                               router.push(a.url);
                             }}
-                            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-bold text-orange-700"
+                            className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink hover:bg-black/[0.02] transition"
                           >
                             {a.label}
                           </button>
                         ))}
                       </div>
                     ) : null}
-
-                    <button
-                      type="button"
-                      onClick={() => router.push("/vendor/promote/faq/chat")}
-                      className="w-full rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink hover:bg-black/[0.02] transition"
-                    >
-                      Open Help & support AI
-                    </button>
                   </div>
                 ) : res?.error ? (
-                  <p className="text-sm text-red-700">{res.error}</p>
+                  <p className="text-sm text-gray-600">{res.error}</p>
                 ) : (
-                  <p className="text-sm text-biz-muted">Ask a question to get help.</p>
+                  <p className="text-sm text-gray-500">Ask a question to get help.</p>
                 )}
               </div>
             </Card>

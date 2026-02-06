@@ -59,9 +59,7 @@ export default function VendorCustomersPage() {
 
   async function authedFetchJson(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
-    };
+    const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
 
     const isJsonBody = init?.body && !(init.body instanceof FormData);
     if (isJsonBody) headers["Content-Type"] = "application/json";
@@ -173,8 +171,8 @@ export default function VendorCustomersPage() {
           <div className="flex items-start justify-between gap-3">
             <div>
               <p className="font-extrabold text-biz-ink">Overview</p>
-              <p className="text-xs text-biz-muted mt-1">
-                {customers.length} customer(s) found • showing up to {visibleCap}
+              <p className="text-xs text-gray-500 mt-1">
+                {customers.length} customer(s) • showing up to {visibleCap}
               </p>
               <p className="text-[11px] text-gray-500 mt-1">
                 Plan: <b className="text-biz-ink">{planKey}</b>
@@ -190,7 +188,7 @@ export default function VendorCustomersPage() {
                 disabled={loading || exporting || !exportUnlocked}
                 leftIcon={<Download className="h-4 w-4" />}
               >
-                Export CSV
+                Export
               </Button>
               <Button variant="secondary" size="sm" onClick={load} loading={loading}>
                 Refresh
@@ -202,7 +200,7 @@ export default function VendorCustomersPage() {
             <div className="mt-3">
               <Card variant="soft" className="p-3">
                 <p className="text-sm font-bold text-biz-ink">CSV export locked</p>
-                <p className="text-[11px] text-biz-muted mt-1">Upgrade your plan to export customer lists.</p>
+                <p className="text-[11px] text-gray-500 mt-1">Upgrade to export customer lists.</p>
                 <div className="mt-2">
                   <Button size="sm" onClick={() => router.push("/vendor/subscription")}>
                     Upgrade
@@ -223,9 +221,7 @@ export default function VendorCustomersPage() {
             >
               <div className="text-left">
                 <p className="text-sm font-bold text-biz-ink">Include contacts for opted-out customers</p>
-                <p className="text-[11px] text-biz-muted mt-1">
-                  Default export hides phone/email for opted-out customers (recommended).
-                </p>
+                <p className="text-[11px] text-gray-500 mt-1">Default export hides phone/email (recommended).</p>
               </div>
               <span
                 className={
@@ -242,44 +238,31 @@ export default function VendorCustomersPage() {
 
         {loading ? <Card className="p-4">Loading…</Card> : null}
 
-        {/* ✅ Calm empty state: no customers at all */}
+        {/* ✅ Minimal empty state: no customers */}
         {noCustomersYet ? (
-          <Card className="p-5">
-            <p className="text-base font-extrabold text-biz-ink">No customers yet</p>
-            <p className="text-sm text-biz-muted mt-2">
-              Customers will appear here after you get orders. Your first buyer will show up automatically.
-            </p>
-
-            <ul className="mt-3 text-sm text-gray-700 list-disc pl-5 space-y-1">
-              <li>Add at least 1–3 products</li>
-              <li>Share your store link on WhatsApp</li>
-              <li>Reply fast when someone asks a question</li>
-            </ul>
+          <Card variant="soft" className="p-5">
+            <p className="text-sm font-extrabold text-biz-ink">No customers yet</p>
+            <p className="text-xs text-gray-500 mt-1">Customers will appear after your first order.</p>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button onClick={() => router.push("/vendor/products/new")}>Add product</Button>
+              <Button variant="secondary" onClick={() => router.push("/vendor/products/new")}>
+                Add product
+              </Button>
               <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
                 View orders
-              </Button>
-
-              <Button variant="secondary" className="col-span-2" onClick={() => router.push("/vendor")}>
-                Back to dashboard
               </Button>
             </div>
           </Card>
         ) : null}
 
-        {/* ✅ Calm empty state: search returns nothing */}
+        {/* ✅ Minimal empty state: no matches */}
         {noMatches ? (
-          <Card className="p-5 text-center">
-            <p className="text-base font-extrabold text-biz-ink">No matches</p>
-            <p className="text-sm text-biz-muted mt-2">Try a different keyword or clear your search.</p>
-            <div className="mt-4 grid grid-cols-2 gap-2">
+          <Card variant="soft" className="p-5 text-center">
+            <p className="text-sm font-extrabold text-biz-ink">No matches</p>
+            <p className="text-xs text-gray-500 mt-1">Try another keyword.</p>
+            <div className="mt-4">
               <Button variant="secondary" onClick={() => setQ("")}>
                 Clear search
-              </Button>
-              <Button variant="secondary" onClick={load}>
-                Refresh
               </Button>
             </div>
           </Card>
@@ -362,7 +345,14 @@ export default function VendorCustomersPage() {
                                 setCustomers((prev) =>
                                   prev.map((x) =>
                                     x.customerKey === c.customerKey
-                                      ? { ...x, notes: { ...(x.notes || {}), debt, debtAmount: debt ? Number(x.notes?.debtAmount || 0) : 0 } }
+                                      ? {
+                                          ...x,
+                                          notes: {
+                                            ...(x.notes || {}),
+                                            debt,
+                                            debtAmount: debt ? Number(x.notes?.debtAmount || 0) : 0,
+                                          },
+                                        }
                                       : x
                                   )
                                 );
@@ -390,13 +380,12 @@ export default function VendorCustomersPage() {
 
                         {c?.notes?.debt ? (
                           <div>
-                            <p className="text-[11px] text-biz-muted mb-1 font-bold">Debt amount (₦)</p>
+                            <p className="text-[11px] text-gray-500 mb-1 font-bold">Debt amount (₦)</p>
                             <Input
                               inputMode="numeric"
                               value={String(c?.notes?.debtAmount ?? "")}
                               onChange={(e) => {
                                 const debtAmount = Number(String(e.target.value || "0").replace(/[^\d.]/g, "")) || 0;
-
                                 setCustomers((prev) =>
                                   prev.map((x) =>
                                     x.customerKey === c.customerKey ? { ...x, notes: { ...(x.notes || {}), debtAmount } } : x
@@ -409,7 +398,7 @@ export default function VendorCustomersPage() {
                         ) : null}
 
                         <div>
-                          <p className="text-[11px] text-biz-muted mb-1 font-bold">Note</p>
+                          <p className="text-[11px] text-gray-500 mb-1 font-bold">Note</p>
                           <textarea
                             className="w-full rounded-2xl border border-biz-line bg-white p-3 text-sm outline-none"
                             rows={3}
@@ -422,7 +411,7 @@ export default function VendorCustomersPage() {
                                 )
                               );
                             }}
-                            placeholder="Add a note about this customer..."
+                            placeholder="Add a note…"
                           />
                         </div>
 
@@ -462,7 +451,9 @@ export default function VendorCustomersPage() {
                         </Button>
 
                         {c?.notes?.updatedAtMs ? (
-                          <p className="text-[11px] text-gray-500">Last updated: {fmtDateMs(Number(c.notes.updatedAtMs || 0))}</p>
+                          <p className="text-[11px] text-gray-500">
+                            Last updated: {fmtDateMs(Number(c.notes.updatedAtMs || 0))}
+                          </p>
                         ) : null}
                       </div>
                     ) : null}

@@ -6,6 +6,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { auth } from "@/lib/firebase/client";
+import { Link2, PackagePlus } from "lucide-react";
 
 function fmtNaira(n: number) {
   try {
@@ -24,6 +25,25 @@ export default function VendorAnalyticsPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   const [range, setRange] = useState<RangeKey>("week");
+
+  const storeUrl = useMemo(() => {
+    const slug = String(me?.businessSlug || "").trim();
+    if (!slug) return "";
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/b/${slug}`;
+  }, [me]);
+
+  async function copyStoreLink() {
+    try {
+      if (!storeUrl) throw new Error("Store link not ready yet.");
+      await navigator.clipboard.writeText(storeUrl);
+      setMsg("Store link copied.");
+      setTimeout(() => setMsg(null), 1200);
+    } catch (e: any) {
+      setMsg(e?.message || "Copy failed");
+      setTimeout(() => setMsg(null), 1200);
+    }
+  }
 
   async function load(nextRange?: RangeKey) {
     try {
@@ -45,7 +65,6 @@ export default function VendorAnalyticsPage() {
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j?.error || "Failed to load analytics");
 
-      // If server downgraded the range (e.g. FREE tried month), reflect it in UI.
       const usedRange = String(j?.meta?.usedRange || used) as RangeKey;
       if (usedRange !== range) setRange(usedRange);
 
@@ -92,6 +111,10 @@ export default function VendorAnalyticsPage() {
 
   const canMonth = !!features?.canUseMonthRange;
 
+  const hasAnyTraffic = totals.visits > 0 || totals.views > 0 || totals.leads > 0;
+  const hasAnyOrder = totals.count > 0 || totals.revenue > 0;
+  const emptyAll = !hasAnyTraffic && !hasAnyOrder;
+
   return (
     <div className="min-h-screen">
       <GradientHeader title="Business Analysis" subtitle="Sales, tips, and insights" showBack={true} />
@@ -103,10 +126,9 @@ export default function VendorAnalyticsPage() {
 
         {!loading && !msg && data ? (
           <>
-            {/* Range selector */}
             <Card className="p-3">
               <p className="text-sm font-extrabold text-biz-ink">Range</p>
-              <p className="text-[11px] text-biz-muted mt-1">
+              <p className="text-[11px] text-gray-500 mt-1">
                 Plan: <b className="text-biz-ink">{planKey}</b>
               </p>
 
@@ -114,14 +136,13 @@ export default function VendorAnalyticsPage() {
                 <SegmentedControl<RangeKey>
                   value={range}
                   onChange={(v) => {
-                    // If user taps month but plan doesn't allow, server will downgrade anyway
                     setRange(v);
                     load(v);
                   }}
                   options={[
                     { value: "today", label: "Today" },
                     { value: "week", label: "Week" },
-                    { value: "month", label: canMonth ? "Month" : "Month (Locked)" },
+                    { value: "month", label: canMonth ? "Month" : "Month (Locked)", disabled: !canMonth },
                   ]}
                 />
               </div>
@@ -129,21 +150,63 @@ export default function VendorAnalyticsPage() {
               {!canMonth ? (
                 <div className="mt-2">
                   <Button size="sm" onClick={() => (window.location.href = "/vendor/subscription")}>
-                    Upgrade to unlock Month analytics
+                    Upgrade for Month
                   </Button>
                 </div>
               ) : null}
             </Card>
+
+            {/* ✅ Minimal empty state */}
+            {emptyAll ? (
+              <Card variant="soft" className="p-5">
+                <p className="text-sm font-extrabold text-biz-ink">No activity yet</p>
+                <p className="text-xs text-gray-500 mt-1">This page will fill up after visits and orders.</p>
+
+                <div className="mt-4 grid grid-cols-2 gap-2">
+                  <Button
+                    variant="secondary"
+                    onClick={() => (window.location.href = "/vendor/products/new")}
+                    leftIcon={<PackagePlus className="h-4 w-4" />}
+                  >
+                    Add product
+                  </Button>
+
+                  <Button
+                    variant="secondary"
+                    onClick={copyStoreLink}
+                    disabled={!storeUrl}
+                    leftIcon={<Link2 className="h-4 w-4" />}
+                  >
+                    Copy link
+                  </Button>
+                </div>
+              </Card>
+            ) : null}
 
             {/* Overview hero */}
             <div className="rounded-2xl p-4 text-white shadow-[0_12px_30px_rgba(17,24,39,0.10)] bg-gradient-to-br from-[#FF6A00] to-[#FF8A00]">
               <p className="text-sm font-extrabold">Overview</p>
               <p className="text-xs opacity-95 mt-1">Store: {me?.businessSlug || "—"}</p>
               <p className="text-xl font-extrabold mt-2">{fmtNaira(totals.revenue)}</p>
-              <p className="text-xs opacity-95 mt-1">Total revenue (from recorded orders)</p>
+              <p className="text-xs opacity-95 mt-1">Total revenue (recorded orders)</p>
             </div>
 
-            {/* Minimal cards for Free, more cards for paid */}
+            {/* Minimal helper: traffic but no orders */}
+            {!emptyAll && !hasAnyOrder && hasAnyTraffic ? (
+              <Card variant="soft" className="p-4">
+                <p className="text-sm font-extrabold text-biz-ink">Views are coming in</p>
+                <p className="text-xs text-gray-500 mt-1">Try clearer photos and prices to get first orders.</p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button variant="secondary" onClick={() => (window.location.href = "/vendor/products")}>
+                    Products
+                  </Button>
+                  <Button variant="secondary" onClick={copyStoreLink} disabled={!storeUrl}>
+                    Copy link
+                  </Button>
+                </div>
+              </Card>
+            ) : null}
+
             <div className="grid grid-cols-2 gap-3">
               <Card className="p-4">
                 <p className="text-xs text-gray-600">Orders</p>
@@ -184,11 +247,11 @@ export default function VendorAnalyticsPage() {
               ) : null}
             </div>
 
-            {/* Deep insights section (Momentum+) */}
+            {/* Keep the rest as-is (already compact) */}
             {tier >= 2 && insights ? (
               <Card className="p-4">
                 <p className="font-extrabold text-[#111827]">Insights</p>
-                <p className="text-xs text-gray-600 mt-1">More helpful signals for growing businesses.</p>
+                <p className="text-xs text-gray-600 mt-1">Extra signals for growth.</p>
 
                 <div className="mt-3 space-y-2 text-sm text-gray-700">
                   <div className="rounded-2xl border border-[#E7E7EE] p-3">
@@ -199,26 +262,15 @@ export default function VendorAnalyticsPage() {
                   <div className="rounded-2xl border border-[#E7E7EE] p-3">
                     <p className="font-extrabold text-[#111827]">Repeat buyers</p>
                     <p className="text-xs text-gray-600 mt-1">
-                      {Number(insights.repeatBuyers || 0)} customer(s) ordered 2+ times in this range.
+                      {Number(insights.repeatBuyers || 0)} customer(s) ordered 2+ times.
                     </p>
                   </div>
-
-                  {insights.bestDay ? (
-                    <div className="rounded-2xl border border-[#E7E7EE] p-3">
-                      <p className="font-extrabold text-[#111827]">Best revenue day</p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {String(insights.bestDay.label || "")} — {fmtNaira(Number(insights.bestDay.revenue || 0))}
-                      </p>
-                    </div>
-                  ) : null}
                 </div>
               </Card>
             ) : (
               <Card className="p-4">
                 <p className="font-extrabold text-[#111827]">Insights</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  Locked. Upgrade to Momentum to unlock deeper insights (AOV, repeat buyers, best day, and more).
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Locked. Upgrade to Momentum for deeper insights.</p>
                 <div className="mt-3">
                   <Button size="sm" onClick={() => (window.location.href = "/vendor/subscription")}>
                     Upgrade
@@ -227,44 +279,18 @@ export default function VendorAnalyticsPage() {
               </Card>
             )}
 
-            {/* Apex advanced section */}
             {tier >= 3 ? (
               <Card className="p-4">
                 <p className="font-extrabold text-[#111827]">Apex analysis</p>
-                <p className="text-xs text-gray-600 mt-1">Advanced comparisons and top performers.</p>
+                <p className="text-xs text-gray-600 mt-1">Advanced comparisons.</p>
 
                 {comparisons?.deltas ? (
                   <div className="mt-3 space-y-2 text-sm text-gray-700">
                     <div className="rounded-2xl border border-[#E7E7EE] p-3">
-                      <p className="font-extrabold text-[#111827]">Revenue change vs previous window</p>
+                      <p className="font-extrabold text-[#111827]">Revenue change</p>
                       <p className="text-xs text-gray-600 mt-1">
-                        {fmtNaira(Number(comparisons.deltas.revenueDelta || 0))}{" "}
-                        {comparisons.deltas.revenueDeltaPct != null ? `(${Number(comparisons.deltas.revenueDeltaPct).toFixed(1)}%)` : ""}
+                        {fmtNaira(Number(comparisons.deltas.revenueDelta || 0))}
                       </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-[#E7E7EE] p-3">
-                      <p className="font-extrabold text-[#111827]">Orders change vs previous window</p>
-                      <p className="text-xs text-gray-600 mt-1">
-                        {Number(comparisons.deltas.ordersDelta || 0)}{" "}
-                        {comparisons.deltas.ordersDeltaPct != null ? `(${Number(comparisons.deltas.ordersDeltaPct).toFixed(1)}%)` : ""}
-                      </p>
-                    </div>
-                  </div>
-                ) : null}
-
-                {insights?.topProducts?.length ? (
-                  <div className="mt-3">
-                    <p className="text-sm font-extrabold text-[#111827]">Top products</p>
-                    <div className="mt-2 space-y-2">
-                      {insights.topProducts.map((p: any) => (
-                        <div key={p.productId} className="rounded-2xl border border-[#E7E7EE] p-3">
-                          <p className="text-sm font-extrabold text-[#111827]">{p.name || "Product"}</p>
-                          <p className="text-[11px] text-gray-600 mt-1">
-                            Qty: {Number(p.qty || 0)} • Revenue: {fmtNaira(Number(p.revenue || 0))}
-                          </p>
-                        </div>
-                      ))}
                     </div>
                   </div>
                 ) : null}
@@ -272,9 +298,7 @@ export default function VendorAnalyticsPage() {
             ) : (
               <Card className="p-4">
                 <p className="font-extrabold text-[#111827]">Apex analysis</p>
-                <p className="text-sm text-gray-600 mt-1">
-                  Locked. Upgrade to Apex to unlock comparisons and top products.
-                </p>
+                <p className="text-xs text-gray-500 mt-1">Locked. Upgrade to Apex.</p>
                 <div className="mt-3">
                   <Button size="sm" onClick={() => (window.location.href = "/vendor/subscription")}>
                     Upgrade
@@ -282,74 +306,6 @@ export default function VendorAnalyticsPage() {
                 </div>
               </Card>
             )}
-
-            {/* Tips (everyone sees, but Free is shorter) */}
-            <Card className="p-4">
-              <p className="font-extrabold text-[#111827]">Tips to make more sales</p>
-              <ul className="mt-2 text-sm text-gray-700 list-disc pl-5 space-y-1">
-                <li>Upload 3-5 clear photos per product (front, side, close-up).</li>
-                <li>Add variations like Color/Size to reduce questions.</li>
-                <li>Keep stock accurate to avoid cancellations and disputes.</li>
-                {tier >= 1 ? <li>Use order progress updates to build buyer trust.</li> : null}
-                {tier >= 2 ? <li>Follow up with past buyers weekly (re-engagement).</li> : null}
-              </ul>
-            </Card>
-
-            {/* Simple “mistakes” / signals */}
-            <Card className="p-4">
-              <p className="font-extrabold text-[#111827]">Signals this period</p>
-
-              <div className="mt-3 space-y-2 text-sm text-gray-700">
-                {totals.count === 0 ? (
-                  <div className="rounded-2xl border border-[#E7E7EE] p-3">
-                    <p className="font-extrabold text-[#111827]">No orders yet</p>
-                    <p className="text-xs text-gray-600 mt-1">Add products, improve photos, and share your store link.</p>
-                  </div>
-                ) : null}
-
-                {totals.awaiting > 0 ? (
-                  <div className="rounded-2xl border border-[#E7E7EE] p-3">
-                    <p className="font-extrabold text-[#111827]">Slow confirmations</p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      <b>{totals.awaiting}</b> order(s) are still awaiting confirmation.
-                    </p>
-                  </div>
-                ) : null}
-
-                {totals.disputed > 0 ? (
-                  <div className="rounded-2xl border border-[#E7E7EE] p-3">
-                    <p className="font-extrabold text-[#111827]">Disputes risk</p>
-                    <p className="text-xs text-gray-600 mt-1">
-                      <b>{totals.disputed}</b> order(s) are disputed.
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-
-              {tier === 0 ? (
-                <p className="mt-3 text-xs text-gray-500">
-                  Free plan shows limited analytics. Upgrade for deeper insights and comparisons.
-                </p>
-              ) : null}
-            </Card>
-
-            <Card className="p-4">
-              <p className="font-extrabold text-[#111827]">Next actions</p>
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <button
-                  className="rounded-2xl py-3 text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00]"
-                  onClick={() => (window.location.href = "/vendor/products/new")}
-                >
-                  Add product
-                </button>
-                <button
-                  className="rounded-2xl border border-[#E7E7EE] py-3 text-sm font-extrabold"
-                  onClick={() => (window.location.href = "/vendor")}
-                >
-                  Vendor home
-                </button>
-              </div>
-            </Card>
           </>
         ) : null}
       </div>
