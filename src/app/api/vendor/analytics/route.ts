@@ -13,7 +13,9 @@ type Nudge = {
   tone: "info" | "warn";
   title: string;
   body: string;
-  cta?: { label: string; url: string };
+  cta?: { label: string; url: string } | null;
+  source?: "rules" | "groq";
+  dayKey?: string;
 };
 
 function toMs(v: any) {
@@ -35,12 +37,16 @@ function dayKey(d: Date) {
   return `${y}-${m}-${dd}`;
 }
 
+function lagosDayKey(now = new Date()) {
+  return now.toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" }); // YYYY-MM-DD
+}
+
 function tierFor(planKey: string) {
   const k = String(planKey || "FREE").toUpperCase();
   if (k === "APEX") return 3;
   if (k === "MOMENTUM") return 2;
   if (k === "LAUNCH") return 1;
-  return 0; // FREE
+  return 0;
 }
 
 function fetchCapsForTier(tier: number) {
@@ -88,8 +94,7 @@ function startOfTodayMs() {
 
 function viewerRoleFromMe(me: any): "owner" | "staff" {
   const r = String(me?.role || me?.accountRole || "").toLowerCase();
-  if (r === "staff") return "staff";
-  return "owner";
+  return r === "staff" ? "staff" : "owner";
 }
 
 export async function GET(req: Request) {
@@ -99,18 +104,18 @@ export async function GET(req: Request) {
 
     await requireVendorUnlocked(me.businessId);
 
-    // ✅ Owner decides whether staff can see nudges
     const viewerRole = viewerRoleFromMe(me);
 
+    // settings for staff visibility
     const bizSnap = await adminDb.collection("businesses").doc(me.businessId).get();
     const biz = bizSnap.exists ? (bizSnap.data() as any) : {};
     const staffNudgesEnabled = !!biz?.settings?.notifications?.staffNudgesEnabled;
-
+    const staffPushEnabled = !!biz?.settings?.notifications?.staffPushEnabled;
     const allowNudgesForViewer = viewerRole !== "staff" || staffNudgesEnabled;
 
     const url = new URL(req.url);
     const requestedRange = String(url.searchParams.get("range") || "week");
-    const requestedMonth = url.searchParams.get("month"); // YYYY-MM
+    const requestedMonth = url.searchParams.get("month");
 
     const { entitlement } = await getBusinessEntitlementById(me.businessId);
 
@@ -120,17 +125,15 @@ export async function GET(req: Request) {
     const tier = tierFor(planKey);
     const caps = fetchCapsForTier(tier);
 
-    // Tier feature flags
-    const canUseMonthRange = tier >= 1; // LAUNCH+
-    const canUseMonthHistory = tier >= 2; // MOMENTUM+
-    const canUseDeepInsights = tier >= 2; // MOMENTUM+
-    const canUseAdvanced = tier >= 3; // APEX
+    const canUseMonthRange = tier >= 1;
+    const canUseMonthHistory = tier >= 2;
+    const canUseDeepInsights = tier >= 2;
+    const canUseAdvanced = tier >= 3;
 
     let usedRange = requestedRange;
     let usedMonth: string | null = requestedMonth || null;
     let notice: string | null = null;
 
-    // Hard restrictions per plan
     if (!canUseMonthRange && usedRange === "month") {
       usedRange = "week";
       notice = "Month analytics is locked on Free. Upgrade to unlock month reports.";
@@ -142,7 +145,6 @@ export async function GET(req: Request) {
       notice = "Month history is available on Momentum and above.";
     }
 
-    // FREE gets only week/today at most
     if (tier === 0 && usedRange !== "week" && usedRange !== "today") {
       usedRange = "week";
       notice = "Free plan analytics is limited to weekly view.";
@@ -151,7 +153,7 @@ export async function GET(req: Request) {
     const { startMs, endMs } = rangeWindow(usedRange, usedMonth);
     const dayKeys = dayKeysBetween(startMs, endMs);
 
-    // Orders (fetch capped set, filter in-memory)
+    // Orders (capped)
     const oSnap = await adminDb.collection("orders").where("businessId", "==", me.businessId).limit(caps.ordersCap).get();
     const ordersAll = oSnap.docs.map((d) => ({ id: d.id, ...d.data() } as any));
 
@@ -160,7 +162,6 @@ export async function GET(req: Request) {
       return ms >= startMs && ms <= endMs;
     });
 
-    // payment breakdown (window)
     const paystackOrders = ordersWin.filter((o) => o.paymentType === "paystack_escrow").length;
     const directOrders = ordersWin.filter((o) => o.paymentType === "direct_transfer").length;
     const chatOrders = ordersWin.filter((o) => o.paymentType === "chat_whatsapp").length;
@@ -178,11 +179,9 @@ export async function GET(req: Request) {
     let revenueDirect = 0;
     let productsSold = 0;
 
-    // Used for repeat-buyer nudge + deep insights
     const customerCounts = new Map<string, number>();
     const customerSet = new Set<string>();
 
-    // Top products (insights)
     const productAgg = new Map<string, { productId: string; name: string; qty: number; revenue: number }>();
 
     for (const o of ordersWin) {
@@ -219,7 +218,6 @@ export async function GET(req: Request) {
       const phone = String(o?.customer?.phone || "").trim();
       const email = String(o?.customer?.email || "").trim().toLowerCase();
       const key = phone || email;
-
       if (key) {
         customerSet.add(key);
         customerCounts.set(key, (customerCounts.get(key) || 0) + 1);
@@ -228,7 +226,7 @@ export async function GET(req: Request) {
 
     const totalRevenue = revenueHeld + revenueReleased + revenueDirect;
 
-    // Daily metrics (visits/leads/views)
+    // daily metrics (visits/leads/views)
     const metricDocs = await fetchBusinessDailyMetrics({ businessId: me.businessId, dayKeys });
     let visits = 0;
     let leads = 0;
@@ -239,7 +237,7 @@ export async function GET(req: Request) {
       views += Number((m as any).views || 0);
     }
 
-    // Chart: daily revenue bars
+    // chart
     const chartMap = new Map<string, { dayKey: string; label: string; revenue: number }>();
     for (const k of dayKeys) chartMap.set(k, { dayKey: k, label: k, revenue: 0 });
 
@@ -249,28 +247,20 @@ export async function GET(req: Request) {
       const k = dayKey(new Date(ms));
       const row = chartMap.get(k);
       if (!row) continue;
-      const amt = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
-      row.revenue += amt;
+      row.revenue += Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
     }
 
     let chartDays = Array.from(chartMap.values());
     if (chartDays.length > caps.chartMaxDays) chartDays = chartDays.slice(chartDays.length - caps.chartMaxDays);
 
-    // Best day (Momentum+)
     let bestDay: any = null;
     if (canUseDeepInsights && chartDays.length) {
       bestDay = chartDays.reduce((a, b) => (Number(b.revenue || 0) > Number(a.revenue || 0) ? b : a), chartDays[0]);
     }
 
-    // Product stock signals
-    const pSnap = await adminDb
-      .collection("products")
-      .where("businessId", "==", me.businessId)
-      .limit(caps.productsCap)
-      .get();
-
+    // products
+    const pSnap = await adminDb.collection("products").where("businessId", "==", me.businessId).limit(caps.productsCap).get();
     const products = pSnap.docs.map((d) => d.data() as any);
-    const productCount = products.length;
 
     const outOfStockCount = products.filter((p) => Number(p.stock ?? 0) <= 0).length;
     const lowStockCount = products.filter((p) => {
@@ -278,7 +268,6 @@ export async function GET(req: Request) {
       return s > 0 && s <= 3;
     }).length;
 
-    // All-time signals (capped by ordersCap)
     const disputedCountAll = ordersAll.filter((o) => o.escrowStatus === "disputed").length;
     const awaitingConfirmCountAll = ordersAll.filter(
       (o) => o.paymentType === "direct_transfer" && String(o.orderStatus || "").includes("awaiting")
@@ -298,7 +287,7 @@ export async function GET(req: Request) {
         orderStatus: o.orderStatus ?? null,
       }));
 
-    // Deep insights (Momentum+)
+    // insights
     let insights: any = null;
     if (canUseDeepInsights) {
       const aov = safeDiv(totalRevenue, Math.max(1, ordersWin.length));
@@ -311,17 +300,10 @@ export async function GET(req: Request) {
         .sort((a, b) => (b.revenue || 0) - (a.revenue || 0))
         .slice(0, canUseAdvanced ? 5 : 3);
 
-      insights = {
-        aov,
-        conversionOrders, // orders/visits
-        leadRate, // leads/visits
-        bestDay,
-        repeatBuyers,
-        topProducts,
-      };
+      insights = { aov, conversionOrders, leadRate, bestDay, repeatBuyers, topProducts };
     }
 
-    // Advanced comparisons (Apex only)
+    // comparisons (Apex)
     let comparisons: any = null;
     if (canUseAdvanced) {
       const win = Math.max(1, endMs - startMs);
@@ -334,10 +316,7 @@ export async function GET(req: Request) {
       });
 
       let prevRevenue = 0;
-      for (const o of prevOrders) {
-        const amt = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
-        prevRevenue += amt;
-      }
+      for (const o of prevOrders) prevRevenue += Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
 
       const revenueDelta = totalRevenue - prevRevenue;
       const revenueDeltaPct = prevRevenue > 0 ? (revenueDelta / prevRevenue) * 100 : null;
@@ -346,22 +325,12 @@ export async function GET(req: Request) {
       const ordersDeltaPct = prevOrders.length > 0 ? (ordersDelta / prevOrders.length) * 100 : null;
 
       comparisons = {
-        previousWindow: {
-          startMs: prevStartMs,
-          endMs: prevEndMs,
-          revenue: prevRevenue,
-          orders: prevOrders.length,
-        },
-        deltas: {
-          revenueDelta,
-          revenueDeltaPct,
-          ordersDelta,
-          ordersDeltaPct,
-        },
+        previousWindow: { startMs: prevStartMs, endMs: prevEndMs, revenue: prevRevenue, orders: prevOrders.length },
+        deltas: { revenueDelta, revenueDeltaPct, ordersDelta, ordersDeltaPct },
       };
     }
 
-    // Response trimming for Free
+    // overview
     const overviewBase: any = {
       totalRevenue,
       orders: ordersWin.length,
@@ -385,7 +354,7 @@ export async function GET(req: Request) {
 
     const overview = tier === 0 ? overviewBase : { ...overviewBase, ...overviewExtra };
 
-    // ✅ Daily Business Check‑in
+    // fallback checkin + nudges (rules)
     const todayStart = startOfTodayMs();
     let todayOrders = 0;
     let todayRevenue = 0;
@@ -402,12 +371,12 @@ export async function GET(req: Request) {
     let suggestion = "Share one product link today and follow up with one past buyer.";
     if (awaitingConfirmCountAll > 0) suggestion = "Confirm pending direct transfers so you can close sales faster.";
     else if (disputedCountAll > 0) suggestion = "Respond to disputes quickly with clear delivery proof to protect visibility.";
-    else if (productCount === 0) suggestion = "Add your first product so customers can start ordering.";
+    else if (products.length === 0) suggestion = "Add your first product so customers can start ordering.";
     else if (outOfStockCount > 0) suggestion = "Restock your out‑of‑stock products so customers don’t bounce.";
     else if (lowStockCount > 0) suggestion = "Top up low stock items (especially your fast movers).";
     else if (visits > 0 && ordersWin.length === 0) suggestion = "You have visits but no orders—try clearer prices and a stronger product photo.";
 
-    const checkin = {
+    let checkin: any = {
       title: "Daily business check‑in",
       lines: [
         `Today: ${todayOrders} order(s) • ${fmtNaira(todayRevenue)}`,
@@ -417,16 +386,16 @@ export async function GET(req: Request) {
       suggestion,
     };
 
-    // ✅ Smart Nudge Alerts
-    const nudges: Nudge[] = [];
+    let nudges: Nudge[] = [];
 
     if (disputedCountAll > 0) {
       nudges.push({
         id: "disputes_open",
         tone: "warn",
         title: "Disputes need attention",
-        body: `You have ${disputedCountAll} disputed order(s). Reply quickly with clear proof to protect your visibility.`,
+        body: `You have ${disputedCountAll} disputed order(s). Reply quickly with clear proof to protect visibility.`,
         cta: { label: "View orders", url: "/vendor/orders" },
+        source: "rules",
       });
     }
 
@@ -437,16 +406,18 @@ export async function GET(req: Request) {
         title: "Pending transfer confirmation",
         body: `You have ${awaitingConfirmCountAll} direct transfer(s) waiting for confirmation.`,
         cta: { label: "Open orders", url: "/vendor/orders" },
+        source: "rules",
       });
     }
 
-    if (productCount === 0) {
+    if (products.length === 0) {
       nudges.push({
         id: "no_products",
         tone: "info",
         title: "Add your first product",
         body: "Your store is ready. Add one product so customers can start ordering.",
         cta: { label: "Create product", url: "/vendor/products/new" },
+        source: "rules",
       });
     } else if (outOfStockCount > 0) {
       nudges.push({
@@ -455,6 +426,7 @@ export async function GET(req: Request) {
         title: "Some items are out of stock",
         body: `${outOfStockCount} product(s) are out of stock. Restock to avoid losing ready buyers.`,
         cta: { label: "Manage products", url: "/vendor/products" },
+        source: "rules",
       });
     } else if (lowStockCount > 0) {
       nudges.push({
@@ -463,41 +435,24 @@ export async function GET(req: Request) {
         title: "Low stock reminder",
         body: `${lowStockCount} product(s) are low on stock. Top up your fast movers.`,
         cta: { label: "Manage products", url: "/vendor/products" },
+        source: "rules",
       });
     }
 
-    // Follow-up nudge (quiet)
-    const repeatBuyersEstimate = Array.from(customerCounts.values()).filter((n) => n >= 2).length;
-
-    let followedUpThisWeek = false;
+    // ✅ Prefer AI saved checkin at 9am
+    const dk = lagosDayKey(new Date());
     try {
-      const cSnap = await adminDb
-        .collection("reengagementCampaigns")
-        .where("businessId", "==", me.businessId)
-        .limit(50)
-        .get();
-
-      let lastMs = 0;
-      for (const d of cSnap.docs) {
-        const x = d.data() as any;
-        const ms = Number(x?.createdAtMs || 0) || 0;
-        if (ms > lastMs) lastMs = ms;
+      const saved = await adminDb.collection("businesses").doc(me.businessId).collection("dailyCheckins").doc(dk).get();
+      if (saved.exists) {
+        const d = saved.data() as any;
+        if (d?.checkin) checkin = d.checkin;
+        if (Array.isArray(d?.nudges)) nudges = d.nudges;
       }
-      if (lastMs && Date.now() - lastMs < 7 * 86400000) followedUpThisWeek = true;
     } catch {
-      // ignore
+      // ignore, keep fallback
     }
 
-    if (repeatBuyersEstimate > 0 && !followedUpThisWeek) {
-      nudges.push({
-        id: "followup_repeat_buyers",
-        tone: "info",
-        title: "Quick follow‑up idea",
-        body: "You have repeat buyers. A short check‑in message can bring easy repeat sales this week.",
-        cta: { label: "Open re‑engagement", url: "/vendor/reengagement?segment=buyers_repeat" },
-      });
-    }
-
+    // keep it calm
     const nudgesOut = nudges.slice(0, 3);
 
     return NextResponse.json({
@@ -523,6 +478,10 @@ export async function GET(req: Request) {
         viewer: {
           role: viewerRole,
           staffNudgesEnabled,
+          staffPushEnabled,
+        },
+        ai: {
+          dayKey: dk,
         },
       },
       overview,
@@ -537,8 +496,6 @@ export async function GET(req: Request) {
       comparisons,
       recentOrders,
       checkin,
-
-      // ✅ If staff nudges are OFF, staff receives []
       nudges: allowNudgesForViewer ? nudgesOut : [],
     });
   } catch (e: any) {

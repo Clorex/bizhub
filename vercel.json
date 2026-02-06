@@ -2,7 +2,10 @@
   "crons": [
     {
       "path": "/api/cron/daily-checkin",
-      "schedule": "0 8 * * *"
+      "schedule": "0 8 * * *",
+      "headers": {
+        "Authorization": "Bearer ${CRON_SECRET}"
+      }
     }
   ]
 }
