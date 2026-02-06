@@ -29,11 +29,10 @@ function cleanInt(v: any, min: number, max: number) {
 
 export async function GET(req: Request) {
   try {
-    // ---- CRON AUTH (HEADER-BASED, VERCEL SAFE) ----
-    const auth = req.headers.get("authorization");
-    const expected = `Bearer ${process.env.CRON_SECRET}`;
+    // ---- VERCEL CRON AUTH (OFFICIAL WAY) ----
+    const isCron = req.headers.get("x-vercel-cron") === "1";
 
-    if (!process.env.CRON_SECRET || auth !== expected) {
+    if (!isCron) {
       return NextResponse.json(
         { ok: false, error: "Unauthorized" },
         { status: 401 }
@@ -160,10 +159,7 @@ export async function GET(req: Request) {
 
         created += 1;
 
-        const pushBody = `${todayLine}. Tip: ${ai.suggestion}`.slice(
-          0,
-          180
-        );
+        const pushBody = `${todayLine}. Tip: ${ai.suggestion}`.slice(0, 180);
 
         await sendBusinessPush({
           businessId,

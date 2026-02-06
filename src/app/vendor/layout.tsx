@@ -1,4 +1,3 @@
-// FILE: src/app/vendor/layout.tsx
 import { AuthGate } from "@/components/AuthGate";
 import { VendorShell } from "@/components/vendor/VendorShell";
 import { VendorAccessGate } from "@/components/vendor/VendorAccessGate";
