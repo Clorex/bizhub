@@ -23,14 +23,12 @@ function sanitizeUrl(url: any) {
     "/vendor/orders",
     "/vendor/products",
     "/vendor/products/new",
-    "/vendor/reengagement",
     "/vendor/reengagement?segment=buyers_repeat",
     "/vendor/wallet",
     "/vendor/withdrawals",
     "/vendor/more",
   ]);
   if (allowed.has(u)) return u;
-  // allow vendor/order details
   if (u.startsWith("/vendor/orders/")) return u;
   return "";
 }
@@ -48,7 +46,13 @@ async function groqChatJSON(args: {
   const key = process.env.GROQ_API_KEY;
   if (!key) throw new Error("Missing GROQ_API_KEY");
 
-  const model = args.model || "llama3-8b-8192";
+  // ✅ Supported model (old llama3-8b-8192 is deprecated)
+  const model =
+    args.model ||
+    process.env.GROQ_MODEL_DAILY_CHECKIN ||
+    process.env.GROQ_MODEL_DAILY ||
+    process.env.GROQ_MODEL ||
+    "llama-3.1-8b-instant";
 
   const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -68,9 +72,7 @@ async function groqChatJSON(args: {
   });
 
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) {
-    throw new Error(j?.error?.message || `Groq failed (${r.status})`);
-  }
+  if (!r.ok) throw new Error(j?.error?.message || `Groq failed (${r.status})`);
 
   const content = j?.choices?.[0]?.message?.content;
   if (!content) throw new Error("Groq returned empty content");
@@ -84,29 +86,39 @@ export async function groqGenerateDailyCheckin(args: {
   snapshot: any;
 }): Promise<AiDailyCheckin> {
   const system = `
-You are myBizHub’s calm business assistant.
-Write simple, friendly, Nigerian-English style messages (no jargon).
-Be helpful and not pushy. No emojis.
-Return JSON only with fields: suggestion (string), nudges (array).
+You are myBizHub’s calm, friendly business companion.
 
-nudges: up to 3 items
-Each item: { tone: "info"|"warn", title: string, body: string, cta?: { label: string, url: string } }
+Write in simple everyday Nigerian-English. No jargon. No emojis.
+Make it feel personal and human.
+
+Return JSON only:
+{
+  "suggestion": string,
+  "nudges": [
+    { "tone": "info"|"warn", "title": string, "body": string, "cta"?: { "label": string, "url": string } }
+  ]
+}
+
+Limits:
+- suggestion: max 180 chars
+- nudges: 0 to 3 items
+- title max 60 chars
+- body max 160 chars
 
 Allowed CTA urls:
+- /vendor
 - /vendor/orders
 - /vendor/products
 - /vendor/products/new
 - /vendor/reengagement?segment=buyers_repeat
 - /vendor/wallet
 - /vendor/withdrawals
-- /vendor
+- /vendor/more
 
-Rules:
-- Suggestion should be one actionable step for today (max 180 chars).
-- Nudges should be gentle reminders (1–2 sentences each).
-- If there are disputes or pending confirmations, add a warn nudge.
-- If there are no products, nudge to add product.
-- If visits are high but orders low, nudge to improve product photos/prices/delivery info.
+Style:
+- suggestion should feel like: "Today, do this one thing…"
+- nudges should feel gentle: "Just a quick reminder…"
+- If disputes or pending confirmations exist, add a warn nudge (calm but clear).
 `;
 
   const user = `
@@ -116,7 +128,7 @@ Store: ${args.storeName}
 Business snapshot JSON:
 ${JSON.stringify(args.snapshot, null, 2)}
 
-Write the best "suggestion" and "nudges" for THIS business today.
+Write the best suggestion + gentle nudges for THIS store today.
 `;
 
   const raw = await groqChatJSON({
@@ -125,7 +137,9 @@ Write the best "suggestion" and "nudges" for THIS business today.
     temperature: 0.75,
   });
 
-  const suggestion = clamp(raw?.suggestion, 180) || "Share one product link today and follow up with one past buyer.";
+  const suggestion =
+    clamp(raw?.suggestion, 180) ||
+    "Today, share one product link and follow up with one past buyer.";
 
   const nudgesIn = Array.isArray(raw?.nudges) ? raw.nudges : [];
   const nudges: AiNudge[] = nudgesIn
@@ -140,8 +154,10 @@ Write the best "suggestion" and "nudges" for THIS business today.
 
       return {
         tone,
-        title: title || (tone === "warn" ? "Needs attention" : "Quick reminder"),
-        body: body || "Small check‑in: open your dashboard and take one quick action today.",
+        title: title || (tone === "warn" ? "Quick attention needed" : "Small reminder"),
+        body:
+          body ||
+          "Just a quick reminder: open your dashboard and take one small action today.",
         cta: ctaUrl ? { label: ctaLabel || "Open", url: ctaUrl } : undefined,
       };
     })
