@@ -7,7 +7,7 @@ import { Card } from "@/components/Card";
 import { auth } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
-import { RefreshCw, Download } from "lucide-react";
+import { RefreshCw, Download, Link2, PackagePlus } from "lucide-react";
 
 function fmtNaira(n: number) {
   try {
@@ -83,12 +83,28 @@ export default function VendorOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [meta, setMeta] = useState<any>(null);
 
+  const [me, setMe] = useState<any>(null);
+
+  const storeUrl = useMemo(() => {
+    const slug = String(me?.businessSlug || "").trim();
+    if (!slug) return "";
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/b/${slug}`;
+  }, [me]);
+
   async function load() {
     try {
       setLoading(true);
       setMsg(null);
 
       const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not logged in");
+
+      // Load me (for store link)
+      const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+      const meData = await rMe.json().catch(() => ({}));
+      if (rMe.ok) setMe(meData?.me || null);
+
       const r = await fetch("/api/vendor/orders", { headers: { Authorization: `Bearer ${token}` } });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data?.error || "Failed");
@@ -112,11 +128,12 @@ export default function VendorOrdersPage() {
       setMsg(null);
 
       const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Not logged in");
+
       const r = await fetch("/api/vendor/orders/export", {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      // If blocked, show message
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
         const err = String(data?.error || "Export failed");
@@ -129,8 +146,6 @@ export default function VendorOrdersPage() {
       }
 
       const blob = await r.blob();
-
-      // try filename from header
       const cd = r.headers.get("content-disposition") || "";
       const m = cd.match(/filename="([^"]+)"/i);
       const filename = m?.[1] || `orders_export_${new Date().toISOString().slice(0, 10)}.csv`;
@@ -147,6 +162,20 @@ export default function VendorOrdersPage() {
       setMsg(e?.message || "Failed to export");
     } finally {
       setExporting(false);
+    }
+  }
+
+  async function copyStoreLink() {
+    try {
+      if (!storeUrl) {
+        setMsg("Store link not ready yet. Please refresh.");
+        return;
+      }
+      await navigator.clipboard.writeText(storeUrl);
+      setMsg("Store link copied. Share it to get your first order.");
+      setTimeout(() => setMsg(null), 1800);
+    } catch {
+      setMsg("Copy failed. You can copy your store link from Dashboard.");
     }
   }
 
@@ -189,8 +218,7 @@ export default function VendorOrdersPage() {
               </p>
               {meta ? (
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Plan: <b className="text-biz-ink">{planKey}</b> • Showing up to{" "}
-                  <b className="text-biz-ink">{cap}</b>
+                  Plan: <b className="text-biz-ink">{planKey}</b> • Showing up to <b className="text-biz-ink">{cap}</b>
                 </p>
               ) : null}
             </div>
@@ -220,16 +248,30 @@ export default function VendorOrdersPage() {
 
         {loading ? <Card className="p-4">Loading…</Card> : null}
 
+        {/* ✅ Calm empty state */}
         {!loading && orders.length === 0 ? (
-          <Card className="p-5 text-center">
+          <Card className="p-5">
             <p className="text-base font-extrabold text-biz-ink">No orders yet</p>
             <p className="text-sm text-biz-muted mt-2">
-              Share your store link and add more products to start receiving orders.
+              When your first order comes in, it will show here. If you want, start small:
             </p>
+
+            <ul className="mt-3 text-sm text-gray-700 list-disc pl-5 space-y-1">
+              <li>Share your store link with 3 people</li>
+              <li>Add one more product (even one is fine)</li>
+              <li>Make sure your WhatsApp is correct in Store settings</li>
+            </ul>
+
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button onClick={() => router.push("/vendor/products/new")}>Add product</Button>
-              <Button variant="secondary" onClick={() => router.push("/vendor")}>
-                Dashboard
+              <Button onClick={copyStoreLink} leftIcon={<Link2 className="h-4 w-4" />} disabled={!storeUrl}>
+                Copy store link
+              </Button>
+              <Button variant="secondary" onClick={() => router.push("/vendor/products/new")} leftIcon={<PackagePlus className="h-4 w-4" />}>
+                Add product
+              </Button>
+
+              <Button variant="secondary" className="col-span-2" onClick={() => router.push("/vendor/store")}>
+                Check Store settings
               </Button>
             </div>
           </Card>
@@ -258,9 +300,7 @@ export default function VendorOrdersPage() {
 
                     <div className="text-right shrink-0">
                       <p className="font-extrabold text-biz-ink">{fmtNaira(amount)}</p>
-                      <p className="text-[11px] text-gray-500 mt-1">
-                        Items: {Array.isArray(o.items) ? o.items.length : 0}
-                      </p>
+                      <p className="text-[11px] text-gray-500 mt-1">Items: {Array.isArray(o.items) ? o.items.length : 0}</p>
                     </div>
                   </div>
                 </Card>

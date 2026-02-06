@@ -8,10 +8,9 @@ import { auth } from "@/lib/firebase/client";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { IconButton } from "@/components/ui/IconButton";
 
-import { Plus, RefreshCw, Search, Megaphone, Share2, Copy, Lock } from "lucide-react";
+import { Plus, RefreshCw, Search, Megaphone, Share2, Copy, Lock, Store } from "lucide-react";
 import { cloudinaryOptimizedUrl } from "@/lib/cloudinary/url";
 
 function fmtNaira(n: number) {
@@ -30,7 +29,11 @@ function Chip({ children, tone = "neutral" }: { children: React.ReactNode; tone?
         ? "bg-orange-50 text-orange-700 border-orange-100"
         : "bg-white text-gray-700 border-biz-line";
 
-  return <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border ${cls}`}>{children}</span>;
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border ${cls}`}>
+      {children}
+    </span>
+  );
 }
 
 function waShareLink(text: string) {
@@ -204,9 +207,7 @@ export default function VendorProductsPage() {
         {showNotAuthorized ? (
           <Card className="p-4">
             <p className="text-sm font-bold text-biz-ink">Not authorized</p>
-            <p className="text-xs text-biz-muted mt-1">
-              Your staff account doesn’t have permission to view/manage products.
-            </p>
+            <p className="text-xs text-biz-muted mt-1">Your staff account doesn’t have permission to view/manage products.</p>
             <p className="text-[11px] text-gray-500 mt-2">
               Plan: <b className="text-biz-ink">{planKey}</b>
               {role === "staff" && access?.staff?.staffJobTitle ? (
@@ -236,11 +237,13 @@ export default function VendorProductsPage() {
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-biz-ink">Marketplace visibility is off</p>
                 <p className="text-xs text-biz-muted mt-1">
-                  Your products can be sold with your store link, but they won’t appear in the marketplace on your current plan.
-                  Upgrade to show products on Market.
+                  People can still buy with your store link, but products won’t show on Market on your current plan.
                 </p>
-                <div className="mt-3">
+                <div className="mt-3 flex gap-2">
                   <Button onClick={() => router.push("/vendor/subscription")}>Upgrade</Button>
+                  <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                    Dashboard
+                  </Button>
                 </div>
                 <p className="mt-2 text-[11px] text-biz-muted">
                   Plan: <b className="text-biz-ink">{planKey}</b>
@@ -283,23 +286,54 @@ export default function VendorProductsPage() {
 
         {loading && items.length === 0 ? <Card className="p-4">Loading…</Card> : null}
 
-        {!loading && !showNotAuthorized && prodError ? (
-          <Card className="p-4 text-red-700">
-            {prodError}
+        {!loading && !showNotAuthorized && prodError ? <Card className="p-4 text-red-700">{prodError}</Card> : null}
+
+        {/* ✅ Calm empty state: no products */}
+        {!loading && !showNotAuthorized && items.length === 0 ? (
+          <Card className="p-5">
+            <p className="text-base font-extrabold text-biz-ink">No products yet</p>
+            <p className="text-sm text-biz-muted mt-2">
+              Your first product will show here. Start with just one—name, price, and photo is enough.
+            </p>
+
+            <ul className="mt-3 text-sm text-gray-700 list-disc pl-5 space-y-1">
+              <li>Add one product</li>
+              <li>Set stock (even if it’s small)</li>
+              <li>Share it to WhatsApp after</li>
+            </ul>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button onClick={() => router.push("/vendor/products/new")} disabled={!canManage} leftIcon={<Plus className="h-4 w-4" />}>
+                Add product
+              </Button>
+              <Button variant="secondary" onClick={() => router.push("/vendor/store")} leftIcon={<Store className="h-4 w-4" />}>
+                Store settings
+              </Button>
+
+              <Button variant="secondary" className="col-span-2" onClick={() => router.push("/vendor")}>
+                Back to dashboard
+              </Button>
+            </div>
+
+            {!canManage ? (
+              <p className="mt-3 text-[11px] text-orange-700">
+                You can’t add products with this account. Ask the owner to grant “Manage products”.
+              </p>
+            ) : null}
           </Card>
         ) : null}
 
-        {!loading && !showNotAuthorized && items.length === 0 ? (
-          <EmptyState
-            title="No products yet"
-            description="Add your first product to start selling and promoting."
-            ctaLabel={canManage ? "Add product" : "Back to dashboard"}
-            onCta={() => (canManage ? router.push("/vendor/products/new") : router.push("/vendor"))}
-          />
-        ) : null}
-
+        {/* ✅ Calm empty state: no matches */}
         {!loading && items.length > 0 && filtered.length === 0 ? (
-          <EmptyState title="No matches" description="Try a different keyword." ctaLabel="Clear search" onCta={() => setQ("")} />
+          <Card className="p-5 text-center">
+            <p className="text-base font-extrabold text-biz-ink">No matches</p>
+            <p className="text-sm text-biz-muted mt-2">Try a different keyword or clear your search.</p>
+            <div className="mt-4">
+              <Button variant="secondary" onClick={() => setQ("")}>
+                Clear search
+              </Button>
+            </div>
+          </Card>
         ) : null}
 
         <div className="space-y-3">
@@ -317,7 +351,13 @@ export default function VendorProductsPage() {
                   <div className="h-16 w-16 rounded-2xl bg-biz-cream overflow-hidden shrink-0">
                     {img ? (
                       // eslint-disable-next-line @next/next/no-img-element
-                      <img src={img} alt={p?.name || "Product"} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                      <img
+                        src={img}
+                        alt={p?.name || "Product"}
+                        className="h-full w-full object-cover"
+                        loading="lazy"
+                        decoding="async"
+                      />
                     ) : null}
                   </div>
 

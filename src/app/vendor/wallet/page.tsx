@@ -58,6 +58,8 @@ export default function VendorBalancePage() {
   const hold = useMemo(() => Number(wallet?.withdrawHoldKobo || 0), [wallet]);
   const total = useMemo(() => Number(wallet?.totalEarnedKobo || 0), [wallet]);
 
+  const allZero = !loading && !msg && pending === 0 && available === 0 && hold === 0 && total === 0;
+
   return (
     <div className="min-h-screen">
       <GradientHeader title="myBizHub Balance" subtitle="Earnings & withdrawals" showBack={true} />
@@ -66,15 +68,46 @@ export default function VendorBalancePage() {
         {loading ? <Card className="p-4">Loading…</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
-        {!loading && !msg ? (
+        {/* ✅ Calm empty state */}
+        {allZero ? (
+          <Card className="p-5">
+            <p className="text-base font-extrabold text-biz-ink">No earnings yet</p>
+            <p className="text-sm text-biz-muted mt-2">
+              Your balance will show here after you start receiving paid orders.
+            </p>
+
+            <ul className="mt-3 text-sm text-gray-700 list-disc pl-5 space-y-1">
+              <li>Add at least one product</li>
+              <li>Share your store link on WhatsApp</li>
+              <li>When payments come in, they’ll appear here automatically</li>
+            </ul>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button onClick={() => router.push("/vendor/products/new")}>Add product</Button>
+              <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                View orders
+              </Button>
+
+              <Button variant="secondary" className="col-span-2" onClick={() => router.push("/vendor")}>
+                Back to dashboard
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        {!loading && !msg && !allZero ? (
           <>
             <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
               <p className="text-xs opacity-95">Available balance</p>
               <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(available)}</p>
 
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <Button onClick={() => router.push("/vendor/withdrawals")}>Withdraw</Button>
-                <Button variant="secondary" onClick={() => window.location.reload()}>Refresh</Button>
+                <Button onClick={() => router.push("/vendor/withdrawals")} disabled={available <= 0}>
+                  Withdraw
+                </Button>
+                <Button variant="secondary" onClick={() => window.location.reload()}>
+                  Refresh
+                </Button>
               </div>
 
               <p className="mt-3 text-[11px] opacity-90">

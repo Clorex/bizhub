@@ -1,13 +1,13 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { IconButton } from "@/components/ui/IconButton";
 import { auth } from "@/lib/firebase/client";
+import { useRouter } from "next/navigation";
 import { RefreshCw, Download } from "lucide-react";
 
 function fmtNaira(n: number) {
@@ -27,29 +27,17 @@ function fmtDateMs(ms?: number) {
   }
 }
 
-function Chip({
-  children,
-  tone,
-}: {
-  children: any;
-  tone: "green" | "orange" | "red" | "gray";
-}) {
+function Chip({ children, tone }: { children: any; tone: "green" | "orange" | "red" | "gray" }) {
   const cls =
     tone === "green"
       ? "bg-emerald-50 text-emerald-700 border-emerald-100"
       : tone === "orange"
-      ? "bg-orange-50 text-orange-700 border-orange-100"
-      : tone === "red"
-      ? "bg-rose-50 text-rose-700 border-rose-100"
-      : "bg-gray-50 text-gray-700 border-gray-100";
+        ? "bg-orange-50 text-orange-700 border-orange-100"
+        : tone === "red"
+          ? "bg-rose-50 text-rose-700 border-rose-100"
+          : "bg-gray-50 text-gray-700 border-gray-100";
 
-  return (
-    <span
-      className={`px-2 py-1 rounded-full text-[11px] font-bold border ${cls}`}
-    >
-      {children}
-    </span>
-  );
+  return <span className={`px-2 py-1 rounded-full text-[11px] font-bold border ${cls}`}>{children}</span>;
 }
 
 export default function VendorCustomersPage() {
@@ -125,8 +113,7 @@ export default function VendorCustomersPage() {
       const blob = await r.blob();
       const cd = r.headers.get("content-disposition") || "";
       const m = cd.match(/filename="([^"]+)"/i);
-      const filename =
-        m?.[1] || `customers_export_${new Date().toISOString().slice(0, 10)}.csv`;
+      const filename = m?.[1] || `customers_export_${new Date().toISOString().slice(0, 10)}.csv`;
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -162,6 +149,9 @@ export default function VendorCustomersPage() {
       return name.includes(s) || phone.includes(s) || email.includes(s);
     });
   }, [customers, q]);
+
+  const noCustomersYet = !loading && customers.length === 0;
+  const noMatches = !loading && customers.length > 0 && filtered.length === 0;
 
   return (
     <div className="min-h-screen">
@@ -202,12 +192,7 @@ export default function VendorCustomersPage() {
               >
                 Export CSV
               </Button>
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={load}
-                loading={loading}
-              >
+              <Button variant="secondary" size="sm" onClick={load} loading={loading}>
                 Refresh
               </Button>
             </div>
@@ -217,9 +202,7 @@ export default function VendorCustomersPage() {
             <div className="mt-3">
               <Card variant="soft" className="p-3">
                 <p className="text-sm font-bold text-biz-ink">CSV export locked</p>
-                <p className="text-[11px] text-biz-muted mt-1">
-                  Upgrade your plan to export customer lists.
-                </p>
+                <p className="text-[11px] text-biz-muted mt-1">Upgrade your plan to export customer lists.</p>
                 <div className="mt-2">
                   <Button size="sm" onClick={() => router.push("/vendor/subscription")}>
                     Upgrade
@@ -230,11 +213,7 @@ export default function VendorCustomersPage() {
           ) : null}
 
           <div className="mt-3 grid gap-2">
-            <Input
-              placeholder="Search name / phone / email"
-              value={q}
-              onChange={(e) => setQ(e.target.value)}
-            />
+            <Input placeholder="Search name / phone / email" value={q} onChange={(e) => setQ(e.target.value)} />
 
             <button
               type="button"
@@ -243,12 +222,9 @@ export default function VendorCustomersPage() {
               disabled={!exportUnlocked}
             >
               <div className="text-left">
-                <p className="text-sm font-bold text-biz-ink">
-                  Include contacts for opted-out customers
-                </p>
+                <p className="text-sm font-bold text-biz-ink">Include contacts for opted-out customers</p>
                 <p className="text-[11px] text-biz-muted mt-1">
-                  Default export hides phone/email for opted-out customers
-                  (recommended).
+                  Default export hides phone/email for opted-out customers (recommended).
                 </p>
               </div>
               <span
@@ -266,19 +242,44 @@ export default function VendorCustomersPage() {
 
         {loading ? <Card className="p-4">Loading…</Card> : null}
 
-        {!loading && filtered.length === 0 ? (
-          <Card className="p-5 text-center">
+        {/* ✅ Calm empty state: no customers at all */}
+        {noCustomersYet ? (
+          <Card className="p-5">
             <p className="text-base font-extrabold text-biz-ink">No customers yet</p>
             <p className="text-sm text-biz-muted mt-2">
-              Customers appear after you receive orders.
+              Customers will appear here after you get orders. Your first buyer will show up automatically.
             </p>
+
+            <ul className="mt-3 text-sm text-gray-700 list-disc pl-5 space-y-1">
+              <li>Add at least 1–3 products</li>
+              <li>Share your store link on WhatsApp</li>
+              <li>Reply fast when someone asks a question</li>
+            </ul>
+
             <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button onClick={() => router.push("/vendor")}>Dashboard</Button>
-              <Button
-                variant="secondary"
-                onClick={() => router.push("/vendor/orders")}
-              >
+              <Button onClick={() => router.push("/vendor/products/new")}>Add product</Button>
+              <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
                 View orders
+              </Button>
+
+              <Button variant="secondary" className="col-span-2" onClick={() => router.push("/vendor")}>
+                Back to dashboard
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        {/* ✅ Calm empty state: search returns nothing */}
+        {noMatches ? (
+          <Card className="p-5 text-center">
+            <p className="text-base font-extrabold text-biz-ink">No matches</p>
+            <p className="text-sm text-biz-muted mt-2">Try a different keyword or clear your search.</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => setQ("")}>
+                Clear search
+              </Button>
+              <Button variant="secondary" onClick={load}>
+                Refresh
               </Button>
             </div>
           </Card>
@@ -293,9 +294,7 @@ export default function VendorCustomersPage() {
               <Card key={c.customerKey} className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="font-extrabold text-biz-ink">
-                      {c.fullName || c.phone || c.email || "Customer"}
-                    </p>
+                    <p className="font-extrabold text-biz-ink">{c.fullName || c.phone || c.email || "Customer"}</p>
                     <p className="text-[11px] text-gray-500 mt-1 break-all">
                       {c.phone || "—"} • {c.email || "—"}
                     </p>
@@ -311,18 +310,12 @@ export default function VendorCustomersPage() {
                         {c?.notes?.vip ? <Chip tone="green">VIP</Chip> : null}
                         {c?.notes?.debt ? <Chip tone="orange">Debt</Chip> : null}
                         {c?.notes?.issue ? <Chip tone="red">Issue</Chip> : null}
-                        {!c?.notes?.vip && !c?.notes?.debt && !c?.notes?.issue ? (
-                          <Chip tone="gray">No notes</Chip>
-                        ) : null}
+                        {!c?.notes?.vip && !c?.notes?.debt && !c?.notes?.issue ? <Chip tone="gray">No notes</Chip> : null}
 
                         <button
                           type="button"
                           className="ml-auto text-[11px] font-bold text-biz-ink underline"
-                          onClick={() =>
-                            setOpenNotesKey((prev) =>
-                              prev === c.customerKey ? null : c.customerKey
-                            )
-                          }
+                          onClick={() => setOpenNotesKey((prev) => (prev === c.customerKey ? null : c.customerKey))}
                         >
                           {openNotesKey === c.customerKey ? "Close" : "Notes"}
                         </button>
@@ -352,9 +345,7 @@ export default function VendorCustomersPage() {
                                 const vip = e.target.checked;
                                 setCustomers((prev) =>
                                   prev.map((x) =>
-                                    x.customerKey === c.customerKey
-                                      ? { ...x, notes: { ...(x.notes || {}), vip } }
-                                      : x
+                                    x.customerKey === c.customerKey ? { ...x, notes: { ...(x.notes || {}), vip } } : x
                                   )
                                 );
                               }}
@@ -371,16 +362,7 @@ export default function VendorCustomersPage() {
                                 setCustomers((prev) =>
                                   prev.map((x) =>
                                     x.customerKey === c.customerKey
-                                      ? {
-                                          ...x,
-                                          notes: {
-                                            ...(x.notes || {}),
-                                            debt,
-                                            debtAmount: debt
-                                              ? Number(x.notes?.debtAmount || 0)
-                                              : 0,
-                                          },
-                                        }
+                                      ? { ...x, notes: { ...(x.notes || {}), debt, debtAmount: debt ? Number(x.notes?.debtAmount || 0) : 0 } }
                                       : x
                                   )
                                 );
@@ -397,12 +379,7 @@ export default function VendorCustomersPage() {
                                 const issue = e.target.checked;
                                 setCustomers((prev) =>
                                   prev.map((x) =>
-                                    x.customerKey === c.customerKey
-                                      ? {
-                                          ...x,
-                                          notes: { ...(x.notes || {}), issue },
-                                        }
-                                      : x
+                                    x.customerKey === c.customerKey ? { ...x, notes: { ...(x.notes || {}), issue } } : x
                                   )
                                 );
                               }}
@@ -413,32 +390,16 @@ export default function VendorCustomersPage() {
 
                         {c?.notes?.debt ? (
                           <div>
-                            <p className="text-[11px] text-biz-muted mb-1 font-bold">
-                              Debt amount (₦)
-                            </p>
+                            <p className="text-[11px] text-biz-muted mb-1 font-bold">Debt amount (₦)</p>
                             <Input
                               inputMode="numeric"
                               value={String(c?.notes?.debtAmount ?? "")}
                               onChange={(e) => {
-                                const debtAmount =
-                                  Number(
-                                    String(e.target.value || "0").replace(
-                                      /[^\d.]/g,
-                                      ""
-                                    )
-                                  ) || 0;
+                                const debtAmount = Number(String(e.target.value || "0").replace(/[^\d.]/g, "")) || 0;
 
                                 setCustomers((prev) =>
                                   prev.map((x) =>
-                                    x.customerKey === c.customerKey
-                                      ? {
-                                          ...x,
-                                          notes: {
-                                            ...(x.notes || {}),
-                                            debtAmount,
-                                          },
-                                        }
-                                      : x
+                                    x.customerKey === c.customerKey ? { ...x, notes: { ...(x.notes || {}), debtAmount } } : x
                                   )
                                 );
                               }}
@@ -448,9 +409,7 @@ export default function VendorCustomersPage() {
                         ) : null}
 
                         <div>
-                          <p className="text-[11px] text-biz-muted mb-1 font-bold">
-                            Note
-                          </p>
+                          <p className="text-[11px] text-biz-muted mb-1 font-bold">Note</p>
                           <textarea
                             className="w-full rounded-2xl border border-biz-line bg-white p-3 text-sm outline-none"
                             rows={3}
@@ -459,12 +418,7 @@ export default function VendorCustomersPage() {
                               const note = e.target.value;
                               setCustomers((prev) =>
                                 prev.map((x) =>
-                                  x.customerKey === c.customerKey
-                                    ? {
-                                        ...x,
-                                        notes: { ...(x.notes || {}), note },
-                                      }
-                                    : x
+                                  x.customerKey === c.customerKey ? { ...x, notes: { ...(x.notes || {}), note } } : x
                                 )
                               );
                             }}
@@ -489,20 +443,13 @@ export default function VendorCustomersPage() {
                                 debtAmount: Number(c?.notes?.debtAmount || 0),
                               };
 
-                              const res = await authedFetchJson(
-                                "/api/vendor/customers/notes",
-                                {
-                                  method: "PUT",
-                                  body: JSON.stringify(payload),
-                                }
-                              );
+                              const res = await authedFetchJson("/api/vendor/customers/notes", {
+                                method: "PUT",
+                                body: JSON.stringify(payload),
+                              });
 
                               setCustomers((prev) =>
-                                prev.map((x) =>
-                                  x.customerKey === c.customerKey
-                                    ? { ...x, notes: res.note }
-                                    : x
-                                )
+                                prev.map((x) => (x.customerKey === c.customerKey ? { ...x, notes: res.note } : x))
                               );
                             } catch (e: any) {
                               setMsg(e?.message || "Failed to save notes");
@@ -515,9 +462,7 @@ export default function VendorCustomersPage() {
                         </Button>
 
                         {c?.notes?.updatedAtMs ? (
-                          <p className="text-[11px] text-gray-500">
-                            Last updated: {fmtDateMs(Number(c.notes.updatedAtMs || 0))}
-                          </p>
+                          <p className="text-[11px] text-gray-500">Last updated: {fmtDateMs(Number(c.notes.updatedAtMs || 0))}</p>
                         ) : null}
                       </div>
                     ) : null}
@@ -530,9 +475,7 @@ export default function VendorCustomersPage() {
                   </div>
 
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-extrabold text-biz-ink">
-                      {fmtNaira(Number(c.totalSpent || 0))}
-                    </p>
+                    <p className="text-sm font-extrabold text-biz-ink">{fmtNaira(Number(c.totalSpent || 0))}</p>
                     <p className="text-[11px] text-gray-500 mt-1">Total spent</p>
                   </div>
                 </div>
