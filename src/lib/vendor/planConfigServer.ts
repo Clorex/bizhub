@@ -1,3 +1,4 @@
+// FILE: src/lib/vendor/planConfigServer.ts
 import { adminDb } from "@/lib/firebase/admin";
 
 export type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
@@ -28,6 +29,9 @@ export type PlanFeatures = {
   proofOfPayment: boolean;
   customerNotes: boolean;
   installmentPlans: boolean;
+
+  /** ✅ NEW: allow customers pay in USD at checkout (only used on MOMENTUM/APEX) */
+  usdCheckout: boolean;
 };
 
 export type PlanLimits = {
@@ -110,6 +114,8 @@ function cleanFeatures(v: any, fallback: PlanFeatures): PlanFeatures {
     proofOfPayment: typeof o.proofOfPayment === "boolean" ? o.proofOfPayment : fallback.proofOfPayment,
     customerNotes: typeof o.customerNotes === "boolean" ? o.customerNotes : fallback.customerNotes,
     installmentPlans: typeof o.installmentPlans === "boolean" ? o.installmentPlans : fallback.installmentPlans,
+
+    usdCheckout: typeof o.usdCheckout === "boolean" ? o.usdCheckout : fallback.usdCheckout,
   };
 }
 
@@ -133,12 +139,7 @@ function cleanLimits(v: any, fallback: PlanLimits): PlanLimits {
 
     deadStockMaxRows: pickInt(o.deadStockMaxRows, fallback.deadStockMaxRows, 0, 2000),
     deadStockMaxDays: pickInt(o.deadStockMaxDays, fallback.deadStockMaxDays, 0, 365),
-    deadStockIgnoreNewerThanDays: pickInt(
-      o.deadStockIgnoreNewerThanDays,
-      fallback.deadStockIgnoreNewerThanDays,
-      0,
-      60
-    ),
+    deadStockIgnoreNewerThanDays: pickInt(o.deadStockIgnoreNewerThanDays, fallback.deadStockIgnoreNewerThanDays, 0, 60),
   };
 }
 
@@ -172,6 +173,8 @@ export function fallbackPlanConfig(): PlanConfig {
           proofOfPayment: false,
           customerNotes: false,
           installmentPlans: false,
+
+          usdCheckout: false,
         },
         limits: {
           maxProducts: 25,
@@ -206,7 +209,7 @@ export function fallbackPlanConfig(): PlanConfig {
           reengagement: true,
           reengagementSmartGroups: true,
           reengagementSmartMessages: true,
-          reengagementAiRemix: false, // ✅ only via add-on (lite)
+          reengagementAiRemix: false,
 
           apexVerifiedBadge: false,
           apexSmartRiskShield: false,
@@ -217,11 +220,13 @@ export function fallbackPlanConfig(): PlanConfig {
           monthAnalytics: true,
 
           bestSellers: true,
-          deadStock: false, // add-on unlock
-          followUps: true, // add-on boosts cap only
+          deadStock: false,
+          followUps: true,
           proofOfPayment: true,
           customerNotes: true,
-          installmentPlans: false, // add-on unlock
+          installmentPlans: false,
+
+          usdCheckout: false,
         },
         limits: {
           maxProducts: 5000,
@@ -229,15 +234,15 @@ export function fallbackPlanConfig(): PlanConfig {
           reengagementDaily: 20,
           chatOrdersDaily: 500,
 
-          staffMax: 3, // add-on +1
+          staffMax: 3,
           couponsMax: 200,
           shippingOptionsMax: 50,
           promotionsMaxActive: 5,
 
-          followUpsCap72h: 10, // add-on boosts to 20
+          followUpsCap72h: 10,
 
-          bestSellersMaxRows: 5, // add-on boosts to 10
-          bestSellersMaxDays: 7, // add-on boosts to 14
+          bestSellersMaxRows: 5,
+          bestSellersMaxDays: 7,
 
           deadStockMaxRows: 0,
           deadStockMaxDays: 0,
@@ -256,7 +261,7 @@ export function fallbackPlanConfig(): PlanConfig {
           reengagement: true,
           reengagementSmartGroups: true,
           reengagementSmartMessages: true,
-          reengagementAiRemix: false, // ✅ only via add-on (Apex engine capped)
+          reengagementAiRemix: false,
 
           apexVerifiedBadge: false,
           apexSmartRiskShield: false,
@@ -268,10 +273,12 @@ export function fallbackPlanConfig(): PlanConfig {
 
           bestSellers: true,
           deadStock: true,
-          followUps: true, // add-on boosts cap only
+          followUps: true,
           proofOfPayment: true,
           customerNotes: true,
-          installmentPlans: false, // add-on unlock
+          installmentPlans: false,
+
+          usdCheckout: true, // ✅ default ON
         },
         limits: {
           maxProducts: 20000,
@@ -284,10 +291,10 @@ export function fallbackPlanConfig(): PlanConfig {
           shippingOptionsMax: 150,
           promotionsMaxActive: 10,
 
-          followUpsCap72h: 25, // add-on boosts to 50
+          followUpsCap72h: 25,
 
-          bestSellersMaxRows: 20, // add-on boosts to 50
-          bestSellersMaxDays: 30, // add-on boosts to 90
+          bestSellersMaxRows: 20,
+          bestSellersMaxDays: 30,
 
           deadStockMaxRows: 80,
           deadStockMaxDays: 30,
@@ -306,7 +313,7 @@ export function fallbackPlanConfig(): PlanConfig {
           reengagement: true,
           reengagementSmartGroups: true,
           reengagementSmartMessages: true,
-          reengagementAiRemix: true, // ✅ core
+          reengagementAiRemix: true,
 
           apexVerifiedBadge: true,
           apexSmartRiskShield: true,
@@ -322,6 +329,8 @@ export function fallbackPlanConfig(): PlanConfig {
           proofOfPayment: true,
           customerNotes: true,
           installmentPlans: true,
+
+          usdCheckout: true, // ✅ default ON
         },
         limits: {
           maxProducts: 100000,
@@ -371,6 +380,10 @@ export async function getPlanConfig(): Promise<PlanConfig> {
 
   return out as PlanConfig;
 }
+
+// ---------------------
+// The rest of your file stays the same (addons sync, applyAddonsToPlan, getBusinessPlanResolved).
+// ---------------------
 
 function deepEqualJson(a: any, b: any) {
   try {
@@ -438,8 +451,7 @@ async function syncAddonEntitlementsIfNeeded(businessId: string, biz: any, subsc
   const lastState = !!sync.lastKnownSubActive;
   const lastMs = Number(sync.lastSyncMs || 0) || 0;
 
-  const entMap =
-    biz?.addonEntitlements && typeof biz.addonEntitlements === "object" ? biz.addonEntitlements : {};
+  const entMap = biz?.addonEntitlements && typeof biz.addonEntitlements === "object" ? biz.addonEntitlements : {};
 
   let mustSync = false;
 
@@ -481,10 +493,7 @@ async function syncAddonEntitlementsIfNeeded(businessId: string, biz: any, subsc
 
   if (!computed.changed || deepEqualJson(entMap, nextEnt)) {
     if (lastState !== subscriptionActive || nowMs - lastMs >= 10 * 60 * 1000) {
-      await ref.set(
-        { addonSync: { lastKnownSubActive: subscriptionActive, lastSyncMs: nowMs } },
-        { merge: true }
-      );
+      await ref.set({ addonSync: { lastKnownSubActive: subscriptionActive, lastSyncMs: nowMs } }, { merge: true });
     }
     return biz;
   }
@@ -498,11 +507,7 @@ async function syncAddonEntitlementsIfNeeded(businessId: string, biz: any, subsc
     { merge: true }
   );
 
-  return {
-    ...biz,
-    addonEntitlements: nextEnt,
-    addonSync: { lastKnownSubActive: subscriptionActive, lastSyncMs: nowMs },
-  };
+  return { ...biz, addonEntitlements: nextEnt, addonSync: { lastKnownSubActive: subscriptionActive, lastSyncMs: nowMs } };
 }
 
 function addonIsActive(ent: any, nowMs: number) {
@@ -527,30 +532,22 @@ function applyAddonsToPlan(args: {
   }
 
   const entMap =
-    business?.addonEntitlements && typeof business.addonEntitlements === "object"
-      ? business.addonEntitlements
-      : {};
+    business?.addonEntitlements && typeof business.addonEntitlements === "object" ? business.addonEntitlements : {};
 
-  // Add-on #1
   const basicInstallments = addonIsActive(entMap["addon_installments_basic"], nowMs);
   const advancedInstallments = addonIsActive(entMap["addon_installments_advanced"], nowMs);
 
-  // Add-on #2
   const launchDeadStock = addonIsActive(entMap["addon_deadstock_40_15"], nowMs);
   const momentumDeadStockExpansion = addonIsActive(entMap["addon_deadstock_150_60"], nowMs);
 
-  // Add-on #3
   const launchFollowUpsBoost = addonIsActive(entMap["addon_followups_boost_20"], nowMs);
   const momentumFollowUpsBoost = addonIsActive(entMap["addon_followups_boost_50"], nowMs);
 
-  // Add-on #4
   const launchStaffPlus1 = addonIsActive(entMap["addon_staff_plus1"], nowMs);
 
-  // Add-on #5
   const launchBestSellersExpansion = addonIsActive(entMap["addon_bestsellers_10_14"], nowMs);
   const momentumBestSellersExpansion = addonIsActive(entMap["addon_bestsellers_50_90"], nowMs);
 
-  // Add-on #6 (AI remix)
   const launchAiRemix = addonIsActive(entMap["addon_reengage_remix_lite"], nowMs);
   const momentumAiRemix = addonIsActive(entMap["addon_reengage_remix_apex_capped"], nowMs);
 
@@ -558,13 +555,10 @@ function applyAddonsToPlan(args: {
   const nextLimits: PlanLimits = { ...args.limits };
   const addons: any = {};
 
-  // ✅ IMPORTANT RULE: AI remix is NOT included by default in Launch/Momentum.
-  // Even if someone toggles it mistakenly in planConfig, we force it off unless add-on active.
   if (planKey === "LAUNCH" || planKey === "MOMENTUM") {
     nextFeatures.reengagementAiRemix = false;
   }
 
-  // ---- Installments ----
   if (planKey === "LAUNCH" && basicInstallments) {
     nextFeatures.installmentPlans = true;
     addons.installmentPlansTier = "basic";
@@ -577,7 +571,6 @@ function applyAddonsToPlan(args: {
     addons.installmentPlansSku = "addon_installments_advanced";
   }
 
-  // ---- Dead stock ----
   if (planKey === "LAUNCH" && launchDeadStock) {
     nextFeatures.deadStock = true;
     nextLimits.deadStockMaxRows = Math.max(Number(nextLimits.deadStockMaxRows || 0), 40);
@@ -594,7 +587,6 @@ function applyAddonsToPlan(args: {
     addons.deadStockSku = "addon_deadstock_150_60";
   }
 
-  // ---- Follow-ups boost ----
   if (planKey === "LAUNCH" && launchFollowUpsBoost) {
     nextLimits.followUpsCap72h = Math.max(Number(nextLimits.followUpsCap72h || 0), 20);
     addons.followUpsBoostSku = "addon_followups_boost_20";
@@ -607,14 +599,12 @@ function applyAddonsToPlan(args: {
     addons.followUpsBoostCap72h = 50;
   }
 
-  // ---- Staff +1 seat ----
   if (planKey === "LAUNCH" && launchStaffPlus1) {
     nextLimits.staffMax = Math.max(0, Number(nextLimits.staffMax || 0)) + 1;
     addons.staffSeatAddonSku = "addon_staff_plus1";
     addons.staffMaxEffective = nextLimits.staffMax;
   }
 
-  // ---- Best sellers expansion ----
   if (planKey === "LAUNCH" && launchBestSellersExpansion) {
     nextLimits.bestSellersMaxRows = Math.max(Number(nextLimits.bestSellersMaxRows || 0), 10);
     nextLimits.bestSellersMaxDays = Math.max(Number(nextLimits.bestSellersMaxDays || 0), 14);
@@ -629,7 +619,6 @@ function applyAddonsToPlan(args: {
     addons.bestSellersTier = "50_90";
   }
 
-  // ---- Re-engagement AI remix (purchased) ----
   if (planKey === "LAUNCH" && launchAiRemix) {
     nextFeatures.reengagementAiRemix = true;
     addons.reengagementAiRemixSku = "addon_reengage_remix_lite";
@@ -644,8 +633,6 @@ function applyAddonsToPlan(args: {
     addons.reengagementAiRemixCapPer24h = 25;
   }
 
-  // Apex: core; do nothing.
-
   return { features: nextFeatures, limits: nextLimits, addons };
 }
 
@@ -657,7 +644,6 @@ export async function getBusinessPlanResolved(businessId: string) {
   const hasSub = hasActiveSubscription(biz);
   const planKey = resolvePlanKey(biz);
 
-  // keep addon timers correct even when /api/vendor/access is not called
   biz = await syncAddonEntitlementsIfNeeded(businessId, biz, hasSub);
 
   const cfg = await getPlanConfig();

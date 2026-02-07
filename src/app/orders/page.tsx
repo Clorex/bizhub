@@ -31,32 +31,70 @@ function toMs(v: any) {
   }
 }
 
-function fmtDate(v: any) {
+function fmtDateAny(v: any) {
+  const ms = toMs(v);
+  if (!ms) return "—";
   try {
-    if (!v) return "—";
-    if (typeof v?.toDate === "function") return v.toDate().toLocaleString();
-    return String(v);
+    return new Date(ms).toLocaleString();
   } catch {
     return "—";
   }
 }
 
+function customerStatusLabel(o: any) {
+  const orderStatus = String(o?.orderStatus || "").toLowerCase();
+  const ops = String(o?.opsStatusEffective || o?.opsStatus || "").toLowerCase();
+  const escrow = String(o?.escrowStatus || "").toLowerCase();
+
+  if (ops) {
+    if (ops === "delivered") return "Delivered";
+    if (ops === "cancelled") return "Cancelled";
+    if (ops === "in_transit") return "In transit";
+    if (ops === "paid") return "Paid";
+  }
+
+  if (orderStatus.includes("delivered")) return "Delivered";
+  if (orderStatus.includes("cancel")) return "Cancelled";
+  if (orderStatus.includes("paid")) {
+    if (escrow && escrow !== "released") return "Processing";
+    return "Paid";
+  }
+
+  if (escrow) {
+    if (escrow === "released") return "Paid";
+    if (escrow === "disputed") return "Needs attention";
+    return "Processing";
+  }
+
+  return "Processing";
+}
+
+function paymentLabel(o: any) {
+  const paymentType = String(o?.paymentType || "");
+  if (paymentType === "direct_transfer") return "Bank transfer";
+  if (paymentType === "paystack_escrow") return "Card payment";
+  return "";
+}
+
+function code4DigitsFromReference(ref: string) {
+  let h = 0;
+  for (let i = 0; i < ref.length; i++) h = (h * 31 + ref.charCodeAt(i)) | 0;
+  const n = Math.abs(h) % 10000;
+  return String(n).padStart(4, "0");
+}
+
 function StatusPill({ text }: { text: string }) {
-  const t = text.toLowerCase();
+  const t = String(text || "").toLowerCase();
   const cls =
-    t.includes("dispute") || t.includes("disputed")
+    t.includes("attention") || t.includes("issue")
       ? "bg-red-50 text-red-700 border-red-100"
-      : t.includes("awaiting")
+      : t.includes("processing") || t.includes("transit")
         ? "bg-orange-50 text-orange-700 border-orange-100"
-        : t.includes("released")
+        : t.includes("delivered") || t.includes("paid")
           ? "bg-emerald-50 text-emerald-700 border-emerald-100"
           : "bg-biz-cream text-biz-ink border-transparent";
 
-  return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-extrabold border ${cls}`}>
-      {text}
-    </span>
-  );
+  return <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-extrabold border ${cls}`}>{text}</span>;
 }
 
 export default function OrdersPage() {
@@ -167,23 +205,36 @@ export default function OrdersPage() {
             <div className="space-y-2">
               {orders.map((o) => {
                 const amount = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
-                const status = String(o.orderStatus || o.escrowStatus || "—");
+                const status = customerStatusLabel(o);
+                const vendor = String(o.businessSlug || "").trim() || "—";
+                const pay = paymentLabel(o);
+
+                const ref = String(o?.payment?.reference || "").trim();
+                const code = ref ? code4DigitsFromReference(ref) : "";
+
                 return (
                   <Link key={o.id} href={`/orders/${o.id}`} className="block">
                     <div className="rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
                           <p className="text-sm font-extrabold text-biz-ink">Order #{String(o.id).slice(0, 8)}</p>
+
                           <p className="text-[11px] text-biz-muted mt-1">
-                            Store: <b className="text-biz-ink">{o.businessSlug || "—"}</b>
+                            Vendor: <b className="text-biz-ink">{vendor}</b>
+                            {code ? (
+                              <>
+                                {" "}
+                                • Code: <b className="text-biz-ink">{code}</b>
+                              </>
+                            ) : null}
                           </p>
 
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             <StatusPill text={status} />
-                            <span className="text-[11px] text-gray-500">{o.paymentType || "—"}</span>
+                            {pay ? <span className="text-[11px] text-gray-500">{pay}</span> : null}
                           </div>
 
-                          <p className="text-[11px] text-gray-500 mt-2">Created: {fmtDate(o.createdAt)}</p>
+                          <p className="text-[11px] text-gray-500 mt-2">Created: {fmtDateAny(o.createdAt)}</p>
                         </div>
 
                         <div className="text-right shrink-0">

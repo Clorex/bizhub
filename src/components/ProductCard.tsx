@@ -1,7 +1,9 @@
-﻿"use client";
+﻿// FILE: src/components/ProductCard.tsx
+"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { normalizeCoverAspect, coverAspectToTailwindClass, type CoverAspectKey } from "@/lib/products/coverAspect";
 
 function formatPriceNaira(value: any) {
   const n = Number(value ?? 0);
@@ -80,7 +82,6 @@ function badgeTypeFromTrust(t: any): TrustBadgeType {
 
 export function ProductCard({ slug, product }: { slug: string; product: any }) {
   const name = product?.name ?? "Product";
-
   const img = Array.isArray(product?.images) ? product.images?.[0] : null;
 
   const listingType = String(product?.listingType || "product");
@@ -90,6 +91,9 @@ export function ProductCard({ slug, product }: { slug: string; product: any }) {
   const basePrice = Number(product?.priceKobo != null ? Number(product.priceKobo) / 100 : product?.price || 0);
   const onSale = !bookOnly && saleIsActive(product);
   const finalPrice = onSale ? computeSalePriceNgn(product) : basePrice;
+
+  const coverAspect: CoverAspectKey = normalizeCoverAspect(product?.coverAspect) ?? "1:1";
+  const aspectClass = coverAspectToTailwindClass(coverAspect);
 
   const [trust, setTrust] = useState<any>(null);
 
@@ -124,7 +128,6 @@ export function ProductCard({ slug, product }: { slug: string; product: any }) {
     }
 
     loadTrust();
-
     return () => {
       mounted = false;
     };
@@ -137,8 +140,9 @@ export function ProductCard({ slug, product }: { slug: string; product: any }) {
       href={`/b/${slug}/p/${product.id}`}
       className="block rounded-2xl border border-black/5 bg-white shadow-sm active:scale-[0.99] transition"
     >
-      <div className="aspect-square w-full rounded-2xl bg-[#F3F4F6] overflow-hidden relative">
+      <div className={`${aspectClass} w-full rounded-2xl bg-[#F3F4F6] overflow-hidden relative`}>
         {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
           <img src={img} alt={name} className="h-full w-full object-cover" loading="lazy" />
         ) : (
           <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No image</div>

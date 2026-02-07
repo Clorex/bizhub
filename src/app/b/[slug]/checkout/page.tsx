@@ -1,3 +1,4 @@
+// FILE: src/app/b/[slug]/checkout/page.tsx
 "use client";
 
 import { useCart } from "@/lib/cart/CartContext";
@@ -23,6 +24,8 @@ type ShippingOption = {
   areasText?: string | null;
 };
 
+type PayCurrency = "NGN" | "USD";
+
 function fmtNaira(n: number) {
   try {
     return `₦${Number(n || 0).toLocaleString()}`;
@@ -33,6 +36,25 @@ function fmtNaira(n: number) {
 
 function clampStr(v: any, max = 200) {
   return String(v || "").trim().slice(0, max);
+}
+
+function loadPayCurrency(storeSlug: string): PayCurrency {
+  try {
+    const key = `bizhub_checkout_currency_${storeSlug}`;
+    const v = String(localStorage.getItem(key) || "").toUpperCase();
+    return v === "USD" ? "USD" : "NGN";
+  } catch {
+    return "NGN";
+  }
+}
+
+function savePayCurrency(storeSlug: string, c: PayCurrency) {
+  try {
+    const key = `bizhub_checkout_currency_${storeSlug}`;
+    localStorage.setItem(key, c);
+  } catch {
+    // ignore
+  }
 }
 
 export default function CheckoutPage() {
@@ -52,25 +74,29 @@ export default function CheckoutPage() {
   const [phone, setPhone] = useState("");
   const [address, setAddress] = useState("");
 
-  // coupon UI state (persisted)
   const localSubtotalKobo = Math.floor(Number(subtotal || 0) * 100);
+
   const [couponCode, setCouponCode] = useState("");
   const [couponMsg, setCouponMsg] = useState<string | null>(null);
   const [couponLoading, setCouponLoading] = useState(false);
   const [applied, setApplied] = useState<any>(null);
 
-  // shipping UI state
   const [shipLoading, setShipLoading] = useState(false);
   const [shipMsg, setShipMsg] = useState<string | null>(null);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [selectedShipId, setSelectedShipId] = useState<string>("");
 
-  // server quote state
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteMsg, setQuoteMsg] = useState<string | null>(null);
   const [quote, setQuote] = useState<any>(null);
 
-  // Load persisted coupon for this store/subtotal
+  const [payLoading, setPayLoading] = useState(false);
+
+  // USD eligibility
+  const [usdEligible, setUsdEligible] = useState(false);
+  const [payCurrency, setPayCurrency] = useState<PayCurrency>("NGN");
+
+  // Load persisted coupon
   useEffect(() => {
     const c = getCouponForCheckout({ storeSlug: slug, subtotalKobo: localSubtotalKobo });
     setApplied(c);
@@ -78,7 +104,6 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // If subtotal changes after coupon applied, clear it (existing behavior)
   useEffect(() => {
     if (applied && applied.subtotalKobo !== localSubtotalKobo) {
       clearAppliedCoupon();
@@ -88,13 +113,53 @@ export default function CheckoutPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localSubtotalKobo]);
 
-  // Load saved shipping selection (store-specific)
   useEffect(() => {
     const s = getShippingForCheckout({ storeSlug: slug });
     setSelectedShipId(s?.optionId || "");
   }, [slug]);
 
-  // Fetch shipping options for this store
+  // Load saved currency preference
+  useEffect(() => {
+    if (!slug) return;
+    setPayCurrency(loadPayCurrency(slug));
+  }, [slug]);
+
+  // Fetch USD eligibility from server
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadPaymentOptions() {
+      try {
+        if (!slug) return;
+        const r = await fetch(`/api/public/store/${encodeURIComponent(slug)}/payment-options`);
+        const j = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(j?.error || "Failed to load payment options");
+
+        const ok = !!j?.usdEligible;
+        if (!mounted) return;
+
+        setUsdEligible(ok);
+
+        // If not eligible, force NGN
+        if (!ok) {
+          setPayCurrency("NGN");
+          savePayCurrency(slug, "NGN");
+        }
+      } catch {
+        if (!mounted) return;
+        setUsdEligible(false);
+        setPayCurrency("NGN");
+        savePayCurrency(slug, "NGN");
+      }
+    }
+
+    loadPaymentOptions();
+    return () => {
+      mounted = false;
+    };
+  }, [slug]);
+
+  // Fetch shipping options
   useEffect(() => {
     let mounted = true;
 
@@ -112,7 +177,6 @@ export default function CheckoutPage() {
 
         setShippingOptions(opts);
 
-        // Auto-select: saved option if it exists, else first option
         if (opts.length > 0) {
           const saved = getShippingForCheckout({ storeSlug: slug });
           const savedId = saved?.optionId || "";
@@ -157,7 +221,7 @@ export default function CheckoutPage() {
   const shippingRequired = shippingOptions.length > 0;
   const shippingFeeKobo = Number(selectedShipping?.feeKobo || 0);
 
-  // Force login before checkout
+  // Force login
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       setAuthLoading(false);
@@ -194,7 +258,6 @@ export default function CheckoutPage() {
     return () => unsub();
   }, [router, slug]);
 
-  // --- Build server quote (sale first, then coupon) ---
   async function fetchQuote(opts?: { couponCode?: string | null; shippingFeeKobo?: number }) {
     if (!validCart) return;
 
@@ -226,7 +289,6 @@ export default function CheckoutPage() {
 
       setQuote(data);
 
-      // If coupon applied but server says coupon invalid now, clear it.
       if (applied?.code && data?.couponResult && data.couponResult.ok === false) {
         clearAppliedCoupon();
         setApplied(null);
@@ -240,14 +302,12 @@ export default function CheckoutPage() {
     }
   }
 
-  // Recompute quote when shipping changes or applied coupon changes or cart items change
   useEffect(() => {
     if (!validCart) return;
     fetchQuote({ shippingFeeKobo });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [validCart, slug, selectedShipId, shippingFeeKobo, applied?.code, cart.items.length]);
 
-  // If quantities/options change but item count same, above won't trigger; handle subtotal change too.
   useEffect(() => {
     if (!validCart) return;
     fetchQuote({ shippingFeeKobo });
@@ -260,13 +320,13 @@ export default function CheckoutPage() {
         <GradientHeader title="Checkout" showBack={true} />
         <div className="px-4 pb-24">
           <Card className="p-5 text-center">
-            <p className="font-bold text-biz-ink">Cart is empty for this store</p>
+            <p className="font-bold text-biz-ink">Cart is empty for this vendor</p>
             <p className="text-sm text-biz-muted mt-2">Go back to cart and add items.</p>
             <div className="mt-4 space-y-2">
               <Button variant="secondary" onClick={() => router.push("/cart")}>
                 Go to cart
               </Button>
-              <Button onClick={() => router.push(`/b/${slug}`)}>Back to store</Button>
+              <Button onClick={() => router.push(`/b/${slug}`)}>Back to vendor</Button>
             </div>
           </Card>
         </div>
@@ -295,7 +355,6 @@ export default function CheckoutPage() {
       feeKobo: Number(opt.feeKobo || 0),
       selectedAtMs: Date.now(),
     });
-    // quote refresh happens via effect
   }
 
   async function applyCoupon() {
@@ -311,13 +370,8 @@ export default function CheckoutPage() {
         return;
       }
 
-      // Validate via server quote (coupon applies AFTER sale)
       await fetchQuote({ couponCode: code, shippingFeeKobo });
 
-      // If quote failed, don't proceed
-      if (!quote && quoteMsg) throw new Error(quoteMsg);
-
-      // Use latest quote by fetching directly (fresh)
       const items = (cart.items || []).map((it: any) => ({
         productId: String(it.productId || it.id || ""),
         qty: Number(it.qty || 1),
@@ -348,9 +402,7 @@ export default function CheckoutPage() {
       const next = {
         storeSlug: slug,
         code,
-        // keep compatibility with existing localStorage keying:
         subtotalKobo: localSubtotalKobo,
-        // extra info (harmless):
         serverSaleSubtotalKobo: saleSubtotalKobo,
         discountKobo: couponDiscountKobo,
         totalKobo: Math.max(0, saleSubtotalKobo - couponDiscountKobo),
@@ -361,7 +413,6 @@ export default function CheckoutPage() {
       setApplied(next);
       setCouponMsg(`Applied ${code}.`);
 
-      // set quote to this response
       setQuote(data);
       setQuoteMsg(null);
     } catch (e: any) {
@@ -382,12 +433,10 @@ export default function CheckoutPage() {
   }
 
   const pricing = quote?.pricing || null;
-
   const totalKobo = pricing ? Number(pricing.totalKobo || 0) : Math.max(0, localSubtotalKobo + shippingFeeKobo);
   const totalNgn = totalKobo / 100;
 
   const originalSubtotalKobo = pricing ? Number(pricing.originalSubtotalKobo || 0) : localSubtotalKobo;
-  const saleSubtotalKobo = pricing ? Number(pricing.saleSubtotalKobo || 0) : localSubtotalKobo;
   const saleDiscountKobo = pricing ? Number(pricing.saleDiscountKobo || 0) : 0;
   const couponDiscountKobo = pricing ? Number(pricing.couponDiscountKobo || 0) : Number(applied?.discountKobo || 0);
 
@@ -400,89 +449,108 @@ export default function CheckoutPage() {
     (!shippingRequired || !!selectedShipping) &&
     (pickedPickup ? true : !!address) &&
     !quoteLoading &&
-    !quoteMsg;
+    !quoteMsg &&
+    !payLoading;
 
-  async function handlePaystack() {
-    saveCheckoutProfile({ email, fullName, phone, address });
+  async function handleCardPay() {
+    setPayLoading(true);
+    try {
+      saveCheckoutProfile({ email, fullName, phone, address });
 
-    // ✅ Always compute a fresh server quote right before payment
-    const items = (cart.items || []).map((it: any) => ({
-      productId: String(it.productId || it.id || ""),
-      qty: Number(it.qty || 1),
-      selectedOptions: it.selectedOptions || null,
-    }));
+      const effectiveCurrency: PayCurrency = usdEligible ? payCurrency : "NGN";
+      savePayCurrency(slug, effectiveCurrency);
 
-    const coupon = applied?.code ? String(applied.code) : null;
+      const items = (cart.items || []).map((it: any) => ({
+        productId: String(it.productId || it.id || ""),
+        qty: Number(it.qty || 1),
+        selectedOptions: it.selectedOptions || null,
+      }));
 
-    const rQ = await fetch("/api/checkout/quote", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        storeSlug: slug,
-        items,
-        couponCode: coupon,
-        shippingFeeKobo,
-      }),
-    });
+      const coupon = applied?.code ? String(applied.code) : null;
 
-    const qData = await rQ.json().catch(() => ({}));
-    if (!rQ.ok) {
-      alert(qData?.error || "Failed to compute final price");
-      return;
-    }
-
-    const amountKobo = Number(qData?.pricing?.totalKobo || 0);
-    if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
-      alert("Invalid total. Please refresh and try again.");
-      return;
-    }
-
-    // Build sanitized items list for metadata (use server normalized items)
-    const metaItems = Array.isArray(qData.normalizedItems)
-      ? qData.normalizedItems.map((it: any) => ({
-          productId: String(it.productId || ""),
-          name: String(it.name || "Item"),
-          qty: Number(it.qty || 1),
-          price: Number(it.finalUnitPriceKobo || 0) / 100, // NGN unit price (final)
-          selectedOptions: it.selectedOptions || null,
-        }))
-      : cart.items;
-
-    const r = await fetch("/api/paystack/initialize", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email,
-        amountKobo,
-        metadata: {
+      const rQ = await fetch("/api/checkout/quote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
           storeSlug: slug,
-          customer: { fullName: clampStr(fullName, 80), phone: clampStr(phone, 40), address: clampStr(address, 300), email: clampStr(email, 120) },
-          items: metaItems,
-          coupon: coupon ? { code: coupon } : null,
-          shipping: selectedShipping
-            ? {
-                optionId: selectedShipping.id,
-                type: selectedShipping.type,
-                name: selectedShipping.name,
-                feeKobo: Number(selectedShipping.feeKobo || 0),
-              }
-            : null,
-          quote: {
-            pricing: qData.pricing || null,
-            couponResult: qData.couponResult || null,
-            createdAtMs: Date.now(),
+          items,
+          couponCode: coupon,
+          shippingFeeKobo,
+        }),
+      });
+
+      const qData = await rQ.json().catch(() => ({}));
+      if (!rQ.ok) {
+        alert(qData?.error || "Failed to compute final price");
+        return;
+      }
+
+      const amountKobo = Number(qData?.pricing?.totalKobo || 0);
+      if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
+        alert("Invalid total. Please refresh and try again.");
+        return;
+      }
+
+      const metaItems = Array.isArray(qData.normalizedItems)
+        ? qData.normalizedItems.map((it: any) => ({
+            productId: String(it.productId || ""),
+            name: String(it.name || "Item"),
+            qty: Number(it.qty || 1),
+            price: Number(it.finalUnitPriceKobo || 0) / 100,
+            selectedOptions: it.selectedOptions || null,
+          }))
+        : cart.items;
+
+      const r = await fetch("/api/paystack/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email,
+          amountKobo,
+          currency: effectiveCurrency,
+          metadata: {
+            storeSlug: slug,
+            customer: {
+              fullName: clampStr(fullName, 80),
+              phone: clampStr(phone, 40),
+              address: clampStr(address, 300),
+              email: clampStr(email, 120),
+            },
+            items: metaItems,
+            coupon: coupon ? { code: coupon } : null,
+            shipping: selectedShipping
+              ? {
+                  optionId: selectedShipping.id,
+                  type: selectedShipping.type,
+                  name: selectedShipping.name,
+                  feeKobo: Number(selectedShipping.feeKobo || 0),
+                }
+              : null,
+            quote: {
+              pricing: qData.pricing || null,
+              couponResult: qData.couponResult || null,
+              createdAtMs: Date.now(),
+            },
           },
-        },
-      }),
-    });
+        }),
+      });
 
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      alert(data?.error || "Paystack init failed");
-      return;
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        alert(data?.error || "Failed to start payment");
+        return;
+      }
+
+      const url = String(data.authorization_url || "");
+      if (!url) {
+        alert("Payment link missing. Please try again.");
+        return;
+      }
+
+      window.location.href = url;
+    } finally {
+      setPayLoading(false);
     }
-
-    window.location.href = data.authorization_url;
   }
 
   function goBankTransfer() {
@@ -494,11 +562,12 @@ export default function CheckoutPage() {
     <div className="min-h-screen">
       <GradientHeader title="Checkout" subtitle="Complete your order" showBack={true} />
 
-      <div className="px-4 pb-28 space-y-3">
+      {/* Sticky bottom payment card on mobile; normal flow on desktop */}
+      <div className="px-4 pb-24 space-y-3">
         <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
           <p className="text-sm font-bold">Order total</p>
           <p className="text-xs opacity-95 mt-1">
-            Store: <b>{slug}</b>
+            Vendor: <b>{slug}</b>
           </p>
 
           <p className="text-2xl font-bold mt-2">{fmtNaira(totalNgn)}</p>
@@ -534,7 +603,9 @@ export default function CheckoutPage() {
           {shipMsg ? <p className="text-sm text-red-700">{shipMsg}</p> : null}
 
           {!shipLoading && !shipMsg && shippingOptions.length === 0 ? (
-            <p className="text-sm text-biz-muted">This store has not set shipping options yet. You can proceed (shipping = ₦0).</p>
+            <p className="text-sm text-biz-muted">
+              This vendor has not set shipping options yet. You can proceed (shipping = ₦0).
+            </p>
           ) : null}
 
           {shippingOptions.length > 0 ? (
@@ -579,10 +650,13 @@ export default function CheckoutPage() {
           ) : null}
         </SectionCard>
 
-        <SectionCard title="Discount code" subtitle="Optional (coupon applies after sale)">
+        <SectionCard title="Discount code" subtitle="Optional">
           <div className="space-y-2">
-            <Input placeholder="Enter coupon code" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} />
-
+            <Input
+              placeholder="Enter coupon code"
+              value={couponCode}
+              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+            />
             <div className="grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={applyCoupon} loading={couponLoading} disabled={couponLoading}>
                 Apply
@@ -591,7 +665,6 @@ export default function CheckoutPage() {
                 Remove
               </Button>
             </div>
-
             {couponMsg ? <p className="text-[11px] text-biz-muted">{couponMsg}</p> : null}
           </div>
         </SectionCard>
@@ -620,20 +693,53 @@ export default function CheckoutPage() {
           {!emailVerified ? <p className="mt-3 text-xs text-red-700">Please verify your email to continue checkout.</p> : null}
         </SectionCard>
 
-        <div className="fixed bottom-0 left-0 right-0 z-40">
-          <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
-            <Card className="p-4 space-y-2">
-              <Button onClick={handlePaystack} disabled={!canPay}>
-                Pay with Paystack
+        {/* ✅ Sticky payment box: doesn’t “trap” the whole page like a fixed overlay */}
+        <div className="sticky bottom-0 z-40 md:static">
+          <div className="mx-auto w-full max-w-[430px] safe-pb pb-4">
+            <Card className="p-4 space-y-2 shadow-float">
+              {usdEligible ? (
+                <div className="rounded-2xl border border-biz-line bg-white p-3">
+                  <p className="text-xs font-bold text-biz-ink">Card payment currency</p>
+                  <p className="text-[11px] text-biz-muted mt-1">This vendor supports USD card payments.</p>
+
+                  <div className="mt-2 grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPayCurrency("NGN")}
+                      className={
+                        payCurrency === "NGN"
+                          ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                          : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+                      }
+                    >
+                      NGN
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setPayCurrency("USD")}
+                      className={
+                        payCurrency === "USD"
+                          ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                          : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+                      }
+                    >
+                      USD
+                    </button>
+                  </div>
+                </div>
+              ) : null}
+
+              <Button onClick={handleCardPay} disabled={!canPay} loading={payLoading}>
+                Pay with card{usdEligible ? ` (${payCurrency})` : ""}
               </Button>
 
-              <Button variant="secondary" onClick={goBankTransfer} disabled={!canPay}>
+              <Button variant="secondary" onClick={goBankTransfer} disabled={!canPay || payLoading}>
                 Pay with Bank Transfer
               </Button>
 
               {!canPay ? (
                 <p className="text-[11px] text-biz-muted">
-                  Ensure shipping is selected, and fill required fields (address required for delivery). If total fails to update, refresh this page.
+                  Fill your details above and select shipping (if needed) to continue.
                 </p>
               ) : null}
             </Card>

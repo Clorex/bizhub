@@ -1,12 +1,124 @@
-﻿import { Suspense } from "react";
-import ClientPage from "./page-client";
+﻿// FILE: src/app/payment/promotion/callback/page.tsx
+"use client";
 
-export const dynamic = "force-dynamic";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import Link from "next/link";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 
-export default function Page() {
+function PromotionCallbackInner() {
+  const sp = useSearchParams();
+
+  const reference = sp.get("tx_ref") ?? sp.get("reference") ?? sp.get("trxref");
+  const transactionId = sp.get("transaction_id") ?? sp.get("transactionId");
+
+  const [status, setStatus] = useState<"loading" | "error" | "ok">("loading");
+  const [msg, setMsg] = useState("Confirming promotion...");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        if (!reference) {
+          setStatus("error");
+          setMsg("Missing payment reference.");
+          return;
+        }
+
+        const r = await fetch("/api/promotions/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reference, transactionId }),
+        });
+
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Confirmation failed");
+
+        if (!mounted) return;
+        setStatus("ok");
+        setMsg("Promotion activated. Your product(s) will start appearing more often.");
+      } catch (e: any) {
+        if (!mounted) return;
+        setStatus("error");
+        setMsg(e?.message || "Failed");
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [reference, transactionId]);
+
   return (
-    <Suspense fallback={null}>
-      <ClientPage />
+    <div className="min-h-screen">
+      <GradientHeader title="Promotion" subtitle="Payment confirmation" showBack={true} />
+
+      <div className="px-4 pb-24">
+        <Card className="p-5 text-center">
+          {status === "loading" ? (
+            <>
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-biz-cream flex items-center justify-center">
+                <Loader2 className="h-6 w-6 text-orange-700 animate-spin" />
+              </div>
+              <p className="mt-4 text-base font-bold text-biz-ink">Processing...</p>
+              <p className="text-sm text-biz-muted mt-2">{msg}</p>
+            </>
+          ) : null}
+
+          {status === "ok" ? (
+            <>
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-emerald-50 flex items-center justify-center">
+                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              </div>
+              <p className="mt-4 text-base font-bold text-biz-ink">Done</p>
+              <p className="text-sm text-biz-muted mt-2">{msg}</p>
+            </>
+          ) : null}
+
+          {status === "error" ? (
+            <>
+              <div className="mx-auto h-14 w-14 rounded-2xl bg-red-50 flex items-center justify-center">
+                <AlertTriangle className="h-6 w-6 text-red-600" />
+              </div>
+              <p className="mt-4 text-base font-bold text-biz-ink">Issue</p>
+              <p className="text-sm text-red-700 mt-2">{msg}</p>
+            </>
+          ) : null}
+
+          <p className="text-[11px] text-gray-500 mt-3 break-all">Payment Ref: {reference || "—"}</p>
+
+          <div className="mt-4 space-y-2">
+            <Link href="/vendor/products" className="block">
+              <Button>Back to products</Button>
+            </Link>
+            <Link href="/vendor" className="block">
+              <Button variant="secondary">Dashboard</Button>
+            </Link>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+export default function PromotionCallbackPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen">
+          <GradientHeader title="Promotion" subtitle="Payment confirmation" showBack={true} />
+          <div className="px-4 pb-24">
+            <Card className="p-4">Loading...</Card>
+          </div>
+        </div>
+      }
+    >
+      <PromotionCallbackInner />
     </Suspense>
   );
 }

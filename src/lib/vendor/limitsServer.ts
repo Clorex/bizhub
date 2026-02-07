@@ -1,3 +1,4 @@
+// FILE: src/lib/vendor/limitsServer.ts
 import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
 
 export type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
@@ -13,13 +14,15 @@ export type VendorPlanFeatures = {
   promotions: boolean;
   monthAnalytics: boolean;
 
-  // ✅ new features we added
   bestSellers: boolean;
   deadStock: boolean;
   followUps: boolean;
   proofOfPayment: boolean;
   customerNotes: boolean;
   installmentPlans: boolean;
+
+  /** ✅ NEW */
+  usdCheckout: boolean;
 };
 
 export type VendorPlanLimits = {
@@ -33,7 +36,6 @@ export type VendorPlanLimits = {
   shippingOptionsMax: number;
   promotionsMaxActive: number;
 
-  // ✅ new limits we added
   followUpsCap72h: number;
 
   bestSellersMaxRows: number;
@@ -43,7 +45,6 @@ export type VendorPlanLimits = {
   deadStockMaxDays: number;
   deadStockIgnoreNewerThanDays: number;
 
-  // existing legacy keys (still supported by other routes)
   canUpdateStatus?: boolean;
   canUseNotes?: boolean;
 };
@@ -87,6 +88,8 @@ export async function getVendorLimitsResolved(businessId: string): Promise<Vendo
     proofOfPayment: !!f.proofOfPayment,
     customerNotes: !!f.customerNotes,
     installmentPlans: !!f.installmentPlans,
+
+    usdCheckout: !!f.usdCheckout,
   };
 
   const limits: VendorPlanLimits = {
@@ -109,15 +112,9 @@ export async function getVendorLimitsResolved(businessId: string): Promise<Vendo
     deadStockMaxDays: Number(l.deadStockMaxDays || 0),
     deadStockIgnoreNewerThanDays: Number(l.deadStockIgnoreNewerThanDays || 0),
 
-    // legacy fields (safe defaults)
     canUpdateStatus: planKey !== "FREE" && hasActiveSubscription,
     canUseNotes: !!features.customerNotes,
   };
 
-  return {
-    planKey,
-    hasActiveSubscription,
-    features,
-    limits,
-  };
+  return { planKey, hasActiveSubscription, features, limits };
 }

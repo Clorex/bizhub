@@ -1,3 +1,4 @@
+// FILE: src/app/api/vendor/plans/route.ts
 import { NextResponse } from "next/server";
 import { requireAnyRole } from "@/lib/auth/server";
 import { getPlanConfig, fallbackPlanConfig, type BizhubPlanKey } from "@/lib/vendor/planConfigServer";
@@ -41,7 +42,7 @@ function addIf(out: string[], ok: boolean, text: string) {
   if (ok) out.push(text);
 }
 
-function buildBenefitsForPlan(features: any, limits: any) {
+function buildBenefitsForPlan(planKey: BizhubPlanKey, features: any, limits: any) {
   const benefits: Record<string, string[]> = {};
 
   const core: string[] = [];
@@ -51,6 +52,16 @@ function buildBenefitsForPlan(features: any, limits: any) {
   addIf(core, !!features.coupons, "Coupons");
   addIf(core, !!features.promotions, "Promotions");
   benefits["Core selling"] = core;
+
+  const payments: string[] = [];
+  // ✅ USD checkout benefit (only Momentum/Apex, controlled by admin toggle)
+  addIf(
+    payments,
+    (planKey === "MOMENTUM" || planKey === "APEX") && !!features.usdCheckout,
+    "USD card payments at checkout (eligible customers can pay in USD)"
+  );
+  // Keep group only if has items
+  if (payments.length) benefits["Payments"] = payments;
 
   const ops: string[] = [];
   addIf(ops, !!features.assistant, "Assistant tools");
@@ -98,16 +109,13 @@ function purchasesForPlan(planKey: BizhubPlanKey) {
   const bundles = addOns.filter((x) => x.kind === "bundle");
   const items = addOns.filter((x) => x.kind === "item");
 
-  const fmt = (title: string, m: number, y: number) => `${title} • ₦${m.toLocaleString("en-NG")}/month • ₦${y.toLocaleString("en-NG")}/year`;
+  const fmt = (title: string, m: number, y: number) =>
+    `${title} • ₦${m.toLocaleString("en-NG")}/month • ₦${y.toLocaleString("en-NG")}/year`;
 
   const out: Record<string, string[]> = {};
 
-  if (items.length) {
-    out["Add-ons (Monthly / Yearly)"] = items.map((a) => fmt(a.title, a.priceNgn.monthly, a.priceNgn.yearly));
-  }
-  if (bundles.length) {
-    out["Bundles (cheaper than buying separately)"] = bundles.map((b) => fmt(b.title, b.priceNgn.monthly, b.priceNgn.yearly));
-  }
+  if (items.length) out["Add-ons (Monthly / Yearly)"] = items.map((a) => fmt(a.title, a.priceNgn.monthly, a.priceNgn.yearly));
+  if (bundles.length) out["Bundles (cheaper than buying separately)"] = bundles.map((b) => fmt(b.title, b.priceNgn.monthly, b.priceNgn.yearly));
 
   return out;
 }
@@ -123,7 +131,7 @@ export async function GET(req: Request) {
     (["FREE", "LAUNCH", "MOMENTUM", "APEX"] as BizhubPlanKey[]).forEach((k) => {
       const p = cfg.plans[k];
 
-      const benefits = buildBenefitsForPlan(p.features, p.limits);
+      const benefits = buildBenefitsForPlan(k, p.features, p.limits);
       const purchases = k === "FREE" ? {} : purchasesForPlan(k);
 
       plansOut[k] = {

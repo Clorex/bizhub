@@ -1,4 +1,5 @@
-﻿import { Suspense } from "react";
+﻿// FILE: src/app/payment/callback/page.tsx
+import { Suspense } from "react";
 import ClientPage from "./page-client";
 
 export const dynamic = "force-dynamic";

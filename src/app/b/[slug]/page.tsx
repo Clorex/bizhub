@@ -1,4 +1,5 @@
-﻿"use client";
+﻿// FILE: src/app/b/[slug]/page.tsx
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -13,6 +14,12 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Store, Phone, Package, ShoppingCart, Plus, BadgeCheck } from "lucide-react";
 import { useCart } from "@/lib/cart/CartContext";
 import { CloudImage } from "@/components/CloudImage";
+import {
+  normalizeCoverAspect,
+  coverAspectToTailwindClass,
+  coverAspectToWH,
+  type CoverAspectKey,
+} from "@/lib/products/coverAspect";
 
 function fmtNaira(n: number) {
   try {
@@ -72,6 +79,7 @@ function ProductTileWithAdd({
   title,
   subtitle,
   image,
+  coverAspect,
   badges,
   onOpen,
   onQuickAdd,
@@ -80,25 +88,32 @@ function ProductTileWithAdd({
   title: string;
   subtitle?: React.ReactNode;
   image?: string;
+  coverAspect?: CoverAspectKey;
   badges?: string[];
   onOpen: () => void;
   onQuickAdd: () => void;
   canQuickAdd: boolean;
 }) {
+  const aspect: CoverAspectKey = coverAspect ?? "1:1";
+  const aspectClass = coverAspectToTailwindClass(aspect);
+  const { w, h } = coverAspectToWH(aspect, 520);
+
   return (
     <div className="w-full">
       <Card className="p-3 hover:bg-black/[0.02] transition cursor-pointer" onClick={onOpen}>
-        <div className="h-24 w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative">
+        <div className={`${aspectClass} w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
           {image ? (
             <CloudImage
               src={image}
               alt={title}
-              w={420}
-              h={240}
+              w={w}
+              h={h}
               sizes="(max-width: 430px) 45vw, 200px"
               className="h-full w-full object-cover"
             />
-          ) : null}
+          ) : (
+            <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No image</div>
+          )}
 
           {badges?.length ? (
             <div className="absolute top-2 left-2 flex flex-wrap gap-1">
@@ -174,7 +189,6 @@ export default function StorefrontPage() {
 
   const [trustBadge, setTrustBadge] = useState<TrustBadgeType>(null);
 
-  // ✅ products only: filter out accidental services if any exist
   const products = useMemo(() => items.filter((x) => String(x.listingType || "product") !== "service"), [items]);
 
   const cartCount = useMemo(() => {
@@ -393,7 +407,7 @@ export default function StorefrontPage() {
                   onCta={() => router.push("/market")}
                 />
               ) : (
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-3 items-start">
                   {products.map((p: any) => {
                     const img = Array.isArray(p?.images) ? p.images[0] : "";
                     const boosted = Number(p?.boostUntilMs || 0) > Date.now();
@@ -419,12 +433,15 @@ export default function StorefrontPage() {
                     const outOfStock = Number(p?.stock ?? 0) <= 0;
                     const canQuickAdd = !hasOptions && !outOfStock;
 
+                    const coverAspect: CoverAspectKey = normalizeCoverAspect(p?.coverAspect) ?? "1:1";
+
                     return (
                       <ProductTileWithAdd
                         key={p.id}
                         title={p?.name || "Product"}
                         subtitle={subtitle}
                         image={img}
+                        coverAspect={coverAspect}
                         badges={badges.length ? badges : undefined}
                         canQuickAdd={canQuickAdd}
                         onOpen={() => {

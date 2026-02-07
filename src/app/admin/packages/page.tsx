@@ -1,3 +1,4 @@
+// FILE: src/app/admin/packages/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -115,6 +116,7 @@ export default function AdminPackagesPage() {
               const l = cfg?.plans?.[p]?.limits || {};
 
               const isApex = p === "APEX";
+              const usdEligiblePlan = p === "MOMENTUM" || p === "APEX";
 
               return (
                 <Card key={p} className="p-4 space-y-3">
@@ -135,7 +137,6 @@ export default function AdminPackagesPage() {
                       <Toggle label="Re‑engagement smart messages" value={!!f.reengagementSmartMessages} onClick={(v) => setFeature(p, "reengagementSmartMessages", v)} />
                       <Toggle label="Re‑engagement AI remix (Apex)" value={!!f.reengagementAiRemix} onClick={(v) => setFeature(p, "reengagementAiRemix", v)} />
 
-                      {/* ✅ NEW APEX-ONLY TRUST + RISK + DISPUTE */}
                       <Toggle
                         label="Verified Apex badge (earned)"
                         value={!!f.apexVerifiedBadge}
@@ -168,11 +169,15 @@ export default function AdminPackagesPage() {
                       <Toggle label="Proof of payment" value={!!f.proofOfPayment} onClick={(v) => setFeature(p, "proofOfPayment", v)} />
                       <Toggle label="Customer notes" value={!!f.customerNotes} onClick={(v) => setFeature(p, "customerNotes", v)} />
                       <Toggle label="Installment plans" value={!!f.installmentPlans} onClick={(v) => setFeature(p, "installmentPlans", v)} />
-                    </div>
 
-                    <p className="mt-3 text-[11px] text-biz-muted">
-                      Tip: keep FREE usable, but restrict important growth tools.
-                    </p>
+                      <Toggle
+                        label="USD card checkout (customers)"
+                        value={!!f.usdCheckout}
+                        disabled={!usdEligiblePlan}
+                        helper={!usdEligiblePlan ? "Momentum/Apex only" : "Allow customers pay in USD (Flutterwave only)"}
+                        onClick={(v) => setFeature(p, "usdCheckout", v)}
+                      />
+                    </div>
                   </div>
 
                   <div className="rounded-2xl border border-biz-line bg-white p-3">

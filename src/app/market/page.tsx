@@ -1,10 +1,12 @@
+// FILE: src/app/market/page.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase/client";
-import { collection, getDocs, limit, orderBy, query, where, DocumentData } from "firebase/firestore";
+import { BadgeCheck } from "lucide-react";
+import { collection, getDocs, limit, orderBy, query, where, type DocumentData } from "firebase/firestore";
 
 import { Card } from "@/components/Card";
 import { Input } from "@/components/ui/Input";
@@ -12,7 +14,13 @@ import { Button } from "@/components/ui/Button";
 import { trackBatch, track } from "@/lib/track/client";
 import { Chip } from "@/components/ui/Chip";
 import { CloudImage } from "@/components/CloudImage";
-import { BadgeCheck } from "lucide-react";
+import {
+  normalizeCoverAspect,
+  coverAspectToTailwindClass,
+  coverAspectToWH,
+  type CoverAspectKey,
+} from "@/lib/products/coverAspect";
+import { MARKET_CATEGORIES, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
 
 function fmtNaira(n: number) {
   try {
@@ -22,19 +30,33 @@ function fmtNaira(n: number) {
   }
 }
 
-function tokenForSearch(q: string) {
-  const t = q.toLowerCase().trim().split(/\s+/).filter(Boolean)[0] || "";
-  return t.slice(0, 10);
+function normToken(w: string) {
+  return String(w || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .trim()
+    .slice(0, 10);
 }
 
-const CATEGORIES = [
-  { label: "Fashion", hint: "Clothes, shoes" },
-  { label: "Phones", hint: "Android, iPhone" },
-  { label: "Beauty", hint: "Hair, makeup" },
-  { label: "Home", hint: "Kitchen, decor" },
-  { label: "Bags", hint: "Handbags" },
-  { label: "Services", hint: "Lash, nails" },
-];
+function tokensForSearch(q: string) {
+  const raw = String(q || "")
+    .toLowerCase()
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const w of raw) {
+    const t = normToken(w);
+    if (!t) continue;
+    if (seen.has(t)) continue;
+    seen.add(t);
+    out.push(t);
+    if (out.length >= 3) break;
+  }
+  return out;
+}
 
 function tierLabel(n: any) {
   const t = Number(n || 0);
@@ -90,19 +112,21 @@ function saleBadgeText(p: any) {
 function marketRankScore(p: any) {
   const base = Number(p?.marketScore || 0);
 
-  // ✅ Verified Apex badge boost (earned + maintained)
   const apexBoost = p?.apexBadgeActive === true ? 2500 : 0;
-
-  // ✅ Risk shield penalty (quiet). If risk is high, down-rank a bit.
   const risk = Math.max(0, Math.min(100, Number(p?.apexRiskScore || 0) || 0));
-  const riskPenalty = risk * 6; // up to -600
+  const riskPenalty = risk * 6;
 
-  // Keep “promoted” as separate signal; your code already mixes boosted+latest.
   return base + apexBoost - riskPenalty;
+}
+
+function hasActiveSubscriptionBusiness(b: any) {
+  const exp = Number(b?.subscription?.expiresAtMs || 0);
+  return !!(b?.subscription?.planKey && exp && exp > Date.now());
 }
 
 export default function MarketPage() {
   const router = useRouter();
+
   const [qText, setQText] = useState("");
   const [loading, setLoading] = useState(false);
   const [items, setItems] = useState<DocumentData[]>([]);
@@ -111,20 +135,34 @@ export default function MarketPage() {
   const [deals, setDeals] = useState<DocumentData[]>([]);
   const [dealsLoading, setDealsLoading] = useState(false);
 
+  const [stores, setStores] = useState<DocumentData[]>([]);
+  const [storesLoading, setStoresLoading] = useState(false);
+
+  // filters
   const [tierFilter, setTierFilter] = useState<number | null>(null);
   const [stateFilter, setStateFilter] = useState<string>("");
   const [cityFilter, setCityFilter] = useState<string>("");
 
   const [saleOnly, setSaleOnly] = useState(false);
 
-  const token = useMemo(() => tokenForSearch(qText), [qText]);
+  const [categoryFilter, setCategoryFilter] = useState<MarketCategoryKey | null>(null);
+  const [apexOnly, setApexOnly] = useState(false);
+  const [colorFilter, setColorFilter] = useState("");
+  const [sizeFilter, setSizeFilter] = useState("");
+
+  const searchTokens = useMemo(() => tokensForSearch(qText), [qText]);
   const impressed = useRef(new Set<string>());
 
-  function applyMarketRules(list: any[]) {
-    return list
+  function applyMarketRules(list: any[], opts?: { tokenHits?: Map<string, number> }) {
+    const now = Date.now();
+    const colorNeedle = String(colorFilter || "").trim().toLowerCase();
+    const sizeNeedle = String(sizeFilter || "").trim().toLowerCase();
+
+    const filtered = list
       .filter((p: any) => p?.marketEnabled !== false)
       .filter((p: any) => !!p?.businessSlug)
-      .filter((p: any) => p?.businessHasActiveSubscription === true)
+      // ✅ FAIL-OPEN FIX (old products may not have this field yet)
+      .filter((p: any) => p?.businessHasActiveSubscription !== false)
       .filter((p: any) => {
         if (tierFilter == null) return true;
         return Number(p?.marketTier || 0) === tierFilter;
@@ -143,9 +181,34 @@ export default function MarketPage() {
         const serviceMode = String(p?.serviceMode || "book");
         const bookOnly = isService && serviceMode === "book";
         if (bookOnly) return false;
-        return saleIsActive(p);
+        return saleIsActive(p, now);
       })
-      .sort((a: any, b: any) => marketRankScore(b) - marketRankScore(a));
+      .filter((p: any) => {
+        if (!categoryFilter) return true;
+        const cats = Array.isArray(p?.categoryKeys) ? p.categoryKeys : [];
+        return cats.includes(categoryFilter);
+      })
+      .filter((p: any) => {
+        if (!apexOnly) return true;
+        return p?.apexBadgeActive === true;
+      })
+      .filter((p: any) => {
+        if (!colorNeedle) return true;
+        const colors = Array.isArray(p?.attrs?.colors) ? p.attrs.colors : [];
+        return colors.map((x: any) => String(x || "").toLowerCase()).includes(colorNeedle);
+      })
+      .filter((p: any) => {
+        if (!sizeNeedle) return true;
+        const sizes = Array.isArray(p?.attrs?.sizes) ? p.attrs.sizes : [];
+        return sizes.map((x: any) => String(x || "").toLowerCase()).includes(sizeNeedle);
+      });
+
+    return filtered.sort((a: any, b: any) => {
+      const ha = opts?.tokenHits?.get(String(a?.id || "")) || 0;
+      const hb = opts?.tokenHits?.get(String(b?.id || "")) || 0;
+      if (hb !== ha) return hb - ha;
+      return marketRankScore(b) - marketRankScore(a);
+    });
   }
 
   async function loadDeals() {
@@ -167,6 +230,9 @@ export default function MarketPage() {
   async function loadTrending() {
     setLoading(true);
     setMsg(null);
+    setStores([]);
+    setStoresLoading(false);
+
     try {
       const boostedRef = query(
         collection(db, "products"),
@@ -217,15 +283,14 @@ export default function MarketPage() {
     }
   }
 
-  async function runSearch() {
-    const t = tokenForSearch(qText);
-    if (!t) return loadTrending();
-
+  async function loadByCategory(cat: MarketCategoryKey) {
     setLoading(true);
     setMsg(null);
+    setStores([]);
+    setStoresLoading(false);
 
     try {
-      const qRef = query(collection(db, "products"), where("keywords", "array-contains", t), limit(120));
+      const qRef = query(collection(db, "products"), where("categoryKeys", "array-contains", cat), limit(180));
       const snap = await getDocs(qRef);
       const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
 
@@ -249,10 +314,103 @@ export default function MarketPage() {
 
       trackBatch(events);
     } catch (e: any) {
-      setMsg(e?.message || "Search failed");
+      setMsg(e?.message || "Failed to load category");
       setItems([]);
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function runSearch() {
+    const tokens = tokensForSearch(qText);
+
+    if (!tokens.length) {
+      if (categoryFilter) return loadByCategory(categoryFilter);
+      return loadTrending();
+    }
+
+    setLoading(true);
+    setStoresLoading(true);
+    setMsg(null);
+
+    try {
+      const tokenHits = new Map<string, number>();
+      const productMap = new Map<string, any>();
+
+      const productSnaps = await Promise.all(
+        tokens.map((t) => getDocs(query(collection(db, "products"), where("keywords", "array-contains", t), limit(120))))
+      );
+
+      for (const snap of productSnaps) {
+        for (const d of snap.docs) {
+          const id = d.id;
+          tokenHits.set(id, (tokenHits.get(id) || 0) + 1);
+          if (!productMap.has(id)) productMap.set(id, { id, ...d.data() });
+        }
+      }
+
+      const mergedProducts = Array.from(productMap.values());
+      const filteredProducts = applyMarketRules(mergedProducts, { tokenHits });
+      setItems(filteredProducts);
+
+      const events = filteredProducts
+        .slice(0, 40)
+        .filter((p: any) => p?.businessId && p?.id)
+        .filter((p: any) => {
+          if (impressed.current.has(p.id)) return false;
+          impressed.current.add(p.id);
+          return true;
+        })
+        .map((p: any) => ({
+          type: "market_impression" as const,
+          businessId: String(p.businessId),
+          businessSlug: String(p.businessSlug || ""),
+          productId: String(p.id),
+        }));
+      trackBatch(events);
+
+      const storeHits = new Map<string, number>();
+      const storeMap = new Map<string, any>();
+
+      const storeSnaps = await Promise.all(
+        tokens.map((t) => getDocs(query(collection(db, "businesses"), where("searchKeywords", "array-contains", t), limit(40))))
+      );
+
+      for (const snap of storeSnaps) {
+        for (const d of snap.docs) {
+          const id = d.id;
+          storeHits.set(id, (storeHits.get(id) || 0) + 1);
+          if (!storeMap.has(id)) storeMap.set(id, { id, ...d.data() });
+        }
+      }
+
+      const mergedStores = Array.from(storeMap.values())
+        .filter((b: any) => !!String(b?.slug || "").trim())
+        .filter((b: any) => hasActiveSubscriptionBusiness(b))
+        .filter((b: any) => {
+          if (!stateFilter.trim()) return true;
+          return String(b?.state || "").toLowerCase().includes(stateFilter.trim().toLowerCase());
+        })
+        .filter((b: any) => {
+          if (!cityFilter.trim()) return true;
+          return String(b?.city || "").toLowerCase().includes(cityFilter.trim().toLowerCase());
+        })
+        .sort((a: any, b: any) => {
+          const ha = storeHits.get(String(a?.id || "")) || 0;
+          const hb = storeHits.get(String(b?.id || "")) || 0;
+          if (hb !== ha) return hb - ha;
+          return String(a?.name || "").localeCompare(String(b?.name || ""));
+        })
+        .slice(0, 12);
+
+      setStores(mergedStores);
+    } catch (e: any) {
+      setMsg(e?.message || "Search failed");
+      setItems([]);
+      setStores([]);
+    } finally {
+      setLoading(false);
+      setStoresLoading(false);
     }
   }
 
@@ -266,7 +424,12 @@ export default function MarketPage() {
     setItems((prev) => applyMarketRules(prev));
     setDeals((prev) => applyMarketRules(prev).filter((p: any) => saleIsActive(p)).slice(0, 12));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tierFilter, stateFilter, cityFilter, saleOnly]);
+  }, [tierFilter, stateFilter, cityFilter, saleOnly, categoryFilter, apexOnly, colorFilter, sizeFilter]);
+
+  useEffect(() => {
+    loadDeals();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoryFilter]);
 
   function openProduct(p: any) {
     const slug = String(p?.businessSlug || "");
@@ -299,16 +462,20 @@ export default function MarketPage() {
 
     const apexBadgeActive = p?.apexBadgeActive === true;
 
+    const coverAspect: CoverAspectKey = normalizeCoverAspect(p?.coverAspect) ?? "1:1";
+    const aspectClass = coverAspectToTailwindClass(coverAspect);
+    const { w, h } = coverAspectToWH(coverAspect, 520);
+
     return (
       <button key={p.id} onClick={() => openProduct(p)} className="text-left">
         <Card className="p-3">
-          <div className="h-28 w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative">
+          <div className={`${aspectClass} w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
             {img ? (
               <CloudImage
                 src={img}
                 alt={p?.name || "Listing"}
-                w={520}
-                h={320}
+                w={w}
+                h={h}
                 sizes="(max-width: 430px) 45vw, 220px"
                 className="h-full w-full object-cover"
               />
@@ -359,6 +526,34 @@ export default function MarketPage() {
     );
   }
 
+  function renderStoreCard(b: any) {
+    const slug = String(b?.slug || "").trim();
+    const name = String(b?.name || slug || "Store");
+    const state = String(b?.state || "").trim();
+    const city = String(b?.city || "").trim();
+
+    const loc = [city, state].filter(Boolean).join(", ");
+
+    return (
+      <Link
+        key={b?.id || slug}
+        href={slug ? `/b/${slug}` : "#"}
+        className="block rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition"
+      >
+        <p className="text-sm font-extrabold text-biz-ink line-clamp-1">{name}</p>
+        <p className="text-[11px] text-biz-muted mt-1 line-clamp-2">{String(b?.description || "Visit store")}</p>
+        <p className="text-[11px] text-gray-500 mt-2">
+          @{slug} {loc ? <>• {loc}</> : null}
+        </p>
+      </Link>
+    );
+  }
+
+  const searchingLabel = useMemo(() => {
+    if (!searchTokens.length) return "";
+    return searchTokens.join(", ");
+  }, [searchTokens]);
+
   return (
     <div className="min-h-screen">
       <div className="relative">
@@ -379,16 +574,23 @@ export default function MarketPage() {
 
           <Card className="p-3 mt-4">
             <div className="flex gap-2">
-              <Input placeholder="Search products or services…" value={qText} onChange={(e) => setQText(e.target.value)} />
+              <Input placeholder="Search products, services, stores…" value={qText} onChange={(e) => setQText(e.target.value)} />
               <Button size="sm" onClick={runSearch} disabled={loading}>
                 Search
               </Button>
             </div>
 
             <p className="mt-2 text-[11px] text-biz-muted">
-              {token ? (
+              {searchTokens.length ? (
                 <>
-                  Searching: <b className="text-biz-ink">{token}</b>
+                  Searching: <b className="text-biz-ink">{searchingLabel}</b>
+                </>
+              ) : categoryFilter ? (
+                <>
+                  Browsing category:{" "}
+                  <b className="text-biz-ink">
+                    {MARKET_CATEGORIES.find((c) => c.key === categoryFilter)?.label || categoryFilter}
+                  </b>
                 </>
               ) : (
                 <>Showing latest + promoted</>
@@ -405,14 +607,30 @@ export default function MarketPage() {
                   {t == null ? "All tiers" : `Tier ${t}`}
                 </Chip>
               ))}
+
               <Chip active={saleOnly} onClick={() => setSaleOnly((v) => !v)}>
                 On sale
               </Chip>
+
+              <Chip active={apexOnly} onClick={() => setApexOnly((v) => !v)}>
+                Verified Apex
+              </Chip>
+
+              {categoryFilter ? (
+                <Chip active={true} onClick={() => setCategoryFilter(null)}>
+                  Category: {MARKET_CATEGORIES.find((c) => c.key === categoryFilter)?.label || categoryFilter} ✕
+                </Chip>
+              ) : null}
             </div>
 
             <div className="mt-2 grid grid-cols-2 gap-2">
               <Input placeholder="State (optional)" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} />
               <Input placeholder="City (optional)" value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} />
+            </div>
+
+            <div className="mt-2 grid grid-cols-2 gap-2">
+              <Input placeholder="Color (exact) e.g. black" value={colorFilter} onChange={(e) => setColorFilter(e.target.value)} />
+              <Input placeholder="Size (exact) e.g. 41 / XL" value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value)} />
             </div>
 
             <div className="mt-2">
@@ -424,6 +642,10 @@ export default function MarketPage() {
                   setStateFilter("");
                   setCityFilter("");
                   setSaleOnly(false);
+                  setCategoryFilter(null);
+                  setApexOnly(false);
+                  setColorFilter("");
+                  setSizeFilter("");
                 }}
               >
                 Clear filters
@@ -443,28 +665,50 @@ export default function MarketPage() {
           ) : deals.length === 0 ? (
             <p className="text-sm text-biz-muted mt-3">No deals right now.</p>
           ) : (
-            <div className="mt-3 grid grid-cols-2 gap-3">{deals.slice(0, 6).map((p: any) => renderCard(p))}</div>
+            <div className="mt-3 grid grid-cols-2 gap-3 items-start">{deals.slice(0, 6).map((p: any) => renderCard(p))}</div>
           )}
         </Card>
 
         <Card className="p-4">
           <p className="font-bold text-biz-ink">Categories</p>
           <div className="mt-3 grid grid-cols-3 gap-2">
-            {CATEGORIES.map((c) => (
-              <button
-                key={c.label}
-                onClick={() => {
-                  setQText(c.label);
-                  setTimeout(runSearch, 0);
-                }}
-                className="rounded-2xl border border-biz-line bg-white p-3 text-left hover:bg-black/[0.02] transition"
-              >
-                <p className="text-sm font-bold text-biz-ink">{c.label}</p>
-                <p className="text-[11px] text-biz-muted mt-1">{c.hint}</p>
-              </button>
-            ))}
+            {MARKET_CATEGORIES.filter((c) => c.key !== "other").map((c) => {
+              const active = categoryFilter === c.key;
+              return (
+                <button
+                  key={c.key}
+                  onClick={() => {
+                    setCategoryFilter((prev) => (prev === c.key ? null : c.key));
+                    setTimeout(runSearch, 0);
+                  }}
+                  className={
+                    active
+                      ? "rounded-2xl border border-biz-accent/30 bg-white p-3 text-left shadow-soft"
+                      : "rounded-2xl border border-biz-line bg-white p-3 text-left hover:bg-black/[0.02] transition"
+                  }
+                >
+                  <p className="text-sm font-bold text-biz-ink">{c.label}</p>
+                  <p className="text-[11px] text-biz-muted mt-1">{c.hint}</p>
+                </button>
+              );
+            })}
           </div>
         </Card>
+
+        {searchTokens.length ? (
+          <Card className="p-4">
+            <p className="font-bold text-biz-ink">Stores</p>
+            <p className="text-[11px] text-biz-muted mt-1">Stores matching your search.</p>
+
+            {storesLoading ? (
+              <p className="text-sm text-biz-muted mt-3">Loading…</p>
+            ) : stores.length === 0 ? (
+              <p className="text-sm text-biz-muted mt-3">No stores found.</p>
+            ) : (
+              <div className="mt-3 grid grid-cols-1 gap-2">{stores.map((b: any) => renderStoreCard(b))}</div>
+            )}
+          </Card>
+        ) : null}
 
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
@@ -476,7 +720,7 @@ export default function MarketPage() {
             <p className="text-sm text-biz-muted mt-1">Try another keyword or adjust filters.</p>
           </Card>
         ) : (
-          <div className="grid grid-cols-2 gap-3">{items.map((p: any) => renderCard(p))}</div>
+          <div className="grid grid-cols-2 gap-3 items-start">{items.map((p: any) => renderCard(p))}</div>
         )}
       </div>
     </div>

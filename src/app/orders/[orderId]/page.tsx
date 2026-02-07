@@ -1,7 +1,8 @@
+// FILE: src/app/orders/[orderId]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
@@ -18,11 +19,23 @@ function fmtNaira(n: number) {
   }
 }
 
-function fmtDate(v: any) {
+function toMs(v: any) {
   try {
-    if (!v) return "—";
-    if (typeof v?.toDate === "function") return v.toDate().toLocaleString();
-    return String(v);
+    if (!v) return 0;
+    if (typeof v?.toDate === "function") return v.toDate().getTime();
+    if (typeof v?.seconds === "number") return v.seconds * 1000;
+    if (typeof v === "number") return v;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+function fmtDateAny(v: any) {
+  const ms = toMs(v);
+  if (!ms) return "—";
+  try {
+    return new Date(ms).toLocaleString();
   } catch {
     return "—";
   }
@@ -38,23 +51,74 @@ function fmtDateMs(ms?: number) {
 }
 
 function labelOps(s: string) {
-  if (s === "new") return "New";
-  if (s === "contacted") return "Contacted";
-  if (s === "paid") return "Paid";
-  if (s === "in_transit") return "In transit";
-  if (s === "delivered") return "Delivered";
-  if (s === "cancelled") return "Cancelled";
-  return s || "—";
+  const x = String(s || "").trim().toLowerCase();
+  if (!x) return "";
+  if (x === "new") return "New";
+  if (x === "contacted") return "Contacted";
+  if (x === "paid") return "Paid";
+  if (x === "in_transit") return "In transit";
+  if (x === "delivered") return "Delivered";
+  if (x === "cancelled") return "Cancelled";
+  return s || "";
+}
+
+function customerStatusLabel(o: any) {
+  const orderStatus = String(o?.orderStatus || "").toLowerCase();
+  const ops = String(o?.opsStatusEffective || o?.opsStatus || "").toLowerCase();
+  const escrow = String(o?.escrowStatus || "").toLowerCase();
+
+  // Prefer ops status if present
+  if (ops) {
+    const lbl = labelOps(ops);
+    if (lbl) return lbl;
+  }
+
+  if (orderStatus.includes("delivered")) return "Delivered";
+  if (orderStatus.includes("cancel")) return "Cancelled";
+  if (orderStatus.includes("paid")) {
+    // hide held/escrow wording
+    if (escrow && escrow !== "released") return "Processing";
+    return "Paid";
+  }
+
+  if (escrow) {
+    if (escrow === "released") return "Paid";
+    if (escrow === "disputed") return "Needs attention";
+    return "Processing";
+  }
+
+  return "Processing";
+}
+
+function paymentMethodLabel(o: any) {
+  const paymentType = String(o?.paymentType || "");
+  if (paymentType === "direct_transfer") return "Bank transfer";
+  // legacy name in data, but customer should see:
+  if (paymentType === "paystack_escrow") return "Card payment";
+  // fallback
+  const provider = String(o?.payment?.provider || "");
+  if (provider.toLowerCase() === "flutterwave") return "Card payment";
+  if (provider.toLowerCase() === "paystack") return "Card payment";
+  return "Payment";
+}
+
+function code4DigitsFromReference(ref: string) {
+  let h = 0;
+  for (let i = 0; i < ref.length; i++) h = (h * 31 + ref.charCodeAt(i)) | 0;
+  const n = Math.abs(h) % 10000;
+  return String(n).padStart(4, "0");
 }
 
 function isSettled(status: string) {
-  const s = String(status || "");
+  const s = String(status || "").toLowerCase();
   return s === "paid" || s === "accepted";
 }
 
 export default function OrderDetailPage() {
   const router = useRouter();
   const params = useParams();
+  const sp = useSearchParams();
+
   const orderId = String((params as any)?.orderId ?? "");
 
   const [authLoading, setAuthLoading] = useState(true);
@@ -69,14 +133,16 @@ export default function OrderDetailPage() {
   const [proofMsgMap, setProofMsgMap] = useState<Record<string, string>>({});
   const [fileMap, setFileMap] = useState<Record<string, File | null>>({});
   const [refMap, setRefMap] = useState<Record<string, string>>({});
+  const [txIdMap, setTxIdMap] = useState<Record<string, string>>({});
   const [verifyingIdx, setVerifyingIdx] = useState<string | null>(null);
+  const [payingIdx, setPayingIdx] = useState<string | null>(null);
 
   const items = useMemo(() => (Array.isArray(o?.items) ? o.items : []), [o]);
   const amount = Number(o?.amount || (o?.amountKobo ? o.amountKobo / 100 : 0) || 0);
 
   const paymentType = String(o?.paymentType || "");
   const isTransfer = paymentType === "direct_transfer";
-  const isPaystack = paymentType === "paystack_escrow";
+  const isCard = paymentType === "paystack_escrow";
 
   const plan = o?.paymentPlan || null;
   const planEnabled = !!plan?.enabled;
@@ -85,6 +151,15 @@ export default function OrderDetailPage() {
   const planTotalKobo = Number(plan?.totalKobo || 0);
   const planPaidKobo = Number(plan?.paidKobo || 0);
   const planRemainingKobo = Math.max(0, planTotalKobo - planPaidKobo);
+
+  const vendor = String(o?.businessSlug || "").trim() || "—";
+  const statusLabel = customerStatusLabel(o);
+  const payMethod = paymentMethodLabel(o);
+
+  const paymentCode = useMemo(() => {
+    const ref = String(o?.payment?.reference || "").trim();
+    return ref ? code4DigitsFromReference(ref) : "";
+  }, [o?.payment?.reference]);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
@@ -140,13 +215,50 @@ export default function OrderDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId, loggedIn]);
 
-  const canDispute =
-    o?.paymentType === "paystack_escrow" &&
-    o?.escrowStatus !== "released" &&
-    o?.escrowStatus !== "disputed";
+  // Auto-verify when redirected back from Flutterwave/Paystack for an installment
+  useEffect(() => {
+    if (!loggedIn || !orderId) return;
 
-  const ops = String(o?.opsStatusEffective || o?.opsStatus || "").trim();
-  const progressLabel = ops ? labelOps(ops) : null;
+    const installmentIdxParam = sp.get("installmentIdx");
+    const reference = sp.get("tx_ref") ?? sp.get("reference") ?? sp.get("trxref");
+    const transactionId = sp.get("transaction_id") ?? sp.get("transactionId");
+
+    const idxNum = installmentIdxParam != null ? Number(installmentIdxParam) : NaN;
+    if (!Number.isFinite(idxNum) || idxNum < 0) return;
+    if (!reference) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        setMsg(null);
+        setProofMsgMap((m) => ({ ...m, [String(idxNum)]: "Verifying payment..." }));
+
+        await authedFetchJson(
+          `/api/orders/${encodeURIComponent(orderId)}/installments/${encodeURIComponent(String(idxNum))}/paystack/verify?reference=${encodeURIComponent(
+            String(reference)
+          )}&transactionId=${encodeURIComponent(String(transactionId || ""))}`
+        );
+
+        if (cancelled) return;
+
+        setProofMsgMap((m) => ({ ...m, [String(idxNum)]: "Payment verified." }));
+        await load();
+
+        router.replace(`/orders/${encodeURIComponent(orderId)}`);
+      } catch (e: any) {
+        if (cancelled) return;
+        setProofMsgMap((m) => ({ ...m, [String(idxNum)]: e?.message || "Failed to verify payment" }));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sp, loggedIn, orderId]);
+
+  const canDispute = o?.paymentType === "paystack_escrow" && o?.escrowStatus !== "released" && o?.escrowStatus !== "disputed";
 
   async function uploadInstallmentProof(idx: number) {
     if (!o) return;
@@ -189,11 +301,35 @@ export default function OrderDetailPage() {
     }
   }
 
-  async function verifyPaystackInstallment(idx: number) {
+  async function startInstallmentCardPayment(idx: number) {
+    const key = String(idx);
+    setPayingIdx(key);
+    setProofMsgMap((m) => ({ ...m, [key]: "" }));
+    setMsg(null);
+
+    try {
+      const data = await authedFetchJson(
+        `/api/orders/${encodeURIComponent(orderId)}/installments/${encodeURIComponent(String(idx))}/paystack/init`,
+        { method: "POST" }
+      );
+
+      const url = String(data?.authorization_url || "");
+      if (!url) throw new Error("Failed to start payment");
+      window.location.href = url;
+    } catch (e: any) {
+      setProofMsgMap((m) => ({ ...m, [key]: e?.message || "Failed to start payment" }));
+    } finally {
+      setPayingIdx(null);
+    }
+  }
+
+  async function verifyInstallmentPayment(idx: number) {
     const key = String(idx);
     const reference = String(refMap[key] || "").trim();
+    const transactionId = String(txIdMap[key] || "").trim();
+
     if (!reference) {
-      setProofMsgMap((m) => ({ ...m, [key]: "Enter your Paystack reference." }));
+      setProofMsgMap((m) => ({ ...m, [key]: "Enter the payment reference." }));
       return;
     }
 
@@ -203,7 +339,9 @@ export default function OrderDetailPage() {
 
     try {
       await authedFetchJson(
-        `/api/orders/${encodeURIComponent(orderId)}/installments/${encodeURIComponent(String(idx))}/paystack/verify?reference=${encodeURIComponent(reference)}`
+        `/api/orders/${encodeURIComponent(orderId)}/installments/${encodeURIComponent(String(idx))}/paystack/verify?reference=${encodeURIComponent(
+          reference
+        )}&transactionId=${encodeURIComponent(transactionId)}`
       );
 
       setProofMsgMap((m) => ({ ...m, [key]: "Payment verified." }));
@@ -218,9 +356,9 @@ export default function OrderDetailPage() {
   if (authLoading || !loggedIn) {
     return (
       <div className="min-h-screen">
-        <GradientHeader title="Order details" showBack={true} subtitle="Preparing…" />
+        <GradientHeader title="Order details" showBack={true} subtitle="Preparing..." />
         <div className="px-4 pb-24">
-          <Card className="p-4">Loading…</Card>
+          <Card className="p-4">Loading...</Card>
         </div>
       </div>
     );
@@ -231,7 +369,7 @@ export default function OrderDetailPage() {
       <GradientHeader title="Order details" showBack={true} subtitle={orderId ? `#${orderId.slice(0, 8)}` : undefined} />
 
       <div className="px-4 pb-24 space-y-3">
-        {loading ? <Card className="p-4">Loading…</Card> : null}
+        {loading ? <Card className="p-4">Loading...</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         {!loading && o ? (
@@ -241,16 +379,10 @@ export default function OrderDetailPage() {
               <p className="text-2xl font-extrabold mt-2">{fmtNaira(amount)}</p>
 
               <p className="text-xs opacity-95 mt-1">
-                Status: <b>{o.orderStatus || o.escrowStatus || "—"}</b>
+                Status: <b>{statusLabel}</b>
               </p>
 
-              {progressLabel ? (
-                <p className="text-[11px] opacity-95 mt-2">
-                  Progress: <b>{progressLabel}</b>
-                </p>
-              ) : null}
-
-              <p className="text-[11px] opacity-90 mt-2">Created: {fmtDate(o.createdAt)}</p>
+              <p className="text-[11px] opacity-90 mt-2">Created: {fmtDateAny(o.createdAt)}</p>
 
               <div className="mt-3">
                 <Button variant="secondary" size="sm" onClick={() => load()} leftIcon={<RefreshCw className="h-4 w-4" />}>
@@ -259,7 +391,7 @@ export default function OrderDetailPage() {
               </div>
             </div>
 
-            {/* Installments */}
+            {/* Installments (kept, but not showing technical stuff) */}
             {planEnabled ? (
               <SectionCard title="Installments" subtitle="Pay in parts">
                 <Card className="p-3">
@@ -267,10 +399,6 @@ export default function OrderDetailPage() {
                   <p className="text-[11px] text-gray-500 mt-1">
                     Paid: <b className="text-biz-ink">{fmtNaira(planPaidKobo / 100)}</b> • Remaining:{" "}
                     <b className="text-biz-ink">{fmtNaira(planRemainingKobo / 100)}</b>
-                  </p>
-                  <p className="text-[11px] text-gray-500 mt-1">
-                    Completed: <b className="text-biz-ink">{plan?.completed ? "Yes" : "No"}</b>
-                    {plan?.completedAtMs ? <> • {fmtDateMs(Number(plan.completedAtMs))}</> : null}
                   </p>
                 </Card>
 
@@ -293,10 +421,10 @@ export default function OrderDetailPage() {
                                   status === "accepted" || status === "paid"
                                     ? "text-emerald-700"
                                     : status === "rejected"
-                                    ? "text-rose-700"
-                                    : status === "submitted"
-                                    ? "text-orange-700"
-                                    : "text-gray-700"
+                                      ? "text-rose-700"
+                                      : status === "submitted"
+                                        ? "text-orange-700"
+                                        : "text-gray-700"
                                 }
                               >
                                 {status}
@@ -329,12 +457,10 @@ export default function OrderDetailPage() {
                           ) : null}
                         </div>
 
-                        {/* Actions */}
                         <div className="mt-3 space-y-2">
-                          {/* Bank transfer installment proof */}
                           {isTransfer ? (
                             done ? (
-                              <p className="text-[11px] text-biz-muted">This installment is completed.</p>
+                              <p className="text-[11px] text-biz-muted">Completed.</p>
                             ) : status === "submitted" ? (
                               <p className="text-[11px] text-biz-muted">Proof submitted. Waiting for confirmation.</p>
                             ) : (
@@ -348,39 +474,45 @@ export default function OrderDetailPage() {
                                     setFileMap((m) => ({ ...m, [key]: f }));
                                   }}
                                 />
-                                <Button
-                                  loading={uploadingIdx === key}
-                                  disabled={uploadingIdx === key || !fileMap[key]}
-                                  onClick={() => uploadInstallmentProof(idx)}
-                                >
-                                  Upload proof for this installment
+                                <Button loading={uploadingIdx === key} disabled={uploadingIdx === key || !fileMap[key]} onClick={() => uploadInstallmentProof(idx)}>
+                                  Upload proof
                                 </Button>
                               </>
                             )
                           ) : null}
 
-                          {/* Paystack installment verify */}
-                          {isPaystack ? (
+                          {isCard ? (
                             done ? (
-                              <p className="text-[11px] text-biz-muted">This installment is paid.</p>
+                              <p className="text-[11px] text-biz-muted">Paid.</p>
                             ) : (
                               <>
-                                <input
-                                  className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none bg-white"
-                                  placeholder="Paystack reference (e.g. abc123...)"
-                                  value={String(refMap[key] || "")}
-                                  onChange={(e) => setRefMap((m) => ({ ...m, [key]: e.target.value }))}
-                                />
+                                <Button loading={payingIdx === key} disabled={payingIdx === key} onClick={() => startInstallmentCardPayment(idx)}>
+                                  Pay installment
+                                </Button>
+
+                                {/* Keep manual verify for edge cases, but text simplified */}
+                                <div className="grid grid-cols-1 gap-2">
+                                  <input
+                                    className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none bg-white"
+                                    placeholder="Payment reference"
+                                    value={String(refMap[key] || "")}
+                                    onChange={(e) => setRefMap((m) => ({ ...m, [key]: e.target.value }))}
+                                  />
+                                  <input
+                                    className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none bg-white"
+                                    placeholder="Transaction ID (if shown)"
+                                    value={String(txIdMap[key] || "")}
+                                    onChange={(e) => setTxIdMap((m) => ({ ...m, [key]: e.target.value }))}
+                                  />
+                                </div>
+
                                 <Button
                                   loading={verifyingIdx === key}
                                   disabled={verifyingIdx === key || !String(refMap[key] || "").trim()}
-                                  onClick={() => verifyPaystackInstallment(idx)}
+                                  onClick={() => verifyInstallmentPayment(idx)}
                                 >
                                   Verify payment
                                 </Button>
-                                <p className="text-[11px] text-biz-muted">
-                                  If you just paid, paste the Paystack reference here to confirm.
-                                </p>
                               </>
                             )
                           ) : null}
@@ -405,25 +537,25 @@ export default function OrderDetailPage() {
               </SectionCard>
             ) : null}
 
-            <SectionCard title="Store" subtitle="Order source">
+            <SectionCard title="Vendor" subtitle="Where you ordered from">
               <div className="text-sm text-gray-700 space-y-1">
                 <div>
-                  Slug: <b className="text-biz-ink">{o.businessSlug || "—"}</b>
+                  Vendor: <b className="text-biz-ink">{vendor}</b>
                 </div>
                 <div>
-                  Payment: <b className="text-biz-ink">{o.paymentType || "—"}</b>
+                  Payment: <b className="text-biz-ink">{payMethod}</b>
                 </div>
-                {o?.payment?.reference ? (
-                  <div className="text-[11px] text-gray-500 break-all">
-                    Reference: <b className="text-biz-ink">{o.payment.reference}</b>
+                {paymentCode ? (
+                  <div>
+                    Payment code: <b className="text-biz-ink">{paymentCode}</b>
                   </div>
                 ) : null}
               </div>
 
-              {o.businessSlug ? (
+              {vendor !== "—" ? (
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button variant="secondary" onClick={() => router.push(`/b/${o.businessSlug}`)}>
-                    Visit store
+                  <Button variant="secondary" onClick={() => router.push(`/b/${vendor}`)}>
+                    Visit vendor
                   </Button>
                   <Button onClick={() => router.push("/market")}>Market</Button>
                 </div>
@@ -478,10 +610,8 @@ export default function OrderDetailPage() {
 
             {canDispute ? (
               <Card className="p-4">
-                <Button onClick={() => router.push(`/orders/${orderId}/dispute`)}>Raise a dispute</Button>
-                <p className="mt-2 text-[11px] text-biz-muted">
-                  Only use disputes for real issues (wrong item, not delivered, etc).
-                </p>
+                <Button onClick={() => router.push(`/orders/${orderId}/dispute`)}>Raise an issue</Button>
+                <p className="mt-2 text-[11px] text-biz-muted">Use this only if something is wrong with the order.</p>
               </Card>
             ) : null}
           </>

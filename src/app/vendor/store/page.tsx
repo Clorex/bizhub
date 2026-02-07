@@ -6,7 +6,6 @@ import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { auth } from "@/lib/firebase/client";
 import { ImageUploader } from "@/components/vendor/ImageUploader";
-
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { SectionCard } from "@/components/ui/SectionCard";
@@ -32,6 +31,9 @@ export default function VendorStoreSettingsPage() {
   const [planKey, setPlanKey] = useState<string>("FREE");
   const [features, setFeatures] = useState<any>(null);
 
+  // ✅ NEW: store keywords
+  const [searchTagsCsv, setSearchTagsCsv] = useState("");
+
   async function authedFetch(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
     const r = await fetch(path, {
@@ -51,13 +53,9 @@ export default function VendorStoreSettingsPage() {
         setLoading(true);
         setMsg(null);
 
-        const [storeData, accessData] = await Promise.all([
-          authedFetch("/api/vendor/store"),
-          authedFetch("/api/vendor/access"),
-        ]);
+        const [storeData, accessData] = await Promise.all([authedFetch("/api/vendor/store"), authedFetch("/api/vendor/access")]);
 
         const b = storeData?.business;
-
         if (!mounted) return;
 
         setName(String(b?.name || ""));
@@ -74,6 +72,9 @@ export default function VendorStoreSettingsPage() {
         setHasActiveSubscription(!!accessData?.hasActiveSubscription);
         setPlanKey(String(accessData?.planKey || "FREE"));
         setFeatures(accessData?.features || null);
+
+        const tags = Array.isArray(b?.searchTags) ? b.searchTags : [];
+        setSearchTagsCsv(tags.join(", "));
       } catch (e: any) {
         setMsg(e?.message || "Failed to load store settings");
       } finally {
@@ -105,11 +106,13 @@ export default function VendorStoreSettingsPage() {
           whatsapp,
           instagram,
 
-          // customization will be ignored server-side if plan disallows
           logoUrl,
           bannerUrl,
 
           continueInChatEnabled,
+
+          // ✅ NEW
+          searchTagsCsv,
         }),
       });
       setMsg("Saved successfully.");
@@ -126,11 +129,7 @@ export default function VendorStoreSettingsPage() {
 
       <div className="px-4 pb-6 space-y-3">
         {loading ? <Card className="p-4">Loading…</Card> : null}
-        {msg ? (
-          <Card className={msg.includes("Saved") ? "p-4 text-green-700" : "p-4 text-red-700"}>
-            {msg}
-          </Card>
-        ) : null}
+        {msg ? <Card className={msg.includes("Saved") ? "p-4 text-green-700" : "p-4 text-red-700"}>{msg}</Card> : null}
 
         {!loading ? (
           <>
@@ -141,7 +140,7 @@ export default function VendorStoreSettingsPage() {
                   You can use myBizHub’s default store design. Upgrade to unlock full store customization and marketplace visibility.
                 </p>
                 <div className="mt-3">
-                  <Button onClick={() => window.location.href = "/vendor/subscription"}>Upgrade</Button>
+                  <Button onClick={() => (window.location.href = "/vendor/subscription")}>Upgrade</Button>
                 </div>
               </Card>
             ) : null}
@@ -157,6 +156,16 @@ export default function VendorStoreSettingsPage() {
                   onChange={(e) => setDescription(e.target.value)}
                   rows={4}
                 />
+
+                <Input
+                  placeholder="Search keywords (comma separated) e.g. slippers, bags, hair, perfumes"
+                  value={searchTagsCsv}
+                  onChange={(e) => setSearchTagsCsv(e.target.value)}
+                />
+
+                <p className="text-[11px] text-biz-muted">
+                  These keywords help customers find your store on Market search.
+                </p>
               </div>
             </SectionCard>
 
@@ -165,24 +174,14 @@ export default function VendorStoreSettingsPage() {
                 <Input placeholder="State (e.g. Lagos)" value={stateNg} onChange={(e) => setStateNg(e.target.value)} />
                 <Input placeholder="City (e.g. Lekki)" value={city} onChange={(e) => setCity(e.target.value)} />
               </div>
-
               <p className="mt-2 text-xs text-biz-muted">This helps customers know where you operate.</p>
             </SectionCard>
 
             <SectionCard title="Contact" subtitle="Recommended for services (lash, nails, repairs)">
               <div className="space-y-2">
-                <Input
-                  placeholder="WhatsApp number (e.g. 2348012345678)"
-                  value={whatsapp}
-                  onChange={(e) => setWhatsapp(e.target.value)}
-                />
-                <Input
-                  placeholder="Instagram handle (e.g. mybrand)"
-                  value={instagram}
-                  onChange={(e) => setInstagram(e.target.value)}
-                />
+                <Input placeholder="WhatsApp number (e.g. 2348012345678)" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+                <Input placeholder="Instagram handle (e.g. mybrand)" value={instagram} onChange={(e) => setInstagram(e.target.value)} />
               </div>
-
               <p className="mt-2 text-xs text-biz-muted">Tip: remove “@” — myBizHub will format it automatically.</p>
             </SectionCard>
 
@@ -194,15 +193,11 @@ export default function VendorStoreSettingsPage() {
                 </p>
 
                 {!canEnableChat ? (
-                  <p className="mt-2 text-[11px] text-orange-700">
-                    Upgrade required: Continue in Chat is not available on your current plan.
-                  </p>
+                  <p className="mt-2 text-[11px] text-orange-700">Upgrade required: Continue in Chat is not available on your current plan.</p>
                 ) : null}
 
                 {!whatsapp.trim() ? (
-                  <p className="mt-2 text-[11px] text-orange-700">
-                    WhatsApp is not set. Add your WhatsApp number above before turning this ON.
-                  </p>
+                  <p className="mt-2 text-[11px] text-orange-700">WhatsApp is not set. Add your WhatsApp number above before turning this ON.</p>
                 ) : null}
 
                 <div className="mt-3 flex items-center justify-between">
@@ -234,31 +229,24 @@ export default function VendorStoreSettingsPage() {
                 </div>
               </div>
 
-              <p className="mt-2 text-[11px] text-biz-muted">
-                Note: Checkout remains available.
-              </p>
+              <p className="mt-2 text-[11px] text-biz-muted">Note: Checkout remains available.</p>
             </SectionCard>
 
             <SectionCard title="Media" subtitle={canCustomize ? "Logo + banner make your store look premium" : "Upgrade to customize logo and banner"}>
               {!canCustomize ? (
                 <div className="rounded-2xl border border-biz-line bg-white p-3">
-                  <p className="text-xs text-biz-muted">
-                    You’re using myBizHub default design. Upgrade to upload logo and banner.
-                  </p>
+                  <p className="text-xs text-biz-muted">You’re using myBizHub default design. Upgrade to upload logo and banner.</p>
                 </div>
               ) : (
                 <div className="space-y-4">
                   <div className="rounded-2xl border border-biz-line bg-white p-3">
                     <p className="text-sm font-extrabold text-biz-ink">Logo</p>
                     <p className="text-xs text-biz-muted mt-1">Square image recommended.</p>
-
                     <div className="mt-3">
                       <ImageUploader label="Upload logo" multiple={false} onUploaded={(urls) => setLogoUrl(urls[0] || "")} />
                     </div>
-
                     {logoUrl ? (
                       <div className="mt-3 h-20 w-20 rounded-2xl overflow-hidden border border-biz-line bg-biz-cream">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
                       </div>
                     ) : (
@@ -269,14 +257,11 @@ export default function VendorStoreSettingsPage() {
                   <div className="rounded-2xl border border-biz-line bg-white p-3">
                     <p className="text-sm font-extrabold text-biz-ink">Banner</p>
                     <p className="text-xs text-biz-muted mt-1">Wide image recommended.</p>
-
                     <div className="mt-3">
                       <ImageUploader label="Upload banner" multiple={false} onUploaded={(urls) => setBannerUrl(urls[0] || "")} />
                     </div>
-
                     {bannerUrl ? (
                       <div className="mt-3 h-24 w-full rounded-2xl overflow-hidden border border-biz-line bg-biz-cream">
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img src={bannerUrl} alt="Banner" className="h-full w-full object-cover" />
                       </div>
                     ) : (
@@ -291,7 +276,6 @@ export default function VendorStoreSettingsPage() {
               <Button onClick={save} loading={saving}>
                 Save changes
               </Button>
-
               <p className="mt-2 text-xs text-biz-muted">After saving, your public store page will update.</p>
             </Card>
           </>

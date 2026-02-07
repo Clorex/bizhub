@@ -1,8 +1,11 @@
+// FILE: src/app/api/vendor/purchases/confirm/route.ts
 import { NextResponse } from "next/server";
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { findAddonBySku } from "@/lib/vendor/addons/catalog";
+import { paymentsProvider } from "@/lib/payments/provider";
+import { flwVerifyTransaction } from "@/lib/payments/flutterwaveServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +22,7 @@ async function paystackVerify(reference: string) {
     headers: { Authorization: `Bearer ${sk}` },
   });
 
-  const j = await r.json().catch(() => ({}));
+  const j = await r.json().catch(() => ({} as any));
   if (!j?.status) throw new Error(j?.message || "Paystack verify failed");
   return j?.data;
 }
@@ -49,8 +52,10 @@ export async function POST(req: Request) {
     const me = await requireRole(req, "owner");
     if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
-    const body = await req.json().catch(() => ({}));
+    const body = await req.json().catch(() => ({} as any));
     const reference = String(body.reference || "").trim();
+    const transactionId = body.transactionId != null ? String(body.transactionId).trim() : "";
+
     if (!reference) return NextResponse.json({ ok: false, error: "reference is required" }, { status: 400 });
 
     // Idempotency
@@ -69,7 +74,156 @@ export async function POST(req: Request) {
       return NextResponse.json({ ok: false, error: "Purchase intent not found" }, { status: 404 });
     }
 
-    // Verify Paystack
+    const provider = paymentsProvider();
+
+    // -------------------------
+    // Flutterwave (default)
+    // -------------------------
+    if (provider === "flutterwave") {
+      if (!transactionId) {
+        return NextResponse.json({ ok: false, error: "transactionId is required for Flutterwave confirmation" }, { status: 400 });
+      }
+
+      const flwTx = await flwVerifyTransaction(transactionId);
+
+      const st = String(flwTx?.status || "").toLowerCase();
+      if (st !== "successful") {
+        return NextResponse.json({ ok: false, error: `Payment not successful: ${flwTx?.status || "unknown"}` }, { status: 400 });
+      }
+
+      if (String(flwTx?.tx_ref || "") !== reference) {
+        return NextResponse.json({ ok: false, error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
+      }
+
+      const md = ((flwTx as any)?.meta || {}) as any;
+      if (String(md?.type || "") !== "addon") {
+        return NextResponse.json({ ok: false, error: "Invalid purchase type" }, { status: 400 });
+      }
+
+      const sku = String(md?.sku || intent.sku || "").trim();
+      const cycle = String(md?.cycle || intent.cycle || "yearly").toLowerCase() === "monthly" ? "monthly" : "yearly";
+
+      const addon = findAddonBySku(sku);
+      if (!addon) return NextResponse.json({ ok: false, error: "Unknown add-on sku" }, { status: 400 });
+
+      const currency = String(flwTx?.currency || "NGN").toUpperCase();
+      if (currency !== "NGN") return NextResponse.json({ ok: false, error: "Invalid currency" }, { status: 400 });
+
+      const paidKobo = Math.round(Number((flwTx as any)?.amount || 0) * 100);
+      const expectedKobo = Math.round(Number(addon.priceNgn?.[cycle] || 0) * 100);
+
+      if (!expectedKobo || paidKobo !== expectedKobo) {
+        return NextResponse.json({ ok: false, error: "Amount mismatch" }, { status: 400 });
+      }
+
+      const nowMs = Date.now();
+      const addMs = durationMs(cycle);
+
+      const bizRef = adminDb.collection("businesses").doc(me.businessId);
+      let grantedExpiresAtMs: number | null = null;
+
+      await adminDb.runTransaction(async (t) => {
+        const bizSnap = await t.get(bizRef);
+        const biz = bizSnap.exists ? (bizSnap.data() as any) : {};
+
+        const entMap =
+          biz?.addonEntitlements && typeof biz.addonEntitlements === "object" ? biz.addonEntitlements : {};
+
+        const existing = entMap[sku] || {};
+        const merged = mergeEntitlement(existing, addMs, nowMs);
+
+        grantedExpiresAtMs = merged.status === "active" ? Number(merged.expiresAtMs || 0) : null;
+
+        entMap[sku] = {
+          sku,
+          kind: addon.kind,
+          plan: addon.plan,
+          cycle,
+          status: merged.status,
+          expiresAtMs: merged.expiresAtMs || null,
+          remainingMs: merged.remainingMs || null,
+          updatedAtMs: nowMs,
+          purchaseCount: FieldValue.increment(1),
+        };
+
+        // Bundle: grant included items too
+        if (addon.kind === "bundle" && Array.isArray(addon.includesSkus)) {
+          for (const childSku of addon.includesSkus) {
+            const child = findAddonBySku(childSku);
+            if (!child) continue;
+
+            const ex = entMap[childSku] || {};
+            const m2 = mergeEntitlement(ex, addMs, nowMs);
+
+            entMap[childSku] = {
+              sku: childSku,
+              kind: "item",
+              plan: addon.plan,
+              cycle,
+              status: m2.status,
+              expiresAtMs: m2.expiresAtMs || null,
+              remainingMs: m2.remainingMs || null,
+              updatedAtMs: nowMs,
+              viaBundleSku: sku,
+              purchaseCount: FieldValue.increment(1),
+            };
+          }
+        }
+
+        t.set(bizRef, { addonEntitlements: entMap, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+
+        t.set(purchaseRef, {
+          reference,
+          businessId: me.businessId,
+          uid: me.uid,
+          sku,
+          cycle,
+          kind: addon.kind,
+          amountKobo: paidKobo,
+          amount: paidKobo / 100,
+          currency,
+          provider: "flutterwave",
+          paidAt: (flwTx as any)?.created_at || null,
+          flutterwave: { transactionId: Number((flwTx as any)?.id || 0) || null },
+          paidAtMs: nowMs,
+          createdAt: FieldValue.serverTimestamp(),
+          createdAtMs: nowMs,
+          status: "paid",
+        });
+      });
+
+      // Admin notification (best-effort)
+      try {
+        const bizSnap = await adminDb.collection("businesses").doc(me.businessId).get();
+        const biz = bizSnap.exists ? (bizSnap.data() as any) : {};
+        const businessSlug = biz?.slug ?? null;
+
+        await adminDb.collection("adminNotifications").doc().set({
+          type: "addon_paid",
+          reference: String(reference),
+          businessId: me.businessId,
+          businessSlug,
+          planKey: addon.plan,
+          cycle,
+          sku,
+          amountKobo: paidKobo,
+          currency,
+          paidAt: (flwTx as any)?.created_at || null,
+          expiresAtMs: grantedExpiresAtMs,
+          createdAt: FieldValue.serverTimestamp(),
+          createdAtMs: Date.now(),
+          read: false,
+        });
+      } catch {
+        // ignore
+      }
+
+      return NextResponse.json({ ok: true, reference });
+    }
+
+    // -------------------------
+    // Paystack (kept, hidden)
+    // -------------------------
     const tx = await paystackVerify(reference);
     if (String(tx?.status || "") !== "success") {
       return NextResponse.json({ ok: false, error: `Payment not successful: ${tx?.status || "unknown"}` }, { status: 400 });
@@ -86,7 +240,6 @@ export async function POST(req: Request) {
     const addon = findAddonBySku(sku);
     if (!addon) return NextResponse.json({ ok: false, error: "Unknown add-on sku" }, { status: 400 });
 
-    // Amount validation
     const paidKobo = Number(tx?.amount || 0);
     const expectedKobo = Math.round(Number(addon.priceNgn?.[cycle] || 0) * 100);
     if (!expectedKobo || paidKobo !== expectedKobo) {
@@ -97,7 +250,6 @@ export async function POST(req: Request) {
     const addMs = durationMs(cycle);
 
     const bizRef = adminDb.collection("businesses").doc(me.businessId);
-
     let grantedExpiresAtMs: number | null = null;
 
     await adminDb.runTransaction(async (t) => {
@@ -124,7 +276,6 @@ export async function POST(req: Request) {
         purchaseCount: FieldValue.increment(1),
       };
 
-      // Bundle: grant included items too
       if (addon.kind === "bundle" && Array.isArray(addon.includesSkus)) {
         for (const childSku of addon.includesSkus) {
           const child = findAddonBySku(childSku);
@@ -148,11 +299,7 @@ export async function POST(req: Request) {
         }
       }
 
-      t.set(
-        bizRef,
-        { addonEntitlements: entMap, updatedAt: FieldValue.serverTimestamp() },
-        { merge: true }
-      );
+      t.set(bizRef, { addonEntitlements: entMap, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 
       t.set(purchaseRef, {
         reference,
@@ -173,7 +320,7 @@ export async function POST(req: Request) {
       });
     });
 
-    // ✅ Admin notification (match your subscription style)
+    // Admin notification (best-effort)
     try {
       const bizSnap = await adminDb.collection("businesses").doc(me.businessId).get();
       const biz = bizSnap.exists ? (bizSnap.data() as any) : {};
@@ -184,15 +331,15 @@ export async function POST(req: Request) {
         reference: String(reference),
         businessId: me.businessId,
         businessSlug,
-        planKey: addon.plan, // plan that this add-on belongs to
-        cycle, // monthly/yearly for add-on
+        planKey: addon.plan,
+        cycle,
         sku,
         amountKobo: paidKobo,
         currency: tx?.currency || "NGN",
         paidAt: tx?.paid_at || null,
         expiresAtMs: grantedExpiresAtMs,
         createdAt: FieldValue.serverTimestamp(),
-        createdAtMs: nowMs,
+        createdAtMs: Date.now(),
         read: false,
       });
     } catch {

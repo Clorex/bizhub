@@ -1,3 +1,4 @@
+// FILE: src/app/b/[slug]/p/[productId]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -13,6 +14,12 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { Input } from "@/components/ui/Input";
 import { CloudImage } from "@/components/CloudImage";
 import { BadgeCheck } from "lucide-react";
+import {
+  normalizeCoverAspect,
+  coverAspectToTailwindClass,
+  coverAspectToWH,
+  type CoverAspectKey,
+} from "@/lib/products/coverAspect";
 
 type OptionGroup = { name: string; values: string[] };
 
@@ -142,6 +149,10 @@ export default function ProductPage() {
 
   const images: string[] = useMemo(() => (Array.isArray(p?.images) ? p.images : []), [p]);
   const optionGroups: OptionGroup[] = useMemo(() => (Array.isArray(p?.optionGroups) ? p.optionGroups : []), [p]);
+
+  // ✅ Strict cover aspect for this product everywhere
+  const coverAspect: CoverAspectKey = normalizeCoverAspect(p?.coverAspect) ?? "1:1";
+  const coverAspectClass = coverAspectToTailwindClass(coverAspect);
 
   useEffect(() => {
     setActiveImg(0);
@@ -371,7 +382,6 @@ export default function ProductPage() {
       if (!whatsapp) return;
 
       const q = Math.max(1, Math.floor(Number(qty || 1)));
-
       const clientOrderId = makeClientOrderId();
 
       const payload = {
@@ -433,7 +443,6 @@ export default function ProductPage() {
 
       lines.push(`- ${q} × ${String(p?.name || "Item")}${optsTxt}`);
       lines.push(`Items subtotal: ${fmtNaira(itemsSubtotalNgn)}`);
-
       lines.push(``);
       lines.push(`Delivery option: ${shipLabel}`);
 
@@ -443,9 +452,7 @@ export default function ProductPage() {
         lines.push(`Pickup: I will come to pick up.`);
       }
 
-      if (selectedShipping) {
-        lines.push(`Estimated shipping fee: ${fmtNaira(shippingFeeNgn)}`);
-      }
+      if (selectedShipping) lines.push(`Estimated shipping fee: ${fmtNaira(shippingFeeNgn)}`);
 
       lines.push(`Estimated total: ${fmtNaira(estimatedTotalNgn)}`);
       lines.push(``);
@@ -458,6 +465,9 @@ export default function ProductPage() {
   }
 
   const activeUrl = images.length ? images[Math.max(0, Math.min(activeImg, images.length - 1))] : "";
+
+  // Cloudinary size for strict aspect
+  const mainWH = coverAspectToWH(coverAspect, 980);
 
   return (
     <div className="min-h-screen">
@@ -488,18 +498,21 @@ export default function ProductPage() {
         {!loading && p ? (
           <>
             <Card className="p-4">
-              <div className="h-56 w-full rounded-3xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative">
+              {/* ✅ strict aspect ratio box (no fixed height) */}
+              <div className={`${coverAspectClass} w-full rounded-3xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
                 {activeUrl ? (
                   <CloudImage
                     src={activeUrl}
                     alt={p?.name || "Item"}
-                    w={980}
-                    h={520}
+                    w={mainWH.w}
+                    h={mainWH.h}
                     priority={true}
                     sizes="(max-width: 430px) 100vw, 430px"
                     className="h-full w-full object-cover"
                   />
-                ) : null}
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No image</div>
+                )}
 
                 {onSale ? (
                   <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
@@ -523,7 +536,14 @@ export default function ProductPage() {
                         ].join(" ")}
                         aria-label={`Image ${idx + 1}`}
                       >
-                        <CloudImage src={u} alt={`Preview ${idx + 1}`} w={160} h={160} sizes="56px" className="h-full w-full object-cover" />
+                        <CloudImage
+                          src={u}
+                          alt={`Preview ${idx + 1}`}
+                          w={160}
+                          h={160}
+                          sizes="56px"
+                          className="h-full w-full object-cover"
+                        />
                       </button>
                     );
                   })}
@@ -647,7 +667,12 @@ export default function ProductPage() {
                       >
                         −
                       </button>
-                      <Input type="number" min={1} value={String(qty)} onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value || 1))))} />
+                      <Input
+                        type="number"
+                        min={1}
+                        value={String(qty)}
+                        onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value || 1))))}
+                      />
                       <button
                         type="button"
                         className="h-10 w-10 rounded-2xl border border-biz-line bg-white font-extrabold"
@@ -717,7 +742,11 @@ export default function ProductPage() {
                     <div className="rounded-2xl border border-biz-line bg-white p-3">
                       <p className="text-xs text-biz-muted">Delivery location (area/city)</p>
                       <div className="mt-2">
-                        <Input placeholder="Example: Lekki, Ajah, Wuse" value={deliveryLocation} onChange={(e) => setDeliveryLocation(e.target.value)} />
+                        <Input
+                          placeholder="Example: Lekki, Ajah, Wuse"
+                          value={deliveryLocation}
+                          onChange={(e) => setDeliveryLocation(e.target.value)}
+                        />
                       </div>
                       <p className="mt-2 text-[11px] text-biz-muted">Keep it short — the seller will confirm full address in chat.</p>
                     </div>

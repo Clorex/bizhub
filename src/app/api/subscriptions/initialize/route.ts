@@ -1,5 +1,9 @@
+// FILE: src/app/api/subscriptions/initialize/route.ts
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import { requireRole } from "@/lib/auth/server";
+import { paymentsProvider } from "@/lib/payments/provider";
+import { flwCreatePaymentLink } from "@/lib/payments/flutterwaveServer";
 import {
   priceKoboFor,
   type BizhubBillingCycle,
@@ -39,16 +43,21 @@ async function paystackInitialize(params: {
     }),
   });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({} as any));
   if (!data.status) throw new Error(data.message || "Paystack init failed");
   return data.data as { authorization_url: string; reference: string };
+}
+
+function genReference(prefix: string) {
+  // Short + unique enough for tx_ref/doc ids
+  return `${prefix}_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
 }
 
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
-    if (!me.email) return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.email) return NextResponse.json({ ok: false, error: "Missing email" }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
     const planKey = String(body.planKey || "") as BizhubPlanKey;
@@ -58,17 +67,51 @@ export async function POST(req: Request) {
     const allowedCycles: BizhubBillingCycle[] = ["monthly", "quarterly", "biannually", "yearly"];
 
     if (!allowedPlans.includes(planKey)) {
-      return NextResponse.json({ error: "Invalid planKey" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "Invalid planKey" }, { status: 400 });
     }
     if (!allowedCycles.includes(cycle)) {
-      return NextResponse.json({ error: "Invalid cycle" }, { status: 400 });
+      return NextResponse.json({ ok: false, error: "Invalid cycle" }, { status: 400 });
     }
 
-    const amountKobo = priceKoboFor(planKey, cycle); // throws if cycle not available
-    if (amountKobo <= 0) return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
+    const amountKobo = priceKoboFor(planKey, cycle);
+    if (amountKobo <= 0) return NextResponse.json({ ok: false, error: "Invalid amount" }, { status: 400 });
 
     const callbackUrl = `${appUrlFrom(req)}/payment/subscription/callback`;
 
+    const provider = paymentsProvider();
+
+    // -------------------------
+    // Flutterwave (default)
+    // -------------------------
+    if (provider === "flutterwave") {
+      const reference = genReference("sub");
+
+      const amountMajor = amountKobo / 100; // NGN major
+      const { link } = await flwCreatePaymentLink({
+        tx_ref: reference,
+        amount: amountMajor,
+        currency: "NGN",
+        redirect_url: callbackUrl,
+        customer: { email: me.email },
+        title: "Bizhub Subscription",
+        description: `${planKey} • ${cycle}`,
+        meta: {
+          purpose: "subscription",
+          businessId: me.businessId,
+          businessSlug: me.businessSlug ?? null,
+          ownerUid: me.uid,
+          planKey,
+          cycle,
+          amountKobo,
+        },
+      });
+
+      return NextResponse.json({ ok: true, authorization_url: link, reference });
+    }
+
+    // -------------------------
+    // Paystack (kept, hidden)
+    // -------------------------
     const { authorization_url, reference } = await paystackInitialize({
       email: me.email,
       amountKobo,

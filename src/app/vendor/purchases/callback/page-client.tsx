@@ -1,3 +1,4 @@
+// FILE: src/app/vendor/purchases/callback/page-client.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -11,10 +12,11 @@ export default function VendorPurchasesCallbackPageClient() {
   const router = useRouter();
   const sp = useSearchParams();
 
-  const reference = String(sp.get("reference") || "").trim();
+  const reference = String(sp.get("tx_ref") || sp.get("reference") || "").trim();
+  const transactionId = String(sp.get("transaction_id") || sp.get("transactionId") || "").trim();
 
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState<string>("Confirming purchase…");
+  const [msg, setMsg] = useState<string>("Confirming purchase...");
 
   async function authedFetch(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
@@ -39,12 +41,12 @@ export default function VendorPurchasesCallbackPageClient() {
 
       try {
         setLoading(true);
-        setMsg("Confirming purchase…");
+        setMsg("Confirming purchase...");
 
         await authedFetch("/api/vendor/purchases/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reference }),
+          body: JSON.stringify({ reference, transactionId }),
         });
 
         if (!mounted) return;
@@ -61,7 +63,7 @@ export default function VendorPurchasesCallbackPageClient() {
     return () => {
       mounted = false;
     };
-  }, [reference]);
+  }, [reference, transactionId]);
 
   return (
     <div className="min-h-screen">

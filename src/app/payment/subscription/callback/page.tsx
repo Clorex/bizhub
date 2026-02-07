@@ -1,4 +1,5 @@
-﻿"use client";
+﻿// FILE: src/app/payment/subscription/callback/page.tsx
+"use client";
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -8,11 +9,13 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
 import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 
-const EM_DASH = "\u2014"; // —
-
 function SubscriptionCallbackInner() {
   const sp = useSearchParams();
-  const reference = sp.get("reference") ?? sp.get("trxref");
+
+  // Flutterwave: tx_ref + transaction_id
+  // Paystack: reference or trxref
+  const reference = sp.get("tx_ref") ?? sp.get("reference") ?? sp.get("trxref");
+  const transactionId = sp.get("transaction_id") ?? sp.get("transactionId");
 
   const [status, setStatus] = useState<"loading" | "error" | "ok">("loading");
   const [msg, setMsg] = useState("Confirming subscription...");
@@ -24,14 +27,14 @@ function SubscriptionCallbackInner() {
       try {
         if (!reference) {
           setStatus("error");
-          setMsg("Missing Paystack reference.");
+          setMsg("Missing payment reference.");
           return;
         }
 
         const r = await fetch("/api/subscriptions/confirm", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ reference }),
+          body: JSON.stringify({ reference, transactionId }),
         });
 
         const data = await r.json().catch(() => ({}));
@@ -51,7 +54,7 @@ function SubscriptionCallbackInner() {
     return () => {
       mounted = false;
     };
-  }, [reference]);
+  }, [reference, transactionId]);
 
   return (
     <div className="min-h-screen">
@@ -89,7 +92,7 @@ function SubscriptionCallbackInner() {
             </>
           ) : null}
 
-          <p className="text-[11px] text-gray-500 mt-3 break-all">Payment ID: {reference || EM_DASH}</p>
+          <p className="text-[11px] text-gray-500 mt-3 break-all">Payment Ref: {reference || "—"}</p>
 
           <div className="mt-4 space-y-2">
             <Link href="/vendor" className="block">

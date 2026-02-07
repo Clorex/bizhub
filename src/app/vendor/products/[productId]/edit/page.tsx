@@ -1,3 +1,4 @@
+// FILE: src/app/vendor/products/[productId]/edit/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -8,7 +9,10 @@ import { auth } from "@/lib/firebase/client";
 import { ImageUploader } from "@/components/vendor/ImageUploader";
 import { OptionGroup, VariationBuilder } from "@/components/vendor/VariationBuilder";
 import { Button } from "@/components/ui/Button";
+import { Chip } from "@/components/ui/Chip";
 import { Megaphone } from "lucide-react";
+import { type CoverAspectKey, normalizeCoverAspect } from "@/lib/products/coverAspect";
+import { MARKET_CATEGORIES, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
 
 const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
 const MAX_IMAGES = 10;
@@ -16,24 +20,32 @@ const MAX_IMAGES = 10;
 function digitsOnly(s: string) {
   return String(s || "").replace(/[^\d]/g, "");
 }
-
 function formatNumberText(s: string) {
   const d = digitsOnly(s);
   if (!d) return "";
   return Number(d).toLocaleString("en-NG");
 }
-
 function parseNumberText(s: string) {
   const d = digitsOnly(s);
   return d ? Number(d) : 0;
 }
-
 function fmtNaira(n: number) {
   try {
     return `₦${Number(n || 0).toLocaleString("en-NG")}`;
   } catch {
     return `₦${n}`;
   }
+}
+function uniq<T>(arr: T[]) {
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (const x of arr) {
+    const k = String(x);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
+  }
+  return out;
 }
 
 export default function VendorEditProductPage() {
@@ -57,6 +69,15 @@ export default function VendorEditProductPage() {
   const [images, setImages] = useState<string[]>([]);
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
   const [marketEnabled, setMarketEnabled] = useState(true);
+
+  // ✅ stored, but UI is only inside cropper
+  const [coverAspect, setCoverAspect] = useState<CoverAspectKey>("1:1");
+
+  // categories + attrs
+  const [categoryKeys, setCategoryKeys] = useState<MarketCategoryKey[]>([]);
+  const [catMsg, setCatMsg] = useState<string | null>(null);
+  const [colorsCsv, setColorsCsv] = useState("");
+  const [sizesCsv, setSizesCsv] = useState("");
 
   const price = useMemo(() => parseNumberText(priceText), [priceText]);
   const stock = useMemo(() => parseNumberText(stockText), [stockText]);
@@ -83,6 +104,20 @@ export default function VendorEditProductPage() {
     const data = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(data?.error || "Request failed");
     return data;
+  }
+
+  function toggleCategory(k: MarketCategoryKey) {
+    setCatMsg(null);
+
+    setCategoryKeys((prev) => {
+      const cur = uniq((prev || []) as MarketCategoryKey[]).slice(0, 3);
+      if (cur.includes(k)) return cur.filter((x) => x !== k);
+      if (cur.length >= 3) {
+        setCatMsg("You can select up to 3 categories.");
+        return cur;
+      }
+      return [...cur, k].slice(0, 3);
+    });
   }
 
   useEffect(() => {
@@ -119,6 +154,17 @@ export default function VendorEditProductPage() {
         setImages(Array.isArray(p?.images) ? p.images.slice(0, MAX_IMAGES) : []);
         setOptionGroups(Array.isArray(p?.optionGroups) ? p.optionGroups : []);
         setMarketEnabled(p?.marketEnabled !== false);
+
+        const ca = normalizeCoverAspect(p?.coverAspect) ?? "1:1";
+        setCoverAspect(ca);
+
+        const cats = Array.isArray(p?.categoryKeys) ? (p.categoryKeys as MarketCategoryKey[]) : [];
+        setCategoryKeys(cats.slice(0, 3));
+
+        const colors = Array.isArray(p?.attrs?.colors) ? p.attrs.colors : [];
+        const sizes = Array.isArray(p?.attrs?.sizes) ? p.attrs.sizes : [];
+        setColorsCsv(colors.join(", "));
+        setSizesCsv(sizes.join(", "));
       } catch (e: any) {
         setMsg(e?.message || "Failed to load product");
       } finally {
@@ -140,7 +186,6 @@ export default function VendorEditProductPage() {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          // ✅ services removed: product-only payload
           name,
           description,
           price,
@@ -149,6 +194,11 @@ export default function VendorEditProductPage() {
           images: images.slice(0, MAX_IMAGES),
           optionGroups,
           marketEnabled,
+          coverAspect, // ✅ stored
+
+          categoryKeys: categoryKeys.slice(0, 3),
+          colorsCsv,
+          sizesCsv,
         }),
       });
 
@@ -260,6 +310,7 @@ export default function VendorEditProductPage() {
                           : "px-3 py-2 rounded-2xl text-xs font-bold border border-biz-line bg-white"
                       }
                       onClick={() => setMarketEnabled((v) => !v)}
+                      type="button"
                     >
                       {marketEnabled ? "ON" : "OFF"}
                     </button>
@@ -275,13 +326,48 @@ export default function VendorEditProductPage() {
             </Card>
 
             <Card className="p-4">
+              <p className="text-sm font-bold text-biz-ink">Categories (max 3)</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {MARKET_CATEGORIES.map((c) => {
+                  const active = categoryKeys.includes(c.key);
+                  return (
+                    <Chip key={c.key} active={active} onClick={() => toggleCategory(c.key)}>
+                      {c.label}
+                    </Chip>
+                  );
+                })}
+              </div>
+
+              {catMsg ? <p className="mt-2 text-[11px] text-red-700">{catMsg}</p> : null}
+
+              <div className="mt-4 grid grid-cols-1 gap-2">
+                <input
+                  className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                  placeholder="Colors (comma separated) e.g. black, red, white"
+                  value={colorsCsv}
+                  onChange={(e) => setColorsCsv(e.target.value)}
+                />
+                <input
+                  className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                  placeholder="Sizes (comma separated) e.g. 40, 41, L, XL"
+                  value={sizesCsv}
+                  onChange={(e) => setSizesCsv(e.target.value)}
+                />
+              </div>
+            </Card>
+
+            <Card className="p-4">
               <ImageUploader
                 label="Product images"
                 value={images}
-                onChange={setImages}
+                onChange={(next) => setImages(next)}
                 max={MAX_IMAGES}
                 folderBase="bizhub/uploads/products"
                 disabled={saving}
+                autoOpenCrop={true}
+                allowFreeAspect={false}      // ✅ only 7 aspect ratios
+                aspectKey={coverAspect}
+                onAspectKeyChange={setCoverAspect}
               />
               <p className="mt-2 text-[11px] text-biz-muted">Tip: The first image is your cover photo.</p>
             </Card>
@@ -291,10 +377,7 @@ export default function VendorEditProductPage() {
             </Card>
 
             <Card className="p-4 space-y-2">
-              <Button
-                onClick={() => router.push(`/vendor/promote?productId=${encodeURIComponent(productId)}`)}
-                leftIcon={<Megaphone className="h-4 w-4" />}
-              >
+              <Button onClick={() => router.push(`/vendor/promote?productId=${encodeURIComponent(productId)}`)} leftIcon={<Megaphone className="h-4 w-4" />}>
                 Promote this product
               </Button>
 

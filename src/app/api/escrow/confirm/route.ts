@@ -1,7 +1,10 @@
+// FILE: src/app/api/escrow/confirm/route.ts
 import { NextResponse } from "next/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { buildQuote } from "@/lib/checkout/pricingServer";
+import { paymentsProvider } from "@/lib/payments/provider";
+import { flwVerifyTransaction } from "@/lib/payments/flutterwaveServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,13 +13,19 @@ async function verifyPaystack(reference: string) {
   const secret = process.env.PAYSTACK_SECRET_KEY;
   if (!secret) throw new Error("Missing PAYSTACK_SECRET_KEY");
 
-  const res = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+  const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
     headers: { Authorization: `Bearer ${secret}` },
   });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({} as any));
   if (!data.status) throw new Error(data.message || "Paystack verify failed");
   return data.data;
+}
+
+function fxNgnPerUsd() {
+  const v = process.env.FX_NGN_PER_USD || process.env.NGN_PER_USD || process.env.USD_NGN_RATE || "";
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 function normalizeMetadata(raw: any) {
@@ -60,18 +69,80 @@ function cleanShipping(s: any) {
 
 export async function POST(req: Request) {
   try {
-    const { reference } = await req.json();
-    if (!reference) {
-      return NextResponse.json({ error: "reference is required" }, { status: 400 });
+    const body = await req.json().catch(() => ({} as any));
+    const reference = String(body.reference || "").trim();
+    const transactionId = body.transactionId != null ? String(body.transactionId).trim() : "";
+
+    if (!reference) return NextResponse.json({ error: "reference is required" }, { status: 400 });
+
+    const provider = paymentsProvider();
+
+    let paidStatus = "";
+    let paidCurrency = "NGN";
+    let paidMinor = 0;
+    let paidAt: any = null;
+    let channel: any = null;
+    let rawMetadata: any = {};
+    let providerName: "paystack" | "flutterwave" = "paystack";
+    let flutterwaveTxId: number | null = null;
+
+    if (provider === "flutterwave") {
+      if (!transactionId) {
+        return NextResponse.json({ error: "transactionId is required for Flutterwave confirmation" }, { status: 400 });
+      }
+
+      const flwTx = await flwVerifyTransaction(transactionId);
+
+      paidStatus = String(flwTx?.status || "");
+      if (String(paidStatus).toLowerCase() !== "successful") {
+        return NextResponse.json({ error: `Payment not successful: ${paidStatus}`, raw: flwTx }, { status: 400 });
+      }
+
+      if (String(flwTx?.tx_ref || "") !== reference) {
+        return NextResponse.json({ error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
+      }
+
+      paidCurrency = String(flwTx?.currency || "NGN").toUpperCase();
+      const amtMajor = Number((flwTx as any)?.amount || 0);
+      if (!Number.isFinite(amtMajor) || amtMajor <= 0) {
+        return NextResponse.json({ error: "Invalid amount from Flutterwave" }, { status: 400 });
+      }
+
+      paidMinor = Math.round(amtMajor * 100);
+      paidAt = (flwTx as any)?.created_at || null;
+      channel = null;
+
+      // ✅ IMPORTANT: do not trust Flutterwave meta for full cart payload.
+      // Load server-side session saved during initialize.
+      const sessSnap = await adminDb.collection("paymentSessions").doc(reference).get();
+      const sess = sessSnap.exists ? (sessSnap.data() as any) : null;
+
+      if (sess?.payload) {
+        rawMetadata = sess.payload;
+      } else {
+        // fallback (best-effort) if session missing
+        rawMetadata = normalizeMetadata((flwTx as any)?.meta);
+      }
+
+      providerName = "flutterwave";
+      flutterwaveTxId = Number((flwTx as any)?.id || 0) || null;
+    } else {
+      const paystackTx = await verifyPaystack(reference);
+
+      paidStatus = String(paystackTx.status || "");
+      if (paidStatus !== "success") {
+        return NextResponse.json({ error: `Payment not successful: ${paidStatus}`, raw: paystackTx }, { status: 400 });
+      }
+
+      paidCurrency = String(paystackTx.currency || "NGN").toUpperCase();
+      paidMinor = Number(paystackTx.amount || 0);
+      paidAt = paystackTx.paid_at || null;
+      channel = paystackTx.channel || null;
+      rawMetadata = normalizeMetadata(paystackTx.metadata);
+      providerName = "paystack";
     }
 
-    const paystackTx = await verifyPaystack(String(reference));
-
-    if (paystackTx.status !== "success") {
-      return NextResponse.json({ error: `Payment not successful: ${paystackTx.status}`, raw: paystackTx }, { status: 400 });
-    }
-
-    const metadata = normalizeMetadata(paystackTx.metadata);
+    const metadata = rawMetadata || {};
     const storeSlug = String(metadata.storeSlug || metadata.businessSlug || metadata.slug || "").trim();
 
     if (!storeSlug) {
@@ -79,15 +150,12 @@ export async function POST(req: Request) {
     }
 
     const itemsMeta = safeItemsFromMetadata(Array.isArray(metadata.items) ? metadata.items : []);
-    if (itemsMeta.length < 1) {
-      return NextResponse.json({ error: "Missing items in metadata" }, { status: 400 });
-    }
+    if (itemsMeta.length < 1) return NextResponse.json({ error: "Missing items in metadata" }, { status: 400 });
 
     const couponCode = metadata?.coupon?.code ? String(metadata.coupon.code) : null;
     const shipping = cleanShipping(metadata.shipping);
     const shippingFeeKobo = Number(shipping?.feeKobo || 0);
 
-    // ✅ Recompute the correct total on server (sale first, coupon after sale)
     const quote = await buildQuote({
       storeSlug,
       items: itemsMeta,
@@ -96,47 +164,73 @@ export async function POST(req: Request) {
     });
 
     const expectedKobo = Number(quote?.pricing?.totalKobo || 0);
-    const paidKobo = Number(paystackTx.amount || 0);
+    if (!Number.isFinite(expectedKobo) || expectedKobo <= 0) return NextResponse.json({ error: "Invalid total" }, { status: 400 });
+    if (!Number.isFinite(paidMinor) || paidMinor <= 0) return NextResponse.json({ error: "Invalid paid amount" }, { status: 400 });
 
-    if (!Number.isFinite(paidKobo) || paidKobo <= 0) {
-      return NextResponse.json({ error: "Invalid amount from Paystack", raw: paystackTx }, { status: 400 });
-    }
+    const chargeCurrency = String(metadata?.charge?.currency || paidCurrency || "NGN").toUpperCase();
 
-    // ✅ If mismatch, DO NOT create order (prevents underpay exploit)
-    if (paidKobo !== expectedKobo) {
-      await adminDb.collection("paymentMismatches").doc(String(reference)).set(
-        {
-          reference: String(reference),
-          storeSlug,
-          expectedKobo,
-          paidKobo,
-          currency: paystackTx.currency || "NGN",
-          createdAtMs: Date.now(),
-          createdAt: FieldValue.serverTimestamp(),
-          metadata: {
-            couponCode: couponCode ? String(couponCode).toUpperCase() : null,
-            shippingFeeKobo,
+    if (chargeCurrency === "USD") {
+      const fx = fxNgnPerUsd();
+      if (!fx) return NextResponse.json({ error: "USD payments not configured (missing FX_NGN_PER_USD)" }, { status: 500 });
+
+      const expectedUsdCents = Math.round(expectedKobo / fx);
+
+      if (paidCurrency !== "USD") return NextResponse.json({ error: "Currency mismatch (expected USD)" }, { status: 400 });
+
+      if (paidMinor !== expectedUsdCents) {
+        await adminDb.collection("paymentMismatches").doc(String(reference)).set(
+          {
+            reference: String(reference),
+            storeSlug,
+            expectedKobo,
+            expectedUsdCents,
+            paidUsdCents: paidMinor,
+            currency: "USD",
+            provider: providerName,
+            flutterwaveTxId,
+            createdAtMs: Date.now(),
+            createdAt: FieldValue.serverTimestamp(),
+            quotePricing: quote.pricing,
           },
-          quotePricing: quote.pricing,
-        },
-        { merge: true }
-      );
+          { merge: true }
+        );
 
-      return NextResponse.json(
-        {
-          error: "Amount mismatch. Please refresh checkout and try again.",
-          code: "AMOUNT_MISMATCH",
-          expectedKobo,
-          paidKobo,
-        },
-        { status: 400 }
-      );
+        return NextResponse.json(
+          { error: "Amount mismatch. Please refresh checkout and try again.", code: "AMOUNT_MISMATCH", expectedUsdCents, paidUsdCents: paidMinor },
+          { status: 400 }
+        );
+      }
+    } else {
+      if (paidCurrency !== "NGN") return NextResponse.json({ error: "Currency mismatch (expected NGN)" }, { status: 400 });
+
+      if (paidMinor !== expectedKobo) {
+        await adminDb.collection("paymentMismatches").doc(String(reference)).set(
+          {
+            reference: String(reference),
+            storeSlug,
+            expectedKobo,
+            paidKobo: paidMinor,
+            currency: "NGN",
+            provider: providerName,
+            flutterwaveTxId,
+            createdAtMs: Date.now(),
+            createdAt: FieldValue.serverTimestamp(),
+            quotePricing: quote.pricing,
+          },
+          { merge: true }
+        );
+
+        return NextResponse.json(
+          { error: "Amount mismatch. Please refresh checkout and try again.", code: "AMOUNT_MISMATCH", expectedKobo, paidKobo: paidMinor },
+          { status: 400 }
+        );
+      }
     }
 
     const customer = metadata.customer || {};
 
     const nowMs = Date.now();
-    const holdMs = 5 * 60 * 1000; // 5 minutes max
+    const holdMs = 5 * 60 * 1000;
     const holdUntilMs = nowMs + holdMs;
 
     const txRef = adminDb.collection("transactions").doc(String(reference));
@@ -158,7 +252,6 @@ export async function POST(req: Request) {
       const orderRef = adminDb.collection("orders").doc();
       const orderId = orderRef.id;
 
-      // Normalize items with server final prices (NGN)
       const items = Array.isArray(quote.normalizedItems)
         ? quote.normalizedItems.map((it: any) => ({
             productId: String(it.productId || ""),
@@ -184,7 +277,6 @@ export async function POST(req: Request) {
           ? { code: String(couponCode || "").toUpperCase(), discountKobo: Number(quote.pricing.couponDiscountKobo || 0) }
           : null;
 
-      // Create order
       t.set(orderRef, {
         businessId: quote.businessId,
         businessSlug: storeSlug,
@@ -198,12 +290,15 @@ export async function POST(req: Request) {
         paymentType: "paystack_escrow",
         paymentStatus: "paid",
         payment: {
-          provider: "paystack",
+          provider: providerName,
           reference: String(reference),
-          status: "success",
-          channel: paystackTx.channel || null,
-          paidAt: paystackTx.paid_at || null,
-          feesKobo: paystackTx.fees ?? null,
+          status: providerName === "flutterwave" ? "successful" : "success",
+          channel: channel || null,
+          paidAt: paidAt || null,
+          flutterwaveTxId,
+          chargeCurrency: chargeCurrency === "USD" ? "USD" : "NGN",
+          chargeMinor: paidMinor,
+          fxNgnPerUsd: chargeCurrency === "USD" ? fxNgnPerUsd() : null,
         },
 
         escrowStatus: "held",
@@ -212,11 +307,10 @@ export async function POST(req: Request) {
         opsStatus: "paid",
         opsUpdatedAtMs: nowMs,
 
-        currency: paystackTx.currency || "NGN",
-        amountKobo: paidKobo,
-        amount: paidKobo / 100,
+        currency: "NGN",
+        amountKobo: expectedKobo,
+        amount: expectedKobo / 100,
 
-        // ✅ pricing breakdown stored
         pricing: {
           ...quote.pricing,
           computedAtMs: nowMs,
@@ -232,23 +326,29 @@ export async function POST(req: Request) {
         orderId,
         businessId: quote.businessId,
         businessSlug: storeSlug,
-        amount: paidKobo / 100,
-        amountKobo: paidKobo,
-        status: "held",
-        provider: "paystack",
+
+        currency: "NGN",
+        amountKobo: expectedKobo,
+        amount: expectedKobo / 100,
+
+        chargeCurrency: chargeCurrency === "USD" ? "USD" : "NGN",
+        chargeMinor: paidMinor,
+        provider: providerName,
         reference: String(reference),
+        flutterwaveTxId,
+
+        status: "held",
         holdUntilMs,
         pricing: quote.pricing,
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      // Wallet pending balance
       const walletRef = adminDb.collection("wallets").doc(String(quote.businessId));
       t.set(
         walletRef,
         {
           businessId: quote.businessId,
-          pendingBalanceKobo: FieldValue.increment(paidKobo),
+          pendingBalanceKobo: FieldValue.increment(expectedKobo),
           availableBalanceKobo: FieldValue.increment(0),
           totalEarnedKobo: FieldValue.increment(0),
           updatedAt: FieldValue.serverTimestamp(),
@@ -256,20 +356,16 @@ export async function POST(req: Request) {
         { merge: true }
       );
 
-      // Coupon usage increment (only if coupon actually applied)
       if (couponApplied?.code) {
         const cRef = adminDb.collection("businesses").doc(String(quote.businessId)).collection("coupons").doc(couponApplied.code);
-        t.set(cRef, { usedCount: FieldValue.increment(1), updatedAtMs: Date.now(), updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+        t.set(
+          cRef,
+          { usedCount: FieldValue.increment(1), updatedAtMs: Date.now(), updatedAt: FieldValue.serverTimestamp() },
+          { merge: true }
+        );
       }
 
-      return {
-        ok: true,
-        orderId,
-        businessSlug: storeSlug,
-        escrowStatus: "held",
-        holdUntilMs,
-        alreadyProcessed: false,
-      };
+      return { ok: true, orderId, businessSlug: storeSlug, escrowStatus: "held", holdUntilMs, alreadyProcessed: false };
     });
 
     return NextResponse.json(result);

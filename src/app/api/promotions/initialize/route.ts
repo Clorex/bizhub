@@ -1,7 +1,11 @@
+// FILE: src/app/api/promotions/initialize/route.ts
 import { NextResponse } from "next/server";
+import crypto from "node:crypto";
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
+import { paymentsProvider } from "@/lib/payments/provider";
+import { flwCreatePaymentLink } from "@/lib/payments/flutterwaveServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -42,9 +46,13 @@ async function paystackInitialize(params: {
     }),
   });
 
-  const data = await res.json();
+  const data = await res.json().catch(() => ({} as any));
   if (!data.status) throw new Error(data.message || "Paystack init failed");
   return data.data as { authorization_url: string; reference: string };
+}
+
+function genReference(prefix: string) {
+  return `${prefix}_${Date.now()}_${crypto.randomBytes(8).toString("hex")}`;
 }
 
 export async function POST(req: Request) {
@@ -82,9 +90,42 @@ export async function POST(req: Request) {
     }
 
     const totalBudgetKobo = dailyBudgetKobo * days;
-
     const callbackUrl = `${appUrlFrom(req)}/payment/promotion/callback`;
 
+    const provider = paymentsProvider();
+
+    // -------------------------
+    // Flutterwave (default)
+    // -------------------------
+    if (provider === "flutterwave") {
+      const reference = genReference("promo");
+
+      const { link } = await flwCreatePaymentLink({
+        tx_ref: reference,
+        amount: totalBudgetKobo / 100, // NGN major
+        currency: "NGN",
+        redirect_url: callbackUrl,
+        customer: { email: me.email },
+        title: "Bizhub Promotion",
+        description: `Boost • ${days} day(s)`,
+        meta: {
+          purpose: "promotion",
+          businessId: me.businessId,
+          businessSlug: me.businessSlug ?? null,
+          ownerUid: me.uid,
+          productIds,
+          days,
+          dailyBudgetKobo,
+          totalBudgetKobo,
+        },
+      });
+
+      return NextResponse.json({ ok: true, authorization_url: link, reference });
+    }
+
+    // -------------------------
+    // Paystack (kept, hidden)
+    // -------------------------
     const { authorization_url, reference } = await paystackInitialize({
       email: me.email,
       amountKobo: totalBudgetKobo,

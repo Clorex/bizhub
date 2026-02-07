@@ -1,13 +1,10 @@
+// FILE: src/lib/cloudinary/url.ts
 export type CloudinaryQuality = "auto" | "eco" | "good" | "low";
 
 function isCloudinaryUploadUrl(u: string) {
   return u.includes("res.cloudinary.com") && u.includes("/upload/");
 }
 
-/**
- * Adds Cloudinary transforms to an existing Cloudinary delivery URL.
- * Example transforms: f_auto,q_auto,dpr_auto,w_320,h_240
- */
 export function cloudinaryOptimizedUrl(
   url: string,
   opts?: {
@@ -28,23 +25,21 @@ export function cloudinaryOptimizedUrl(
     q === "eco" ? "q_auto:eco" : q === "good" ? "q_auto:good" : q === "low" ? "q_auto:low" : "q_auto";
 
   const tParts = ["f_auto", qToken, "dpr_auto"];
-  if (w) tParts.push(`w_${w}`);
-  if (h) tParts.push(`h_${h}`);
+
+  if (w && h) {
+    // exact box, crop (never stretch)
+    tParts.push("c_fill", "g_auto", `w_${w}`, `h_${h}`);
+  } else {
+    tParts.push("c_limit");
+    if (w) tParts.push(`w_${w}`);
+    if (h) tParts.push(`h_${h}`);
+  }
 
   const t = tParts.join(",");
-
-  // Insert transform right after /upload/
   return u.replace("/upload/", `/upload/${t}/`);
 }
 
-/**
- * Build a small srcSet for responsive delivery (reduces data on mobile).
- */
-export function cloudinarySrcSet(
-  url: string,
-  widths: number[],
-  opts?: { q?: CloudinaryQuality; h?: number }
-) {
+export function cloudinarySrcSet(url: string, widths: number[], opts?: { q?: CloudinaryQuality; h?: number }) {
   const clean = Array.from(new Set(widths.map((x) => Math.max(1, Math.floor(x)))))
     .filter(Boolean)
     .sort((a, b) => a - b);
