@@ -44,4 +44,4 @@ export const toast = {
 export function toastFromError(e: any, fallback = "Something went wrong. Please try again.") {
   const msg = String(e?.message || "").trim();
   toast.error(msg || fallback);
-}S
+}
