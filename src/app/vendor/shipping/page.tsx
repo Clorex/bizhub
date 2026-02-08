@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
 
 type ShipType = "delivery" | "pickup";
 
@@ -17,6 +18,13 @@ function toNgnFromKobo(kobo: number) {
 function toKoboFromNgn(ngn: number) {
   const n = Math.floor(Number(ngn || 0) * 100);
   return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  // keep short + friendly
+  return m.length > 140 ? fallback : m;
 }
 
 export default function VendorShippingPage() {
@@ -35,20 +43,26 @@ export default function VendorShippingPage() {
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [active, setActive] = useState(true);
 
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string>("");
+
   const savingDisabled = useMemo(() => {
+    if (saving) return true;
     if (!name.trim()) return true;
     if (type === "delivery" && feeNgn < 0) return true;
     return false;
-  }, [name, type, feeNgn]);
+  }, [name, type, feeNgn, saving]);
 
   async function authedFetch(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
     const r = await fetch(path, {
       ...init,
       headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data?.error || "Request failed");
+    if (!r.ok) throw new Error(data?.error || "We couldn’t complete that request.");
     return data;
   }
 
@@ -59,8 +73,10 @@ export default function VendorShippingPage() {
       const data = await authedFetch("/api/vendor/shipping");
       setOptions(Array.isArray(data.options) ? data.options : []);
     } catch (e: any) {
-      setMsg(e?.message || "Failed to load shipping options");
+      const m = niceError(e, "Could not load shipping options. Please try again.");
+      setMsg(m);
       setOptions([]);
+      toast.error(m);
     } finally {
       setLoading(false);
     }
@@ -94,6 +110,8 @@ export default function VendorShippingPage() {
 
   async function save() {
     setMsg(null);
+    setSaving(true);
+
     try {
       await authedFetch("/api/vendor/shipping", {
         method: "POST",
@@ -109,38 +127,53 @@ export default function VendorShippingPage() {
           active,
         }),
       });
-      setMsg(editingId ? "Shipping option updated." : "Shipping option created.");
+
+      toast.success(editingId ? "Shipping option updated." : "Shipping option added.");
       resetForm();
       await load();
     } catch (e: any) {
-      setMsg(e?.message || "Save failed");
+      const m = niceError(e, "Could not save. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setSaving(false);
     }
   }
 
   async function del(id: string) {
-    if (!confirm("Delete this shipping option?")) return;
+    const ok = confirm("Delete this shipping option? This cannot be undone.");
+    if (!ok) return;
+
+    setDeletingId(id);
+    setMsg(null);
+
     try {
       await authedFetch(`/api/vendor/shipping?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      toast.success("Shipping option deleted.");
       await load();
     } catch (e: any) {
-      alert(e?.message || "Delete failed");
+      const m = niceError(e, "Could not delete. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setDeletingId("");
     }
   }
 
   return (
     <div className="min-h-screen">
-      <GradientHeader title="Shipping" subtitle="Create delivery & pickup options for checkout" showBack={true} />
+      <GradientHeader title="Shipping" subtitle="Set delivery and pickup options for checkout" showBack={true} />
 
       <div className="px-4 pb-24 space-y-3">
         {loading ? <Card className="p-4">Loading…</Card> : null}
-        {msg ? <Card className="p-4">{msg}</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         <SectionCard
-          title={editingId ? "Edit shipping option" : "New shipping option"}
-          subtitle="These appear on customer checkout"
+          title={editingId ? "Edit option" : "New option"}
+          subtitle="Customers will see these at checkout"
           right={
             editingId ? (
-              <Button variant="secondary" size="sm" onClick={resetForm}>
+              <Button variant="secondary" size="sm" onClick={resetForm} disabled={saving}>
                 Cancel
               </Button>
             ) : null
@@ -161,14 +194,14 @@ export default function VendorShippingPage() {
             <div className="grid grid-cols-2 gap-2">
               <Input
                 type="number"
-                placeholder="Fee (NGN)"
+                placeholder="Fee (₦)"
                 value={String(type === "pickup" ? 0 : feeNgn)}
                 onChange={(e) => setFeeNgn(Number(e.target.value))}
                 disabled={type === "pickup"}
               />
               <Input
                 type="number"
-                placeholder="ETA days"
+                placeholder="ETA (days)"
                 value={String(etaDays)}
                 onChange={(e) => setEtaDays(Number(e.target.value))}
                 min={0}
@@ -198,24 +231,25 @@ export default function VendorShippingPage() {
                     : "rounded-2xl px-4 py-3 text-sm font-bold bg-white border border-biz-line text-biz-ink shadow-soft"
                 }
                 onClick={() => setActive((v) => !v)}
+                disabled={saving}
               >
                 {active ? "Active" : "Inactive"}
               </button>
             </div>
 
-            <Button onClick={save} disabled={savingDisabled}>
-              {editingId ? "Save changes" : "Create option"}
+            <Button onClick={save} disabled={savingDisabled} loading={saving}>
+              {editingId ? "Save changes" : "Add option"}
             </Button>
 
             <p className="text-[11px] text-biz-muted">
-              Note: Pickup fee is forced to ₦0 in the API (MVP).
+              Note: Pickup options always have a ₦0 fee.
             </p>
           </div>
         </SectionCard>
 
         <SectionCard title="Current options" subtitle="Tap Edit to modify">
           {options.length === 0 ? (
-            <p className="text-sm text-biz-muted">No shipping options yet. Create one above.</p>
+            <p className="text-sm text-biz-muted">No shipping options yet. Add one above.</p>
           ) : (
             <div className="space-y-2">
               {options.map((o) => {
@@ -227,26 +261,33 @@ export default function VendorShippingPage() {
                   <div key={id} className="rounded-2xl border border-biz-line bg-white p-3">
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <p className="text-sm font-bold text-biz-ink">
-                          {o.name || (isPickup ? "Pickup" : "Delivery")}
-                        </p>
+                        <p className="text-sm font-bold text-biz-ink">{o.name || (isPickup ? "Pickup" : "Delivery")}</p>
+
                         <p className="text-[11px] text-gray-500 mt-1">
-                          Type: <b className="text-biz-ink">{isPickup ? "pickup" : "delivery"}</b> • Fee:{" "}
+                          Type: <b className="text-biz-ink">{isPickup ? "Pickup" : "Delivery"}</b> • Fee:{" "}
                           <b className="text-biz-ink">₦{(feeKobo / 100).toLocaleString()}</b> • ETA:{" "}
                           <b className="text-biz-ink">{Number(o.etaDays || 0)} day(s)</b>
                         </p>
+
                         {o.areasText ? <p className="text-[11px] text-gray-500 mt-1">{String(o.areasText)}</p> : null}
+
                         <p className="text-[11px] text-gray-500 mt-1">
-                          Status: <b className="text-biz-ink">{o.active === false ? "inactive" : "active"}</b> • Sort:{" "}
+                          Status: <b className="text-biz-ink">{o.active === false ? "Inactive" : "Active"}</b> • Sort:{" "}
                           <b className="text-biz-ink">{Number(o.sortOrder || 0)}</b>
                         </p>
                       </div>
 
                       <div className="shrink-0 space-y-2">
-                        <Button size="sm" variant="secondary" onClick={() => edit(o)}>
+                        <Button size="sm" variant="secondary" onClick={() => edit(o)} disabled={saving || deletingId === id}>
                           Edit
                         </Button>
-                        <Button size="sm" variant="danger" onClick={() => del(id)}>
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          onClick={() => del(id)}
+                          disabled={saving || deletingId === id}
+                          loading={deletingId === id}
+                        >
                           Delete
                         </Button>
                       </div>
@@ -258,7 +299,7 @@ export default function VendorShippingPage() {
           )}
 
           <div className="mt-3">
-            <Button variant="secondary" onClick={load}>
+            <Button variant="secondary" onClick={load} disabled={loading || saving}>
               Refresh
             </Button>
           </div>

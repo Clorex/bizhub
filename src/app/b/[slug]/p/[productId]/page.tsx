@@ -14,6 +14,7 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { Input } from "@/components/ui/Input";
 import { CloudImage } from "@/components/CloudImage";
 import { BadgeCheck } from "lucide-react";
+import { toast } from "@/lib/ui/toast";
 import {
   normalizeCoverAspect,
   coverAspectToTailwindClass,
@@ -130,7 +131,6 @@ export default function ProductPage() {
   const [loading, setLoading] = useState(true);
   const [p, setP] = useState<any>(null);
   const [msg, setMsg] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const [selected, setSelected] = useState<Record<string, string>>({});
 
   const [storeTrustBadge, setStoreTrustBadge] = useState<TrustBadgeType>(null);
@@ -150,7 +150,6 @@ export default function ProductPage() {
   const images: string[] = useMemo(() => (Array.isArray(p?.images) ? p.images : []), [p]);
   const optionGroups: OptionGroup[] = useMemo(() => (Array.isArray(p?.optionGroups) ? p.optionGroups : []), [p]);
 
-  // ✅ Strict cover aspect for this product everywhere
   const coverAspect: CoverAspectKey = normalizeCoverAspect(p?.coverAspect) ?? "1:1";
   const coverAspectClass = coverAspectToTailwindClass(coverAspect);
 
@@ -248,7 +247,7 @@ export default function ProductPage() {
 
         const productSlug = String(data?.businessSlug || "");
         if (productSlug && productSlug !== slug) {
-          setMsg("This listing does not belong to this store.");
+          setMsg("This listing does not belong to this vendor.");
           setP(null);
           return;
         }
@@ -340,12 +339,6 @@ export default function ProductPage() {
     };
   }, [slug]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 1800);
-    return () => clearTimeout(t);
-  }, [toast]);
-
   function pick(groupName: string, value: string) {
     setSelected((prev) => ({ ...prev, [groupName]: prev[groupName] === value ? "" : value }));
   }
@@ -365,11 +358,11 @@ export default function ProductPage() {
       1
     );
 
-    setToast("Added to cart");
+    toast.success("Added to cart.");
   }
 
   function bookOnlyHandler() {
-    alert("For services, booking will open WhatsApp from the store page.");
+    toast.info("To book this service, you’ll message the vendor on WhatsApp from the vendor page.");
     router.push(`/b/${slug}`);
   }
 
@@ -466,7 +459,6 @@ export default function ProductPage() {
 
   const activeUrl = images.length ? images[Math.max(0, Math.min(activeImg, images.length - 1))] : "";
 
-  // Cloudinary size for strict aspect
   const mainWH = coverAspectToWH(coverAspect, 980);
 
   return (
@@ -474,7 +466,7 @@ export default function ProductPage() {
       <GradientHeader
         title={listingType === "service" ? "Service" : "Product"}
         showBack={true}
-        subtitle={slug ? `Store: ${slug}` : undefined}
+        subtitle={slug ? `Vendor: ${slug}` : undefined}
         right={
           <button
             className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft relative"
@@ -493,12 +485,10 @@ export default function ProductPage() {
       <div className="px-4 pb-24 space-y-3">
         {loading ? <Card className="p-4">Loading…</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
-        {toast ? <Card className="p-4 text-emerald-700">{toast}</Card> : null}
 
         {!loading && p ? (
           <>
             <Card className="p-4">
-              {/* ✅ strict aspect ratio box (no fixed height) */}
               <div className={`${coverAspectClass} w-full rounded-3xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
                 {activeUrl ? (
                   <CloudImage
@@ -536,14 +526,7 @@ export default function ProductPage() {
                         ].join(" ")}
                         aria-label={`Image ${idx + 1}`}
                       >
-                        <CloudImage
-                          src={u}
-                          alt={`Preview ${idx + 1}`}
-                          w={160}
-                          h={160}
-                          sizes="56px"
-                          className="h-full w-full object-cover"
-                        />
+                        <CloudImage src={u} alt={`Preview ${idx + 1}`} w={160} h={160} sizes="56px" className="h-full w-full object-cover" />
                       </button>
                     );
                   })}
@@ -554,20 +537,14 @@ export default function ProductPage() {
                 <p className="text-lg font-extrabold text-biz-ink">{p?.name}</p>
 
                 {storeTrustBadge === "earned_apex" ? (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100"
-                    title="Verified Apex badge (earned + maintained)"
-                  >
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
                     <BadgeCheck className="h-4 w-4" />
                     Verified Apex
                   </span>
                 ) : null}
 
                 {storeTrustBadge === "temporary_apex" ? (
-                  <span
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-extrabold bg-white text-orange-700 border border-orange-200"
-                    title="Temporary / probation Apex badge"
-                  >
+                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-extrabold bg-white text-orange-700 border border-orange-200">
                     <BadgeCheck className="h-4 w-4" />
                     Apex (Temporary)
                   </span>
@@ -645,116 +622,6 @@ export default function ProductPage() {
               </SectionCard>
             ) : null}
 
-            {!bookOnly ? (
-              <SectionCard title="Quick order" subtitle="Send your order details in WhatsApp">
-                {!canChat ? (
-                  <div className="rounded-2xl border border-biz-line bg-white p-3">
-                    <p className="text-sm font-bold text-biz-ink">Continue in Chat is not available</p>
-                    <p className="text-[11px] text-biz-muted mt-1">
-                      Use Add to cart to checkout, or message the vendor from the store page.
-                    </p>
-                  </div>
-                ) : null}
-
-                <div className="mt-2 space-y-3">
-                  <div className="rounded-2xl border border-biz-line bg-white p-3">
-                    <p className="text-xs text-biz-muted">Quantity</p>
-                    <div className="mt-2 flex items-center gap-2">
-                      <button
-                        type="button"
-                        className="h-10 w-10 rounded-2xl border border-biz-line bg-white font-extrabold"
-                        onClick={() => setQty((v) => Math.max(1, Math.floor(Number(v || 1)) - 1))}
-                      >
-                        −
-                      </button>
-                      <Input
-                        type="number"
-                        min={1}
-                        value={String(qty)}
-                        onChange={(e) => setQty(Math.max(1, Math.floor(Number(e.target.value || 1))))}
-                      />
-                      <button
-                        type="button"
-                        className="h-10 w-10 rounded-2xl border border-biz-line bg-white font-extrabold"
-                        onClick={() => setQty((v) => Math.max(1, Math.floor(Number(v || 1)) + 1))}
-                      >
-                        +
-                      </button>
-                    </div>
-
-                    <p className="mt-2 text-[11px] text-biz-muted">
-                      Items subtotal: <b className="text-biz-ink">{fmtNaira(itemsSubtotalNgn)}</b>
-                    </p>
-
-                    {onSale ? <p className="mt-1 text-[11px] text-emerald-700 font-bold">Sale applied: {saleBadgeText(p)}</p> : null}
-                  </div>
-
-                  <div className="rounded-2xl border border-biz-line bg-white p-3">
-                    <p className="text-xs text-biz-muted">Delivery option</p>
-
-                    {shipLoading ? <p className="text-sm text-biz-muted mt-2">Loading…</p> : null}
-                    {shipMsg ? <p className="text-sm text-red-700 mt-2">{shipMsg}</p> : null}
-
-                    {!shipLoading && !shipMsg && shippingOptions.length === 0 ? (
-                      <p className="text-[11px] text-biz-muted mt-2">This store has not set delivery options yet.</p>
-                    ) : null}
-
-                    {shippingOptions.length > 0 ? (
-                      <div className="mt-2 space-y-2">
-                        {shippingOptions.map((o) => {
-                          const activeBtn = o.id === selectedShipId;
-                          const feeNgn = Number(o.feeKobo || 0) / 100;
-                          return (
-                            <button
-                              key={o.id}
-                              type="button"
-                              onClick={() => setSelectedShipId(o.id)}
-                              className={[
-                                "w-full text-left rounded-2xl border p-3 transition",
-                                activeBtn
-                                  ? "border-transparent bg-gradient-to-br from-biz-accent2 to-biz-accent text-white shadow-float"
-                                  : "border-biz-line bg-white hover:bg-black/[0.02]",
-                              ].join(" ")}
-                            >
-                              <p className={activeBtn ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
-                                {o.name} {o.type === "pickup" ? "(Pickup)" : "(Delivery)"}
-                              </p>
-                              <p className={activeBtn ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-biz-muted mt-1"}>
-                                Fee: <b>{fmtNaira(feeNgn)}</b>
-                                {o.etaDays ? ` • ETA: ${o.etaDays} day(s)` : ""}
-                                {o.areasText ? ` • ${o.areasText}` : ""}
-                              </p>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ) : null}
-
-                    {selectedShipping ? (
-                      <p className="mt-2 text-[11px] text-biz-muted">
-                        Estimated shipping: <b className="text-biz-ink">{fmtNaira(shippingFeeNgn)}</b> • Estimated total:{" "}
-                        <b className="text-biz-ink">{fmtNaira(estimatedTotalNgn)}</b>
-                      </p>
-                    ) : null}
-                  </div>
-
-                  {selectedShipping?.type !== "pickup" ? (
-                    <div className="rounded-2xl border border-biz-line bg-white p-3">
-                      <p className="text-xs text-biz-muted">Delivery location (area/city)</p>
-                      <div className="mt-2">
-                        <Input
-                          placeholder="Example: Lekki, Ajah, Wuse"
-                          value={deliveryLocation}
-                          onChange={(e) => setDeliveryLocation(e.target.value)}
-                        />
-                      </div>
-                      <p className="mt-2 text-[11px] text-biz-muted">Keep it short — the seller will confirm full address in chat.</p>
-                    </div>
-                  ) : null}
-                </div>
-              </SectionCard>
-            ) : null}
-
             <div className="fixed bottom-0 left-0 right-0 z-40">
               <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
                 <Card className="p-4 space-y-2">
@@ -776,7 +643,7 @@ export default function ProductPage() {
                   )}
 
                   <Button variant="secondary" onClick={() => router.push(`/b/${slug}`)}>
-                    Back to store
+                    Back to vendor
                   </Button>
 
                   {canChat && !canQuickOrderChat ? (

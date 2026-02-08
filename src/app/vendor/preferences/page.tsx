@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { toast } from "@/lib/ui/toast";
 
 type VendorPrefs = {
   notificationsOrders: boolean;
@@ -82,8 +84,8 @@ function ToggleRow({
         <span
           className={
             value
-              ? "px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100"
-              : "px-3 py-1 rounded-full text-[11px] font-extrabold bg-orange-50 text-orange-700 border border-orange-100"
+              ? "px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0"
+              : "px-3 py-1 rounded-full text-[11px] font-extrabold bg-orange-50 text-orange-700 border border-orange-100 shrink-0"
           }
         >
           {value ? "ON" : "OFF"}
@@ -95,30 +97,28 @@ function ToggleRow({
 
 export default function VendorPreferencesPage() {
   const [prefs, setPrefs] = useState<VendorPrefs>(() => loadPrefs());
-  const [msg, setMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
 
-  // auto-save (debounced)
   useEffect(() => {
     const t = setTimeout(() => {
+      setSaving(true);
       savePrefs(prefs);
-      setMsg("Saved.");
-      const t2 = setTimeout(() => setMsg(null), 1200);
-      return () => clearTimeout(t2);
-    }, 250);
+      toast.success("Preferences saved.");
+      setSaving(false);
+    }, 400);
     return () => clearTimeout(t);
   }, [prefs]);
 
   const summary = useMemo(() => {
     const onCount = Object.values(prefs).filter(Boolean).length;
-    return `${onCount} setting(s) enabled`;
+    return `${onCount} of ${Object.keys(prefs).length} settings enabled`;
   }, [prefs]);
 
   function reset() {
-    const ok = confirm("Reset preferences to default?");
+    const ok = confirm("Reset all preferences to default?");
     if (!ok) return;
     setPrefs(FALLBACK);
-    setMsg("Reset done.");
-    setTimeout(() => setMsg(null), 1200);
+    toast.info("Preferences reset to default.");
   }
 
   return (
@@ -126,12 +126,10 @@ export default function VendorPreferencesPage() {
       <GradientHeader title="Preferences" subtitle="Control how myBizHub works for you" showBack={true} />
 
       <div className="px-4 pb-24 space-y-3">
-        {msg ? <Card className="p-4 text-emerald-700">{msg}</Card> : null}
-
         <Card className="p-4">
           <p className="text-sm font-extrabold text-biz-ink">Overview</p>
           <p className="text-xs text-biz-muted mt-1">{summary}</p>
-          <p className="text-[11px] text-biz-muted mt-2">These settings are saved on this device.</p>
+          <p className="text-[11px] text-biz-muted mt-2">These settings are saved on this device only.</p>
         </Card>
 
         <Card className="p-4 space-y-2">
@@ -139,21 +137,21 @@ export default function VendorPreferencesPage() {
 
           <ToggleRow
             title="Order updates"
-            subtitle="Get alerts for new orders and important order changes."
+            subtitle="Get alerts for new orders and order changes"
             value={prefs.notificationsOrders}
             onChange={(v) => setPrefs((p) => ({ ...p, notificationsOrders: v }))}
           />
 
           <ToggleRow
             title="Payment updates"
-            subtitle="Get alerts when payments are confirmed or need attention."
+            subtitle="Get alerts when payments are confirmed or need attention"
             value={prefs.notificationsPayments}
             onChange={(v) => setPrefs((p) => ({ ...p, notificationsPayments: v }))}
           />
 
           <ToggleRow
             title="Tips to sell better"
-            subtitle="Short suggestions to help you improve views and sales."
+            subtitle="Short suggestions to help you improve sales"
             value={prefs.notificationsTips}
             onChange={(v) => setPrefs((p) => ({ ...p, notificationsTips: v }))}
           />
@@ -163,15 +161,15 @@ export default function VendorPreferencesPage() {
           <p className="text-sm font-extrabold text-biz-ink">Selling defaults</p>
 
           <ToggleRow
-            title="Show new products on Market by default"
-            subtitle="If OFF, you can still turn Market ON per product."
+            title="Show new products in Marketplace by default"
+            subtitle="If OFF, you can still enable per product"
             value={prefs.defaultMarketEnabled}
             onChange={(v) => setPrefs((p) => ({ ...p, defaultMarketEnabled: v }))}
           />
 
           <ToggleRow
             title="Open WhatsApp in a new tab"
-            subtitle="Keeps myBizHub open while you chat with customers."
+            subtitle="Keeps myBizHub open while you chat with buyers"
             value={prefs.openWhatsAppInNewTab}
             onChange={(v) => setPrefs((p) => ({ ...p, openWhatsAppInNewTab: v }))}
           />
@@ -182,22 +180,18 @@ export default function VendorPreferencesPage() {
 
           <ToggleRow
             title="Use less data"
-            subtitle="Loads fewer heavy items when your network is slow."
+            subtitle="Loads fewer images when your network is slow"
             value={prefs.reduceDataUsage}
             onChange={(v) => setPrefs((p) => ({ ...p, reduceDataUsage: v }))}
           />
 
-          <p className="text-[11px] text-biz-muted mt-2">Tip: If your phone is slow, turn this ON.</p>
+          <p className="text-[11px] text-biz-muted mt-2">Tip: If your phone is slow or data is expensive, turn this ON.</p>
         </Card>
 
         <Card className="p-4">
-          <button
-            type="button"
-            onClick={reset}
-            className="w-full rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink hover:bg-black/[0.02] transition"
-          >
-            Reset preferences
-          </button>
+          <Button variant="secondary" onClick={reset} disabled={saving}>
+            Reset all preferences
+          </Button>
         </Card>
       </div>
     </div>

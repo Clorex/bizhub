@@ -1,16 +1,16 @@
-// FILE: src/app/market/page.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase/client";
-import { BadgeCheck } from "lucide-react";
+import { BadgeCheck, Sparkles } from "lucide-react";
 import { collection, getDocs, limit, orderBy, query, where, type DocumentData } from "firebase/firestore";
 
 import { Card } from "@/components/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { trackBatch, track } from "@/lib/track/client";
 import { Chip } from "@/components/ui/Chip";
 import { CloudImage } from "@/components/CloudImage";
@@ -58,12 +58,13 @@ function tokensForSearch(q: string) {
   return out;
 }
 
+// ✅ Friendly tier labels (no more "Tier 1/2/3")
 function tierLabel(n: any) {
   const t = Number(n || 0);
-  if (t >= 3) return "Tier 3";
-  if (t === 2) return "Tier 2";
-  if (t === 1) return "Tier 1";
-  return "Tier 0";
+  if (t >= 3) return "Premium";
+  if (t === 2) return "Standard";
+  if (t === 1) return "Basic";
+  return "New";
 }
 
 /** --- Sale helpers --- */
@@ -161,7 +162,6 @@ export default function MarketPage() {
     const filtered = list
       .filter((p: any) => p?.marketEnabled !== false)
       .filter((p: any) => !!p?.businessSlug)
-      // ✅ FAIL-OPEN FIX (old products may not have this field yet)
       .filter((p: any) => p?.businessHasActiveSubscription !== false)
       .filter((p: any) => {
         if (tierFilter == null) return true;
@@ -276,7 +276,7 @@ export default function MarketPage() {
 
       trackBatch(events);
     } catch (e: any) {
-      setMsg(e?.message || "Failed to load market");
+      setMsg(e?.message || "Could not load marketplace. Please try again.");
       setItems([]);
     } finally {
       setLoading(false);
@@ -314,7 +314,7 @@ export default function MarketPage() {
 
       trackBatch(events);
     } catch (e: any) {
-      setMsg(e?.message || "Failed to load category");
+      setMsg(e?.message || "Could not load this category. Please try again.");
       setItems([]);
     } finally {
       setLoading(false);
@@ -405,7 +405,7 @@ export default function MarketPage() {
 
       setStores(mergedStores);
     } catch (e: any) {
-      setMsg(e?.message || "Search failed");
+      setMsg(e?.message || "Could not search. Please try again.");
       setItems([]);
       setStores([]);
     } finally {
@@ -468,7 +468,7 @@ export default function MarketPage() {
 
     return (
       <button key={p.id} onClick={() => openProduct(p)} className="text-left">
-        <Card className="p-3">
+        <Card className="p-3 hover:bg-black/[0.02] transition">
           <div className={`${aspectClass} w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
             {img ? (
               <CloudImage
@@ -479,15 +479,18 @@ export default function MarketPage() {
                 sizes="(max-width: 430px) 45vw, 220px"
                 className="h-full w-full object-cover"
               />
-            ) : null}
+            ) : (
+              <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">No image</div>
+            )}
 
             {apexBadgeActive ? (
               <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 inline-flex items-center gap-1">
                 <BadgeCheck className="h-3.5 w-3.5" />
-                Verified Apex
+                Verified
               </div>
             ) : boosted ? (
-              <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5">
+              <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5 inline-flex items-center gap-1">
+                <Sparkles className="h-3.5 w-3.5 text-orange-600" />
                 Promoted
               </div>
             ) : null}
@@ -519,7 +522,7 @@ export default function MarketPage() {
           </p>
 
           <p className="mt-1 text-[11px] text-gray-500">
-            Store: <b className="text-biz-ink">{p?.businessSlug || "—"}</b>
+            Vendor: <b className="text-biz-ink">{p?.businessSlug || "—"}</b>
           </p>
         </Card>
       </button>
@@ -541,7 +544,7 @@ export default function MarketPage() {
         className="block rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition"
       >
         <p className="text-sm font-extrabold text-biz-ink line-clamp-1">{name}</p>
-        <p className="text-[11px] text-biz-muted mt-1 line-clamp-2">{String(b?.description || "Visit store")}</p>
+        <p className="text-[11px] text-biz-muted mt-1 line-clamp-2">{String(b?.description || "Visit vendor")}</p>
         <p className="text-[11px] text-gray-500 mt-2">
           @{slug} {loc ? <>• {loc}</> : null}
         </p>
@@ -554,6 +557,17 @@ export default function MarketPage() {
     return searchTokens.join(", ");
   }, [searchTokens]);
 
+  const hasAnyFilter = !!(
+    tierFilter != null ||
+    stateFilter.trim() ||
+    cityFilter.trim() ||
+    saleOnly ||
+    categoryFilter ||
+    apexOnly ||
+    colorFilter.trim() ||
+    sizeFilter.trim()
+  );
+
   return (
     <div className="min-h-screen">
       <div className="relative">
@@ -564,7 +578,7 @@ export default function MarketPage() {
               <p className="text-lg font-bold text-biz-ink">
                 myBizHub<span className="text-biz-accent">.</span>
               </p>
-              <p className="text-xs text-biz-muted mt-1">Marketplace</p>
+              <p className="text-xs text-biz-muted mt-1">Discover products & vendors</p>
             </div>
 
             <Link href="/cart" className="rounded-2xl border border-biz-line bg-white px-4 py-2 text-xs font-bold shadow-soft">
@@ -574,7 +588,7 @@ export default function MarketPage() {
 
           <Card className="p-3 mt-4">
             <div className="flex gap-2">
-              <Input placeholder="Search products, services, stores…" value={qText} onChange={(e) => setQText(e.target.value)} />
+              <Input placeholder="Search products, services, vendors…" value={qText} onChange={(e) => setQText(e.target.value)} />
               <Button size="sm" onClick={runSearch} disabled={loading}>
                 Search
               </Button>
@@ -587,7 +601,7 @@ export default function MarketPage() {
                 </>
               ) : categoryFilter ? (
                 <>
-                  Browsing category:{" "}
+                  Category:{" "}
                   <b className="text-biz-ink">
                     {MARKET_CATEGORIES.find((c) => c.key === categoryFilter)?.label || categoryFilter}
                   </b>
@@ -599,12 +613,12 @@ export default function MarketPage() {
           </Card>
 
           <Card className="p-3 mt-3">
-            <p className="text-xs font-bold text-gray-500">FILTERS</p>
+            <p className="text-xs font-bold text-gray-500 uppercase">Filters</p>
 
             <div className="mt-2 flex gap-2 flex-wrap">
               {[null, 1, 2, 3].map((t) => (
                 <Chip key={String(t)} active={tierFilter === t} onClick={() => setTierFilter(t as any)}>
-                  {t == null ? "All tiers" : `Tier ${t}`}
+                  {t == null ? "All sellers" : tierLabel(t)}
                 </Chip>
               ))}
 
@@ -613,12 +627,12 @@ export default function MarketPage() {
               </Chip>
 
               <Chip active={apexOnly} onClick={() => setApexOnly((v) => !v)}>
-                Verified Apex
+                Verified
               </Chip>
 
               {categoryFilter ? (
                 <Chip active={true} onClick={() => setCategoryFilter(null)}>
-                  Category: {MARKET_CATEGORIES.find((c) => c.key === categoryFilter)?.label || categoryFilter} ✕
+                  {MARKET_CATEGORIES.find((c) => c.key === categoryFilter)?.label || categoryFilter} ✕
                 </Chip>
               ) : null}
             </div>
@@ -629,28 +643,30 @@ export default function MarketPage() {
             </div>
 
             <div className="mt-2 grid grid-cols-2 gap-2">
-              <Input placeholder="Color (exact) e.g. black" value={colorFilter} onChange={(e) => setColorFilter(e.target.value)} />
-              <Input placeholder="Size (exact) e.g. 41 / XL" value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value)} />
+              <Input placeholder="Color e.g. black" value={colorFilter} onChange={(e) => setColorFilter(e.target.value)} />
+              <Input placeholder="Size e.g. 41 / XL" value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value)} />
             </div>
 
-            <div className="mt-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={() => {
-                  setTierFilter(null);
-                  setStateFilter("");
-                  setCityFilter("");
-                  setSaleOnly(false);
-                  setCategoryFilter(null);
-                  setApexOnly(false);
-                  setColorFilter("");
-                  setSizeFilter("");
-                }}
-              >
-                Clear filters
-              </Button>
-            </div>
+            {hasAnyFilter ? (
+              <div className="mt-2">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setTierFilter(null);
+                    setStateFilter("");
+                    setCityFilter("");
+                    setSaleOnly(false);
+                    setCategoryFilter(null);
+                    setApexOnly(false);
+                    setColorFilter("");
+                    setSizeFilter("");
+                  }}
+                >
+                  Clear all filters
+                </Button>
+              </div>
+            ) : null}
           </Card>
         </div>
       </div>
@@ -658,12 +674,16 @@ export default function MarketPage() {
       <div className="px-4 pb-24 space-y-3">
         <Card className="p-4">
           <p className="font-bold text-biz-ink">Hot deals</p>
-          <p className="text-[11px] text-biz-muted mt-1">Discounts from top sellers.</p>
+          <p className="text-[11px] text-biz-muted mt-1">Discounts from top vendors</p>
 
           {dealsLoading ? (
             <p className="text-sm text-biz-muted mt-3">Loading…</p>
           ) : deals.length === 0 ? (
-            <p className="text-sm text-biz-muted mt-3">No deals right now.</p>
+            <EmptyState
+              title="No deals right now"
+              description="Check back soon for discounts from verified vendors."
+              className="mt-3"
+            />
           ) : (
             <div className="mt-3 grid grid-cols-2 gap-3 items-start">{deals.slice(0, 6).map((p: any) => renderCard(p))}</div>
           )}
@@ -671,6 +691,8 @@ export default function MarketPage() {
 
         <Card className="p-4">
           <p className="font-bold text-biz-ink">Categories</p>
+          <p className="text-[11px] text-biz-muted mt-1">Browse by what you're looking for</p>
+
           <div className="mt-3 grid grid-cols-3 gap-2">
             {MARKET_CATEGORIES.filter((c) => c.key !== "other").map((c) => {
               const active = categoryFilter === c.key;
@@ -683,11 +705,11 @@ export default function MarketPage() {
                   }}
                   className={
                     active
-                      ? "rounded-2xl border border-biz-accent/30 bg-white p-3 text-left shadow-soft"
+                      ? "rounded-2xl border border-biz-accent/30 bg-gradient-to-br from-orange-50 to-white p-3 text-left shadow-soft"
                       : "rounded-2xl border border-biz-line bg-white p-3 text-left hover:bg-black/[0.02] transition"
                   }
                 >
-                  <p className="text-sm font-bold text-biz-ink">{c.label}</p>
+                  <p className={active ? "text-sm font-bold text-biz-accent" : "text-sm font-bold text-biz-ink"}>{c.label}</p>
                   <p className="text-[11px] text-biz-muted mt-1">{c.hint}</p>
                 </button>
               );
@@ -697,13 +719,17 @@ export default function MarketPage() {
 
         {searchTokens.length ? (
           <Card className="p-4">
-            <p className="font-bold text-biz-ink">Stores</p>
-            <p className="text-[11px] text-biz-muted mt-1">Stores matching your search.</p>
+            <p className="font-bold text-biz-ink">Vendors</p>
+            <p className="text-[11px] text-biz-muted mt-1">Vendors matching your search</p>
 
             {storesLoading ? (
               <p className="text-sm text-biz-muted mt-3">Loading…</p>
             ) : stores.length === 0 ? (
-              <p className="text-sm text-biz-muted mt-3">No stores found.</p>
+              <EmptyState
+                title="No vendors found"
+                description="Try a different keyword or check product results below."
+                className="mt-3"
+              />
             ) : (
               <div className="mt-3 grid grid-cols-1 gap-2">{stores.map((b: any) => renderStoreCard(b))}</div>
             )}
@@ -715,10 +741,23 @@ export default function MarketPage() {
         {loading ? (
           <Card className="p-4">Loading…</Card>
         ) : items.length === 0 ? (
-          <Card className="p-4">
-            <p className="font-bold text-biz-ink">No results</p>
-            <p className="text-sm text-biz-muted mt-1">Try another keyword or adjust filters.</p>
-          </Card>
+          <EmptyState
+            title="No results"
+            description="Try a different search term or adjust your filters."
+            ctaLabel="Clear filters"
+            onCta={() => {
+              setTierFilter(null);
+              setStateFilter("");
+              setCityFilter("");
+              setSaleOnly(false);
+              setCategoryFilter(null);
+              setApexOnly(false);
+              setColorFilter("");
+              setSizeFilter("");
+              setQText("");
+              loadTrending();
+            }}
+          />
         ) : (
           <div className="grid grid-cols-2 gap-3 items-start">{items.map((p: any) => renderCard(p))}</div>
         )}

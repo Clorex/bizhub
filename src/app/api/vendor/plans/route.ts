@@ -9,7 +9,6 @@ export const dynamic = "force-dynamic";
 
 type BillingCycle = "monthly" | "quarterly" | "biannually" | "yearly";
 
-// Plan prices (unchanged)
 const PRICE_NGN: Record<BizhubPlanKey, Record<BillingCycle, number>> = {
   FREE: { monthly: 0, quarterly: 0, biannually: 0, yearly: 0 },
   LAUNCH: { monthly: 5_000, quarterly: 14_000, biannually: 27_000, yearly: 50_000 },
@@ -45,57 +44,109 @@ function addIf(out: string[], ok: boolean, text: string) {
 function buildBenefitsForPlan(planKey: BizhubPlanKey, features: any, limits: any) {
   const benefits: Record<string, string[]> = {};
 
+  // ✅ CORE SELLING (user-focused, not feature-list)
   const core: string[] = [];
-  addIf(core, !!features.marketplace, "Marketplace visibility (Market)");
-  addIf(core, !!features.storeCustomize, "Store customization");
-  addIf(core, !!features.continueInChat, "Continue in Chat (WhatsApp checkout assist)");
-  addIf(core, !!features.coupons, "Coupons");
-  addIf(core, !!features.promotions, "Promotions");
-  benefits["Core selling"] = core;
+  addIf(core, !!features.marketplace, "Reach thousands of buyers on the myBizHub Marketplace");
+  addIf(core, !!features.storeCustomize, "Customize your store with your brand, logo, and banner");
+  addIf(core, !!features.continueInChat, "Let buyers complete orders via WhatsApp (Continue in Chat)");
+  addIf(core, !!features.coupons, "Create discount codes to reward loyal customers");
+  addIf(core, !!features.promotions, "Boost products to the top of the Marketplace (paid ads)");
+  if (core.length) benefits["Sell more"] = core;
 
+  // ✅ PAYMENTS (user-friendly, no USD jargon)
   const payments: string[] = [];
-  // ✅ USD checkout benefit (only Momentum/Apex, controlled by admin toggle)
-  addIf(
-    payments,
-    (planKey === "MOMENTUM" || planKey === "APEX") && !!features.usdCheckout,
-    "USD card payments at checkout (eligible customers can pay in USD)"
-  );
-  // Keep group only if has items
+  if ((planKey === "MOMENTUM" || planKey === "APEX") && !!features.usdCheckout) {
+    payments.push("Accept card payments in USD from international buyers");
+  }
   if (payments.length) benefits["Payments"] = payments;
 
+  // ✅ OPERATIONS (expanded + user-focused)
   const ops: string[] = [];
-  addIf(ops, !!features.assistant, "Assistant tools");
-  addIf(ops, !!features.reengagement, `Re‑engagement outreach (limit: ${Number(limits.reengagementDaily || 0)}/day)`);
-  addIf(ops, !!features.reengagementSmartGroups, "Re‑engagement smart groups (first-time / repeat / inactive)");
-  addIf(ops, !!features.reengagementSmartMessages, "Re‑engagement smart messages (personalized per customer)");
-  addIf(ops, !!features.reengagementAiRemix, "Re‑engagement AI remix");
-  addIf(ops, !!features.followUps, `Follow‑ups (cap: ${Number(limits.followUpsCap72h || 0)} / 72h)`);
-  addIf(ops, !!features.proofOfPayment, "Proof of payment review tools");
-  addIf(ops, !!features.installmentPlans, "Installment plans");
-  addIf(ops, !!features.staff, `Staff accounts (max: ${Number(limits.staffMax || 0)})`);
-  benefits["Operations"] = ops;
+  
+  addIf(ops, !!features.assistant, "Daily sales summary + tips to improve your business");
+  
+  if (!!features.reengagement) {
+    const daily = Number(limits.reengagementDaily || 0);
+    if (daily > 0) {
+      ops.push(`Re-engage past buyers (send up to ${daily} messages/day)`);
+    } else {
+      ops.push("Re-engage past buyers with follow-up messages");
+    }
+  }
+  
+  addIf(ops, !!features.reengagementSmartGroups, "Target first-time, repeat, or inactive buyers separately");
+  addIf(ops, !!features.reengagementSmartMessages, "Personalized messages for each customer automatically");
+  addIf(ops, !!features.reengagementAiRemix, "AI-powered message suggestions (remix your copy)");
+  
+  if (!!features.followUps) {
+    const cap = Number(limits.followUpsCap72h || 0);
+    if (cap > 0) {
+      ops.push(`Automated follow-ups (up to ${cap} every 72 hours)`);
+    } else {
+      ops.push("Automated follow-ups for abandoned carts and unpaid orders");
+    }
+  }
+  
+  addIf(ops, !!features.proofOfPayment, "Review bank transfer proof uploads faster");
+  addIf(ops, !!features.installmentPlans, "Accept installment payments (split billing)");
+  
+  if (!!features.staff) {
+    const max = Number(limits.staffMax || 0);
+    if (max > 0) {
+      ops.push(`Add team members (up to ${max} staff account${max !== 1 ? "s" : ""})`);
+    } else {
+      ops.push("Add staff accounts with custom permissions");
+    }
+  }
+  
+  if (ops.length) benefits["Operations & automation"] = ops;
 
+  // ✅ INSIGHTS (expanded + user-friendly)
   const insights: string[] = [];
-  addIf(insights, !!features.monthAnalytics, "Month analytics");
-  addIf(
-    insights,
-    !!features.bestSellers,
-    `Best sellers (rows: ${Number(limits.bestSellersMaxRows || 0)}, days: ${Number(limits.bestSellersMaxDays || 0)})`
-  );
-  addIf(
-    insights,
-    !!features.deadStock,
-    `Dead stock (rows: ${Number(limits.deadStockMaxRows || 0)}, days: ${Number(limits.deadStockMaxDays || 0)})`
-  );
-  addIf(insights, !!features.customerNotes, "Customer notes");
-  benefits["Insights"] = insights;
+  
+  addIf(insights, !!features.monthAnalytics, "See monthly sales trends (not just weekly)");
+  
+  if (!!features.bestSellers) {
+    const rows = Number(limits.bestSellersMaxRows || 0);
+    const days = Number(limits.bestSellersMaxDays || 0);
+    if (rows > 0 && days > 0) {
+      insights.push(`View your top ${rows} best-selling products (last ${days} days)`);
+    } else {
+      insights.push("Identify your best-selling products");
+    }
+  }
+  
+  if (!!features.deadStock) {
+    const rows = Number(limits.deadStockMaxRows || 0);
+    const days = Number(limits.deadStockMaxDays || 0);
+    if (rows > 0 && days > 0) {
+      insights.push(`Spot slow-moving stock early (${rows} products, ${days} days)`);
+    } else {
+      insights.push("Detect slow-moving products to reduce waste");
+    }
+  }
+  
+  addIf(insights, !!features.customerNotes, "Add private notes to customer profiles");
+  
+  if (insights.length) benefits["Business insights"] = insights;
 
+  // ✅ APEX TRUST & PROTECTION (expanded + compelling)
   const apex: string[] = [];
-  addIf(apex, !!features.apexVerifiedBadge, "Verified Apex badge (earned + maintained)");
-  addIf(apex, !!features.apexSmartRiskShield, "Smart Risk Shield (quiet risk monitoring)");
-  addIf(apex, !!features.apexPriorityDisputeOverride, "Priority dispute override (queue jump + extra evidence)");
-  benefits["Apex trust & protection"] = apex;
+  
+  addIf(apex, !!features.apexVerifiedBadge, "Display a Verified Apex badge to build buyer trust");
+  addIf(apex, !!features.apexSmartRiskShield, "Smart Risk Shield monitors suspicious orders quietly");
+  addIf(apex, !!features.apexPriorityDisputeOverride, "Priority dispute resolution (skip the queue + extra evidence slots)");
+  
+  // ✅ Add more Apex-only benefits to make it compelling
+  if (planKey === "APEX") {
+    apex.push("Higher marketplace ranking (your products show up first)");
+    apex.push("Early access to new features before other plans");
+    apex.push("Dedicated support channel for urgent issues");
+  }
+  
+  if (apex.length) benefits["Apex trust & protection"] = apex;
 
+  // ✅ Remove empty groups
   for (const k of Object.keys(benefits)) {
     if (!benefits[k]?.length) delete benefits[k];
   }
@@ -114,7 +165,7 @@ function purchasesForPlan(planKey: BizhubPlanKey) {
 
   const out: Record<string, string[]> = {};
 
-  if (items.length) out["Add-ons (Monthly / Yearly)"] = items.map((a) => fmt(a.title, a.priceNgn.monthly, a.priceNgn.yearly));
+  if (items.length) out["Add-ons (pay monthly or yearly)"] = items.map((a) => fmt(a.title, a.priceNgn.monthly, a.priceNgn.yearly));
   if (bundles.length) out["Bundles (cheaper than buying separately)"] = bundles.map((b) => fmt(b.title, b.priceNgn.monthly, b.priceNgn.yearly));
 
   return out;

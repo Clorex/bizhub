@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/ui/EmptyState";
 import { Store, Phone, Package, ShoppingCart, Plus, BadgeCheck } from "lucide-react";
 import { useCart } from "@/lib/cart/CartContext";
 import { CloudImage } from "@/components/CloudImage";
+import { toast } from "@/lib/ui/toast";
 import {
   normalizeCoverAspect,
   coverAspectToTailwindClass,
@@ -184,7 +185,6 @@ export default function StorefrontPage() {
   const [biz, setBiz] = useState<any>(null);
   const [items, setItems] = useState<any[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [trustBadge, setTrustBadge] = useState<TrustBadgeType>(null);
@@ -197,12 +197,6 @@ export default function StorefrontPage() {
   }, [cart]);
 
   useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 1800);
-    return () => clearTimeout(t);
-  }, [toast]);
-
-  useEffect(() => {
     let mounted = true;
 
     async function run() {
@@ -212,7 +206,7 @@ export default function StorefrontPage() {
 
         const qBiz = query(collection(db, "businesses"), where("slug", "==", slug), limit(1));
         const snapBiz = await getDocs(qBiz);
-        if (snapBiz.empty) throw new Error("Store not found");
+        if (snapBiz.empty) throw new Error("Vendor not found");
         const b = { id: snapBiz.docs[0].id, ...snapBiz.docs[0].data() };
 
         const qP = query(
@@ -238,7 +232,7 @@ export default function StorefrontPage() {
           })
           .catch(() => {});
       } catch (e: any) {
-        setMsg(e?.message || "Failed to load store");
+        setMsg(e?.message || "Could not load this vendor.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -255,7 +249,7 @@ export default function StorefrontPage() {
 
     const existingStore = String(cart?.storeSlug || "");
     if (existingStore && existingStore !== slug) {
-      const ok = confirm("Your cart has items from another store. Clear cart and add this item?");
+      const ok = confirm("Your cart has items from another vendor. Clear cart and add this item?");
       if (!ok) return;
       clearCart();
     }
@@ -277,7 +271,7 @@ export default function StorefrontPage() {
       1
     );
 
-    setToast("Added to cart");
+    toast.success("Added to cart.");
   }
 
   const banner = String(biz?.bannerUrl || "");
@@ -292,7 +286,7 @@ export default function StorefrontPage() {
     <div className="min-h-screen">
       <GradientHeader
         title={name}
-        subtitle={location || `Store: ${slug}`}
+        subtitle={location || `Vendor: ${slug}`}
         showBack={true}
         right={
           <button
@@ -307,7 +301,6 @@ export default function StorefrontPage() {
       <div className="px-4 pb-6 space-y-3">
         {loading ? <Card className="p-4">Loading…</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
-        {toast ? <Card className="p-4 text-emerald-700">{toast}</Card> : null}
 
         {!loading && biz ? (
           <>
@@ -374,7 +367,7 @@ export default function StorefrontPage() {
                     leftIcon={<Phone className="h-4 w-4" />}
                     onClick={() => {
                       if (!whatsapp) {
-                        alert("Vendor WhatsApp not set yet.");
+                        toast.info("This vendor has not added WhatsApp yet.");
                         return;
                       }
                       window.open(waLink(whatsapp, `Hello ${name}. I came from your myBizHub store (${slug}).`), "_blank");
@@ -398,11 +391,11 @@ export default function StorefrontPage() {
               </div>
             </Card>
 
-            <SectionCard title="Products" subtitle="Shop items from this store">
+            <SectionCard title="Products" subtitle="Shop items from this vendor">
               {products.length === 0 ? (
                 <EmptyState
                   title="No products yet"
-                  description="This store hasn’t added products yet."
+                  description="This vendor hasn’t added products yet."
                   ctaLabel="Back to market"
                   onCta={() => router.push("/market")}
                 />

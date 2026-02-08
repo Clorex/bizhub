@@ -18,13 +18,13 @@ import {
   Crown,
   Megaphone,
   Users,
-  MessageCircle,
   BadgeCheck,
   Sparkles,
   Send,
   BadgePercent,
   TicketPercent,
   ShoppingBag,
+  Truck,
 } from "lucide-react";
 import { auth } from "@/lib/firebase/client";
 import { signOut } from "firebase/auth";
@@ -43,21 +43,35 @@ function Row({
   title,
   desc,
   onClick,
+  highlight,
 }: {
   icon: React.ReactNode;
   title: string;
   desc?: string;
   onClick: () => void;
+  highlight?: boolean;
 }) {
   return (
     <button
       onClick={onClick}
-      className="w-full text-left rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition"
+      className={[
+        "w-full text-left rounded-2xl border p-3 transition",
+        highlight
+          ? "border-biz-accent/30 bg-gradient-to-br from-orange-50 to-white hover:from-orange-100"
+          : "border-biz-line bg-white hover:bg-black/[0.02]",
+      ].join(" ")}
     >
       <div className="flex items-start gap-3">
-        <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center shrink-0">{icon}</div>
+        <div
+          className={[
+            "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0",
+            highlight ? "bg-gradient-to-br from-biz-accent2 to-biz-accent" : "bg-biz-cream",
+          ].join(" ")}
+        >
+          {icon}
+        </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-biz-ink">{title}</p>
+          <p className={highlight ? "text-sm font-bold text-biz-accent" : "text-sm font-bold text-biz-ink"}>{title}</p>
           {desc ? <p className="text-xs text-biz-muted mt-1">{desc}</p> : null}
         </div>
         <div className="text-gray-400 font-bold">›</div>
@@ -79,46 +93,51 @@ export default function VendorMorePage() {
       <GradientHeader title="More" subtitle="Tools, settings, and support" showBack={false} />
 
       <div className="px-4 pb-6 space-y-3">
-        <Group title="Store setup">
+        {/* ✅ SUBSCRIPTION AT TOP */}
+        <Group title="Your plan">
+          <Row
+            icon={<Crown className="h-5 w-5 text-white" />}
+            title="Subscription"
+            desc="Upgrade to unlock more features"
+            onClick={() => router.push("/vendor/subscription")}
+            highlight
+          />
+          <Row
+            icon={<ShoppingBag className="h-5 w-5 text-orange-700" />}
+            title="Plan add-ons"
+            desc="Buy extra features for your current plan"
+            onClick={() => router.push("/vendor/purchases")}
+          />
+        </Group>
+
+        <Group title="Your store">
           <Row
             icon={<Store className="h-5 w-5 text-orange-700" />}
             title="Store settings"
-            desc="Brand, location, WhatsApp & banner"
+            desc="Brand, location, WhatsApp, banner"
             onClick={() => router.push("/vendor/store")}
           />
           <Row
             icon={<BadgeCheck className="h-5 w-5 text-orange-700" />}
             title="Verification"
-            desc="Tier 1 / Tier 2 / Tier 3"
+            desc="Get verified to build buyer trust"
             onClick={() => router.push("/vendor/verification")}
-          />
-          <Row
-            icon={<MessageCircle className="h-5 w-5 text-orange-700" />}
-            title="Checkout & Chat"
-            desc="Continue in Chat (WhatsApp) settings"
-            onClick={() => router.push("/vendor/store")}
           />
           <Row
             icon={<Package className="h-5 w-5 text-orange-700" />}
             title="Products"
-            desc="Create and manage listings"
+            desc="Create and manage your listings"
             onClick={() => router.push("/vendor/products")}
+          />
+          <Row
+            icon={<Truck className="h-5 w-5 text-orange-700" />}
+            title="Shipping"
+            desc="Delivery and pickup options"
+            onClick={() => router.push("/vendor/shipping")}
           />
         </Group>
 
-        <Group title="Sales & operations">
-          <Row
-            icon={<Sparkles className="h-5 w-5 text-orange-700" />}
-            title="Sales assistant"
-            desc="Daily + weekly summary, dispute warnings"
-            onClick={() => router.push("/vendor")}
-          />
-          <Row
-            icon={<Send className="h-5 w-5 text-orange-700" />}
-            title="Re‑engagement"
-            desc="Message past buyers and follow up"
-            onClick={() => router.push("/vendor/reengagement")}
-          />
+        <Group title="Sales">
           <Row
             icon={<ClipboardList className="h-5 w-5 text-orange-700" />}
             title="Orders"
@@ -126,95 +145,96 @@ export default function VendorMorePage() {
             onClick={() => router.push("/vendor/orders")}
           />
           <Row
-            icon={<BarChart3 className="h-5 w-5 text-orange-700" />}
-            title="Business analysis"
-            desc="Sales tips, insights & performance"
-            onClick={() => router.push("/vendor/analytics")}
-          />
-          <Row
-            icon={<BarChart3 className="h-5 w-5 text-orange-700" />}
-            title="Best‑selling products"
-            desc="Launch: Top 5 (7 days) • Momentum: Top 20 (30 days) • Apex: Top 50 (90 days)"
-            onClick={() => router.push("/vendor/best-sellers")}
-          />
-          <Row
             icon={<BadgePercent className="h-5 w-5 text-orange-700" />}
-            title="Sales"
-            desc="Run discounts on products (shows on store & marketplace)"
+            title="Discounts"
+            desc="Run sales on your products"
             onClick={() => router.push("/vendor/discounts")}
           />
           <Row
             icon={<TicketPercent className="h-5 w-5 text-orange-700" />}
             title="Coupon codes"
-            desc="Discount codes used at checkout"
+            desc="Discount codes for checkout"
             onClick={() => router.push("/vendor/coupon")}
+          />
+          <Row
+            icon={<BarChart3 className="h-5 w-5 text-orange-700" />}
+            title="Best sellers"
+            desc="See your top-performing products"
+            onClick={() => router.push("/vendor/best-sellers")}
+          />
+        </Group>
+
+        <Group title="Insights">
+          <Row
+            icon={<Sparkles className="h-5 w-5 text-orange-700" />}
+            title="Sales assistant"
+            desc="Daily summary and tips"
+            onClick={() => router.push("/vendor")}
+          />
+          <Row
+            icon={<BarChart3 className="h-5 w-5 text-orange-700" />}
+            title="Business analysis"
+            desc="Performance insights and trends"
+            onClick={() => router.push("/vendor/analytics")}
+          />
+          <Row
+            icon={<Send className="h-5 w-5 text-orange-700" />}
+            title="Re-engagement"
+            desc="Follow up with past buyers"
+            onClick={() => router.push("/vendor/reengagement")}
+          />
+        </Group>
+
+        <Group title="Growth">
+          <Row
+            icon={<Megaphone className="h-5 w-5 text-orange-700" />}
+            title="Promotions"
+            desc="Boost products in the marketplace"
+            onClick={() => router.push("/vendor/promotions")}
           />
         </Group>
 
         <Group title="Team">
           <Row
             icon={<Users className="h-5 w-5 text-orange-700" />}
-            title="Staff accounts"
-            desc="Invite and manage staff access"
+            title="Staff"
+            desc="Invite and manage team access"
             onClick={() => router.push("/vendor/staff")}
           />
         </Group>
 
-        <Group title="Growth tools">
-          <Row
-            icon={<Megaphone className="h-5 w-5 text-orange-700" />}
-            title="Promotions"
-            desc="Boost products like ads (1–5 products per campaign)"
-            onClick={() => router.push("/vendor/promotions")}
-          />
-        </Group>
-
-        <Group title="Payments">
-          <Row
-            icon={<Crown className="h-5 w-5 text-orange-700" />}
-            title="Subscription"
-            desc="Upgrade your plan to unlock more features"
-            onClick={() => router.push("/vendor/subscription")}
-          />
-
-          <Row
-            icon={<ShoppingBag className="h-5 w-5 text-orange-700" />}
-            title="Plan purchases"
-            desc="Buy add-ons and bundles based on your plan"
-            onClick={() => router.push("/vendor/purchases")}
-          />
-
+        <Group title="Money">
           <Row
             icon={<Wallet className="h-5 w-5 text-orange-700" />}
-            title="myBizHub Balance"
-            desc="Pending, available & withdrawals"
+            title="Balance"
+            desc="Pending, available, and withdrawals"
             onClick={() => router.push("/vendor/wallet")}
           />
           <Row
             icon={<Banknote className="h-5 w-5 text-orange-700" />}
             title="Payout details"
-            desc="Bank name, account number, account name"
+            desc="Your bank account for withdrawals"
             onClick={() => router.push("/vendor/settings/payouts")}
           />
         </Group>
 
-        <Group title="Account & support">
+        <Group title="Account">
           <Row
             icon={<Settings className="h-5 w-5 text-orange-700" />}
             title="Preferences"
-            desc="Notifications, selling defaults, and data settings"
+            desc="Notifications and settings"
             onClick={() => router.push("/vendor/preferences")}
           />
           <Row
             icon={<Shield className="h-5 w-5 text-orange-700" />}
             title="Security"
-            desc="Password reset, sign out, and safety tips"
+            desc="Password and account safety"
             onClick={() => router.push("/vendor/security")}
           />
           <Row
             icon={<HelpCircle className="h-5 w-5 text-orange-700" />}
-            title="Help & support"
-            desc="How to sell more on myBizHub"
+            title="Help"
+            desc="Tips and support"
             onClick={() => router.push("/vendor/promote/faq")}
           />
         </Group>

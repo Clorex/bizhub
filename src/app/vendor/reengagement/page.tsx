@@ -1,3 +1,4 @@
+// FILE: src/app/vendor/reengagement/page.tsx
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -8,6 +9,7 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { toast } from "@/lib/ui/toast";
 import { auth } from "@/lib/firebase/client";
 import { MessageCircle, AlertTriangle, RefreshCw, Copy, Sparkles, Search, Clock } from "lucide-react";
 import {
@@ -36,9 +38,9 @@ function fmtDate(ms: number) {
 
 function defaultBaseFor(mode: Mode) {
   if (mode === "abandoned") {
-    return `I noticed you started an order but didn’t complete payment.\n\nDo you still want it? I can help you complete it.`;
+    return `I noticed you started an order but didn't complete payment.\n\nDo you still want it? I can help you complete it.`;
   }
-  return `Thank you for buying from my myBizHub store.\n\nIf you need anything else or want to reorder, I’m available.`;
+  return `Thank you for buying from my myBizHub store.\n\nIf you need anything else or want to reorder, I'm available.`;
 }
 
 function fmtCountdown(msLeft: number) {
@@ -56,17 +58,10 @@ function cleanPlanKey(v: any): PlanKey {
   return (k === "LAUNCH" || k === "MOMENTUM" || k === "APEX" ? k : "FREE") as PlanKey;
 }
 
-function remixCapForPlan(planKey: PlanKey) {
-  if (planKey === "LAUNCH") return 5;
-  if (planKey === "MOMENTUM") return 25;
-  if (planKey === "APEX") return Infinity;
-  return 0;
-}
-
-function remixSuggestionForLocked(planKey: PlanKey) {
-  if (planKey === "LAUNCH") return { title: "Buy AI remix", url: "/vendor/purchases" };
-  if (planKey === "MOMENTUM") return { title: "Buy AI remix", url: "/vendor/purchases" };
-  return { title: "Upgrade plan", url: "/vendor/subscription" };
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
 }
 
 type RemixUsage = {
@@ -133,12 +128,14 @@ export default function VendorReengagementPage() {
 
   async function authedFetch(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
     const r = await fetch(path, {
       ...init,
       headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    if (!r.ok) throw new Error(data?.error || data?.code || "We couldn't complete that request.");
     return data;
   }
 
@@ -189,9 +186,11 @@ export default function VendorReengagementPage() {
       if (data?.meta?.features) setFeatures(data.meta.features);
       if (data?.meta?.limits) setLimits(data.meta.limits);
     } catch (e: any) {
-      setMsg(e?.message || "Failed");
+      const m = niceError(e, "Could not load audience. Please try again.");
+      setMsg(m);
       setPeople([]);
       setSelected({});
+      toast.error(m);
     } finally {
       setLoading(false);
     }
@@ -265,13 +264,21 @@ export default function VendorReengagementPage() {
         }
 
         setRemixInfo(null);
-        if (!opts?.silent) setMsg("Remixed.");
+        if (!opts?.silent) toast.success("Message remixed.");
       } else {
         setRemixInfo(data || null);
-        if (!opts?.silent) setMsg(String(data?.error || "Remix unavailable."));
+        const m = String(data?.error || "Remix unavailable right now.");
+        if (!opts?.silent) {
+          setMsg(m);
+          toast.info(m);
+        }
       }
     } catch (e: any) {
-      if (!opts?.silent) setMsg(e?.message || "Remix failed");
+      const m = niceError(e, "Could not remix message. Please try again.");
+      if (!opts?.silent) {
+        setMsg(m);
+        toast.error(m);
+      }
     } finally {
       setRemixing(false);
     }
@@ -295,10 +302,10 @@ export default function VendorReengagementPage() {
         : baseText.trim();
 
       await navigator.clipboard.writeText(text);
-      setMsg(`Copied.`);
+      toast.success("Message copied to clipboard.");
       if (aiRemixUnlocked && autoRemixAfterCopy) await requestRemix({ silent: true });
     } catch {
-      setMsg("Copy failed.");
+      toast.error("Couldn't copy the message. Please copy it manually.");
     }
   }
 
@@ -321,7 +328,9 @@ export default function VendorReengagementPage() {
 
       const list: any[] = Array.isArray(data.recipients) ? data.recipients : [];
       if (list.length === 0) {
-        setMsg("No recipients available today.");
+        const m = "No recipients available today (daily limit reached).";
+        setMsg(m);
+        toast.info(m);
         setSending(false);
         return;
       }
@@ -334,7 +343,7 @@ export default function VendorReengagementPage() {
         const q2 = sendQueueRef.current;
         if (i >= q2.length) {
           setSending(false);
-          setMsg("Done.");
+          toast.success("Done sending messages.");
           return;
         }
         const r = q2[i];
@@ -346,7 +355,9 @@ export default function VendorReengagementPage() {
       tickSend();
     } catch (e: any) {
       setSending(false);
-      setMsg(e?.message || "Failed");
+      const m = niceError(e, "Could not start sending. Please try again.");
+      setMsg(m);
+      toast.error(m);
     }
   }
 
@@ -389,17 +400,17 @@ export default function VendorReengagementPage() {
 
   return (
     <div className="min-h-screen">
-      <GradientHeader title="Re‑engagement" subtitle="Message customers" showBack={true} />
+      <GradientHeader title="Re-engagement" subtitle="Follow up with past buyers" showBack={true} />
 
       <div className="px-4 pb-24 space-y-3">
-        {msg ? <Card className="p-4">{msg}</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         {!reengagementUnlocked ? (
           <Card className="p-4">
             <p className="text-sm font-bold text-biz-ink">Upgrade required</p>
-            <p className="text-xs text-gray-500 mt-1">Re‑engagement is available on paid plans.</p>
+            <p className="text-xs text-gray-500 mt-1">Re-engagement is available on Launch, Momentum, and Apex plans.</p>
             <div className="mt-3">
-              <Button onClick={() => (window.location.href = "/vendor/subscription")}>Upgrade</Button>
+              <Button onClick={() => router.push("/vendor/subscription")}>Upgrade</Button>
             </div>
           </Card>
         ) : null}
@@ -413,13 +424,22 @@ export default function VendorReengagementPage() {
             }}
             options={[
               { value: "buyers", label: "Past buyers" },
-              { value: "abandoned", label: "Not completed" },
+              { value: "abandoned", label: "Abandoned" },
             ]}
           />
 
           {mode === "abandoned" ? (
             <div className="mt-3">
-              <Input type="number" min={7} max={365} value={String(days)} onChange={(e) => setDays(Number(e.target.value))} disabled={sending} />
+              <Input
+                type="number"
+                placeholder="Last X days"
+                min={7}
+                max={365}
+                value={String(days)}
+                onChange={(e) => setDays(Number(e.target.value))}
+                disabled={sending}
+              />
+              <p className="text-[11px] text-biz-muted mt-2">Show orders that started but weren't paid in the last {days} days.</p>
             </div>
           ) : (
             <div className="mt-3">
@@ -449,10 +469,10 @@ export default function VendorReengagementPage() {
           )}
 
           <div className="mt-3 flex items-center gap-2">
-            <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center border border-transparent">
+            <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center border border-transparent shrink-0">
               <Search className="h-5 w-5 text-orange-700" />
             </div>
-            <Input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} disabled={sending} />
+            <Input placeholder="Search by name or phone…" value={q} onChange={(e) => setQ(e.target.value)} disabled={sending} />
             <Button variant="secondary" onClick={loadAudience} disabled={loading || sending} leftIcon={<RefreshCw className="h-4 w-4" />}>
               Refresh
             </Button>
@@ -467,13 +487,12 @@ export default function VendorReengagementPage() {
             </Button>
           </div>
 
-          {/* ✅ Minimal empty states */}
           {noPeople ? (
             <Card variant="soft" className="p-4 mt-3">
               {noMatches ? (
                 <>
                   <p className="text-sm font-extrabold text-biz-ink">No matches</p>
-                  <p className="text-xs text-gray-500 mt-1">Try another search.</p>
+                  <p className="text-xs text-gray-500 mt-1">Try a different search term.</p>
                   <div className="mt-3">
                     <Button variant="secondary" onClick={() => setQ("")}>
                       Clear search
@@ -486,7 +505,7 @@ export default function VendorReengagementPage() {
                   <p className="text-xs text-gray-500 mt-1">After your first order, buyers will show here.</p>
                   <div className="mt-3 grid grid-cols-2 gap-2">
                     <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
-                      View orders
+                      Orders
                     </Button>
                     <Button variant="secondary" onClick={() => router.push("/vendor/products/new")}>
                       Add product
@@ -510,23 +529,30 @@ export default function VendorReengagementPage() {
 
         <SectionCard
           title="Message"
-          subtitle={smartMessagesOn ? "Personalized per customer" : "Standard message"}
+          subtitle={smartMessagesOn ? "Personalized per buyer" : "Same message for everyone"}
           right={
             aiRemixUnlocked ? (
-              <Button size="sm" variant="secondary" onClick={() => requestRemix()} disabled={sending || remixing || capReached} leftIcon={<Sparkles className="h-4 w-4" />}>
-                {capReached ? "Remix (limit)" : remixing ? "Remixing…" : "Remix"}
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => requestRemix()}
+                disabled={sending || remixing || capReached}
+                leftIcon={<Sparkles className="h-4 w-4" />}
+              >
+                {capReached ? "Limit reached" : remixing ? "Remixing…" : "Remix"}
               </Button>
             ) : null
           }
         >
           {capResetAtMs ? (
             <p className="text-[11px] text-gray-500 mb-2 flex items-center gap-2">
-              <Clock className="h-4 w-4" /> Resets in: <b className="text-biz-ink">{fmtCountdown(countdownMs)}</b>
+              <Clock className="h-4 w-4" /> Remix resets in: <b className="text-biz-ink">{fmtCountdown(countdownMs)}</b>
             </p>
           ) : null}
 
           <textarea
-            className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+            className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40 disabled:opacity-50"
+            placeholder="Write your message here…"
             value={baseText}
             onChange={(e) => setBaseText(e.target.value)}
             rows={7}
@@ -535,10 +561,16 @@ export default function VendorReengagementPage() {
 
           {selectedPreview ? (
             <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
-              <p className="text-xs font-bold text-biz-ink">Preview</p>
+              <p className="text-xs font-bold text-biz-ink">Preview (first selected buyer)</p>
               <pre className="mt-2 whitespace-pre-wrap text-[12px] text-gray-800">{selectedPreview.text}</pre>
               <div className="mt-2">
-                <Button size="sm" variant="secondary" onClick={() => copyForPerson(selectedPreview.p)} leftIcon={<Copy className="h-4 w-4" />} disabled={sending}>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => copyForPerson(selectedPreview.p)}
+                  leftIcon={<Copy className="h-4 w-4" />}
+                  disabled={sending}
+                >
                   Copy
                 </Button>
               </div>
@@ -547,12 +579,12 @@ export default function VendorReengagementPage() {
 
           <div className="mt-2 rounded-2xl border border-biz-line bg-white p-3">
             <div className="flex items-start gap-2">
-              <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
+              <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center shrink-0">
                 <AlertTriangle className="h-5 w-5 text-orange-700" />
               </div>
               <div>
                 <p className="text-sm font-bold text-biz-ink">Safety policy</p>
-                <p className="text-[11px] text-gray-500 mt-1">Bullying/sexual harassment content is blocked.</p>
+                <p className="text-[11px] text-gray-500 mt-1">Bullying, harassment, or offensive content is blocked and may result in account suspension.</p>
               </div>
             </div>
           </div>
@@ -561,20 +593,21 @@ export default function VendorReengagementPage() {
         <div className="fixed bottom-0 left-0 right-0 z-40">
           <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
             <Card className="p-4 space-y-2">
-              <Button onClick={startSend} disabled={!reengagementUnlocked || sending || !baseText.trim() || selectedPeople.length === 0}>
-                <span className="inline-flex items-center gap-2">
-                  <MessageCircle className="h-4 w-4" />
-                  {sending ? "Sending…" : "Send"}
-                </span>
+              <Button
+                onClick={startSend}
+                disabled={!reengagementUnlocked || sending || !baseText.trim() || selectedPeople.length === 0}
+                leftIcon={<MessageCircle className="h-4 w-4" />}
+              >
+                {sending ? "Sending…" : `Send to ${selectedPeople.length} buyer${selectedPeople.length !== 1 ? "s" : ""}`}
               </Button>
 
-              <Button variant="secondary" onClick={() => window.history.back()} disabled={sending}>
+              <Button variant="secondary" onClick={() => router.back()} disabled={sending}>
                 Back
               </Button>
 
               {limits?.reengagementDaily ? (
                 <p className="text-[11px] text-gray-500 text-center">
-                  Daily limit: <b className="text-biz-ink">{limits.reengagementDaily}</b>
+                  Daily limit: <b className="text-biz-ink">{limits.reengagementDaily}</b> • Selected: <b className="text-biz-ink">{selectedPeople.length}</b>
                 </p>
               ) : null}
             </Card>

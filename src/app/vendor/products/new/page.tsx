@@ -1,4 +1,3 @@
-// FILE: src/app/vendor/products/new/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -9,7 +8,9 @@ import { useRouter } from "next/navigation";
 import { ImageUploader } from "@/components/vendor/ImageUploader";
 import { OptionGroup, VariationBuilder } from "@/components/vendor/VariationBuilder";
 import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 import { Chip } from "@/components/ui/Chip";
+import { toast } from "@/lib/ui/toast";
 import { type CoverAspectKey, normalizeCoverAspect } from "@/lib/products/coverAspect";
 import { MARKET_CATEGORIES, suggestCategoriesFromText, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
 
@@ -48,6 +49,12 @@ function uniq<T>(arr: T[]) {
   return out;
 }
 
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
 export default function VendorNewProductPage() {
   const router = useRouter();
 
@@ -63,10 +70,8 @@ export default function VendorNewProductPage() {
   const [images, setImages] = useState<string[]>([]);
   const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
 
-  // ✅ stored, but UI is only inside cropper
   const [coverAspect, setCoverAspect] = useState<CoverAspectKey>("1:1");
 
-  // ✅ categories + attrs
   const [categoryKeys, setCategoryKeys] = useState<MarketCategoryKey[]>([]);
   const [categoriesTouched, setCategoriesTouched] = useState(false);
   const [catMsg, setCatMsg] = useState<string | null>(null);
@@ -183,6 +188,7 @@ export default function VendorNewProductPage() {
       if (cur.includes(k)) return cur.filter((x) => x !== k);
       if (cur.length >= 3) {
         setCatMsg("You can select up to 3 categories.");
+        toast.info("You can select up to 3 categories.");
         return cur;
       }
       return [...cur, k].slice(0, 3);
@@ -196,7 +202,7 @@ export default function VendorNewProductPage() {
 
     try {
       const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
+      if (!token) throw new Error("Please log in again to continue.");
 
       const r = await fetch("/api/vendor/products", {
         method: "POST",
@@ -210,7 +216,7 @@ export default function VendorNewProductPage() {
           images: images.slice(0, MAX_IMAGES),
           optionGroups,
           variants: [],
-          coverAspect, // ✅ saved, but selected inside crop UI
+          coverAspect,
 
           categoryKeys: categoryKeys.slice(0, 3),
           colorsCsv,
@@ -222,18 +228,21 @@ export default function VendorNewProductPage() {
       if (!r.ok) {
         if (data?.code === "PLAN_LIMIT_PRODUCTS") {
           setLocked(true);
-          throw new Error(data?.error || "Limit reached. Upgrade to add more.");
+          throw new Error(data?.error || "You've reached your product limit. Upgrade to add more.");
         }
-        throw new Error(data?.error || "Create failed");
+        throw new Error(data?.error || "Could not create product. Please try again.");
       }
 
       try {
         sessionStorage.removeItem(DRAFT_KEY);
       } catch {}
 
+      toast.success("Product created.");
       router.push(`/vendor/products/${data.productId}/edit`);
     } catch (e: any) {
-      setMsg(e?.message || "Failed");
+      const m = niceError(e, "Could not create product. Please try again.");
+      setMsg(m);
+      toast.error(m);
     } finally {
       setLoading(false);
     }
@@ -241,12 +250,12 @@ export default function VendorNewProductPage() {
 
   return (
     <div className="min-h-screen">
-      <GradientHeader title="New product" showBack={true} subtitle="Add a product" />
+      <GradientHeader title="New product" showBack={true} subtitle="Add a product to your store" />
 
       <div className="px-4 pb-24 space-y-3">
         {msg ? (
           <Card className={locked ? "p-4 text-orange-700" : "p-4 text-red-700"}>
-            <p className="font-bold text-biz-ink">{locked ? "Upgrade required" : "Error"}</p>
+            <p className="font-bold text-biz-ink">{locked ? "Upgrade required" : "Issue"}</p>
             <p className="text-sm mt-2">{msg}</p>
 
             {locked ? (
@@ -261,47 +270,47 @@ export default function VendorNewProductPage() {
         ) : null}
 
         <Card className="p-4 space-y-2">
-          <input
-            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-            placeholder="Product name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
+          <Input placeholder="Product name" value={name} onChange={(e) => setName(e.target.value)} disabled={loading} />
 
           <textarea
-            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-            placeholder="Description"
+            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40 disabled:opacity-50"
+            placeholder="Description (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
+            disabled={loading}
             rows={4}
           />
 
           <div className="relative">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-biz-muted">₦</span>
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-biz-muted pointer-events-none">
+              ₦
+            </span>
             <input
-              className="w-full border border-biz-line rounded-2xl p-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+              className="w-full border border-biz-line rounded-2xl p-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40 disabled:opacity-50"
               placeholder="Price"
               inputMode="numeric"
               value={priceText}
               onChange={(e) => setPriceText(formatNumberText(e.target.value))}
+              disabled={loading}
             />
           </div>
 
-          <input
-            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-            placeholder="Stock"
+          <Input
+            placeholder="Stock (optional)"
             inputMode="numeric"
             value={stockText}
             onChange={(e) => setStockText(formatNumberText(e.target.value))}
+            disabled={loading}
           />
 
           <div className="mt-2">
             <p className="text-sm font-bold text-biz-ink">Packaging</p>
 
             <select
-              className="mt-2 w-full border border-biz-line rounded-2xl p-3 text-sm bg-white"
+              className="mt-2 w-full border border-biz-line rounded-2xl p-3 text-sm bg-white disabled:opacity-50"
               value={packagingChoice}
               onChange={(e) => setPackagingChoice(e.target.value)}
+              disabled={loading}
             >
               {PACKAGING.map((p) => (
                 <option key={p} value={p}>
@@ -311,24 +320,25 @@ export default function VendorNewProductPage() {
             </select>
 
             {packagingChoice === "Other" ? (
-              <input
-                className="mt-2 w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-                placeholder="Type packaging"
+              <Input
+                className="mt-2"
+                placeholder="Specify packaging"
                 value={packagingOther}
                 onChange={(e) => setPackagingOther(e.target.value)}
+                disabled={loading}
               />
             ) : null}
           </div>
 
           <p className="text-[11px] text-biz-muted">
-            Preview: <b className="text-biz-ink">{fmtNaira(price)}</b> • Stock:{" "}
-            <b className="text-biz-ink">{stockText || "—"}</b> • Packaging:{" "}
-            <b className="text-biz-ink">{packagingFinal}</b>
+            Preview: <b className="text-biz-ink">{fmtNaira(price)}</b> • Stock: <b className="text-biz-ink">{stockText || "—"}</b> •
+            Packaging: <b className="text-biz-ink">{packagingFinal}</b>
           </p>
         </Card>
 
         <Card className="p-4">
           <p className="text-sm font-bold text-biz-ink">Categories (max 3)</p>
+          <p className="text-[11px] text-biz-muted mt-1">Help buyers find your product</p>
 
           <div className="mt-3 flex flex-wrap gap-2">
             {MARKET_CATEGORIES.map((c) => {
@@ -344,19 +354,23 @@ export default function VendorNewProductPage() {
           {catMsg ? <p className="mt-2 text-[11px] text-red-700">{catMsg}</p> : null}
 
           <div className="mt-4 grid grid-cols-1 gap-2">
-            <input
-              className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+            <Input
               placeholder="Colors (comma separated) e.g. black, red, white"
               value={colorsCsv}
               onChange={(e) => setColorsCsv(e.target.value)}
+              disabled={loading}
             />
-            <input
-              className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+            <Input
               placeholder="Sizes (comma separated) e.g. 40, 41, L, XL"
               value={sizesCsv}
               onChange={(e) => setSizesCsv(e.target.value)}
+              disabled={loading}
             />
           </div>
+
+          <p className="mt-2 text-[11px] text-biz-muted">
+            Colors and sizes help buyers filter search results. They don't affect stock or pricing.
+          </p>
         </Card>
 
         <Card className="p-4">
@@ -368,15 +382,15 @@ export default function VendorNewProductPage() {
             folderBase="bizhub/uploads/products"
             disabled={loading}
             autoOpenCrop={true}
-            allowFreeAspect={false}          // ✅ only 7 aspect ratios
-            aspectKey={coverAspect}          // ✅ store chosen ratio
+            allowFreeAspect={false}
+            aspectKey={coverAspect}
             onAspectKeyChange={setCoverAspect}
           />
 
           {images.length === 0 ? (
-            <p className="mt-2 text-[11px] text-red-700">Add at least 1 product image to continue.</p>
+            <p className="mt-2 text-[11px] text-red-700">Add at least 1 image to continue.</p>
           ) : (
-            <p className="mt-2 text-[11px] text-biz-muted">Tip: The first image is your cover photo.</p>
+            <p className="mt-2 text-[11px] text-biz-muted">The first image is your cover photo.</p>
           )}
         </Card>
 
@@ -389,7 +403,13 @@ export default function VendorNewProductPage() {
             Create product
           </Button>
 
-          {!priceOk ? <p className="mt-2 text-[11px] text-red-700">Product requires a price greater than 0.</p> : null}
+          {!priceOk && name.trim() ? (
+            <p className="mt-2 text-[11px] text-red-700">Price must be greater than ₦0.</p>
+          ) : !name.trim() ? (
+            <p className="mt-2 text-[11px] text-biz-muted">Enter a product name and price to continue.</p>
+          ) : !imagesOk ? (
+            <p className="mt-2 text-[11px] text-red-700">Add at least 1 image to continue.</p>
+          ) : null}
         </Card>
       </div>
     </div>

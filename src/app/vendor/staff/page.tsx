@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
 
 type Perms = {
   productsView: boolean;
@@ -87,6 +88,12 @@ type NotifSettingsRes = {
   error?: string;
 };
 
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
 export default function VendorStaffPage() {
   const router = useRouter();
 
@@ -98,17 +105,18 @@ export default function VendorStaffPage() {
   const [invites, setInvites] = useState<any[]>([]);
   const [seats, setSeats] = useState<any>(null);
 
-  // ✅ staff notifications settings
   const [staffNudgesEnabled, setStaffNudgesEnabled] = useState(false);
   const [staffPushEnabled, setStaffPushEnabled] = useState(false);
   const [notifBusy, setNotifBusy] = useState(false);
 
-  // invite form
   const [name, setName] = useState("");
   const [jobTitle, setJobTitle] = useState("");
   const [email, setEmail] = useState("");
   const [perms, setPerms] = useState<Perms>(DEFAULT_PERMS);
   const [creating, setCreating] = useState(false);
+
+  const [revokingId, setRevokingId] = useState<string>("");
+  const [removingId, setRemovingId] = useState<string>("");
 
   const isOwner = useMemo(() => String(me?.role || "") === "owner", [me]);
 
@@ -122,12 +130,14 @@ export default function VendorStaffPage() {
 
   async function authedFetch(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
     const r = await fetch(path, {
       ...init,
       headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    if (!r.ok) throw new Error(data?.error || data?.code || "We couldn't complete that request.");
     return data;
   }
 
@@ -137,7 +147,6 @@ export default function VendorStaffPage() {
       setStaffNudgesEnabled(!!j.staffNudgesEnabled);
       setStaffPushEnabled(!!j.staffPushEnabled);
     } catch {
-      // keep silent; default OFF
       setStaffNudgesEnabled(false);
       setStaffPushEnabled(false);
     }
@@ -154,10 +163,11 @@ export default function VendorStaffPage() {
         body: JSON.stringify(next),
       });
 
-      setMsg("Saved.");
-      setTimeout(() => setMsg(null), 1200);
+      toast.success("Settings saved.");
     } catch (e: any) {
-      setMsg(e?.message || "Failed to save");
+      const m = niceError(e, "Could not save settings. Please try again.");
+      setMsg(m);
+      toast.error(m);
     } finally {
       setNotifBusy(false);
     }
@@ -171,7 +181,7 @@ export default function VendorStaffPage() {
       const token = await auth.currentUser?.getIdToken();
       const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
       const meData = await rMe.json().catch(() => ({}));
-      if (!rMe.ok) throw new Error(meData?.error || "Failed to load profile");
+      if (!rMe.ok) throw new Error(meData?.error || "Could not load your profile.");
       setMe(meData.me);
 
       const data = await authedFetch("/api/vendor/staff");
@@ -179,13 +189,14 @@ export default function VendorStaffPage() {
       setInvites(Array.isArray(data.invites) ? data.invites : []);
       setSeats(data.seats || null);
 
-      // owner-only setting; still safe to try
       await loadNotifSettings();
     } catch (e: any) {
-      setMsg(e?.message || "Failed to load staff");
+      const m = niceError(e, "Could not load staff. Please try again.");
+      setMsg(m);
       setStaff([]);
       setInvites([]);
       setSeats(null);
+      toast.error(m);
     } finally {
       setLoading(false);
     }
@@ -199,17 +210,21 @@ export default function VendorStaffPage() {
   async function createInvite() {
     if (!canInvite) {
       if (seatLimit <= 0) {
+        toast.info("Upgrade your plan to add staff members.");
         setMsg("Upgrade your plan to add staff members.");
       } else if (showBuySeatAddon) {
-        setMsg("You have reached your staff limit. Buy +1 seat to add one more staff member.");
+        toast.info("You've reached your staff limit. Buy +1 seat to add one more staff member.");
+        setMsg("You've reached your staff limit. Buy +1 seat to add one more staff member.");
       } else {
-        setMsg("You have reached your staff limit. Upgrade to add more.");
+        toast.info("You've reached your staff limit. Upgrade to add more.");
+        setMsg("You've reached your staff limit. Upgrade to add more.");
       }
       return;
     }
 
     setCreating(true);
     setMsg(null);
+
     try {
       const data = await authedFetch("/api/vendor/staff", {
         method: "POST",
@@ -221,12 +236,13 @@ export default function VendorStaffPage() {
       if (link) {
         try {
           await navigator.clipboard.writeText(link);
-          setMsg("Invite created. Link copied to clipboard.");
+          toast.success("Invite created. Link copied to clipboard.");
         } catch {
-          setMsg("Invite created. Copy link manually: " + link);
+          toast.info("Invite created. Copy the link manually.");
+          setMsg("Invite created. Copy link: " + link);
         }
       } else {
-        setMsg("Invite created.");
+        toast.success("Invite created.");
       }
 
       setName("");
@@ -235,29 +251,51 @@ export default function VendorStaffPage() {
       setPerms(DEFAULT_PERMS);
       await load();
     } catch (e: any) {
-      setMsg(e?.message || "Failed to create invite");
+      const m = niceError(e, "Could not create invite. Please try again.");
+      setMsg(m);
+      toast.error(m);
     } finally {
       setCreating(false);
     }
   }
 
   async function revokeInvite(inviteId: string) {
-    if (!confirm("Revoke this invite?")) return;
+    const ok = confirm("Revoke this invite? This cannot be undone.");
+    if (!ok) return;
+
+    setRevokingId(inviteId);
+    setMsg(null);
+
     try {
       await authedFetch(`/api/vendor/staff?inviteId=${encodeURIComponent(inviteId)}`, { method: "DELETE" });
+      toast.success("Invite revoked.");
       await load();
     } catch (e: any) {
-      alert(e?.message || "Failed");
+      const m = niceError(e, "Could not revoke invite. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setRevokingId("");
     }
   }
 
   async function removeStaff(staffUid: string) {
-    if (!confirm("Remove this staff member?")) return;
+    const ok = confirm("Remove this staff member? This cannot be undone.");
+    if (!ok) return;
+
+    setRemovingId(staffUid);
+    setMsg(null);
+
     try {
       await authedFetch(`/api/vendor/staff?staffUid=${encodeURIComponent(staffUid)}`, { method: "DELETE" });
+      toast.success("Staff member removed.");
       await load();
     } catch (e: any) {
-      alert(e?.message || "Failed");
+      const m = niceError(e, "Could not remove staff member. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setRemovingId("");
     }
   }
 
@@ -276,7 +314,7 @@ export default function VendorStaffPage() {
 
       <div className="px-4 pb-24 space-y-3">
         {loading ? <Card className="p-4">Loading…</Card> : null}
-        {msg ? <Card className="p-4">{msg}</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         {!loading && !isOwner ? (
           <Card className="p-4">
@@ -310,7 +348,6 @@ export default function VendorStaffPage() {
               </div>
             </Card>
 
-            {/* ✅ NEW: Staff notifications controls (owner-only) */}
             <SectionCard title="Staff notifications" subtitle="Decide what staff can receive">
               <div className="space-y-2">
                 <Toggle
@@ -334,7 +371,7 @@ export default function VendorStaffPage() {
                 />
 
                 <p className="text-[11px] text-biz-muted">
-                  Note: Staff still need to enable notifications on their own device (tap the floating “Notify” button).
+                  Note: Staff still need to enable notifications on their own device (tap the floating "Notify" button).
                 </p>
               </div>
             </SectionCard>
@@ -432,7 +469,7 @@ export default function VendorStaffPage() {
                 ) : null}
 
                 <p className="text-[11px] text-biz-muted">
-                  Staff must login with the invited email, then open the invite link to join your business.
+                  Staff must log in with the invited email, then open the invite link to join your business.
                 </p>
               </div>
             </SectionCard>
@@ -451,7 +488,7 @@ export default function VendorStaffPage() {
                             Role: <b className="text-biz-ink">{inv.jobTitle}</b> •{" "}
                           </span>
                         ) : null}
-                        Status: <b className="text-biz-ink">{inv.status || "pending"}</b>
+                        Status: <b className="text-biz-ink">{inv.status || "Pending"}</b>
                       </p>
 
                       <div className="mt-2 grid grid-cols-2 gap-2">
@@ -462,15 +499,22 @@ export default function VendorStaffPage() {
                             const link = `${window.location.origin}/staff/register?code=${encodeURIComponent(inv.id)}`;
                             try {
                               await navigator.clipboard.writeText(link);
-                              alert("Invite link copied");
+                              toast.success("Invite link copied.");
                             } catch {
-                              alert("Copy failed. Link: " + link);
+                              toast.error("Couldn't copy the link. Please copy it manually.");
                             }
                           }}
+                          disabled={revokingId === inv.id}
                         >
                           Copy link
                         </Button>
-                        <Button variant="danger" size="sm" onClick={() => revokeInvite(inv.id)}>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => revokeInvite(inv.id)}
+                          disabled={revokingId === inv.id}
+                          loading={revokingId === inv.id}
+                        >
                           Revoke
                         </Button>
                       </div>
@@ -494,11 +538,17 @@ export default function VendorStaffPage() {
                             Role: <b className="text-biz-ink">{s.jobTitle}</b> •{" "}
                           </span>
                         ) : null}
-                        Status: <b className="text-biz-ink">{s.status || "active"}</b>
+                        Status: <b className="text-biz-ink">{s.status || "Active"}</b>
                       </p>
 
                       <div className="mt-2">
-                        <Button variant="danger" size="sm" onClick={() => removeStaff(s.id)}>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => removeStaff(s.id)}
+                          disabled={removingId === s.id}
+                          loading={removingId === s.id}
+                        >
                           Remove
                         </Button>
                       </div>

@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/Input";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { clearAppliedCoupon, getCouponForCheckout, saveAppliedCoupon } from "@/lib/checkout/coupon";
 import { getShippingForCheckout, saveAppliedShipping } from "@/lib/checkout/shipping";
+import { toast } from "@/lib/ui/toast";
 
 type ShippingOption = {
   id: string;
@@ -55,6 +56,30 @@ function savePayCurrency(storeSlug: string, c: PayCurrency) {
   } catch {
     // ignore
   }
+}
+
+function friendlyPayError(raw: any) {
+  const msg = String(raw?.error || raw?.message || raw || "").trim();
+
+  // Keep messages short + human-friendly
+  const m = msg.toLowerCase();
+
+  if (!msg) return "We couldn’t start your payment. Please try again.";
+
+  if (m.includes("usd payments not configured") || m.includes("missing fx")) {
+    return "USD payments are not available right now. Please switch to NGN or try again later.";
+  }
+
+  if (m.includes("amount mismatch")) {
+    return "Your cart total changed. Please refresh checkout and try again.";
+  }
+
+  if (m.includes("not logged in") || m.includes("auth")) {
+    return "Please log in again and try.";
+  }
+
+  // Default (still safe)
+  return msg.length > 120 ? "We couldn’t start your payment. Please try again." : msg;
 }
 
 export default function CheckoutPage() {
@@ -108,7 +133,7 @@ export default function CheckoutPage() {
     if (applied && applied.subtotalKobo !== localSubtotalKobo) {
       clearAppliedCoupon();
       setApplied(null);
-      setCouponMsg("Cart changed. Please re-apply discount code.");
+      setCouponMsg("Cart changed. Please re-apply your discount code.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [localSubtotalKobo]);
@@ -118,7 +143,7 @@ export default function CheckoutPage() {
     setSelectedShipId(s?.optionId || "");
   }, [slug]);
 
-  // Load saved currency preference
+  // Load saved currency preference (but will be forced to NGN if not eligible)
   useEffect(() => {
     if (!slug) return;
     setPayCurrency(loadPayCurrency(slug));
@@ -140,7 +165,6 @@ export default function CheckoutPage() {
 
         setUsdEligible(ok);
 
-        // If not eligible, force NGN
         if (!ok) {
           setPayCurrency("NGN");
           savePayCurrency(slug, "NGN");
@@ -320,7 +344,7 @@ export default function CheckoutPage() {
         <GradientHeader title="Checkout" showBack={true} />
         <div className="px-4 pb-24">
           <Card className="p-5 text-center">
-            <p className="font-bold text-biz-ink">Cart is empty for this vendor</p>
+            <p className="font-bold text-biz-ink">Your cart is empty for this vendor</p>
             <p className="text-sm text-biz-muted mt-2">Go back to cart and add items.</p>
             <div className="mt-4 space-y-2">
               <Button variant="secondary" onClick={() => router.push("/cart")}>
@@ -481,13 +505,13 @@ export default function CheckoutPage() {
 
       const qData = await rQ.json().catch(() => ({}));
       if (!rQ.ok) {
-        alert(qData?.error || "Failed to compute final price");
+        toast.error(friendlyPayError(qData?.error || "Could not confirm your total."));
         return;
       }
 
       const amountKobo = Number(qData?.pricing?.totalKobo || 0);
       if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
-        alert("Invalid total. Please refresh and try again.");
+        toast.error("Your total looks incorrect. Please refresh and try again.");
         return;
       }
 
@@ -537,16 +561,17 @@ export default function CheckoutPage() {
 
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        alert(data?.error || "Failed to start payment");
+        toast.error(friendlyPayError(data));
         return;
       }
 
       const url = String(data.authorization_url || "");
       if (!url) {
-        alert("Payment link missing. Please try again.");
+        toast.error("Payment link is missing. Please try again.");
         return;
       }
 
+      toast.info("Opening payment…");
       window.location.href = url;
     } finally {
       setPayLoading(false);
@@ -562,8 +587,7 @@ export default function CheckoutPage() {
     <div className="min-h-screen">
       <GradientHeader title="Checkout" subtitle="Complete your order" showBack={true} />
 
-      {/* Sticky bottom payment card on mobile; normal flow on desktop */}
-      <div className="px-4 pb-24 space-y-3">
+      <div className="px-4 pb-36 md:pb-24 space-y-3">
         <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
           <p className="text-sm font-bold">Order total</p>
           <p className="text-xs opacity-95 mt-1">
@@ -652,11 +676,7 @@ export default function CheckoutPage() {
 
         <SectionCard title="Discount code" subtitle="Optional">
           <div className="space-y-2">
-            <Input
-              placeholder="Enter coupon code"
-              value={couponCode}
-              onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-            />
+            <Input placeholder="Enter coupon code" value={couponCode} onChange={(e) => setCouponCode(e.target.value.toUpperCase())} />
             <div className="grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={applyCoupon} loading={couponLoading} disabled={couponLoading}>
                 Apply
@@ -693,10 +713,9 @@ export default function CheckoutPage() {
           {!emailVerified ? <p className="mt-3 text-xs text-red-700">Please verify your email to continue checkout.</p> : null}
         </SectionCard>
 
-        {/* ✅ Sticky payment box: doesn’t “trap” the whole page like a fixed overlay */}
-        <div className="sticky bottom-0 z-40 md:static">
-          <div className="mx-auto w-full max-w-[430px] safe-pb pb-4">
-            <Card className="p-4 space-y-2 shadow-float">
+        <div className="fixed bottom-0 left-0 right-0 z-40 md:static md:mt-3">
+          <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+            <Card className="p-4 space-y-2">
               {usdEligible ? (
                 <div className="rounded-2xl border border-biz-line bg-white p-3">
                   <p className="text-xs font-bold text-biz-ink">Card payment currency</p>
@@ -730,18 +749,12 @@ export default function CheckoutPage() {
               ) : null}
 
               <Button onClick={handleCardPay} disabled={!canPay} loading={payLoading}>
-                Pay with card{usdEligible ? ` (${payCurrency})` : ""}
+                Pay with card {usdEligible ? `(${payCurrency})` : ""}
               </Button>
 
               <Button variant="secondary" onClick={goBankTransfer} disabled={!canPay || payLoading}>
                 Pay with Bank Transfer
               </Button>
-
-              {!canPay ? (
-                <p className="text-[11px] text-biz-muted">
-                  Fill your details above and select shipping (if needed) to continue.
-                </p>
-              ) : null}
             </Card>
           </div>
         </div>

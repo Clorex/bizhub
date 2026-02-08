@@ -1,4 +1,5 @@
-﻿"use client";
+﻿// FILE: src/app/b/[slug]/pay/direct/page-client.tsx
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -12,6 +13,8 @@ import { getCouponForCheckout } from "@/lib/checkout/coupon";
 import { loadCheckoutProfile } from "@/lib/checkout/profile";
 import { getShippingForCheckout, saveAppliedShipping } from "@/lib/checkout/shipping";
 import { Button } from "@/components/ui/Button";
+import { toast } from "@/lib/ui/toast";
+import { Input } from "@/components/ui/Input";
 
 type ShippingOption = {
   id: string;
@@ -33,12 +36,12 @@ function fmtNaira(n: number) {
   }
 }
 
-async function copy(text: string) {
+async function copyText(text: string) {
   try {
     await navigator.clipboard.writeText(text);
-    alert("Copied");
+    toast.success("Copied.");
   } catch {
-    alert("Copy failed");
+    toast.error("Couldn’t copy. Please copy it manually.");
   }
 }
 
@@ -57,26 +60,21 @@ export default function DirectPayPage() {
   const [payerName, setPayerName] = useState(sp.get("name") ?? "");
   const [payerPhone, setPayerPhone] = useState(sp.get("phone") ?? "");
 
-  // order id for upload (comes from URL or created after "I have paid")
   const [orderId, setOrderId] = useState<string>(sp.get("orderId") ?? "");
 
-  // checkout profile (address/email)
   const [profileEmail, setProfileEmail] = useState("");
   const [profileAddress, setProfileAddress] = useState("");
 
-  // proof upload
   const [proofFile, setProofFile] = useState<File | null>(null);
   const [uploadingProof, setUploadingProof] = useState(false);
   const [proofMsg, setProofMsg] = useState<string | null>(null);
   const [proofViewUrl, setProofViewUrl] = useState<string>("");
 
-  // shipping
   const [shipLoading, setShipLoading] = useState(false);
   const [shipMsg, setShipMsg] = useState<string | null>(null);
   const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
   const [selectedShipId, setSelectedShipId] = useState<string>("");
 
-  // server quote
   const [quoteLoading, setQuoteLoading] = useState(false);
   const [quoteMsg, setQuoteMsg] = useState<string | null>(null);
   const [quote, setQuote] = useState<any>(null);
@@ -94,14 +92,12 @@ export default function DirectPayPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
 
-  // Keep orderId in sync if user opens link with ?orderId=
   useEffect(() => {
     const oid = sp.get("orderId") ?? "";
     if (oid && oid !== orderId) setOrderId(oid);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sp]);
 
-  // Load saved shipping, then fetch options to validate/default
   useEffect(() => {
     const s = getShippingForCheckout({ storeSlug: slug });
     setSelectedShipId(s?.optionId || "");
@@ -163,7 +159,6 @@ export default function DirectPayPage() {
 
   const shippingFeeKobo = Number(selectedShipping?.feeKobo || 0);
 
-  // Load store payout details
   useEffect(() => {
     let mounted = true;
 
@@ -175,7 +170,7 @@ export default function DirectPayPage() {
         const qBiz = query(collection(db, "businesses"), where("slug", "==", slug), limit(1));
         const snap = await getDocs(qBiz);
         if (snap.empty) {
-          setError("Store not found");
+          setError("Vendor not found");
           setBiz(null);
           return;
         }
@@ -184,7 +179,7 @@ export default function DirectPayPage() {
         if (!mounted) return;
         setBiz({ id: d.id, ...d.data() });
       } catch (e: any) {
-        setError(e?.message || "Failed to load store");
+        setError(e?.message || "Could not load vendor details");
         setBiz(null);
       } finally {
         if (mounted) setLoading(false);
@@ -197,12 +192,11 @@ export default function DirectPayPage() {
     };
   }, [slug]);
 
-  // Server quote (sale first, coupon after sale)
   async function fetchQuote() {
     try {
       if (!cart.storeSlug || cart.storeSlug !== slug || cart.items.length === 0) {
         setQuote(null);
-        setQuoteMsg("Cart does not match this store.");
+        setQuoteMsg("Your cart doesn’t match this vendor.");
         return;
       }
 
@@ -267,30 +261,28 @@ export default function DirectPayPage() {
   }
 
   async function confirmIHavePaid() {
-    // If order already exists (e.g. user refreshed), just go to order page
     if (orderId) {
       router.push(`/orders/${orderId}`);
       return;
     }
 
     if (!cart.storeSlug || cart.storeSlug !== slug || cart.items.length === 0) {
-      alert("Cart does not match this store. Go back to cart.");
+      toast.error("Your cart doesn’t match this vendor. Please go back to cart.");
       router.push("/cart");
       return;
     }
 
     if (!biz?.id) {
-      alert("Store not loaded yet.");
+      toast.info("Vendor details are still loading. Please try again.");
       return;
     }
 
     if (shippingRequired && !selectedShipping) {
-      alert("Please select shipping first.");
+      toast.info("Please choose a shipping option first.");
       router.push(`/b/${slug}/checkout`);
       return;
     }
 
-    // Fresh quote right before creating order
     await fetchQuote();
 
     const r = await fetch("/api/orders/direct/create", {
@@ -298,7 +290,7 @@ export default function DirectPayPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         storeSlug: slug,
-        businessSlug: slug, // backward compatible
+        businessSlug: slug,
         items: cart.items,
         customer: {
           fullName: payerName,
@@ -315,13 +307,13 @@ export default function DirectPayPage() {
 
     const data = await r.json().catch(() => ({}));
     if (!r.ok) {
-      alert(data?.error || "Failed to create order");
+      toast.error(data?.error || "Could not create your order. Please try again.");
       return;
     }
 
     const oid = String(data.orderId || "");
     if (!oid) {
-      alert("Order created but missing orderId.");
+      toast.error("Order created, but we couldn’t open it. Please check your Orders page.");
       return;
     }
 
@@ -330,16 +322,19 @@ export default function DirectPayPage() {
 
     setOrderId(oid);
     setProofMsg("Order created. Upload your proof below.");
+    toast.success("Order created. Upload your proof below.");
     replaceUrlWithOrder(oid);
   }
 
   async function uploadProof() {
     if (!orderId) {
       setProofMsg("Create the order first (tap “I have paid”).");
+      toast.info("Create the order first, then upload your proof.");
       return;
     }
     if (!proofFile) {
       setProofMsg("Select a screenshot/PDF proof first.");
+      toast.info("Please select a proof file first.");
       return;
     }
 
@@ -363,8 +358,10 @@ export default function DirectPayPage() {
       setProofViewUrl(String(data?.proof?.secureUrl || ""));
       setProofMsg("Proof uploaded. Waiting for vendor confirmation.");
       setProofFile(null);
+      toast.success("Proof uploaded. Waiting for confirmation.");
     } catch (e: any) {
       setProofMsg(e?.message || "Failed to upload proof");
+      toast.error(e?.message || "Could not upload proof. Please try again.");
     } finally {
       setUploadingProof(false);
     }
@@ -411,7 +408,6 @@ export default function DirectPayPage() {
           {quoteMsg ? <p className="text-[11px] text-red-100 mt-2">{quoteMsg}</p> : null}
         </div>
 
-        {/* Bank details */}
         <Card className="p-4">
           {loading ? <p>Loading…</p> : null}
           {error ? <p className="text-red-700">{error}</p> : null}
@@ -430,7 +426,7 @@ export default function DirectPayPage() {
                     <p className="font-bold text-biz-ink mt-1">{accountNumber || "Not set"}</p>
                   </div>
                   {accountNumber ? (
-                    <button className="text-xs font-bold text-biz-accent" onClick={() => copy(accountNumber)}>
+                    <button className="text-xs font-bold text-biz-accent" onClick={() => copyText(accountNumber)}>
                       Copy
                     </button>
                   ) : null}
@@ -444,7 +440,7 @@ export default function DirectPayPage() {
                     <p className="font-bold text-biz-ink mt-1">{accountName || "Not set"}</p>
                   </div>
                   {accountName ? (
-                    <button className="text-xs font-bold text-biz-accent" onClick={() => copy(accountName)}>
+                    <button className="text-xs font-bold text-biz-accent" onClick={() => copyText(accountName)}>
                       Copy
                     </button>
                   ) : null}
@@ -458,12 +454,9 @@ export default function DirectPayPage() {
           ) : null}
         </Card>
 
-        {/* Proof upload (shows after order exists) */}
         <Card className="p-4">
           <p className="font-bold text-biz-ink">Upload proof of payment</p>
-          <p className="text-xs text-biz-muted mt-1">
-            After transferring, upload a screenshot or PDF. (Paid stores only)
-          </p>
+          <p className="text-xs text-biz-muted mt-1">After transferring, upload a screenshot or PDF.</p>
 
           {!orderId ? (
             <div className="mt-3">
@@ -508,7 +501,6 @@ export default function DirectPayPage() {
           )}
         </Card>
 
-        {/* Shipping */}
         <Card className="p-4">
           <p className="font-bold text-biz-ink">Shipping</p>
           {shipLoading ? <p className="text-sm text-biz-muted mt-2">Loading shipping…</p> : null}
@@ -536,26 +528,21 @@ export default function DirectPayPage() {
           ) : null}
         </Card>
 
-        {/* Customer details */}
         <Card className="p-4">
           <p className="font-bold text-biz-ink">Your details</p>
           <div className="mt-3 space-y-2">
-            <InputLike value={payerName} setValue={setPayerName} placeholder="Your name" />
-            <InputLike value={payerPhone} setValue={setPayerPhone} placeholder="Phone number" />
+            <Input placeholder="Your name" value={payerName} onChange={(e) => setPayerName(e.target.value)} />
+            <Input placeholder="Phone number" value={payerPhone} onChange={(e) => setPayerPhone(e.target.value)} />
           </div>
         </Card>
 
-        {/* Bottom action */}
         <div className="fixed bottom-0 left-0 right-0 z-40">
           <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
             <Card className="p-4 space-y-2">
               <button
                 className="w-full rounded-2xl py-3 text-sm font-bold text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent disabled:opacity-50"
                 onClick={confirmIHavePaid}
-                disabled={
-                  (!orderId && (!canConfirm || (shippingRequired && !selectedShipping) || quoteLoading || !!quoteMsg)) ||
-                  (orderId ? false : false)
-                }
+                disabled={!orderId && (!canConfirm || (shippingRequired && !selectedShipping) || quoteLoading || !!quoteMsg)}
               >
                 {orderId ? "View order status" : "I have paid"}
               </button>
@@ -574,24 +561,5 @@ export default function DirectPayPage() {
         </div>
       </div>
     </div>
-  );
-}
-
-function InputLike({
-  value,
-  setValue,
-  placeholder,
-}: {
-  value: string;
-  setValue: (v: string) => void;
-  placeholder: string;
-}) {
-  return (
-    <input
-      className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40 bg-white"
-      placeholder={placeholder}
-      value={value}
-      onChange={(e) => setValue(e.target.value)}
-    />
   );
 }

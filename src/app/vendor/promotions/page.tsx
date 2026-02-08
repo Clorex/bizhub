@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
 import { Megaphone, RefreshCw, HelpCircle } from "lucide-react";
 
 function fmtNairaFromKobo(kobo: number) {
@@ -53,6 +54,12 @@ function StatusPill({ active }: { active: boolean }) {
   );
 }
 
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
 export default function VendorPromotionsPage() {
   const router = useRouter();
 
@@ -62,12 +69,14 @@ export default function VendorPromotionsPage() {
 
   async function api(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
     const r = await fetch(path, {
       ...init,
       headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data?.error || "Request failed");
+    if (!r.ok) throw new Error(data?.error || "We couldn't complete that request.");
     return data;
   }
 
@@ -78,8 +87,10 @@ export default function VendorPromotionsPage() {
       const data = await api("/api/promotions/my");
       setCampaigns(Array.isArray(data.campaigns) ? data.campaigns : []);
     } catch (e: any) {
-      setMsg(e?.message || "Failed to load");
+      const m = niceError(e, "Could not load campaigns. Please try again.");
+      setMsg(m);
       setCampaigns([]);
+      toast.error(m);
     } finally {
       setLoading(false);
     }
@@ -99,7 +110,7 @@ export default function VendorPromotionsPage() {
     <div className="min-h-screen">
       <GradientHeader
         title="Promotions"
-        subtitle="Manage your ad-style campaigns"
+        subtitle="Boost your products in the marketplace"
         showBack={true}
         right={
           <button
@@ -107,7 +118,7 @@ export default function VendorPromotionsPage() {
             onClick={() => router.push("/vendor/promote/faq")}
           >
             <HelpCircle className="h-4 w-4 text-gray-700" />
-            FAQ
+            Help
           </button>
         }
       />
@@ -145,17 +156,21 @@ export default function VendorPromotionsPage() {
                   Products
                 </Button>
               </div>
+
+              <p className="mt-3 text-[11px] text-biz-muted">
+                Promotions increase visibility by showing your products at the top of the marketplace for the duration you choose.
+              </p>
             </Card>
 
             {campaigns.length === 0 ? (
               <EmptyState
-                title="No promotion campaigns yet"
-                description="Start a campaign to increase visibility on the marketplace."
+                title="No campaigns yet"
+                description="Start a campaign to boost your products in the marketplace and reach more buyers."
                 ctaLabel="Create campaign"
                 onCta={() => router.push("/vendor/promote")}
               />
             ) : (
-              <SectionCard title="Campaigns" subtitle="Tap Renew to run again">
+              <SectionCard title="Your campaigns" subtitle="Tap Renew to run again">
                 <div className="space-y-3">
                   {campaigns.map((c) => {
                     const endsAtMs = Number(c.endsAtMs || 0);
@@ -175,13 +190,11 @@ export default function VendorPromotionsPage() {
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 flex-wrap">
                               <StatusPill active={active} />
-                              <span className="text-[11px] text-gray-500">
-                                {remainingText(endsAtMs)}
-                              </span>
+                              <span className="text-[11px] text-gray-500">{remainingText(endsAtMs)}</span>
                             </div>
 
                             <p className="mt-2 text-sm font-bold text-biz-ink">
-                              {productIds.length} product(s) • {days || "—"} day(s)
+                              {productIds.length} product{productIds.length !== 1 ? "s" : ""} • {days || "—"} day{days !== 1 ? "s" : ""}
                             </p>
 
                             <p className="text-[11px] text-gray-500 mt-1">
@@ -189,7 +202,7 @@ export default function VendorPromotionsPage() {
                             </p>
 
                             <p className="text-[11px] text-gray-500 mt-1">
-                              Daily: <b className="text-biz-ink">{fmtNairaFromKobo(daily)}</b> • Total:{" "}
+                              Daily budget: <b className="text-biz-ink">{fmtNairaFromKobo(daily)}</b> • Total:{" "}
                               <b className="text-biz-ink">{fmtNairaFromKobo(total)}</b>
                             </p>
                           </div>
@@ -213,7 +226,10 @@ export default function VendorPromotionsPage() {
                         {products.length ? (
                           <div className="mt-3 grid grid-cols-5 gap-2">
                             {products.slice(0, 5).map((p) => (
-                              <div key={p.id} className="h-12 w-full rounded-2xl bg-biz-cream overflow-hidden border border-black/5">
+                              <div
+                                key={p.id}
+                                className="h-12 w-full rounded-2xl bg-biz-cream overflow-hidden border border-black/5"
+                              >
                                 {p.imageUrl ? (
                                   // eslint-disable-next-line @next/next/no-img-element
                                   <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
@@ -223,9 +239,7 @@ export default function VendorPromotionsPage() {
                           </div>
                         ) : null}
 
-                        <p className="mt-3 text-[11px] text-biz-muted break-all">
-                          Ref: {String(c.reference || c.id)}
-                        </p>
+                        <p className="mt-3 text-[11px] text-biz-muted break-all">ID: {String(c.reference || c.id)}</p>
                       </div>
                     );
                   })}

@@ -1,3 +1,4 @@
+// FILE: src/components/ui/Button.tsx
 import { cn } from "@/lib/cn";
 
 type ButtonVariant = "primary" | "secondary" | "soft" | "ghost" | "danger";
@@ -11,6 +12,7 @@ export function Button({
   className,
   children,
   disabled,
+  type,
   ...props
 }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -41,13 +43,14 @@ export function Button({
 
   return (
     <button
+      type={type || "button"}
       className={cn(base, sizes, styles, className)}
       disabled={disabled || loading}
       {...props}
     >
       {loading ? (
         <span
-          className="h-4 w-4 rounded-full border-2 border-white/40 border-t-white animate-spin"
+          className="h-4 w-4 rounded-full border-2 border-current/40 border-t-current animate-spin"
           aria-label="loading"
         />
       ) : leftIcon ? (

@@ -1,4 +1,5 @@
-﻿"use client";
+﻿// FILE: src/app/vendor/subscription/summary/page-client.tsx
+"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -7,6 +8,7 @@ import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
 import { CheckCircle2 } from "lucide-react";
 
 type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
@@ -56,7 +58,7 @@ function DetailsList({ groups }: { groups: Record<string, string[]> }) {
           <div className="mt-2 space-y-2">
             {(items || []).map((t) => (
               <div key={t} className="flex items-start gap-2 text-sm text-gray-700">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
                 <span>{t}</span>
               </div>
             ))}
@@ -82,6 +84,12 @@ type PlansResponse = {
     }
   >;
 };
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
 
 export default function SubscriptionSummaryPageClient() {
   const router = useRouter();
@@ -118,12 +126,14 @@ export default function SubscriptionSummaryPageClient() {
 
   async function authedFetch(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
     const r = await fetch(path, {
       ...init,
       headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
     });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    if (!r.ok) throw new Error(data?.error || data?.code || "We couldn't complete that request.");
     return data;
   }
 
@@ -141,14 +151,16 @@ export default function SubscriptionSummaryPageClient() {
 
         if (!mountedRef.current) return;
 
-        if (!plansData?.ok || !plansData?.plans) throw new Error("Failed to load plan config");
+        if (!plansData?.ok || !plansData?.plans) throw new Error("Could not load plans. Please try again.");
 
         setPlans(plansData.plans);
         setHistory(Array.isArray(subData.purchases) ? subData.purchases : []);
         setEntitlement(subData.entitlement || null);
       } catch (e: any) {
         if (!mountedRef.current) return;
-        setMsg(e?.message || "Failed to load");
+        const m = niceError(e, "Could not load subscription details. Please try again.");
+        setMsg(m);
+        toast.error(m);
       } finally {
         if (mountedRef.current) setLoading(false);
       }
@@ -175,9 +187,13 @@ export default function SubscriptionSummaryPageClient() {
         body: JSON.stringify({ planKey, cycle }),
       });
 
-      window.location.href = data.authorization_url;
+      if (!data?.authorization_url) throw new Error("Could not start payment. Please try again.");
+
+      window.location.href = String(data.authorization_url);
     } catch (e: any) {
-      setMsg(e?.message || "Failed to start payment");
+      const m = niceError(e, "Could not start payment. Please try again.");
+      setMsg(m);
+      toast.error(m);
     } finally {
       setPaying(false);
     }
@@ -200,7 +216,7 @@ export default function SubscriptionSummaryPageClient() {
     <div className="min-h-screen">
       <GradientHeader
         title="Summary"
-        subtitle="Review your plan and continue"
+        subtitle="Review and pay"
         showBack={true}
         right={
           <button
@@ -217,9 +233,13 @@ export default function SubscriptionSummaryPageClient() {
 
         <Card className="p-4">
           <p className="text-xs text-biz-muted">Current access</p>
-          <p className="text-sm font-extrabold text-biz-ink mt-1">{entName}</p>
+          <p className="text-sm font-extrabold text-biz-ink mt-1">{loading ? "Loading..." : entName}</p>
           <p className="text-[11px] text-gray-500 mt-1">
-            {entPlanKey === "FREE" ? "Upgrade anytime to unlock more tools." : `Active until: ${fmtDateTime(entExpiry)}`}
+            {loading
+              ? EM_DASH
+              : entPlanKey === "FREE"
+                ? "Upgrade anytime to unlock more tools."
+                : `Active until: ${fmtDateTime(entExpiry)}`}
           </p>
         </Card>
 
@@ -245,7 +265,7 @@ export default function SubscriptionSummaryPageClient() {
           <div className="mt-3 space-y-2">
             {highlights.map((t) => (
               <div key={t} className="flex items-start gap-2 text-sm">
-                <span className="mt-1 h-2 w-2 rounded-full bg-white/90" />
+                <span className="mt-1 h-2 w-2 rounded-full bg-white/90 shrink-0" />
                 <span className="opacity-95">{t}</span>
               </div>
             ))}
@@ -286,7 +306,7 @@ export default function SubscriptionSummaryPageClient() {
               onClick={() => setTab("purchases")}
               type="button"
             >
-              Extras
+              Add-ons
             </button>
 
             <button
@@ -306,8 +326,8 @@ export default function SubscriptionSummaryPageClient() {
         <Card className="p-4">
           {tab === "benefits" ? (
             <>
-              <p className="font-extrabold text-biz-ink">Plan benefits</p>
-              <p className="text-xs text-biz-muted mt-1">What you get on this plan.</p>
+              <p className="font-extrabold text-biz-ink">What's included</p>
+              <p className="text-xs text-biz-muted mt-1">Everything you get on this plan</p>
               <div className="mt-3">
                 <DetailsList groups={plan?.benefits || {}} />
               </div>
@@ -316,23 +336,27 @@ export default function SubscriptionSummaryPageClient() {
 
           {tab === "purchases" ? (
             <>
-              <p className="font-extrabold text-biz-ink">Optional extras</p>
-              <p className="text-xs text-biz-muted mt-1">Other tools you can add later.</p>
+              <p className="font-extrabold text-biz-ink">Optional add-ons</p>
+              <p className="text-xs text-biz-muted mt-1">Extra tools you can buy later</p>
               <div className="mt-3">
-                <DetailsList groups={plan?.purchases || {}} />
+                {Object.keys(plan?.purchases || {}).length === 0 ? (
+                  <p className="text-sm text-biz-muted">No add-ons available for this plan.</p>
+                ) : (
+                  <DetailsList groups={plan?.purchases || {}} />
+                )}
               </div>
             </>
           ) : null}
 
           {tab === "history" ? (
             <>
-              <p className="font-extrabold text-biz-ink">Payments</p>
-              <p className="text-xs text-biz-muted mt-1">Your recent subscription payments.</p>
+              <p className="font-extrabold text-biz-ink">Payment history</p>
+              <p className="text-xs text-biz-muted mt-1">Your recent subscription payments</p>
 
               {loading ? (
-                <div className="mt-3 text-sm text-biz-muted">Loading</div>
+                <div className="mt-3 text-sm text-biz-muted">Loading…</div>
               ) : history.length === 0 ? (
-                <div className="mt-3 text-sm text-biz-muted">No subscription payments yet.</div>
+                <div className="mt-3 text-sm text-biz-muted">No payments yet.</div>
               ) : (
                 <div className="mt-3 space-y-2">
                   {history
@@ -345,15 +369,15 @@ export default function SubscriptionSummaryPageClient() {
                             <p className="text-sm font-extrabold text-biz-ink">
                               {String(h.planKey || EM_DASH)} {BULLET} {String(h.cycle || EM_DASH)}
                             </p>
-                            <p className="text-[11px] text-gray-500 mt-1 break-all">Ref: {String(h.reference || h.id)}</p>
-                            <p className="text-[11px] text-gray-500 mt-1">Started: {fmtDateTime(Number(h.startedAtMs || 0))}</p>
+                            <p className="text-[11px] text-gray-500 mt-1 break-all">ID: {String(h.reference || h.id)}</p>
+                            <p className="text-[11px] text-gray-500 mt-1">Date: {fmtDateTime(Number(h.startedAtMs || 0))}</p>
                           </div>
 
                           <div className="text-right shrink-0">
                             <p className="text-sm font-extrabold text-biz-ink">
                               {fmtNaira(Number(h.amount || (h.amountKobo ? h.amountKobo / 100 : 0) || 0))}
                             </p>
-                            <p className="text-[11px] text-gray-500 mt-1">{String(h.status || EM_DASH)}</p>
+                            <p className="text-[11px] text-gray-500 mt-1 capitalize">{String(h.status || EM_DASH)}</p>
                           </div>
                         </div>
                       </div>

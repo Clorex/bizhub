@@ -1,3 +1,4 @@
+// FILE: src/app/account/invite/invite-client.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -5,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { auth } from "@/lib/firebase/client";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
+import { toast } from "@/lib/ui/toast";
 
 type Status = "loading" | "ready" | "ok" | "error";
 
@@ -41,7 +43,6 @@ export default function InviteAcceptClient() {
 
         const user = auth.currentUser;
         if (!user) {
-          // ✅ New staff flow: let them register first
           router.replace(`/staff/register?code=${encodeURIComponent(code)}`);
           return;
         }
@@ -58,7 +59,7 @@ export default function InviteAcceptClient() {
       } catch (e: any) {
         if (!mounted) return;
         setStatus("error");
-        setMsg(e?.message || "Failed");
+        setMsg(e?.message || "Something went wrong.");
       }
     }
 
@@ -85,14 +86,14 @@ export default function InviteAcceptClient() {
       if (!r.ok) {
         const c = String(data?.code || "");
         setErrCode(c);
-        throw new Error(String(data?.error || "Failed to accept invite"));
+        throw new Error(String(data?.error || "Could not accept invite."));
       }
 
       setStatus("ok");
       setMsg("Invite accepted. You now have staff access.");
     } catch (e: any) {
       setStatus("error");
-      setMsg(e?.message || "Failed");
+      setMsg(e?.message || "Could not accept invite.");
     }
   }
 
@@ -100,9 +101,9 @@ export default function InviteAcceptClient() {
     try {
       if (!ownerMessage) return;
       await navigator.clipboard.writeText(ownerMessage);
-      alert("Message copied. Send it to the business owner.");
+      toast.success("Message copied. Send it to the business owner.");
     } catch {
-      alert(ownerMessage);
+      toast.error("Couldn’t copy the message. Please copy it manually.");
     }
   }
 

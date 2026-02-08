@@ -1,3 +1,4 @@
+// FILE: src/app/vendor/orders/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -7,6 +8,7 @@ import { Card } from "@/components/Card";
 import { auth } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/Button";
 import { IconButton } from "@/components/ui/IconButton";
+import { toast } from "@/lib/ui/toast";
 import { RefreshCw, Download, Link2, PackagePlus } from "lucide-react";
 
 function fmtNaira(n: number) {
@@ -73,6 +75,12 @@ function StatusPill({ text }: { text: string }) {
   );
 }
 
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
 export default function VendorOrdersPage() {
   const router = useRouter();
 
@@ -98,7 +106,7 @@ export default function VendorOrdersPage() {
       setMsg(null);
 
       const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
+      if (!token) throw new Error("Please log in again to continue.");
 
       const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
       const meData = await rMe.json().catch(() => ({}));
@@ -106,16 +114,18 @@ export default function VendorOrdersPage() {
 
       const r = await fetch("/api/vendor/orders", { headers: { Authorization: `Bearer ${token}` } });
       const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data?.error || "Failed");
+      if (!r.ok) throw new Error(data?.error || "Could not load orders.");
 
       const list = Array.isArray(data.orders) ? data.orders : [];
       list.sort((a: any, b: any) => toMs(b.createdAt) - toMs(a.createdAt));
       setOrders(list);
       setMeta(data?.meta || null);
     } catch (e: any) {
-      setMsg(e?.message || "Failed to load orders");
+      const m = niceError(e, "Could not load orders. Please try again.");
+      setMsg(m);
       setOrders([]);
       setMeta(null);
+      toast.error(m);
     } finally {
       setLoading(false);
     }
@@ -127,7 +137,7 @@ export default function VendorOrdersPage() {
       setMsg(null);
 
       const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
+      if (!token) throw new Error("Please log in again to continue.");
 
       const r = await fetch("/api/vendor/orders/export", {
         headers: { Authorization: `Bearer ${token}` },
@@ -135,10 +145,11 @@ export default function VendorOrdersPage() {
 
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
-        const err = String(data?.error || "Export failed");
+        const err = String(data?.error || "Could not export. Please try again.");
         const code = String(data?.code || "");
         if (code === "FEATURE_LOCKED") {
           setMsg(err);
+          toast.info(err);
           return;
         }
         throw new Error(err);
@@ -157,8 +168,12 @@ export default function VendorOrdersPage() {
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
+
+      toast.success("Orders exported successfully.");
     } catch (e: any) {
-      setMsg(e?.message || "Failed to export");
+      const m = niceError(e, "Could not export orders. Please try again.");
+      setMsg(m);
+      toast.error(m);
     } finally {
       setExporting(false);
     }
@@ -167,14 +182,15 @@ export default function VendorOrdersPage() {
   async function copyStoreLink() {
     try {
       if (!storeUrl) {
-        setMsg("Store link not ready yet. Please refresh.");
+        const m = "Store link not ready yet. Please refresh.";
+        setMsg(m);
+        toast.info(m);
         return;
       }
       await navigator.clipboard.writeText(storeUrl);
-      setMsg("Store link copied.");
-      setTimeout(() => setMsg(null), 1200);
+      toast.success("Store link copied to clipboard.");
     } catch {
-      setMsg("Copy failed.");
+      toast.error("Couldn't copy the link. Please copy it manually.");
     }
   }
 
@@ -196,7 +212,7 @@ export default function VendorOrdersPage() {
     <div className="min-h-screen">
       <GradientHeader
         title="Orders"
-        subtitle="All orders for your store"
+        subtitle="Manage and track your orders"
         showBack={false}
         right={
           <IconButton aria-label="Refresh" onClick={load} disabled={loading}>
@@ -213,11 +229,23 @@ export default function VendorOrdersPage() {
             <div>
               <p className="font-extrabold text-biz-ink">Overview</p>
               <p className="text-xs text-gray-500 mt-1">
-                {totals.count} order(s) • {totals.awaiting} awaiting • {totals.disputed} disputed
+                <b className="text-biz-ink">{totals.count}</b> total
+                {totals.awaiting > 0 ? (
+                  <>
+                    {" "}
+                    • <b className="text-orange-700">{totals.awaiting}</b> awaiting
+                  </>
+                ) : null}
+                {totals.disputed > 0 ? (
+                  <>
+                    {" "}
+                    • <b className="text-red-700">{totals.disputed}</b> disputed
+                  </>
+                ) : null}
               </p>
               {meta ? (
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Plan: <b className="text-biz-ink">{planKey}</b> • Showing up to <b className="text-biz-ink">{cap}</b>
+                  Plan: <b className="text-biz-ink">{planKey}</b> • Showing up to <b className="text-biz-ink">{cap}</b> orders
                 </p>
               ) : null}
             </div>
@@ -243,11 +271,10 @@ export default function VendorOrdersPage() {
 
         {loading ? <Card className="p-4">Loading…</Card> : null}
 
-        {/* ✅ Minimal empty state */}
         {!loading && orders.length === 0 ? (
           <Card variant="soft" className="p-5">
             <p className="text-sm font-extrabold text-biz-ink">No orders yet</p>
-            <p className="text-xs text-gray-500 mt-1">Your first order will show here.</p>
+            <p className="text-xs text-gray-500 mt-1">Your first order will show here. Share your store link to start selling.</p>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={copyStoreLink} disabled={!storeUrl} leftIcon={<Link2 className="h-4 w-4" />}>

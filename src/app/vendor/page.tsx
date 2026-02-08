@@ -1,3 +1,4 @@
+// FILE: src/app/vendor/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -11,6 +12,8 @@ import { IconButton } from "@/components/ui/IconButton";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { StatCard } from "@/components/ui/StatCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
+
+import { toast } from "@/lib/ui/toast";
 
 import {
   RefreshCw,
@@ -115,18 +118,18 @@ export default function VendorDashboardPage() {
       setAssistantMsg(null);
 
       const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
+      if (!token) throw new Error("Please log in again to continue.");
 
       const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
       const meData = await rMe.json().catch(() => ({}));
-      if (!rMe.ok) throw new Error(meData?.error || "Failed to load profile");
+      if (!rMe.ok) throw new Error(meData?.error || "Could not load your profile.");
       setMe(meData.me);
 
       const r = await fetch(`/api/vendor/analytics?range=${range}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const a = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(a?.error || "Failed to load analytics");
+      if (!r.ok) throw new Error(a?.error || "Could not load your analytics.");
 
       setData(a);
       setAccess(a?.meta?.access || null);
@@ -149,7 +152,7 @@ export default function VendorDashboardPage() {
         if (m && !m.toLowerCase().includes("locked")) setAssistantMsg(m);
       }
     } catch (e: any) {
-      setMsg(e?.message || "Failed");
+      setMsg(e?.message || "Something went wrong. Please try again.");
       setData(null);
       setAccess(null);
       setAssistant(null);
@@ -167,9 +170,9 @@ export default function VendorDashboardPage() {
     try {
       if (!storeUrl) return;
       await navigator.clipboard.writeText(storeUrl);
-      alert("Store link copied");
+      toast.success("Link copied. Share it with customers.");
     } catch {
-      alert("Copy failed");
+      toast.error("Couldn’t copy the link. Please copy it manually.");
     }
   }
 
@@ -178,7 +181,7 @@ export default function VendorDashboardPage() {
       setMoodBusy(true);
 
       const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
+      if (!token) throw new Error("Please log in again to continue.");
 
       const snapshot = {
         range,
@@ -198,7 +201,7 @@ export default function VendorDashboardPage() {
       });
 
       const j = await r.json().catch(() => ({} as any));
-      if (!r.ok || !j?.ok) throw new Error(j?.error || "Failed");
+      if (!r.ok || !j?.ok) throw new Error(j?.error || "Could not load a tip.");
 
       const next = {
         dayKey: lagosDayKey(),
@@ -210,7 +213,7 @@ export default function VendorDashboardPage() {
       setMoodState(next);
       saveMood(next);
     } catch (e: any) {
-      setMsg(e?.message || "Failed to get tip");
+      setMsg(e?.message || "Could not get a tip right now.");
     } finally {
       setMoodBusy(false);
     }
@@ -285,7 +288,6 @@ export default function VendorDashboardPage() {
 
         {!loading && data ? (
           <>
-            {/* Total sales FIRST */}
             <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
               <p className="text-xs opacity-95">Total sales</p>
               <p className="text-2xl font-bold mt-1">{fmtNaira(ov.totalRevenue || 0)}</p>
@@ -316,7 +318,6 @@ export default function VendorDashboardPage() {
               </div>
             </div>
 
-            {/* ✅ Mood Tracker */}
             <Card className="p-4">
               <p className="text-sm font-extrabold text-biz-ink">How’s business today?</p>
 
@@ -379,7 +380,6 @@ export default function VendorDashboardPage() {
               )}
             </Card>
 
-            {/* Dispute warning */}
             {assistant && disputeLevel !== "none" ? (
               <Card className="p-4">
                 <div className="flex items-start gap-3">
@@ -403,7 +403,6 @@ export default function VendorDashboardPage() {
               </Card>
             ) : null}
 
-            {/* Risk Shield (quiet monitoring) */}
             {assistant && momentumPlan ? (
               riskShieldEnabled ? (
                 <Card className="p-4 border border-biz-line bg-white">
@@ -433,7 +432,6 @@ export default function VendorDashboardPage() {
               ) : null
             ) : null}
 
-            {/* Assistant */}
             {assistant ? (
               <SectionCard
                 title="Assistant"
