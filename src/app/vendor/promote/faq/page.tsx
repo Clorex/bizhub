@@ -148,7 +148,7 @@ export default function VendorHelpCenterPage() {
       },
       {
         q: "How do I make my products easier to find?",
-        a: "Use clear product names (e.g., "Men's Black Sneakers Size 42" instead of "Item 123").\n\nAdd categories and colors/sizes if applicable. This helps buyers find you faster.",
+        a: "Use clear product names (e.g., \"Men's Black Sneakers Size 42\" instead of \"Item 123\").\n\nAdd categories and colors/sizes if applicable. This helps buyers find you faster.",
       },
     ],
 
@@ -246,7 +246,7 @@ export default function VendorHelpCenterPage() {
       },
       {
         q: "How do I keep customers coming back?",
-        a: "Best practices:\n- Deliver on time (or update customers if delayed)\n- Message customers after delivery to say thank you\n- Use re-engagement to send follow-up messages\n- Offer loyalty discounts (e.g., "10% off your next order")\n- Keep adding new products so they have a reason to return",
+        a: "Best practices:\n- Deliver on time (or update customers if delayed)\n- Message customers after delivery to say thank you\n- Use re-engagement to send follow-up messages\n- Offer loyalty discounts (e.g., \"10% off your next order\")\n- Keep adding new products so they have a reason to return",
       },
     ],
 
