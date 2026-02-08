@@ -22,6 +22,13 @@ import {
 } from "@/lib/products/coverAspect";
 import { MARKET_CATEGORIES, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
 
+import { MarketFilterSheet } from "@/components/market/MarketFilterSheet";
+import { MarketSortSheet } from "@/components/market/MarketSortSheet";
+import { DEFAULT_MARKET_FILTERS, type MarketFilterState, type MarketSortKey } from "@/lib/market/filters/types";
+import { applyMarketProductFilters } from "@/lib/market/filters/apply";
+import { buildFashionFacets } from "@/lib/market/filters/facets";
+import { computeSalePriceNgn, saleBadgeText, saleIsActive } from "@/lib/market/sale";
+
 function fmtNaira(n: number) {
   try {
     return `₦${Number(n || 0).toLocaleString("en-NG")}`;
@@ -58,66 +65,13 @@ function tokensForSearch(q: string) {
   return out;
 }
 
-// ✅ Friendly tier labels (no more "Tier 1/2/3")
-function tierLabel(n: any) {
+// Buyer-friendly verification labels (replaces Basic/Standard/Premium confusion)
+function verificationLabel(n: any) {
   const t = Number(n || 0);
-  if (t >= 3) return "Premium";
-  if (t === 2) return "Standard";
-  if (t === 1) return "Basic";
-  return "New";
-}
-
-/** --- Sale helpers --- */
-function saleIsActive(p: any, now = Date.now()) {
-  if (p?.saleActive !== true) return false;
-
-  const start = Number(p?.saleStartsAtMs || 0);
-  const end = Number(p?.saleEndsAtMs || 0);
-
-  if (start && now < start) return false;
-  if (end && now > end) return false;
-
-  const t = String(p?.saleType || "");
-  return t === "percent" || t === "fixed";
-}
-
-function computeSalePriceNgn(p: any) {
-  const base = Number(p?.price || 0);
-  if (!Number.isFinite(base) || base <= 0) return 0;
-
-  if (!saleIsActive(p)) return Math.floor(base);
-
-  const t = String(p?.saleType || "");
-  if (t === "fixed") {
-    const off = Number(p?.saleAmountOffNgn || 0);
-    return Math.max(0, Math.floor(base - Math.max(0, off)));
-  }
-
-  const pct = Math.max(0, Math.min(90, Number(p?.salePercent || 0)));
-  const off = Math.floor((base * pct) / 100);
-  return Math.max(0, Math.floor(base - off));
-}
-
-function saleBadgeText(p: any) {
-  const t = String(p?.saleType || "");
-  if (t === "fixed") {
-    const off = Number(p?.saleAmountOffNgn || 0);
-    if (off > 0) return `${fmtNaira(off)} OFF`;
-    return "Sale";
-  }
-  const pct = Number(p?.salePercent || 0);
-  if (pct > 0) return `${pct}% OFF`;
-  return "Sale";
-}
-
-function marketRankScore(p: any) {
-  const base = Number(p?.marketScore || 0);
-
-  const apexBoost = p?.apexBadgeActive === true ? 2500 : 0;
-  const risk = Math.max(0, Math.min(100, Number(p?.apexRiskScore || 0) || 0));
-  const riskPenalty = risk * 6;
-
-  return base + apexBoost - riskPenalty;
+  if (t >= 3) return "Address verified";
+  if (t === 2) return "ID verified";
+  if (t === 1) return "Verified";
+  return "New seller";
 }
 
 function hasActiveSubscriptionBusiness(b: any) {
@@ -130,86 +84,210 @@ export default function MarketPage() {
 
   const [qText, setQText] = useState("");
   const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<DocumentData[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const [deals, setDeals] = useState<DocumentData[]>([]);
+  // Pools (raw candidates)
+  const [productsPool, setProductsPool] = useState<DocumentData[]>([]);
+  const [tokenHits, setTokenHits] = useState<Record<string, number> | null>(null);
+
+  const [dealsPool, setDealsPool] = useState<DocumentData[]>([]);
   const [dealsLoading, setDealsLoading] = useState(false);
 
-  const [stores, setStores] = useState<DocumentData[]>([]);
+  const [storesPool, setStoresPool] = useState<DocumentData[]>([]);
   const [storesLoading, setStoresLoading] = useState(false);
 
-  // filters
-  const [tierFilter, setTierFilter] = useState<number | null>(null);
-  const [stateFilter, setStateFilter] = useState<string>("");
-  const [cityFilter, setCityFilter] = useState<string>("");
+  // New filters + sort
+  const [filters, setFilters] = useState<MarketFilterState>(DEFAULT_MARKET_FILTERS);
+  const [sortKey, setSortKey] = useState<MarketSortKey>("recommended");
 
-  const [saleOnly, setSaleOnly] = useState(false);
-
-  const [categoryFilter, setCategoryFilter] = useState<MarketCategoryKey | null>(null);
-  const [apexOnly, setApexOnly] = useState(false);
-  const [colorFilter, setColorFilter] = useState("");
-  const [sizeFilter, setSizeFilter] = useState("");
+  // UI sheets
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
 
   const searchTokens = useMemo(() => tokensForSearch(qText), [qText]);
   const impressed = useRef(new Set<string>());
 
-  function applyMarketRules(list: any[], opts?: { tokenHits?: Map<string, number> }) {
-    const now = Date.now();
-    const colorNeedle = String(colorFilter || "").trim().toLowerCase();
-    const sizeNeedle = String(sizeFilter || "").trim().toLowerCase();
-
-    const filtered = list
-      .filter((p: any) => p?.marketEnabled !== false)
-      .filter((p: any) => !!p?.businessSlug)
-      .filter((p: any) => p?.businessHasActiveSubscription !== false)
-      .filter((p: any) => {
-        if (tierFilter == null) return true;
-        return Number(p?.marketTier || 0) === tierFilter;
-      })
-      .filter((p: any) => {
-        if (!stateFilter.trim()) return true;
-        return String(p?.businessState || "").toLowerCase().includes(stateFilter.trim().toLowerCase());
-      })
-      .filter((p: any) => {
-        if (!cityFilter.trim()) return true;
-        return String(p?.businessCity || "").toLowerCase().includes(cityFilter.trim().toLowerCase());
-      })
-      .filter((p: any) => {
-        if (!saleOnly) return true;
-        const isService = String(p?.listingType || "product") === "service";
-        const serviceMode = String(p?.serviceMode || "book");
-        const bookOnly = isService && serviceMode === "book";
-        if (bookOnly) return false;
-        return saleIsActive(p, now);
-      })
-      .filter((p: any) => {
-        if (!categoryFilter) return true;
-        const cats = Array.isArray(p?.categoryKeys) ? p.categoryKeys : [];
-        return cats.includes(categoryFilter);
-      })
-      .filter((p: any) => {
-        if (!apexOnly) return true;
-        return p?.apexBadgeActive === true;
-      })
-      .filter((p: any) => {
-        if (!colorNeedle) return true;
-        const colors = Array.isArray(p?.attrs?.colors) ? p.attrs.colors : [];
-        return colors.map((x: any) => String(x || "").toLowerCase()).includes(colorNeedle);
-      })
-      .filter((p: any) => {
-        if (!sizeNeedle) return true;
-        const sizes = Array.isArray(p?.attrs?.sizes) ? p.attrs.sizes : [];
-        return sizes.map((x: any) => String(x || "").toLowerCase()).includes(sizeNeedle);
-      });
-
-    return filtered.sort((a: any, b: any) => {
-      const ha = opts?.tokenHits?.get(String(a?.id || "")) || 0;
-      const hb = opts?.tokenHits?.get(String(b?.id || "")) || 0;
-      if (hb !== ha) return hb - ha;
-      return marketRankScore(b) - marketRankScore(a);
+  const items = useMemo(() => {
+    return applyMarketProductFilters({
+      products: productsPool,
+      filters,
+      sortKey,
+      tokenHits,
     });
-  }
+  }, [productsPool, filters, sortKey, tokenHits]);
+
+  const deals = useMemo(() => {
+    const forced: MarketFilterState = {
+      ...filters,
+      status: { ...filters.status, onSale: true },
+    };
+
+    const arr = applyMarketProductFilters({
+      products: dealsPool,
+      filters: forced,
+      sortKey: "recommended",
+      tokenHits: null,
+    });
+
+    return arr.filter((p: any) => saleIsActive(p)).slice(0, 12);
+  }, [dealsPool, filters]);
+
+  const stores = useMemo(() => {
+    const stNeed = String(filters.location.state || "").trim().toLowerCase();
+    const ctNeed = String(filters.location.city || "").trim().toLowerCase();
+
+    return (storesPool || [])
+      .filter((b: any) => !!String(b?.slug || "").trim())
+      .filter((b: any) => hasActiveSubscriptionBusiness(b))
+      .filter((b: any) => {
+        if (!stNeed) return true;
+        return String(b?.state || "").toLowerCase().includes(stNeed);
+      })
+      .filter((b: any) => {
+        if (!ctNeed) return true;
+        return String(b?.city || "").toLowerCase().includes(ctNeed);
+      })
+      .slice(0, 12);
+  }, [storesPool, filters.location.state, filters.location.city]);
+
+  const fashionFacets = useMemo(() => {
+    return buildFashionFacets(productsPool);
+  }, [productsPool]);
+
+  const searchingLabel = useMemo(() => {
+    if (!searchTokens.length) return "";
+    return searchTokens.join(", ");
+  }, [searchTokens]);
+
+  const hasAnyFilter = useMemo(() => {
+    const f = filters;
+    return !!(
+      f.category ||
+      f.location.state ||
+      f.location.city ||
+      f.price.min != null ||
+      f.price.max != null ||
+      f.price.quick ||
+      f.categorySpecific.color ||
+      f.categorySpecific.size ||
+      f.trust.verification !== "any" ||
+      f.trust.trustedBadgeOnly ||
+      f.status.onSale ||
+      f.status.newArrivals ||
+      f.status.availableNow ||
+      f.status.limitedStock
+    );
+  }, [filters]);
+
+  const filterChips = useMemo(() => {
+    const chips: { key: string; label: string; onRemove: () => void }[] = [];
+
+    if (filters.category) {
+      const lbl = MARKET_CATEGORIES.find((c) => c.key === filters.category)?.label || filters.category;
+      chips.push({
+        key: "cat",
+        label: `Category: ${lbl}`,
+        onRemove: () => setFilters((s) => ({ ...s, category: null, categorySpecific: { color: null, size: null } })),
+      });
+    }
+
+    if (filters.location.state) {
+      chips.push({
+        key: "state",
+        label: `State: ${filters.location.state}`,
+        onRemove: () => setFilters((s) => ({ ...s, location: { state: null, city: null } })),
+      });
+    }
+
+    if (filters.location.city) {
+      chips.push({
+        key: "city",
+        label: `Area: ${filters.location.city}`,
+        onRemove: () => setFilters((s) => ({ ...s, location: { ...s.location, city: null } })),
+      });
+    }
+
+    if (filters.price.min != null || filters.price.max != null) {
+      const min = filters.price.min != null ? `₦${filters.price.min.toLocaleString("en-NG")}` : "₦0";
+      const max = filters.price.max != null ? `₦${filters.price.max.toLocaleString("en-NG")}` : "Any";
+      chips.push({
+        key: "price",
+        label: `Price: ${min} – ${max}`,
+        onRemove: () => setFilters((s) => ({ ...s, price: { min: null, max: null, quick: null } })),
+      });
+    }
+
+    if (filters.category === "fashion" && filters.categorySpecific.color) {
+      chips.push({
+        key: "color",
+        label: `Color: ${filters.categorySpecific.color}`,
+        onRemove: () => setFilters((s) => ({ ...s, categorySpecific: { ...s.categorySpecific, color: null } })),
+      });
+    }
+
+    if (filters.category === "fashion" && filters.categorySpecific.size) {
+      chips.push({
+        key: "size",
+        label: `Size: ${filters.categorySpecific.size}`,
+        onRemove: () => setFilters((s) => ({ ...s, categorySpecific: { ...s.categorySpecific, size: null } })),
+      });
+    }
+
+    if (filters.trust.verification !== "any") {
+      chips.push({
+        key: "verify",
+        label:
+          filters.trust.verification === "verified"
+            ? "Verified sellers"
+            : filters.trust.verification === "id_verified"
+              ? "ID-verified sellers"
+              : "Address-verified sellers",
+        onRemove: () => setFilters((s) => ({ ...s, trust: { ...s.trust, verification: "any" } })),
+      });
+    }
+
+    if (filters.trust.trustedBadgeOnly) {
+      chips.push({
+        key: "badge",
+        label: "Trusted badge sellers",
+        onRemove: () => setFilters((s) => ({ ...s, trust: { ...s.trust, trustedBadgeOnly: false } })),
+      });
+    }
+
+    if (filters.status.onSale) {
+      chips.push({
+        key: "sale",
+        label: "On sale",
+        onRemove: () => setFilters((s) => ({ ...s, status: { ...s.status, onSale: false } })),
+      });
+    }
+
+    if (filters.status.newArrivals) {
+      chips.push({
+        key: "new",
+        label: "New arrivals",
+        onRemove: () => setFilters((s) => ({ ...s, status: { ...s.status, newArrivals: false } })),
+      });
+    }
+
+    if (filters.status.availableNow) {
+      chips.push({
+        key: "avail",
+        label: "Available now",
+        onRemove: () => setFilters((s) => ({ ...s, status: { ...s.status, availableNow: false } })),
+      });
+    }
+
+    if (filters.status.limitedStock) {
+      chips.push({
+        key: "limited",
+        label: "Limited stock",
+        onRemove: () => setFilters((s) => ({ ...s, status: { ...s.status, limitedStock: false } })),
+      });
+    }
+
+    return chips;
+  }, [filters]);
 
   async function loadDeals() {
     setDealsLoading(true);
@@ -217,11 +295,9 @@ export default function MarketPage() {
       const qRef = query(collection(db, "products"), where("saleMarketBoost", "==", true), limit(120));
       const snap = await getDocs(qRef);
       const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-      const filtered = applyMarketRules(rows).filter((p: any) => saleIsActive(p));
-      setDeals(filtered.slice(0, 12));
+      setDealsPool(rows);
     } catch {
-      setDeals([]);
+      setDealsPool([]);
     } finally {
       setDealsLoading(false);
     }
@@ -230,8 +306,9 @@ export default function MarketPage() {
   async function loadTrending() {
     setLoading(true);
     setMsg(null);
-    setStores([]);
+    setStoresPool([]);
     setStoresLoading(false);
+    setTokenHits(null);
 
     try {
       const boostedRef = query(
@@ -256,28 +333,10 @@ export default function MarketPage() {
         merged.push(p);
       }
 
-      const filtered = applyMarketRules(merged);
-      setItems(filtered);
-
-      const events = filtered
-        .slice(0, 40)
-        .filter((p: any) => p?.businessId && p?.id)
-        .filter((p: any) => {
-          if (impressed.current.has(p.id)) return false;
-          impressed.current.add(p.id);
-          return true;
-        })
-        .map((p: any) => ({
-          type: "market_impression" as const,
-          businessId: String(p.businessId),
-          businessSlug: String(p.businessSlug || ""),
-          productId: String(p.id),
-        }));
-
-      trackBatch(events);
+      setProductsPool(merged);
     } catch (e: any) {
       setMsg(e?.message || "Could not load marketplace. Please try again.");
-      setItems([]);
+      setProductsPool([]);
     } finally {
       setLoading(false);
     }
@@ -286,36 +345,18 @@ export default function MarketPage() {
   async function loadByCategory(cat: MarketCategoryKey) {
     setLoading(true);
     setMsg(null);
-    setStores([]);
+    setStoresPool([]);
     setStoresLoading(false);
+    setTokenHits(null);
 
     try {
       const qRef = query(collection(db, "products"), where("categoryKeys", "array-contains", cat), limit(180));
       const snap = await getDocs(qRef);
       const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-
-      const filtered = applyMarketRules(rows);
-      setItems(filtered);
-
-      const events = filtered
-        .slice(0, 40)
-        .filter((p: any) => p?.businessId && p?.id)
-        .filter((p: any) => {
-          if (impressed.current.has(p.id)) return false;
-          impressed.current.add(p.id);
-          return true;
-        })
-        .map((p: any) => ({
-          type: "market_impression" as const,
-          businessId: String(p.businessId),
-          businessSlug: String(p.businessSlug || ""),
-          productId: String(p.id),
-        }));
-
-      trackBatch(events);
+      setProductsPool(rows);
     } catch (e: any) {
       setMsg(e?.message || "Could not load this category. Please try again.");
-      setItems([]);
+      setProductsPool([]);
     } finally {
       setLoading(false);
     }
@@ -325,7 +366,7 @@ export default function MarketPage() {
     const tokens = tokensForSearch(qText);
 
     if (!tokens.length) {
-      if (categoryFilter) return loadByCategory(categoryFilter);
+      if (filters.category) return loadByCategory(filters.category);
       return loadTrending();
     }
 
@@ -334,7 +375,8 @@ export default function MarketPage() {
     setMsg(null);
 
     try {
-      const tokenHits = new Map<string, number>();
+      // Products
+      const hits: Record<string, number> = {};
       const productMap = new Map<string, any>();
 
       const productSnaps = await Promise.all(
@@ -344,32 +386,15 @@ export default function MarketPage() {
       for (const snap of productSnaps) {
         for (const d of snap.docs) {
           const id = d.id;
-          tokenHits.set(id, (tokenHits.get(id) || 0) + 1);
+          hits[id] = (hits[id] || 0) + 1;
           if (!productMap.has(id)) productMap.set(id, { id, ...d.data() });
         }
       }
 
-      const mergedProducts = Array.from(productMap.values());
-      const filteredProducts = applyMarketRules(mergedProducts, { tokenHits });
-      setItems(filteredProducts);
+      setTokenHits(hits);
+      setProductsPool(Array.from(productMap.values()));
 
-      const events = filteredProducts
-        .slice(0, 40)
-        .filter((p: any) => p?.businessId && p?.id)
-        .filter((p: any) => {
-          if (impressed.current.has(p.id)) return false;
-          impressed.current.add(p.id);
-          return true;
-        })
-        .map((p: any) => ({
-          type: "market_impression" as const,
-          businessId: String(p.businessId),
-          businessSlug: String(p.businessSlug || ""),
-          productId: String(p.id),
-        }));
-      trackBatch(events);
-
-      const storeHits = new Map<string, number>();
+      // Vendors
       const storeMap = new Map<string, any>();
 
       const storeSnaps = await Promise.all(
@@ -379,35 +404,16 @@ export default function MarketPage() {
       for (const snap of storeSnaps) {
         for (const d of snap.docs) {
           const id = d.id;
-          storeHits.set(id, (storeHits.get(id) || 0) + 1);
           if (!storeMap.has(id)) storeMap.set(id, { id, ...d.data() });
         }
       }
 
-      const mergedStores = Array.from(storeMap.values())
-        .filter((b: any) => !!String(b?.slug || "").trim())
-        .filter((b: any) => hasActiveSubscriptionBusiness(b))
-        .filter((b: any) => {
-          if (!stateFilter.trim()) return true;
-          return String(b?.state || "").toLowerCase().includes(stateFilter.trim().toLowerCase());
-        })
-        .filter((b: any) => {
-          if (!cityFilter.trim()) return true;
-          return String(b?.city || "").toLowerCase().includes(cityFilter.trim().toLowerCase());
-        })
-        .sort((a: any, b: any) => {
-          const ha = storeHits.get(String(a?.id || "")) || 0;
-          const hb = storeHits.get(String(b?.id || "")) || 0;
-          if (hb !== ha) return hb - ha;
-          return String(a?.name || "").localeCompare(String(b?.name || ""));
-        })
-        .slice(0, 12);
-
-      setStores(mergedStores);
+      setStoresPool(Array.from(storeMap.values()));
     } catch (e: any) {
       setMsg(e?.message || "Could not search. Please try again.");
-      setItems([]);
-      setStores([]);
+      setProductsPool([]);
+      setStoresPool([]);
+      setTokenHits(null);
     } finally {
       setLoading(false);
       setStoresLoading(false);
@@ -421,15 +427,32 @@ export default function MarketPage() {
   }, []);
 
   useEffect(() => {
-    setItems((prev) => applyMarketRules(prev));
-    setDeals((prev) => applyMarketRules(prev).filter((p: any) => saleIsActive(p)).slice(0, 12));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tierFilter, stateFilter, cityFilter, saleOnly, categoryFilter, apexOnly, colorFilter, sizeFilter]);
-
-  useEffect(() => {
     loadDeals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryFilter]);
+  }, [filters.category]);
+
+  useEffect(() => {
+    try {
+      const events = items
+        .slice(0, 40)
+        .filter((p: any) => p?.businessId && p?.id)
+        .filter((p: any) => {
+          if (impressed.current.has(p.id)) return false;
+          impressed.current.add(p.id);
+          return true;
+        })
+        .map((p: any) => ({
+          type: "market_impression" as const,
+          businessId: String(p.businessId),
+          businessSlug: String(p.businessSlug || ""),
+          productId: String(p.id),
+        }));
+
+      if (events.length) trackBatch(events);
+    } catch {
+      // ignore
+    }
+  }, [items]);
 
   function openProduct(p: any) {
     const slug = String(p?.businessSlug || "");
@@ -469,7 +492,9 @@ export default function MarketPage() {
     return (
       <button key={p.id} onClick={() => openProduct(p)} className="text-left">
         <Card className="p-3 hover:bg-black/[0.02] transition">
-          <div className={`${aspectClass} w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
+          <div
+            className={`${aspectClass} w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}
+          >
             {img ? (
               <CloudImage
                 src={img}
@@ -486,7 +511,7 @@ export default function MarketPage() {
             {apexBadgeActive ? (
               <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 inline-flex items-center gap-1">
                 <BadgeCheck className="h-3.5 w-3.5" />
-                Verified
+                Trusted badge
               </div>
             ) : boosted ? (
               <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5 inline-flex items-center gap-1">
@@ -497,12 +522,12 @@ export default function MarketPage() {
 
             {onSale ? (
               <div className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                {saleBadgeText(p)}
+                {saleBadgeText(p, fmtNaira)}
               </div>
             ) : null}
 
             <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5">
-              {tierLabel(tier)}
+              {verificationLabel(tier)}
             </div>
           </div>
 
@@ -552,22 +577,6 @@ export default function MarketPage() {
     );
   }
 
-  const searchingLabel = useMemo(() => {
-    if (!searchTokens.length) return "";
-    return searchTokens.join(", ");
-  }, [searchTokens]);
-
-  const hasAnyFilter = !!(
-    tierFilter != null ||
-    stateFilter.trim() ||
-    cityFilter.trim() ||
-    saleOnly ||
-    categoryFilter ||
-    apexOnly ||
-    colorFilter.trim() ||
-    sizeFilter.trim()
-  );
-
   return (
     <div className="min-h-screen">
       <div className="relative">
@@ -581,14 +590,21 @@ export default function MarketPage() {
               <p className="text-xs text-biz-muted mt-1">Discover products & vendors</p>
             </div>
 
-            <Link href="/cart" className="rounded-2xl border border-biz-line bg-white px-4 py-2 text-xs font-bold shadow-soft">
+            <Link
+              href="/cart"
+              className="rounded-2xl border border-biz-line bg-white px-4 py-2 text-xs font-bold shadow-soft"
+            >
               Cart
             </Link>
           </div>
 
           <Card className="p-3 mt-4">
             <div className="flex gap-2">
-              <Input placeholder="Search products, services, vendors…" value={qText} onChange={(e) => setQText(e.target.value)} />
+              <Input
+                placeholder="Search products, services, vendors…"
+                value={qText}
+                onChange={(e) => setQText(e.target.value)}
+              />
               <Button size="sm" onClick={runSearch} disabled={loading}>
                 Search
               </Button>
@@ -599,11 +615,11 @@ export default function MarketPage() {
                 <>
                   Searching: <b className="text-biz-ink">{searchingLabel}</b>
                 </>
-              ) : categoryFilter ? (
+              ) : filters.category ? (
                 <>
                   Category:{" "}
                   <b className="text-biz-ink">
-                    {MARKET_CATEGORIES.find((c) => c.key === categoryFilter)?.label || categoryFilter}
+                    {MARKET_CATEGORIES.find((c) => c.key === filters.category)?.label || filters.category}
                   </b>
                 </>
               ) : (
@@ -613,57 +629,29 @@ export default function MarketPage() {
           </Card>
 
           <Card className="p-3 mt-3">
-            <p className="text-xs font-bold text-gray-500 uppercase">Filters</p>
-
-            <div className="mt-2 flex gap-2 flex-wrap">
-              {[null, 1, 2, 3].map((t) => (
-                <Chip key={String(t)} active={tierFilter === t} onClick={() => setTierFilter(t as any)}>
-                  {t == null ? "All sellers" : tierLabel(t)}
-                </Chip>
-              ))}
-
-              <Chip active={saleOnly} onClick={() => setSaleOnly((v) => !v)}>
-                On sale
-              </Chip>
-
-              <Chip active={apexOnly} onClick={() => setApexOnly((v) => !v)}>
-                Verified
-              </Chip>
-
-              {categoryFilter ? (
-                <Chip active={true} onClick={() => setCategoryFilter(null)}>
-                  {MARKET_CATEGORIES.find((c) => c.key === categoryFilter)?.label || categoryFilter} ✕
-                </Chip>
-              ) : null}
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="secondary" size="sm" onClick={() => setFilterOpen(true)}>
+                Filters
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setSortOpen(true)}>
+                Sort
+              </Button>
             </div>
 
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Input placeholder="State (optional)" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} />
-              <Input placeholder="City (optional)" value={cityFilter} onChange={(e) => setCityFilter(e.target.value)} />
-            </div>
-
-            <div className="mt-2 grid grid-cols-2 gap-2">
-              <Input placeholder="Color e.g. black" value={colorFilter} onChange={(e) => setColorFilter(e.target.value)} />
-              <Input placeholder="Size e.g. 41 / XL" value={sizeFilter} onChange={(e) => setSizeFilter(e.target.value)} />
-            </div>
+            {filterChips.length ? (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {filterChips.map((c) => (
+                  <Chip key={c.key} active onClick={c.onRemove}>
+                    {c.label} ✕
+                  </Chip>
+                ))}
+              </div>
+            ) : null}
 
             {hasAnyFilter ? (
-              <div className="mt-2">
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => {
-                    setTierFilter(null);
-                    setStateFilter("");
-                    setCityFilter("");
-                    setSaleOnly(false);
-                    setCategoryFilter(null);
-                    setApexOnly(false);
-                    setColorFilter("");
-                    setSizeFilter("");
-                  }}
-                >
-                  Clear all filters
+              <div className="mt-3">
+                <Button variant="secondary" size="sm" onClick={() => setFilters(DEFAULT_MARKET_FILTERS)}>
+                  Clear all
                 </Button>
               </div>
             ) : null}
@@ -674,16 +662,12 @@ export default function MarketPage() {
       <div className="px-4 pb-24 space-y-3">
         <Card className="p-4">
           <p className="font-bold text-biz-ink">Hot deals</p>
-          <p className="text-[11px] text-biz-muted mt-1">Discounts from top vendors</p>
+          <p className="text-[11px] text-biz-muted mt-1">Discounts from trusted vendors</p>
 
           {dealsLoading ? (
             <p className="text-sm text-biz-muted mt-3">Loading…</p>
           ) : deals.length === 0 ? (
-            <EmptyState
-              title="No deals right now"
-              description="Check back soon for discounts from verified vendors."
-              className="mt-3"
-            />
+            <EmptyState title="No deals right now" description="Check back soon for discounts." className="mt-3" />
           ) : (
             <div className="mt-3 grid grid-cols-2 gap-3 items-start">{deals.slice(0, 6).map((p: any) => renderCard(p))}</div>
           )}
@@ -695,12 +679,16 @@ export default function MarketPage() {
 
           <div className="mt-3 grid grid-cols-3 gap-2">
             {MARKET_CATEGORIES.filter((c) => c.key !== "other").map((c) => {
-              const active = categoryFilter === c.key;
+              const active = filters.category === c.key;
               return (
                 <button
                   key={c.key}
                   onClick={() => {
-                    setCategoryFilter((prev) => (prev === c.key ? null : c.key));
+                    setFilters((s) => ({
+                      ...s,
+                      category: s.category === c.key ? null : c.key,
+                      categorySpecific: { color: null, size: null },
+                    }));
                     setTimeout(runSearch, 0);
                   }}
                   className={
@@ -709,7 +697,9 @@ export default function MarketPage() {
                       : "rounded-2xl border border-biz-line bg-white p-3 text-left hover:bg-black/[0.02] transition"
                   }
                 >
-                  <p className={active ? "text-sm font-bold text-biz-accent" : "text-sm font-bold text-biz-ink"}>{c.label}</p>
+                  <p className={active ? "text-sm font-bold text-biz-accent" : "text-sm font-bold text-biz-ink"}>
+                    {c.label}
+                  </p>
                   <p className="text-[11px] text-biz-muted mt-1">{c.hint}</p>
                 </button>
               );
@@ -725,11 +715,7 @@ export default function MarketPage() {
             {storesLoading ? (
               <p className="text-sm text-biz-muted mt-3">Loading…</p>
             ) : stores.length === 0 ? (
-              <EmptyState
-                title="No vendors found"
-                description="Try a different keyword or check product results below."
-                className="mt-3"
-              />
+              <EmptyState title="No vendors found" description="Try a different keyword or check product results below." className="mt-3" />
             ) : (
               <div className="mt-3 grid grid-cols-1 gap-2">{stores.map((b: any) => renderStoreCard(b))}</div>
             )}
@@ -746,14 +732,8 @@ export default function MarketPage() {
             description="Try a different search term or adjust your filters."
             ctaLabel="Clear filters"
             onCta={() => {
-              setTierFilter(null);
-              setStateFilter("");
-              setCityFilter("");
-              setSaleOnly(false);
-              setCategoryFilter(null);
-              setApexOnly(false);
-              setColorFilter("");
-              setSizeFilter("");
+              setFilters(DEFAULT_MARKET_FILTERS);
+              setSortKey("recommended");
               setQText("");
               loadTrending();
             }}
@@ -762,6 +742,23 @@ export default function MarketPage() {
           <div className="grid grid-cols-2 gap-3 items-start">{items.map((p: any) => renderCard(p))}</div>
         )}
       </div>
+
+      {/* Sheets */}
+      <MarketFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        value={filters}
+        onApply={(v) => setFilters(v)}
+        resultCount={items.length}
+        fashionFacets={fashionFacets}
+      />
+
+      <MarketSortSheet
+        open={sortOpen}
+        onClose={() => setSortOpen(false)}
+        value={sortKey}
+        onChange={(v) => setSortKey(v)}
+      />
     </div>
   );
 }
