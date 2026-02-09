@@ -1,5 +1,5 @@
 import * as React from "react";
-import { Html, Head, Preview, Body, Container, Section, Heading, Text, Row, Column, Img } from "@react-email/components";
+import { Html, Head, Preview, Body, Container, Section, Heading, Text, Row, Column } from "@react-email/components";
 
 // Helper to format currency
 function fmtNaira(n: number) {
@@ -26,123 +26,123 @@ interface OrderReceiptEmailProps {
   };
 }
 
-export const OrderReceiptEmail: React.FC<Readonly<OrderReceiptEmailProps>> = ({
+// CHANGED: From a const arrow function to a standard function declaration to fix type error.
+export function OrderReceiptEmail({
   orderId,
   orderDate,
   storeName,
-  customerName,
   items,
   pricing,
-}) => (
-  <Html>
-    <Head />
-    <Preview>Your {storeName} Order Receipt #{orderId.slice(0, 8)}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Section style={header}>
-          <Heading style={heading}>Thank you for your order!</Heading>
-          <Text style={subheading}>
-            Here is your receipt for order #{orderId.slice(0, 8)} from {storeName}.
-          </Text>
-        </Section>
+}: Readonly<OrderReceiptEmailProps>) {
+  return (
+    <Html>
+      <Head />
+      <Preview>Your {storeName} Order Receipt #{orderId.slice(0, 8)}</Preview>
+      <Body style={main}>
+        <Container style={container}>
+          <Section style={header}>
+            <Heading style={heading}>Thank you for your order!</Heading>
+            <Text style={subheading}>
+              Here is your receipt for order #{orderId.slice(0, 8)} from {storeName}.
+            </Text>
+          </Section>
 
-        <Section style={box}>
-          <Row>
-            <Column>
-              <Text style={label}>Order ID</Text>
-              <Text style={value}>{orderId}</Text>
-            </Column>
-            <Column style={{ textAlign: "right" }}>
-              <Text style={label}>Order Date</Text>
-              <Text style={value}>{orderDate}</Text>
-            </Column>
-          </Row>
-        </Section>
-
-        <Section style={box}>
-          <Heading as="h2" style={sectionHeading}>
-            Items
-          </Heading>
-          {items.map((item, idx) => (
-            <Row key={idx} style={itemRow}>
+          <Section style={box}>
+            <Row>
               <Column>
-                <Text style={itemText}>
-                  {item.qty} x {item.name}
-                </Text>
-                {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
-                  <Text style={itemOptions}>
-                    {Object.entries(item.selectedOptions)
-                      .map(([k, v]) => `${k}: ${v}`)
-                      .join(", ")}
+                <Text style={label}>Order ID</Text>
+                <Text style={value}>{orderId}</Text>
+              </Column>
+              <Column style={{ textAlign: "right" }}>
+                <Text style={label}>Order Date</Text>
+                <Text style={value}>{orderDate}</Text>
+              </Column>
+            </Row>
+          </Section>
+
+          <Section style={box}>
+            <Heading as="h2" style={sectionHeading}>
+              Items
+            </Heading>
+            {items.map((item, idx) => (
+              <Row key={idx} style={itemRow}>
+                <Column>
+                  <Text style={itemText}>
+                    {item.qty} x {item.name}
                   </Text>
-                )}
-              </Column>
-              <Column style={{ textAlign: "right" }}>
-                <Text style={itemText}>{fmtNaira(item.price * item.qty)}</Text>
-              </Column>
-            </Row>
-          ))}
-        </Section>
+                  {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                    <Text style={itemOptions}>
+                      {Object.entries(item.selectedOptions)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(", ")}
+                    </Text>
+                  )}
+                </Column>
+                <Column style={{ textAlign: "right" }}>
+                  <Text style={itemText}>{fmtNaira(item.price * item.qty)}</Text>
+                </Column>
+              </Row>
+            ))}
+          </Section>
 
-        <Section style={box}>
-          <Heading as="h2" style={sectionHeading}>
-            Summary
-          </Heading>
-          <Row style={summaryRow}>
-            <Column>
-              <Text style={summaryLabel}>Subtotal</Text>
-            </Column>
-            <Column style={{ textAlign: "right" }}>
-              <Text style={summaryValue}>{fmtNaira(pricing.originalSubtotalKobo / 100)}</Text>
-            </Column>
-          </Row>
-          {pricing.saleDiscountKobo > 0 && (
+          <Section style={box}>
+            <Heading as="h2" style={sectionHeading}>
+              Summary
+            </Heading>
             <Row style={summaryRow}>
               <Column>
-                <Text style={summaryLabel}>Sale Discount</Text>
+                <Text style={summaryLabel}>Subtotal</Text>
               </Column>
               <Column style={{ textAlign: "right" }}>
-                <Text style={summaryValue}>-{fmtNaira(pricing.saleDiscountKobo / 100)}</Text>
+                <Text style={summaryValue}>{fmtNaira(pricing.originalSubtotalKobo / 100)}</Text>
               </Column>
             </Row>
-          )}
-          {pricing.couponDiscountKobo > 0 && (
+            {pricing.saleDiscountKobo > 0 && (
+              <Row style={summaryRow}>
+                <Column>
+                  <Text style={summaryLabel}>Sale Discount</Text>
+                </Column>
+                <Column style={{ textAlign: "right" }}>
+                  <Text style={summaryValue}>-{fmtNaira(pricing.saleDiscountKobo / 100)}</Text>
+                </Column>
+              </Row>
+            )}
+            {pricing.couponDiscountKobo > 0 && (
+              <Row style={summaryRow}>
+                <Column>
+                  <Text style={summaryLabel}>Coupon Discount</Text>
+                </Column>
+                <Column style={{ textAlign: "right" }}>
+                  <Text style={summaryValue}>-{fmtNaira(pricing.couponDiscountKobo / 100)}</Text>
+                </Column>
+              </Row>
+            )}
             <Row style={summaryRow}>
               <Column>
-                <Text style={summaryLabel}>Coupon Discount</Text>
+                <Text style={summaryLabel}>Shipping</Text>
               </Column>
               <Column style={{ textAlign: "right" }}>
-                <Text style={summaryValue}>-{fmtNaira(pricing.couponDiscountKobo / 100)}</Text>
+                <Text style={summaryValue}>{fmtNaira(pricing.shippingFeeKobo / 100)}</Text>
               </Column>
             </Row>
-          )}
-          <Row style={summaryRow}>
-            <Column>
-              <Text style={summaryLabel}>Shipping</Text>
-            </Column>
-            <Column style={{ textAlign: "right" }}>
-              <Text style={summaryValue}>{fmtNaira(pricing.shippingFeeKobo / 100)}</Text>
-            </Column>
-          </Row>
-          <hr style={hr} />
-          <Row style={summaryRow}>
-            <Column>
-              <Text style={totalLabel}>Total Paid</Text>
-            </Column>
-            <Column style={{ textAlign: "right" }}>
-              <Text style={totalValue}>{fmtNaira(pricing.totalKobo / 100)}</Text>
-            </Column>
-          </Row>
-        </Section>
-        <Text style={footer}>
-          myBizHub • If you have any questions, please contact the vendor directly.
-        </Text>
-      </Container>
-    </Body>
-  </Html>
-);
-
-export default OrderReceiptEmail;
+            <hr style={hr} />
+            <Row style={summaryRow}>
+              <Column>
+                <Text style={totalLabel}>Total Paid</Text>
+              </Column>
+              <Column style={{ textAlign: "right" }}>
+                <Text style={totalValue}>{fmtNaira(pricing.totalKobo / 100)}</Text>
+              </Column>
+            </Row>
+          </Section>
+          <Text style={footer}>
+            myBizHub • If you have any questions, please contact the vendor directly.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
 
 // Styles
 const main = { backgroundColor: "#f6f9fc", fontFamily: "Arial, sans-serif" };
