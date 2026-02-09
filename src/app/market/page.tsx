@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase/client";
 import { BadgeCheck, Sparkles } from "lucide-react";
@@ -21,8 +22,6 @@ import {
   type CoverAspectKey,
 } from "@/lib/products/coverAspect";
 import { MARKET_CATEGORIES, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
-
-import { BrandLogo } from "@/components/brand/BrandLogo";
 
 import { MarketFilterSheet } from "@/components/market/MarketFilterSheet";
 import { MarketSortSheet } from "@/components/market/MarketSortSheet";
@@ -67,7 +66,6 @@ function tokensForSearch(q: string) {
   return out;
 }
 
-// Buyer-friendly verification labels (replaces Basic/Standard/Premium confusion)
 function verificationLabel(n: any) {
   const t = Number(n || 0);
   if (t >= 3) return "Address verified";
@@ -98,7 +96,7 @@ export default function MarketPage() {
   const [storesPool, setStoresPool] = useState<DocumentData[]>([]);
   const [storesLoading, setStoresLoading] = useState(false);
 
-  // New filters + sort
+  // Filters + sort
   const [filters, setFilters] = useState<MarketFilterState>(DEFAULT_MARKET_FILTERS);
   const [sortKey, setSortKey] = useState<MarketSortKey>("recommended");
 
@@ -152,14 +150,9 @@ export default function MarketPage() {
       .slice(0, 12);
   }, [storesPool, filters.location.state, filters.location.city]);
 
-  const fashionFacets = useMemo(() => {
-    return buildFashionFacets(productsPool);
-  }, [productsPool]);
+  const fashionFacets = useMemo(() => buildFashionFacets(productsPool), [productsPool]);
 
-  const searchingLabel = useMemo(() => {
-    if (!searchTokens.length) return "";
-    return searchTokens.join(", ");
-  }, [searchTokens]);
+  const searchingLabel = useMemo(() => (searchTokens.length ? searchTokens.join(", ") : ""), [searchTokens]);
 
   const hasAnyFilter = useMemo(() => {
     const f = filters;
@@ -377,7 +370,6 @@ export default function MarketPage() {
     setMsg(null);
 
     try {
-      // Products
       const hits: Record<string, number> = {};
       const productMap = new Map<string, any>();
 
@@ -396,22 +388,16 @@ export default function MarketPage() {
       setTokenHits(hits);
       setProductsPool(Array.from(productMap.values()));
 
-      // Vendors
       const storeMap = new Map<string, any>();
-
       const storeSnaps = await Promise.all(
-        tokens.map((t) =>
-          getDocs(query(collection(db, "businesses"), where("searchKeywords", "array-contains", t), limit(40)))
-        )
+        tokens.map((t) => getDocs(query(collection(db, "businesses"), where("searchKeywords", "array-contains", t), limit(40))))
       );
-
       for (const snap of storeSnaps) {
         for (const d of snap.docs) {
           const id = d.id;
           if (!storeMap.has(id)) storeMap.set(id, { id, ...d.data() });
         }
       }
-
       setStoresPool(Array.from(storeMap.values()));
     } catch (e: any) {
       setMsg(e?.message || "Could not search. Please try again.");
@@ -496,9 +482,7 @@ export default function MarketPage() {
     return (
       <button key={p.id} onClick={() => openProduct(p)} className="text-left">
         <Card className="p-3 hover:bg-black/[0.02] transition">
-          <div
-            className={`${aspectClass} w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}
-          >
+          <div className={`${aspectClass} w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
             {img ? (
               <CloudImage
                 src={img}
@@ -585,15 +569,22 @@ export default function MarketPage() {
     <div className="min-h-screen">
       <div className="relative">
         <div className="h-2 w-full bg-gradient-to-r from-biz-accent2 to-biz-accent" />
+
         <div className="px-4 pt-5 pb-5 bg-gradient-to-b from-biz-sand to-biz-bg">
           <div className="flex items-center justify-between gap-3">
-            {/* Brand (logo + name) */}
-            <div className="flex items-center gap-3 min-w-0">
-              <BrandLogo size={34} priority />
-              <div className="min-w-0">
-                <p className="text-lg font-bold text-biz-ink leading-tight">myBizHub</p>
-                <p className="text-xs text-biz-muted mt-0.5">Discover products & vendors</p>
+            <div className="min-w-0">
+              <div className="ml-0.5 sm:ml-1 relative h-20 w-full max-w-[780px] sm:h-24 sm:max-w-[980px] overflow-hidden">
+                <Image
+                  src="/brand/logo-transparent.png"
+                  alt="myBizHub"
+                  fill
+                  priority
+                  className="object-contain object-left scale-[1.8] origin-left"
+                  sizes="(max-width: 430px) 780px, 980px"
+                />
               </div>
+
+              <p className="text-xs text-biz-muted mt-1">Discover products & vendors</p>
             </div>
 
             <Link
@@ -606,11 +597,7 @@ export default function MarketPage() {
 
           <Card className="p-3 mt-4">
             <div className="flex gap-2">
-              <Input
-                placeholder="Search products, services, vendors…"
-                value={qText}
-                onChange={(e) => setQText(e.target.value)}
-              />
+              <Input placeholder="Search products, services, vendors…" value={qText} onChange={(e) => setQText(e.target.value)} />
               <Button size="sm" onClick={runSearch} disabled={loading}>
                 Search
               </Button>
@@ -675,9 +662,7 @@ export default function MarketPage() {
           ) : deals.length === 0 ? (
             <EmptyState title="No deals right now" description="Check back soon for discounts." className="mt-3" />
           ) : (
-            <div className="mt-3 grid grid-cols-2 gap-3 items-start">
-              {deals.slice(0, 6).map((p: any) => renderCard(p))}
-            </div>
+            <div className="mt-3 grid grid-cols-2 gap-3 items-start">{deals.slice(0, 6).map((p: any) => renderCard(p))}</div>
           )}
         </Card>
 
@@ -705,9 +690,7 @@ export default function MarketPage() {
                       : "rounded-2xl border border-biz-line bg-white p-3 text-left hover:bg-black/[0.02] transition"
                   }
                 >
-                  <p className={active ? "text-sm font-bold text-biz-accent" : "text-sm font-bold text-biz-ink"}>
-                    {c.label}
-                  </p>
+                  <p className={active ? "text-sm font-bold text-biz-accent" : "text-sm font-bold text-biz-ink"}>{c.label}</p>
                   <p className="text-[11px] text-biz-muted mt-1">{c.hint}</p>
                 </button>
               );
