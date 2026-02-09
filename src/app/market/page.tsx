@@ -8,7 +8,7 @@ import { db } from "@/lib/firebase/client";
 import { BadgeCheck, Sparkles, Plus } from "lucide-react";
 import { collection, getDocs, limit, orderBy, query, where, type DocumentData } from "firebase/firestore";
 
-import { useCartStore } from "@/store/cart"; 
+import { useCart } from "@/lib/cart/CartContext"; 
 
 import { Card } from "@/components/Card";
 import { Input } from "@/components/ui/Input";
@@ -83,14 +83,14 @@ function hasActiveSubscriptionBusiness(b: any) {
 
 export default function MarketPage() {
   const router = useRouter();
-  const addProduct = useCartStore((s) => s.addProduct);
+  const { addToCart } = useCart();
 
   const [qText, setQText] = useState("");
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
   // Pools (raw candidates)
-  const [productsPool, setProductsPool] = useState<DocumentData[]>([];
+  const [productsPool, setProductsPool] = useState<DocumentData[]>([]);
   const [tokenHits, setTokenHits] = useState<Record<string, number> | null>(null);
 
   const [dealsPool, setDealsPool] = useState<DocumentData[]>([]);
@@ -465,14 +465,12 @@ export default function MarketPage() {
 
   function handleAddToCart(e: React.MouseEvent, p: any) {
     e.stopPropagation();
-    addProduct({
-      id: p.id,
+    addToCart(p.businessSlug, {
+      productId: p.id,
       name: p.name,
       price: saleIsActive(p) ? computeSalePriceNgn(p) : p.price,
-      quantity: 1,
-      image: Array.isArray(p?.images) ? p.images[0] : "",
-      businessId: p.businessId,
-      businessSlug: p.businessSlug,
+      imageUrl: Array.isArray(p?.images) ? p.images[0] : "",
+      selectedOptions: null, // You would pass real options here if they existed
     });
   }
 
