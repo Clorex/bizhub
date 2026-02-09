@@ -79,6 +79,9 @@ function hasActiveSubscriptionBusiness(b: any) {
   return !!(b?.subscription?.planKey && exp && exp > Date.now());
 }
 
+// Cache-bust so Vercel doesn’t show an old cached image
+const LOGO_SRC = "/brand/logo-transparent.png?v=20260208";
+
 export default function MarketPage() {
   const router = useRouter();
 
@@ -573,14 +576,18 @@ export default function MarketPage() {
         <div className="px-4 pt-5 pb-5 bg-gradient-to-b from-biz-sand to-biz-bg">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="ml-0.5 sm:ml-1 relative h-20 w-full max-w-[780px] sm:h-24 sm:max-w-[980px] overflow-hidden">
+              {/* Perfect mobile wordmark: big, no clip, consistent on Vercel */}
+              <div
+                className="relative h-14 sm:h-16"
+                style={{ width: "min(520px, 78vw)" }}
+              >
                 <Image
-                  src="/brand/logo-transparent.png"
+                  src={LOGO_SRC}
                   alt="myBizHub"
                   fill
                   priority
-                  className="object-contain object-left scale-[1.8] origin-left"
-                  sizes="(max-width: 430px) 780px, 980px"
+                  className="object-contain object-left"
+                  sizes="(max-width: 430px) 78vw, 520px"
                 />
               </div>
 
@@ -743,12 +750,7 @@ export default function MarketPage() {
         fashionFacets={fashionFacets}
       />
 
-      <MarketSortSheet
-        open={sortOpen}
-        onClose={() => setSortOpen(false)}
-        value={sortKey}
-        onChange={(v) => setSortKey(v)}
-      />
+      <MarketSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={sortKey} onChange={(v) => setSortKey(v)} />
     </div>
   );
 }
