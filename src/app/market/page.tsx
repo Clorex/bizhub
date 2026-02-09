@@ -8,8 +8,6 @@ import { db } from "@/lib/firebase/client";
 import { BadgeCheck, Sparkles } from "lucide-react";
 import { collection, getDocs, limit, orderBy, query, where, type DocumentData } from "firebase/firestore";
 
-import logoTransparent from "@/public/brand/logo-transparent.png";
-
 import { Card } from "@/components/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -577,7 +575,7 @@ export default function MarketPage() {
             <div className="min-w-0">
               <div className="relative h-14 sm:h-16" style={{ width: "min(520px, 78vw)" }}>
                 <Image
-                  src={logoTransparent}
+                  src="/brand/logo-transparent.png"
                   alt="myBizHub"
                   fill
                   priority
