@@ -8,6 +8,8 @@ import { db } from "@/lib/firebase/client";
 import { BadgeCheck, Sparkles } from "lucide-react";
 import { collection, getDocs, limit, orderBy, query, where, type DocumentData } from "firebase/firestore";
 
+import logoTransparent from "@/public/brand/logo-transparent.png";
+
 import { Card } from "@/components/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -78,9 +80,6 @@ function hasActiveSubscriptionBusiness(b: any) {
   const exp = Number(b?.subscription?.expiresAtMs || 0);
   return !!(b?.subscription?.planKey && exp && exp > Date.now());
 }
-
-// Cache-bust so Vercel doesn’t show an old cached image
-const LOGO_SRC = "/brand/logo-transparent.png?v=20260208";
 
 export default function MarketPage() {
   const router = useRouter();
@@ -576,13 +575,9 @@ export default function MarketPage() {
         <div className="px-4 pt-5 pb-5 bg-gradient-to-b from-biz-sand to-biz-bg">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
-              {/* Perfect mobile wordmark: big, no clip, consistent on Vercel */}
-              <div
-                className="relative h-14 sm:h-16"
-                style={{ width: "min(520px, 78vw)" }}
-              >
+              <div className="relative h-14 sm:h-16" style={{ width: "min(520px, 78vw)" }}>
                 <Image
-                  src={LOGO_SRC}
+                  src={logoTransparent}
                   alt="myBizHub"
                   fill
                   priority
