@@ -22,6 +22,8 @@ import {
 } from "@/lib/products/coverAspect";
 import { MARKET_CATEGORIES, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
 
+import { BrandLogo } from "@/components/brand/BrandLogo";
+
 import { MarketFilterSheet } from "@/components/market/MarketFilterSheet";
 import { MarketSortSheet } from "@/components/market/MarketSortSheet";
 import { DEFAULT_MARKET_FILTERS, type MarketFilterState, type MarketSortKey } from "@/lib/market/filters/types";
@@ -398,7 +400,9 @@ export default function MarketPage() {
       const storeMap = new Map<string, any>();
 
       const storeSnaps = await Promise.all(
-        tokens.map((t) => getDocs(query(collection(db, "businesses"), where("searchKeywords", "array-contains", t), limit(40))))
+        tokens.map((t) =>
+          getDocs(query(collection(db, "businesses"), where("searchKeywords", "array-contains", t), limit(40)))
+        )
       );
 
       for (const snap of storeSnaps) {
@@ -583,11 +587,13 @@ export default function MarketPage() {
         <div className="h-2 w-full bg-gradient-to-r from-biz-accent2 to-biz-accent" />
         <div className="px-4 pt-5 pb-5 bg-gradient-to-b from-biz-sand to-biz-bg">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-lg font-bold text-biz-ink">
-                myBizHub<span className="text-biz-accent">.</span>
-              </p>
-              <p className="text-xs text-biz-muted mt-1">Discover products & vendors</p>
+            {/* Brand (logo + name) */}
+            <div className="flex items-center gap-3 min-w-0">
+              <BrandLogo size={34} priority />
+              <div className="min-w-0">
+                <p className="text-lg font-bold text-biz-ink leading-tight">myBizHub</p>
+                <p className="text-xs text-biz-muted mt-0.5">Discover products & vendors</p>
+              </div>
             </div>
 
             <Link
@@ -669,7 +675,9 @@ export default function MarketPage() {
           ) : deals.length === 0 ? (
             <EmptyState title="No deals right now" description="Check back soon for discounts." className="mt-3" />
           ) : (
-            <div className="mt-3 grid grid-cols-2 gap-3 items-start">{deals.slice(0, 6).map((p: any) => renderCard(p))}</div>
+            <div className="mt-3 grid grid-cols-2 gap-3 items-start">
+              {deals.slice(0, 6).map((p: any) => renderCard(p))}
+            </div>
           )}
         </Card>
 
@@ -743,7 +751,6 @@ export default function MarketPage() {
         )}
       </div>
 
-      {/* Sheets */}
       <MarketFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}

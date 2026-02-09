@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/cn";
+import { BrandLogo } from "@/components/brand/BrandLogo";
 
 export function GradientHeader({
   title,
@@ -40,15 +41,15 @@ export function GradientHeader({
               </button>
             ) : null}
 
-            <div className="min-w-0">
-              <h1 className="text-lg font-bold tracking-tight text-biz-ink">
-                {title}
-                <span className="text-biz-accent">.</span>
-              </h1>
+            {/* Brand logo */}
+            <div className="mt-0.5">
+              <BrandLogo size={34} priority />
+            </div>
 
-              {subtitle ? (
-                <p className="text-xs text-biz-muted mt-1">{subtitle}</p>
-              ) : null}
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold tracking-tight text-biz-ink">{title}</h1>
+
+              {subtitle ? <p className="text-xs text-biz-muted mt-1">{subtitle}</p> : null}
             </div>
           </div>
 

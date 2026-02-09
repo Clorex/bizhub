@@ -2,9 +2,9 @@
 
 /* Tailwind v4 theme tokens (generates classes like bg-biz-bg, text-biz-ink, shadow-soft, etc.) */
 @theme {
-  /* Brand */
-  --color-biz-accent: #ff8a00;  /* bright orange */
-  --color-biz-accent2: #ff5200; /* deep orange */
+  /* Brand (Updated to electric orange) */
+  --color-biz-accent: #ff2d00;  /* electric orange */
+  --color-biz-accent2: #ff5200; /* deeper orange for gradients */
 
   /* Neutrals */
   --color-biz-ink: #111827;
@@ -42,7 +42,6 @@
 }
 
 @layer utilities {
-  /* Optional: consistent “app container” max width is already handled by AppShell */
   .safe-pb {
     padding-bottom: max(env(safe-area-inset-bottom), 1rem);
   }

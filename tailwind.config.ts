@@ -13,8 +13,10 @@ export default {
           line: "#E7E7EE",
           sand: "#FFE2B8",
           cream: "#FFF3E1",
-          orange: "#FF8A00",
-          orange2: "#FF6A00",
+
+          // Updated to "electric orange"
+          orange: "#FF2D00",
+          orange2: "#FF5200",
         },
       },
       boxShadow: {
