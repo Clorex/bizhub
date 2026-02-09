@@ -81,8 +81,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: e?.message || "Blocked" }, { status: 403 });
     }
 
-    // ✅ Robust callback URL (works on localhost too)
-    const callback_url = `${originFromReq(req)}/payment/callback`;
+    // ✅ Robust callback URL (works on localhost too) - UPDATED
+    const callback_url = `${originFromReq(req)}/order/success`;
 
     // Secure pricing recompute
     let amountKobo = Number(body.amountKobo || 0);

@@ -1,6 +1,9 @@
+// FILE: src/components/market/MarketFilterSheet.tsx
+
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { applyMarketProductFilters } from "@/lib/market/filters/apply"; // <-- ADDED
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
@@ -14,6 +17,7 @@ import {
   type TrustVerificationLevel,
 } from "@/lib/market/filters/types";
 import { NG_STATES, areasForState } from "@/lib/locations/ngPopularAreas";
+import type { DocumentData } from "firebase/firestore"; // <-- ADDED
 
 function safeNum(v: any) {
   const n = Number(v);
@@ -39,14 +43,14 @@ export function MarketFilterSheet({
   onClose,
   value,
   onApply,
-  resultCount,
+  productsPool, // <-- CHANGED
   fashionFacets,
 }: {
   open: boolean;
   onClose: () => void;
   value: MarketFilterState;
   onApply: (v: MarketFilterState) => void;
-  resultCount: number;
+  productsPool: DocumentData[]; // <-- CHANGED
   fashionFacets?: { colors: string[]; sizes: string[] };
 }) {
   const [draft, setDraft] = useState<MarketFilterState>(value);
@@ -58,6 +62,18 @@ export function MarketFilterSheet({
       setShowMore(false);
     }
   }, [open, value]);
+
+  // --- START: NEW LOGIC TO FIX COUNT ---
+  const liveResultCount = useMemo(() => {
+    if (!open) return 0;
+    const results = applyMarketProductFilters({
+      products: productsPool,
+      filters: draft,
+      sortKey: "recommended", // sortKey doesn't affect the count, so 'recommended' is fine
+    });
+    return results.length;
+  }, [draft, productsPool, open]);
+  // --- END: NEW LOGIC ---
 
   const areas = useMemo(() => areasForState(draft.location.state), [draft.location.state]);
 
@@ -103,11 +119,12 @@ export function MarketFilterSheet({
               onClose();
             }}
           >
-            Show results ({resultCount})
+            Show results ({liveResultCount}) {/* <-- CHANGED */}
           </Button>
         </div>
       }
     >
+      {/* ... REST OF THE FILE IS THE SAME, PASTE AS IS ... */}
       {/* CATEGORY (PRIMARY) */}
       <div>
         <p className="text-xs font-extrabold text-gray-500 uppercase">Category</p>
@@ -204,9 +221,7 @@ export function MarketFilterSheet({
             </datalist>
           ) : null}
 
-          <p className="text-[11px] text-biz-muted">
-            Tip: Location affects ranking (same city/state shows higher).
-          </p>
+          <p className="text-[11px] text-biz-muted">Tip: Location affects ranking (same city/state shows higher).</p>
         </div>
       </div>
 
@@ -254,7 +269,7 @@ export function MarketFilterSheet({
                 key={r.key}
                 active={active}
                 onClick={() => {
-                  const k = (active ? null : (r.key as PriceQuickRange));
+                  const k = active ? null : (r.key as PriceQuickRange);
                   if (!k) {
                     setDraft((s) => ({ ...s, price: { ...s.price, quick: null } }));
                     return;
@@ -290,8 +305,7 @@ export function MarketFilterSheet({
                       ...s,
                       categorySpecific: {
                         ...s.categorySpecific,
-                        color:
-                          (s.categorySpecific.color || "").toLowerCase() === c.toLowerCase() ? null : c,
+                        color: (s.categorySpecific.color || "").toLowerCase() === c.toLowerCase() ? null : c,
                       },
                     }))
                   }
@@ -352,7 +366,8 @@ export function MarketFilterSheet({
           </div>
 
           <p className="mt-2 text-[11px] text-biz-muted">
-            These filters load based on category. Phones/Services will get their own filters once those attributes are stored.
+            These filters load based on category. Phones/Services will get their own filters once those attributes are
+            stored.
           </p>
         </div>
       ) : null}
@@ -365,9 +380,7 @@ export function MarketFilterSheet({
           className="w-full rounded-2xl border border-biz-line bg-white p-4 hover:bg-black/[0.02] transition text-left"
         >
           <p className="text-sm font-extrabold text-biz-ink">More filters</p>
-          <p className="text-[11px] text-biz-muted mt-1">
-            Seller trust and product status
-          </p>
+          <p className="text-[11px] text-biz-muted mt-1">Seller trust and product status</p>
         </button>
       </div>
 
@@ -419,9 +432,7 @@ export function MarketFilterSheet({
               >
                 Trusted badge sellers
               </Chip>
-              <p className="mt-2 text-[11px] text-biz-muted">
-                This is the trust badge (earned + maintained).
-              </p>
+              <p className="mt-2 text-[11px] text-biz-muted">This is the trust badge (earned + maintained).</p>
             </div>
           </div>
 
