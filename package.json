@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.0",
+    "@react-email/components": "^1.0.7",
     "cloudinary": "^2.9.0",
     "clsx": "^2.1.1",
     "cropperjs": "^1.6.2",
@@ -21,6 +22,7 @@
     "react": "19.2.3",
     "react-cropper": "^2.3.3",
     "react-dom": "19.2.3",
+    "react-email": "^5.2.8",
     "resend": "^6.9.1",
     "tailwind-merge": "^3.4.0"
   },
