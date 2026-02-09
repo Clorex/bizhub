@@ -23,35 +23,33 @@ function toKoboFromNgn(ngn: number) {
 function niceError(e: any, fallback: string) {
   const m = String(e?.message || "").trim();
   if (!m) return fallback;
-  // keep short + friendly
   return m.length > 140 ? fallback : m;
 }
 
 export default function VendorShippingPage() {
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
-
   const [options, setOptions] = useState<any[]>([]);
 
   // form
   const [editingId, setEditingId] = useState<string>("");
   const [type, setType] = useState<ShipType>("delivery");
   const [name, setName] = useState("Delivery");
-  const [feeNgn, setFeeNgn] = useState<number>(2000);
-  const [etaDays, setEtaDays] = useState<number>(2);
+  const [feeNgn, setFeeNgn] = useState<number | "">("");
+  const [etaDays, setEtaDays] = useState<number | "">("");
   const [areasText, setAreasText] = useState<string>("");
   const [sortOrder, setSortOrder] = useState<number>(0);
   const [active, setActive] = useState(true);
-
   const [saving, setSaving] = useState(false);
   const [deletingId, setDeletingId] = useState<string>("");
 
   const savingDisabled = useMemo(() => {
     if (saving) return true;
     if (!name.trim()) return true;
-    if (type === "delivery" && feeNgn < 0) return true;
+    if (type === "delivery" && (feeNgn === "" || feeNgn < 0)) return true;
+    if (etaDays === "" || etaDays < 0) return true;
     return false;
-  }, [name, type, feeNgn, saving]);
+  }, [name, type, feeNgn, etaDays, saving]);
 
   async function authedFetch(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
@@ -89,9 +87,9 @@ export default function VendorShippingPage() {
   function resetForm() {
     setEditingId("");
     setType("delivery");
-    setName("Delivery");
-    setFeeNgn(2000);
-    setEtaDays(2);
+    setName("");
+    setFeeNgn("");
+    setEtaDays("");
     setAreasText("");
     setSortOrder(0);
     setActive(true);
@@ -111,7 +109,6 @@ export default function VendorShippingPage() {
   async function save() {
     setMsg(null);
     setSaving(true);
-
     try {
       await authedFetch("/api/vendor/shipping", {
         method: "POST",
@@ -120,8 +117,8 @@ export default function VendorShippingPage() {
           id: editingId || undefined,
           type,
           name: name.trim(),
-          feeKobo: type === "pickup" ? 0 : toKoboFromNgn(feeNgn),
-          etaDays,
+          feeKobo: type === "pickup" ? 0 : toKoboFromNgn(Number(feeNgn || 0)),
+          etaDays: Number(etaDays || 0),
           areasText: areasText.trim(),
           sortOrder,
           active,
@@ -146,7 +143,6 @@ export default function VendorShippingPage() {
 
     setDeletingId(id);
     setMsg(null);
-
     try {
       await authedFetch(`/api/vendor/shipping?id=${encodeURIComponent(id)}`, { method: "DELETE" });
       toast.success("Shipping option deleted.");
@@ -189,28 +185,32 @@ export default function VendorShippingPage() {
               ]}
             />
 
-            <Input placeholder="Name (e.g. Lagos delivery)" value={name} onChange={(e) => setName(e.target.value)} />
+            <Input 
+              placeholder="Name (e.g. Lagos Mainland Delivery)" 
+              value={name} 
+              onChange={(e) => setName(e.target.value)} 
+            />
 
             <div className="grid grid-cols-2 gap-2">
               <Input
                 type="number"
-                placeholder="Fee (₦)"
-                value={String(type === "pickup" ? 0 : feeNgn)}
-                onChange={(e) => setFeeNgn(Number(e.target.value))}
+                placeholder="Fee (₦) e.g. 2500"
+                value={type === "pickup" ? "0" : feeNgn}
+                onChange={(e) => setFeeNgn(e.target.value ? Number(e.target.value) : "")}
                 disabled={type === "pickup"}
               />
               <Input
                 type="number"
-                placeholder="ETA (days)"
-                value={String(etaDays)}
-                onChange={(e) => setEtaDays(Number(e.target.value))}
+                placeholder="ETA (Days) e.g. 2"
+                value={etaDays}
+                onChange={(e) => setEtaDays(e.target.value ? Number(e.target.value) : "")}
                 min={0}
                 max={30}
               />
             </div>
 
             <Input
-              placeholder="Areas (optional) e.g. Lekki, VI, Ajah"
+              placeholder="Areas (optional) e.g. Ikeja, Yaba, Surulere"
               value={areasText}
               onChange={(e) => setAreasText(e.target.value)}
             />
@@ -218,7 +218,7 @@ export default function VendorShippingPage() {
             <div className="grid grid-cols-2 gap-2">
               <Input
                 type="number"
-                placeholder="Sort order (0..)"
+                placeholder="Sort order (0 for top)"
                 value={String(sortOrder)}
                 onChange={(e) => setSortOrder(Number(e.target.value))}
               />
@@ -240,10 +240,7 @@ export default function VendorShippingPage() {
             <Button onClick={save} disabled={savingDisabled} loading={saving}>
               {editingId ? "Save changes" : "Add option"}
             </Button>
-
-            <p className="text-[11px] text-biz-muted">
-              Note: Pickup options always have a ₦0 fee.
-            </p>
+            <p className="text-[11px] text-biz-muted">Note: Pickup options always have a ₦0 fee.</p>
           </div>
         </SectionCard>
 
@@ -262,34 +259,20 @@ export default function VendorShippingPage() {
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <p className="text-sm font-bold text-biz-ink">{o.name || (isPickup ? "Pickup" : "Delivery")}</p>
-
                         <p className="text-[11px] text-gray-500 mt-1">
                           Type: <b className="text-biz-ink">{isPickup ? "Pickup" : "Delivery"}</b> • Fee:{" "}
                           <b className="text-biz-ink">₦{(feeKobo / 100).toLocaleString()}</b> • ETA:{" "}
                           <b className="text-biz-ink">{Number(o.etaDays || 0)} day(s)</b>
                         </p>
-
                         {o.areasText ? <p className="text-[11px] text-gray-500 mt-1">{String(o.areasText)}</p> : null}
-
                         <p className="text-[11px] text-gray-500 mt-1">
                           Status: <b className="text-biz-ink">{o.active === false ? "Inactive" : "Active"}</b> • Sort:{" "}
                           <b className="text-biz-ink">{Number(o.sortOrder || 0)}</b>
                         </p>
                       </div>
-
                       <div className="shrink-0 space-y-2">
-                        <Button size="sm" variant="secondary" onClick={() => edit(o)} disabled={saving || deletingId === id}>
-                          Edit
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="danger"
-                          onClick={() => del(id)}
-                          disabled={saving || deletingId === id}
-                          loading={deletingId === id}
-                        >
-                          Delete
-                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => edit(o)} disabled={saving || deletingId === id}>Edit</Button>
+                        <Button size="sm" variant="danger" onClick={() => del(id)} disabled={saving || deletingId === id} loading={deletingId === id}>Delete</Button>
                       </div>
                     </div>
                   </div>
@@ -297,11 +280,8 @@ export default function VendorShippingPage() {
               })}
             </div>
           )}
-
           <div className="mt-3">
-            <Button variant="secondary" onClick={load} disabled={loading || saving}>
-              Refresh
-            </Button>
+            <Button variant="secondary" onClick={load} disabled={loading || saving}>Refresh</Button>
           </div>
         </SectionCard>
       </div>

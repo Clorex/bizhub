@@ -34,7 +34,7 @@ type Mood = "great" | "okay" | "slow";
 const MOOD_KEY = "mybizhub_mood_daily_v1";
 
 function lagosDayKey(now = new Date()) {
-  return now.toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" }); // YYYY-MM-DD
+  return now.toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" }); 
 }
 
 function fmtNaira(n: number) {
@@ -42,6 +42,41 @@ function fmtNaira(n: number) {
     return `₦${Number(n || 0).toLocaleString()}`;
   } catch {
     return `₦${n}`;
+  }
+}
+
+// Formats big numbers for the Chart Axis smoothly (e.g., 50000 -> ₦50k)
+function compactNaira(n: number) {
+  if (!n || n <= 0) return "0";
+  if (n >= 1000000) return `₦${Number((n / 1000000).toFixed(1))}M`;
+  if (n >= 1000) return `₦${Number((n / 1000).toFixed(1))}k`;
+  return `₦${n}`;
+}
+
+// "Smart Scale" Algorithm: Automatically rounds your chart axis to beautiful numbers (1k, 2k, 10k, 50k, etc.)
+function getNiceYScale(maxValue: number) {
+  if (maxValue <= 0) return [4000, 3000, 2000, 1000, 0]; 
+  const roughStep = maxValue / 4;
+  const mag = Math.pow(10, Math.floor(Math.log10(roughStep || 1)));
+  const norm = roughStep / mag;
+  
+  let niceNorm;
+  if (norm < 1.5) niceNorm = 1;
+  else if (norm < 3) niceNorm = 2;
+  else if (norm < 7) niceNorm = 5;
+  else niceNorm = 10;
+  
+  const step = niceNorm * mag;
+  return [step * 4, step * 3, step * 2, step, 0];
+}
+
+function getDayName(dateStr: string) {
+  try {
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr.slice(8, 10);
+    return d.toLocaleDateString("en-US", { weekday: "short" });
+  } catch {
+    return dateStr.slice(8, 10);
   }
 }
 
@@ -94,7 +129,6 @@ export default function VendorDashboardPage() {
   const [moodState, setMoodState] = useState<any>(() => loadMood());
   const [moodBusy, setMoodBusy] = useState(false);
 
-  // reset mood state if a new day
   useEffect(() => {
     const dk = lagosDayKey();
     if (moodState?.dayKey && moodState.dayKey !== dk) {
@@ -140,7 +174,6 @@ export default function VendorDashboardPage() {
       const used = String(a?.meta?.usedRange || range) as Range;
       if (used !== range) setRange(used);
 
-      // Assistant summary
       try {
         const ra = await fetch("/api/vendor/assistant/summary", { headers: { Authorization: `Bearer ${token}` } });
         const aj = await ra.json().catch(() => ({}));
@@ -224,7 +257,10 @@ export default function VendorDashboardPage() {
   const chartDays: any[] = Array.isArray(data?.chartDays) ? data.chartDays : [];
   const recentOrders: any[] = Array.isArray(data?.recentOrders) ? data.recentOrders : [];
 
-  const maxRev = Math.max(1, ...chartDays.map((d) => Number(d.revenue || 0)));
+  // SMART CHART SCALING
+  const maxRevRaw = Math.max(0, ...chartDays.map((d) => Number(d.revenue || 0)));
+  const ySteps = getNiceYScale(maxRevRaw);
+  const chartMax = ySteps[0];
 
   const monthUnlocked =
     access?.monthAnalyticsUnlocked !== undefined
@@ -245,7 +281,7 @@ export default function VendorDashboardPage() {
   const momentumPlan = accessPlanKey === "MOMENTUM";
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-24 bg-gray-50">
       <GradientHeader
         title="Dashboard"
         subtitle="Your business overview"
@@ -271,7 +307,7 @@ export default function VendorDashboardPage() {
         }
       />
 
-      <div className="px-4 pb-6 space-y-3">
+      <div className="px-4 space-y-4">
         <SegmentedControl<Range>
           value={range}
           onChange={setRange}
@@ -282,39 +318,40 @@ export default function VendorDashboardPage() {
           ]}
         />
 
-        {notice ? <Card className="p-4 text-orange-700">{notice}</Card> : null}
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
-        {loading ? <Card className="p-4">Loading…</Card> : null}
+        {notice ? <Card className="p-4 text-orange-700 font-medium">{notice}</Card> : null}
+        {msg ? <Card className="p-4 text-red-700 font-medium">{msg}</Card> : null}
+        {loading ? <Card className="p-4 text-center font-bold text-gray-500">Loading your data...</Card> : null}
 
         {!loading && data ? (
           <>
-            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
-              <p className="text-xs opacity-95">Total sales</p>
-              <p className="text-2xl font-bold mt-1">{fmtNaira(ov.totalRevenue || 0)}</p>
-              <p className="text-xs opacity-95 mt-1">
-                Store: <b>{me?.businessSlug || "—"}</b>
-              </p>
+            <div className="rounded-[24px] p-5 text-white shadow-lg bg-gradient-to-br from-biz-accent2 to-biz-accent relative overflow-hidden">
+              <div className="relative z-10">
+                <p className="text-xs font-bold uppercase tracking-widest opacity-80">Total Sales</p>
+                <p className="text-3xl font-black mt-1 tracking-tight">{fmtNaira(ov.totalRevenue || 0)}</p>
+                <p className="text-xs font-medium opacity-90 mt-1 flex items-center gap-1">
+                  Store: <span className="bg-white/20 px-2 py-0.5 rounded-md">{me?.businessSlug || "—"}</span>
+                </p>
 
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Button
-                  variant="soft"
-                  className="bg-white/15 text-white border border-white/20"
-                  leftIcon={<Link2 className="h-4 w-4" />}
-                  onClick={copyLink}
-                  disabled={!storeUrl}
-                >
-                  Copy link
-                </Button>
-
-                <Button
-                  variant="soft"
-                  className="bg-white/15 text-white border border-white/20"
-                  leftIcon={<StoreIcon className="h-4 w-4" />}
-                  onClick={() => router.push(`/b/${me?.businessSlug || ""}`)}
-                  disabled={!me?.businessSlug}
-                >
-                  View store
-                </Button>
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <Button
+                    variant="soft"
+                    className="bg-white/20 hover:bg-white/30 text-white border-none shadow-none font-bold"
+                    leftIcon={<Link2 className="h-4 w-4" />}
+                    onClick={copyLink}
+                    disabled={!storeUrl}
+                  >
+                    Copy Link
+                  </Button>
+                  <Button
+                    variant="soft"
+                    className="bg-white text-biz-accent hover:bg-gray-50 border-none shadow-none font-bold"
+                    leftIcon={<StoreIcon className="h-4 w-4" />}
+                    onClick={() => router.push(`/b/${me?.businessSlug || ""}`)}
+                    disabled={!me?.businessSlug}
+                  >
+                    View Store
+                  </Button>
+                </div>
               </div>
             </div>
 
@@ -380,101 +417,7 @@ export default function VendorDashboardPage() {
               )}
             </Card>
 
-            {assistant && disputeLevel !== "none" ? (
-              <Card className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-2xl bg-red-50 flex items-center justify-center">
-                    <AlertTriangle className="h-5 w-5 text-red-700" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold text-biz-ink">Dispute warning</p>
-                    <p className="text-xs text-biz-muted mt-1">
-                      You have <b className="text-biz-ink">{openDisputes}</b> open dispute(s). If ignored, your marketplace visibility reduces.
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <Button onClick={() => router.push("/vendor/orders")}>View orders</Button>
-                      <Button variant="secondary" onClick={() => router.push("/vendor/more")}>
-                        More
-                      </Button>
-                    </div>
-                    <p className="mt-2 text-[11px] text-biz-muted">Tip: update delivery progress and respond fast to prevent disputes.</p>
-                  </div>
-                </div>
-              </Card>
-            ) : null}
-
-            {assistant && momentumPlan ? (
-              riskShieldEnabled ? (
-                <Card className="p-4 border border-biz-line bg-white">
-                  <div className="flex items-start gap-3">
-                    <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
-                      <Shield className="h-5 w-5 text-orange-700" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-extrabold text-biz-ink">Risk Shield (quiet)</p>
-                      <p className="text-[11px] text-biz-muted mt-1">
-                        Monitoring enabled. You’ll see early warnings, but no action tools.
-                        {riskShieldMode ? ` • Mode: ${riskShieldMode}` : ""}
-                      </p>
-
-                      {riskNotes.length ? (
-                        <div className="mt-2 space-y-1">
-                          {riskNotes.slice(0, 3).map((t: string) => (
-                            <p key={t} className="text-[11px] text-gray-600">
-                              • {t}
-                            </p>
-                          ))}
-                        </div>
-                      ) : null}
-                    </div>
-                  </div>
-                </Card>
-              ) : null
-            ) : null}
-
-            {assistant ? (
-              <SectionCard
-                title="Assistant"
-                subtitle="Daily + weekly summary"
-                right={
-                  assistant?.meta?.limits?.canSendWhatsappSummary ? (
-                    <button
-                      className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-bold shadow-soft inline-flex items-center gap-2"
-                      onClick={() => window.open(waShareLink(String(assistant.whatsappText || "")), "_blank")}
-                    >
-                      <MessageCircle className="h-4 w-4 text-gray-700" />
-                      WhatsApp
-                    </button>
-                  ) : null
-                }
-              >
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-2xl border border-biz-line bg-white p-3">
-                    <p className="text-[11px] text-biz-muted">Today</p>
-                    <p className="text-sm font-bold text-biz-ink mt-1">{Number(assistant?.today?.orders || 0)} order(s)</p>
-                    <p className="text-[11px] text-gray-500 mt-1">{fmtNaira(Number(assistant?.today?.revenue || 0))}</p>
-                  </div>
-
-                  <div className="rounded-2xl border border-biz-line bg-white p-3">
-                    <p className="text-[11px] text-biz-muted">This week</p>
-                    <p className="text-sm font-bold text-biz-ink mt-1">{Number(assistant?.week?.orders || 0)} order(s)</p>
-                    <p className="text-[11px] text-gray-500 mt-1">{fmtNaira(Number(assistant?.week?.revenue || 0))}</p>
-                  </div>
-                </div>
-
-                <div className="mt-3 grid grid-cols-2 gap-2">
-                  <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
-                    Share a product
-                  </Button>
-                  <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
-                    Manage orders
-                  </Button>
-                </div>
-              </SectionCard>
-            ) : assistantMsg ? (
-              <Card className="p-4 text-red-700">{assistantMsg}</Card>
-            ) : null}
-
+            {/* RESTORED BRAND STAT CARDS */}
             <div className="grid grid-cols-2 gap-3">
               <StatCard label="Orders" value={ov.orders || 0} onClick={() => router.push("/vendor/orders")} />
               <StatCard label="Products sold" value={ov.productsSold || 0} onClick={() => router.push("/vendor/orders")} />
@@ -487,23 +430,63 @@ export default function VendorDashboardPage() {
               <StatCard label="Views (impressions)" value={ov.views || 0} />
             </div>
 
-            <SectionCard title="Sales trend" subtitle="Last 7 days">
-              <div className="flex items-end gap-2 h-28">
-                {chartDays.map((d) => {
-                  const h = Math.max(6, Math.round((Number(d.revenue || 0) / maxRev) * 100));
-                  return (
-                    <div key={d.dayKey} className="flex-1 flex flex-col items-center justify-end gap-2">
-                      <div
-                        className="w-full rounded-xl bg-gradient-to-b from-biz-accent to-biz-accent2"
-                        style={{ height: `${h}%` }}
-                        title={`${d.label}: ₦${Number(d.revenue || 0).toLocaleString()}`}
-                      />
-                      <span className="text-[10px] text-gray-500">{String(d.label).slice(8, 10)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </SectionCard>
+            {/* SMART BRAND CHART */}
+            <Card className="p-4 border border-biz-line shadow-sm bg-white">
+              <p className="text-sm font-extrabold text-biz-ink">Revenue Analysis</p>
+              <p className="text-xs text-gray-500 font-medium mt-0.5 mb-6">Performance for the selected period</p>
+
+              {chartDays.length === 0 ? (
+                <div className="h-40 flex items-center justify-center text-gray-400 font-bold text-sm bg-gray-50 rounded-xl">
+                  No sales data yet
+                </div>
+              ) : (
+                <div className="relative h-56 w-full">
+                  {/* Y-Axis Grid Lines & Labels */}
+                  <div className="absolute inset-0 flex flex-col justify-between pb-6">
+                    {ySteps.map((val, i) => (
+                      <div key={i} className="flex items-center w-full">
+                        <span className="text-[10px] font-bold text-gray-400 w-10 text-right pr-2 shrink-0">
+                          {compactNaira(val)}
+                        </span>
+                        <div className="flex-1 border-b border-gray-100" />
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* X-Axis & Actual Bars */}
+                  <div className="absolute inset-0 left-10 flex items-end justify-around pb-6 px-2">
+                    {chartDays.map((d) => {
+                      const rev = Number(d.revenue || 0);
+                      const heightPct = chartMax > 0 ? (rev / chartMax) * 100 : 0;
+                      const h = Math.max(0, heightPct); 
+                      const isZero = rev === 0;
+
+                      return (
+                        <div key={d.dayKey} className="flex flex-col items-center justify-end h-full w-full relative group cursor-pointer">
+                          {/* Tooltip on Tap/Hover */}
+                          <div className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-gray-900 text-white text-[10px] font-bold py-1 px-2 rounded-md whitespace-nowrap transition-opacity z-20 pointer-events-none shadow-lg">
+                            {fmtNaira(rev)}
+                          </div>
+
+                          {/* The Bar */}
+                          <div
+                            className={`w-full max-w-[24px] rounded-t-sm transition-all duration-700 relative z-10 ${
+                              isZero ? "bg-gray-200" : "bg-gradient-to-t from-biz-accent to-biz-accent2 hover:opacity-80"
+                            }`}
+                            style={{ height: `${h}%`, minHeight: isZero ? "2px" : "4px" }}
+                          />
+
+                          {/* Date Label at Bottom */}
+                          <div className="absolute -bottom-6 w-full text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                            {getDayName(String(d.label))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </Card>
 
             <SectionCard title="Todo" subtitle="Quick fixes that improve sales">
               <div className="space-y-2 text-sm">
@@ -528,38 +511,35 @@ export default function VendorDashboardPage() {
                 <Button variant="secondary" onClick={() => router.push("/vendor/store")}>
                   Store settings
                 </Button>
-
-                <Button variant="secondary" className="col-span-2" leftIcon={<BadgePercent className="h-4 w-4" />} onClick={() => router.push("/vendor/discounts")}>
-                  Sales
-                </Button>
               </div>
-
-              <p className="mt-3 text-[11px] text-biz-muted">
-                Use the <b className="text-biz-ink">Gem</b> icon above to upgrade and unlock more tools.
-              </p>
             </SectionCard>
 
             <SectionCard title="Recent orders" subtitle="Latest activity">
               {recentOrders.length === 0 ? (
-                <div className="text-sm text-biz-muted">No orders yet.</div>
+                <div className="text-sm text-biz-muted font-medium bg-gray-50 p-4 rounded-xl text-center">No orders yet.</div>
               ) : (
                 <div className="space-y-2">
                   {recentOrders.slice(0, 6).map((o) => (
                     <button
                       key={o.id}
-                      className="w-full text-left rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition"
+                      className="w-full text-left rounded-2xl border border-gray-200 bg-white p-4 hover:border-biz-accent transition shadow-sm"
                       onClick={() => router.push(`/vendor/orders/${o.id}`)}
                     >
                       <div className="flex items-start justify-between gap-3">
                         <div>
-                          <p className="text-sm font-bold text-biz-ink">Order #{String(o.id).slice(0, 8)}</p>
-                          <p className="text-xs text-biz-muted mt-1">
-                            {o.paymentType || "—"} • {o.orderStatus || o.escrowStatus || "—"}
-                          </p>
-                          <p className="text-[11px] text-gray-500 mt-1">Created: {fmtDate(o.createdAt)}</p>
+                          <p className="text-sm font-bold text-gray-900">Order #{String(o.id).slice(0, 8)}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600">
+                              {o.paymentType || "Card"}
+                            </span>
+                            <span className="text-xs text-biz-muted font-medium">
+                              {o.orderStatus || o.escrowStatus || "Pending"}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-gray-400 mt-2 font-medium">{fmtDate(o.createdAt)}</p>
                         </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-biz-ink">{fmtNaira(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0))}</p>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-black text-gray-900">{fmtNaira(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0))}</p>
                         </div>
                       </div>
                     </button>
@@ -577,11 +557,11 @@ export default function VendorDashboardPage() {
 function TodoRow({ label, value, onClick }: { label: string; value: number; onClick: () => void }) {
   return (
     <button
-      className="w-full rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between hover:bg-black/[0.02] transition"
+      className="w-full rounded-2xl border border-gray-200 bg-white p-4 flex items-center justify-between hover:border-biz-accent transition shadow-sm"
       onClick={onClick}
     >
-      <span className="text-biz-ink">{label}</span>
-      <span className="text-xs font-bold text-biz-ink">{value}</span>
+      <span className="text-sm font-bold text-gray-700">{label}</span>
+      <span className="text-sm font-black text-gray-900 bg-gray-100 px-3 py-1 rounded-lg">{value}</span>
     </button>
   );
 }

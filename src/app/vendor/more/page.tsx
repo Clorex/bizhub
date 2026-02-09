@@ -98,7 +98,7 @@ export default function VendorMorePage() {
           <Row
             icon={<Crown className="h-5 w-5 text-white" />}
             title="Subscription"
-            desc="Upgrade to unlock more features"
+            desc="Manage your plan and billing"
             onClick={() => router.push("/vendor/subscription")}
             highlight
           />
