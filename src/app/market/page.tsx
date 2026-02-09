@@ -375,34 +375,31 @@ export default function MarketPage() {
     const { w, h } = coverAspectToWH(coverAspect, 520);
     
     return (
-      <div key={p.id} className="relative text-left group">
-        <Card className="p-3 transition-shadow group-hover:shadow-md">
-          {/* Main clickable area for navigation */}
-          <button onClick={() => openProduct(p)} className="block w-full text-left">
-            <div className={`${aspectClass} w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
-              {img ? (<CloudImage src={img} alt={p?.name || "Listing"} w={w} h={h} sizes="(max-width: 430px) 45vw, 220px" className="h-full w-full object-cover" />) : (<div className="h-full w-full flex items-center justify-center text-xs text-gray-400">No image</div>)}
-              {apexBadgeActive ? (<div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 inline-flex items-center gap-1"><BadgeCheck className="h-3.5 w-3.5" /> Trusted badge</div>) : boosted ? (<div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5 inline-flex items-center gap-1"><Sparkles className="h-3.5 w-3.5 text-orange-600" /> Promoted</div>) : null}
-              {onSale ? (<div className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">{saleBadgeText(p, fmtNaira)}</div>) : null}
-              <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5">{verificationLabel(tier)}</div>
-            </div>
+      <button key={p.id} onClick={() => openProduct(p)} className="block w-full text-left">
+        <Card className="p-3 transition-shadow hover:shadow-md">
+          <div className={`${aspectClass} w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
+            {img ? (<CloudImage src={img} alt={p?.name || "Listing"} w={w} h={h} sizes="(max-width: 430px) 45vw, 220px" className="h-full w-full object-cover" />) : (<div className="h-full w-full flex items-center justify-center text-xs text-gray-400">No image</div>)}
+            {apexBadgeActive ? (<div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 inline-flex items-center gap-1"><BadgeCheck className="h-3.5 w-3.5" /> Trusted badge</div>) : boosted ? (<div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5 inline-flex items-center gap-1"><Sparkles className="h-3.5 w-3.5 text-orange-600" /> Promoted</div>) : null}
+            {onSale ? (<div className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">{saleBadgeText(p, fmtNaira)}</div>) : null}
+            <div className="absolute bottom-2 left-2 px-2 py-1 rounded-full text-[10px] font-bold bg-white/90 border border-black/5">{verificationLabel(tier)}</div>
             
-            <p className="mt-2 text-sm font-bold text-biz-ink line-clamp-2">{p?.name || "Unnamed"}</p>
-            <p className="mt-1 text-xs text-biz-muted">{bookOnly ? "Book only" : onSale ? (<><span className="line-through text-gray-400 mr-1">{fmtNaira(basePrice)}</span><span className="text-emerald-700 font-extrabold">{fmtNaira(finalPrice)}</span></>) : (fmtNaira(basePrice))}</p>
-            <p className="mt-1 text-[11px] text-gray-500">Vendor: <span className="font-medium text-gray-700">{p?.businessSlug || "—"}</span></p>
-          </button>
+            {/* Add to Cart button positioned at bottom-right of image */}
+            {!bookOnly && (
+              <button
+                onClick={(e) => handleAddToCart(e, p)}
+                className="absolute bottom-2 right-2 z-10 h-8 w-8 bg-biz-accent text-white rounded-full flex items-center justify-center shadow-lg hover:bg-biz-accent-darker transition-transform active:scale-90"
+                aria-label="Add to cart"
+              >
+                <Plus className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+          
+          <p className="mt-2 text-sm font-bold text-biz-ink line-clamp-2">{p?.name || "Unnamed"}</p>
+          <p className="mt-1 text-xs text-biz-muted">{bookOnly ? "Book only" : onSale ? (<><span className="line-through text-gray-400 mr-1">{fmtNaira(basePrice)}</span><span className="text-emerald-700 font-extrabold">{fmtNaira(finalPrice)}</span></>) : (fmtNaira(basePrice))}</p>
+          {/* Vendor line is now removed */}
         </Card>
-
-        {/* Add to Cart button sits on top of the card */}
-        {!bookOnly && (
-           <button
-            onClick={(e) => handleAddToCart(e, p)}
-            className="absolute top-5 right-5 z-20 h-8 w-8 bg-biz-accent text-white rounded-full flex items-center justify-center shadow-lg hover:bg-biz-accent-darker transition-transform active:scale-90"
-            aria-label="Add to cart"
-          >
-            <Plus className="h-5 w-5" />
-          </button>
-        )}
-      </div>
+      </button>
     );
   }
 
