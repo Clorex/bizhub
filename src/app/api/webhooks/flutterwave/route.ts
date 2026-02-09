@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { headers } from "next/headers";
 import { Resend } from "resend";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -11,7 +10,7 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function POST(req: Request) {
   // 1. Verify the webhook signature for security
-  const signature = headers().get("verif-hash");
+  const signature = req.headers.get("verif-hash");
 
   if (!signature || signature !== flutterwaveSecretHash) {
     console.warn("Flutterwave webhook: Invalid signature hash.");
@@ -24,7 +23,7 @@ export async function POST(req: Request) {
 
   // 2. We only care about successful charges
   if (event.event === "charge.completed" && event.data.status === "successful") {
-    const { tx_ref: reference, amount, currency, created_at, customer: flwCustomer } = event.data;
+    const { tx_ref: reference, amount, currency, created_at } = event.data;
 
     try {
       // 3. Idempotency: Check if we've already processed this order
