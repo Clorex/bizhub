@@ -1,62 +1,58 @@
 // FILE: src/lib/moderation/simpleTextGuard.ts
-/**
- * MVP moderation filter (free): blocks sexual content, bullying/harassment patterns.
- * Later, can be replaced with a paid moderation API, but this is immediate + local.
- */
+//
+// Lightweight text moderation — blocks obvious profanity/hate speech.
+// NOT a replacement for AI moderation. Just a first-pass filter.
 
-function normalize(s: string) {
-  return String(s || "")
-    .toLowerCase()
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-const BLOCK_LIST = [
-  // sexual harassment / explicit
-  "sex",
-  "nude",
-  "naked",
-  "hookup",
-  "fuck",
-  "suck",
-  "blowjob",
-  "porn",
-  "dick",
-  "pussy",
-  "rape",
-  "molest",
-  "nudes",
-  "send nudes",
-
-  // bullying / threats
-  "idiot",
-  "stupid",
-  "bastard",
-  "fool",
-  "kill you",
-  "die",
-  "thief",
-  "i will deal with you",
-  "i will ruin you",
-  "you are useless",
+const BLOCKED_PATTERNS = [
+  /\b(fuck|shit|bitch|asshole|bastard|dick|pussy|cunt|nigga|nigger|faggot)\b/i,
+  /\b(kill\s+you|i\s+will\s+hurt|death\s+threat|bomb\s+you)\b/i,
+  /\b(scam+er|thie[fv]|fraud|criminal)\b/i,
 ];
 
-export type ModerationResult = { ok: true } | { ok: false; reason: string; hit?: string };
+/**
+ * Guard for inbound text (reviews, comments).
+ * Returns { blocked, reason }.
+ */
+export function simpleTextGuard(text: string): { blocked: boolean; reason?: string } {
+  if (!text) return { blocked: false };
 
-export function moderateOutboundText(text: string): ModerationResult {
-  const t = normalize(text);
-  if (!t) return { ok: false, reason: "Empty message" };
+  const normalized = text.toLowerCase().trim();
 
-  for (const w of BLOCK_LIST) {
-    if (t.includes(w)) {
-      return { ok: false, reason: "Blocked by safety policy", hit: w };
+  for (const pattern of BLOCKED_PATTERNS) {
+    if (pattern.test(normalized)) {
+      return { blocked: true, reason: "Inappropriate language detected" };
     }
   }
 
-  // crude repeated insult pattern
-  if (/(?:\bidiot\b|\bstupid\b|\bfool\b).*(?:\bidiot\b|\bstupid\b|\bfool\b)/.test(t)) {
-    return { ok: false, reason: "Blocked by safety policy", hit: "repeated_insult" };
+  return { blocked: false };
+}
+
+/**
+ * Moderate outbound text (re-engagement messages, vendor comms).
+ * Returns cleaned text with flagged words replaced, or null if too toxic.
+ */
+export function moderateOutboundText(text: string): {
+  safe: boolean;
+  cleaned: string;
+  flagged: boolean;
+} {
+  if (!text || !text.trim()) {
+    return { safe: true, cleaned: "", flagged: false };
   }
 
-  return { ok: true };
+  let cleaned = text.trim();
+  let flagged = false;
+
+  for (const pattern of BLOCKED_PATTERNS) {
+    if (pattern.test(cleaned.toLowerCase())) {
+      flagged = true;
+      cleaned = cleaned.replace(pattern, "***");
+    }
+  }
+
+  return {
+    safe: !flagged,
+    cleaned,
+    flagged,
+  };
 }

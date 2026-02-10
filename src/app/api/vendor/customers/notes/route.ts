@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -18,7 +18,7 @@ function noteDocId(businessId: string, customerKey: string) {
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
 
     // ✅ Packages-controlled security
     if (!access?.features?.customerNotes) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Customer notes are locked on your plan. Upgrade to use notes." },
         { status: 403 }
       );
@@ -34,13 +34,13 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url);
     const customerKey = safeCustomerKey(url.searchParams.get("customerKey") || "");
-    if (!customerKey) return NextResponse.json({ ok: false, error: "Missing customerKey" }, { status: 400 });
+    if (!customerKey) return Response.json({ ok: false, error: "Missing customerKey" }, { status: 400 });
 
     const ref = adminDb.collection("customerNotes").doc(noteDocId(me.businessId, customerKey));
     const snap = await ref.get();
     const data = snap.exists ? (snap.data() as any) : null;
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       note: data
         ? {
@@ -56,16 +56,16 @@ export async function GET(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function PUT(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -73,7 +73,7 @@ export async function PUT(req: Request) {
 
     // ✅ Packages-controlled security
     if (!access?.features?.customerNotes) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Customer notes are locked on your plan. Upgrade to use notes." },
         { status: 403 }
       );
@@ -82,7 +82,7 @@ export async function PUT(req: Request) {
     const body = (await req.json().catch(() => ({}))) as any;
 
     const customerKey = safeCustomerKey(body.customerKey || "");
-    if (!customerKey) return NextResponse.json({ ok: false, error: "Missing customerKey" }, { status: 400 });
+    if (!customerKey) return Response.json({ ok: false, error: "Missing customerKey" }, { status: 400 });
 
     const vip = !!body.vip;
     const debt = !!body.debt;
@@ -113,14 +113,14 @@ export async function PUT(req: Request) {
       { merge: true }
     );
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       note: { customerKey, vip, debt, issue, note: noteText, debtAmount, updatedAtMs: now },
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

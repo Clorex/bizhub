@@ -1,5 +1,5 @@
 // FILE: src/app/api/subscriptions/initialize/route.ts
-import { NextResponse } from "next/server";
+
 import crypto from "node:crypto";
 import { requireRole } from "@/lib/auth/server";
 import { paymentsProvider } from "@/lib/payments/provider";
@@ -56,8 +56,8 @@ function genReference(prefix: string) {
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
-    if (!me.email) return NextResponse.json({ ok: false, error: "Missing email" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.email) return Response.json({ ok: false, error: "Missing email" }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
     const planKey = String(body.planKey || "") as BizhubPlanKey;
@@ -67,14 +67,14 @@ export async function POST(req: Request) {
     const allowedCycles: BizhubBillingCycle[] = ["monthly", "quarterly", "biannually", "yearly"];
 
     if (!allowedPlans.includes(planKey)) {
-      return NextResponse.json({ ok: false, error: "Invalid planKey" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid planKey" }, { status: 400 });
     }
     if (!allowedCycles.includes(cycle)) {
-      return NextResponse.json({ ok: false, error: "Invalid cycle" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid cycle" }, { status: 400 });
     }
 
     const amountKobo = priceKoboFor(planKey, cycle);
-    if (amountKobo <= 0) return NextResponse.json({ ok: false, error: "Invalid amount" }, { status: 400 });
+    if (amountKobo <= 0) return Response.json({ ok: false, error: "Invalid amount" }, { status: 400 });
 
     const callbackUrl = `${appUrlFrom(req)}/payment/subscription/callback`;
 
@@ -106,7 +106,7 @@ export async function POST(req: Request) {
         },
       });
 
-      return NextResponse.json({ ok: true, authorization_url: link, reference });
+      return Response.json({ ok: true, authorization_url: link, reference });
     }
 
     // -------------------------
@@ -127,8 +127,8 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ ok: true, authorization_url, reference });
+    return Response.json({ ok: true, authorization_url, reference });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

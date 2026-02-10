@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -25,9 +25,9 @@ export async function GET(req: Request) {
 
     if (status) list = list.filter((x) => String(x.status || "") === status);
 
-    return NextResponse.json({ ok: true, withdrawals: list.slice(0, 100) });
+    return Response.json({ ok: true, withdrawals: list.slice(0, 100) });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
+    return Response.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
   }
 }
 
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     const note = String(body.note || "").slice(0, 500);
 
     if (!withdrawalId || !action) {
-      return NextResponse.json({ ok: false, error: "withdrawalId and action required" }, { status: 400 });
+      return Response.json({ ok: false, error: "withdrawalId and action required" }, { status: 400 });
     }
 
     const wdRef = adminDb.collection("withdrawals").doc(withdrawalId);
@@ -164,11 +164,11 @@ export async function POST(req: Request) {
 
     if ((result as any).ok === false) {
       const r: any = result;
-      return NextResponse.json({ ok: false, error: r.error }, { status: r.status || 500 });
+      return Response.json({ ok: false, error: r.error }, { status: r.status || 500 });
     }
 
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

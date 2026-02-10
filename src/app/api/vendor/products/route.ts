@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/products/route.ts
-import { NextResponse } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -46,46 +46,46 @@ function cleanCategoryKeys(input: any): MarketCategoryKey[] {
 export async function GET(req: Request) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     if (me.role === "staff") {
       const perms = await getStaffPerms(me.uid);
-      if (!perms.productsView && !perms.productsManage) return NextResponse.json({ ok: false, error: "Not authorized" }, { status: 403 });
+      if (!perms.productsView && !perms.productsManage) return Response.json({ ok: false, error: "Not authorized" }, { status: 403 });
     }
 
     const snap = await adminDb.collection("products").where("businessId", "==", me.businessId).limit(200).get();
     const products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
-    return NextResponse.json({ ok: true, products });
+    return Response.json({ ok: true, products });
   } catch (e: any) {
-    if (e?.code === "VENDOR_LOCKED") return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    if (e?.code === "VENDOR_LOCKED") return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     if (me.role === "staff") {
       const perms = await getStaffPerms(me.uid);
-      if (!perms.productsManage) return NextResponse.json({ ok: false, error: "Not authorized" }, { status: 403 });
+      if (!perms.productsManage) return Response.json({ ok: false, error: "Not authorized" }, { status: 403 });
     }
 
     const plan = await getBusinessPlanResolved(me.businessId);
     const maxProducts = Number(plan?.limits?.maxProducts || 0);
     if (!Number.isFinite(maxProducts) || maxProducts <= 0) {
-      return NextResponse.json({ ok: false, code: "PLAN_LIMIT_PRODUCTS", error: "Your plan does not allow creating products." }, { status: 403 });
+      return Response.json({ ok: false, code: "PLAN_LIMIT_PRODUCTS", error: "Your plan does not allow creating products." }, { status: 403 });
     }
 
     const agg = await adminDb.collection("products").where("businessId", "==", me.businessId).count().get();
     const currentCount = Number((agg.data() as any)?.count || 0);
     if (currentCount >= maxProducts) {
-      return NextResponse.json({ ok: false, code: "PLAN_LIMIT_PRODUCTS", error: `You have reached your listing limit (${maxProducts}). Upgrade to add more.` }, { status: 403 });
+      return Response.json({ ok: false, code: "PLAN_LIMIT_PRODUCTS", error: `You have reached your listing limit (${maxProducts}). Upgrade to add more.` }, { status: 403 });
     }
 
     const body = await req.json().catch(() => ({}));
@@ -96,8 +96,8 @@ export async function POST(req: Request) {
     const stock = Number(body.stock ?? 0);
     const packaging = String(body.packaging || "Box");
 
-    if (!name) return NextResponse.json({ ok: false, error: "name is required" }, { status: 400 });
-    if (!(price > 0)) return NextResponse.json({ ok: false, error: "price must be > 0" }, { status: 400 });
+    if (!name) return Response.json({ ok: false, error: "name is required" }, { status: 400 });
+    if (!(price > 0)) return Response.json({ ok: false, error: "price must be > 0" }, { status: 400 });
 
     const images = cleanImages(body.images);
     const optionGroups = Array.isArray(body.optionGroups) ? body.optionGroups : [];
@@ -155,9 +155,9 @@ export async function POST(req: Request) {
       updatedAt: FieldValue.serverTimestamp(),
     });
 
-    return NextResponse.json({ ok: true, productId: ref.id });
+    return Response.json({ ok: true, productId: ref.id });
   } catch (e: any) {
-    if (e?.code === "VENDOR_LOCKED") return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
-    return NextResponse.json({ ok: false, error: e?.message || "Create failed" }, { status: 500 });
+    if (e?.code === "VENDOR_LOCKED") return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+    return Response.json({ ok: false, error: e?.message || "Create failed" }, { status: 500 });
   }
 }

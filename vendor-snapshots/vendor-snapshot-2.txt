@@ -1,0 +1,3184 @@
+﻿ccess("Store link copied!");
+    } catch {
+      toast.error("Couldn't copy link. Please try manually.");
+    }
+  }, [storeUrl]);
+
+  // Extract data with defaults
+  const overview: OverviewData = useMemo(() => {
+    const ov = data?.overview || {};
+    return {
+      totalRevenue: Number(ov.totalRevenue) || 0,
+      orders: Number(ov.orders) || 0,
+      visits: Number(ov.visits) || 0,
+      customers: Number(ov.customers) || 0,
+      productsSold: Number(ov.productsSold) || 0,
+    };
+  }, [data]);
+
+  const todo: TodoData = useMemo(() => {
+    const t = data?.todo || {};
+    return {
+      outOfStockCount: Number(t.outOfStockCount) || 0,
+      lowStockCount: Number(t.lowStockCount) || 0,
+      awaitingConfirmCount: Number(t.awaitingConfirmCount) || 0,
+      disputedCount: Number(t.disputedCount) || 0,
+    };
+  }, [data]);
+
+  const recentOrders: any[] = useMemo(() => {
+    return Array.isArray(data?.recentOrders) ? data.recentOrders : [];
+  }, [data]);
+
+  const chartData = useMemo(() => {
+    return processChartData(data?.chartDays || [], range);
+  }, [data?.chartDays, range]);
+
+  const revenueChartData = useMemo(() => {
+    return chartData.map((d) => ({
+      label: getShortDayLabel(d.label),
+      value: d.revenue,
+    }));
+  }, [chartData]);
+
+  const monthUnlocked = useMemo(() => {
+    if (!access) return false;
+    if (access.monthAnalyticsUnlocked !== undefined) {
+      return !!access.monthAnalyticsUnlocked;
+    }
+    return !!access?.features?.canUseMonthRange;
+  }, [access]);
+
+  const isSubscribed = useMemo(() => {
+    const source = String(access?.source || "free");
+    const planKey = String(access?.planKey || "FREE").toUpperCase();
+    return source === "subscription" && planKey !== "FREE";
+  }, [access]);
+
+  const totalTodoCount = todo.outOfStockCount + todo.lowStockCount + todo.awaitingConfirmCount + todo.disputedCount;
+  const periodLabel = range === "today" ? "Today" : range === "week" ? "This Week" : "This Month";
+
+  return (
+    <div className="min-h-screen pb-24 bg-gray-50">
+      <GradientHeader
+        title="Dashboard"
+        subtitle="Your business overview"
+        showBack={false}
+        right={
+          <div className="flex items-center gap-2">
+            {!isSubscribed && (
+              <button
+                type="button"
+                onClick={() => router.push("/vendor/subscription")}
+                className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition"
+                aria-label="Upgrade"
+              >
+                <Gem className="h-5 w-5 text-white" />
+              </button>
+            )}
+            <IconButton aria-label="Refresh" onClick={loadData} disabled={loading}>
+              <RefreshCw className={`h-5 w-5 text-gray-700 ${loading ? "animate-spin" : ""}`} />
+            </IconButton>
+          </div>
+        }
+      />
+
+      <div className="px-4 space-y-4">
+        {/* Period Selector */}
+        <SegmentedControl<Range>
+          value={range}
+          onChange={setRange}
+          options={[
+            { value: "today", label: "Today" },
+            { value: "week", label: "Week" },
+            { value: "month", label: "Month", disabled: !monthUnlocked },
+          ]}
+        />
+
+        {/* Notices */}
+        {notice && (
+          <Card className="p-4 bg-orange-50 border-orange-100">
+            <p className="text-orange-700 font-medium text-sm">{notice}</p>
+          </Card>
+        )}
+
+        {error && (
+          <Card className="p-4 bg-red-50 border-red-100">
+            <p className="text-red-700 font-medium text-sm">{error}</p>
+          </Card>
+        )}
+
+        {loading && (
+          <Card className="p-8 text-center">
+            <RefreshCw className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
+            <p className="text-gray-500 font-medium mt-3">Loading dashboard...</p>
+          </Card>
+        )}
+
+        {!loading && data && (
+          <>
+            {/* Revenue Hero Card */}
+            <div className="rounded-3xl p-6 text-white shadow-lg bg-gradient-to-br from-orange-500 to-orange-600 relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+              
+              <div className="relative z-10">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-orange-100">
+                      {periodLabel} Sales
+                    </p>
+                    <p className="text-4xl font-black mt-2 tracking-tight">
+                      {fmtNaira(overview.totalRevenue)}
+                    </p>
+                  </div>
+                  {overview.totalRevenue > 0 && (
+                    <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                      <TrendingUp className="w-6 h-6 text-white" />
+                    </div>
+                  )}
+                </div>
+
+                <p className="text-sm text-orange-100 mt-2 font-medium flex items-center gap-2">
+                  <StoreIcon className="w-4 h-4" />
+                  {me?.businessSlug || "Your Store"}
+                </p>
+
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <Button
+                    variant="soft"
+                    className="bg-white/20 hover:bg-white/30 text-white border-none shadow-none font-bold"
+                    leftIcon={<Link2 className="h-4 w-4" />}
+                    onClick={copyStoreLink}
+                    disabled={!storeUrl}
+                  >
+                    Copy Link
+                  </Button>
+                  <Button
+                    variant="soft"
+                    className="bg-white text-orange-600 hover:bg-orange-50 border-none shadow-none font-bold"
+                    leftIcon={<StoreIcon className="h-4 w-4" />}
+                    onClick={() => router.push(`/b/${me?.businessSlug || ""}`)}
+                    disabled={!me?.businessSlug}
+                  >
+                    View Store
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <StatButton
+                icon={ShoppingCart}
+                value={fmtNumber(overview.orders)}
+                label="Orders"
+                onClick={() => router.push("/vendor/orders")}
+              />
+              <StatButton
+                icon={Package}
+                value={fmtNumber(overview.productsSold)}
+                label="Products Sold"
+                onClick={() => router.push("/vendor/products")}
+              />
+              <StatButton
+                icon={Users}
+                value={fmtNumber(overview.customers)}
+                label="Customers"
+                clickable={false}
+              />
+              <StatButton
+                icon={Eye}
+                value={fmtNumber(overview.visits)}
+                label="Store Views"
+                clickable={false}
+              />
+            </div>
+
+            {/* Mini Revenue Chart */}
+            {revenueChartData.length > 0 && (
+              <Card className="p-4 border border-gray-100">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <p className="text-sm font-bold text-gray-900">Revenue Trend</p>
+                    <p className="text-xs text-gray-500 font-medium">{periodLabel}</p>
+                  </div>
+                  <button
+                    onClick={() => router.push("/vendor/analytics")}
+                    className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                  >
+                    View Details
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+                <AnalyticsChart
+                  data={revenueChartData}
+                  color="bg-orange-500"
+                  height={140}
+                  formatValue={fmtNairaCompact}
+                  formatTooltip={(d) => `${d.label}: ${fmtNaira(d.value)}`}
+                />
+              </Card>
+            )}
+
+            {/* Todo Section */}
+            {totalTodoCount > 0 && (
+              <SectionCard
+                title="Action Required"
+                subtitle={`${totalTodoCount} item${totalTodoCount !== 1 ? "s" : ""} need attention`}
+              >
+                <div className="space-y-2">
+                  <TodoItem
+                    label="Disputed orders"
+                    count={todo.disputedCount}
+                    onClick={() => router.push("/vendor/orders?filter=disputed")}
+                    urgent
+                  />
+                  <TodoItem
+                    label="Awaiting payment confirmation"
+                    count={todo.awaitingConfirmCount}
+                    onClick={() => router.push("/vendor/orders?filter=pending")}
+                    urgent
+                  />
+                  <TodoItem
+                    label="Out of stock products"
+                    count={todo.outOfStockCount}
+                    onClick={() => router.push("/vendor/products?filter=outofstock")}
+                  />
+                  <TodoItem
+                    label="Low stock products"
+                    count={todo.lowStockCount}
+                    onClick={() => router.push("/vendor/products?filter=lowstock")}
+                  />
+                </div>
+              </SectionCard>
+            )}
+
+            {/* Quick Actions */}
+            <SectionCard title="Quick Actions" subtitle="Manage your store">
+              <div className="grid grid-cols-2 gap-2">
+                <Button
+                  leftIcon={<Plus className="h-4 w-4" />}
+                  onClick={() => router.push("/vendor/products/new")}
+                >
+                  New Product
+                </Button>
+                <Button
+                  variant="secondary"
+                  leftIcon={<BarChart3 className="h-4 w-4" />}
+                  onClick={() => router.push("/vendor/analytics")}
+                >
+                  Analytics
+                </Button>
+                <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                  All Orders
+                </Button>
+                <Button variant="secondary" onClick={() => router.push("/vendor/store")}>
+                  Store Settings
+                </Button>
+              </div>
+            </SectionCard>
+
+            {/* Recent Orders */}
+            <SectionCard title="Recent Orders" subtitle="Latest activity">
+              {recentOrders.length === 0 ? (
+                <div className="text-center py-8 bg-gray-50 rounded-xl">
+                  <ShoppingCart className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  <p className="text-sm text-gray-500 font-medium">No orders yet</p>
+                  <p className="text-xs text-gray-400 mt-1">
+                    Share your store link to get started
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {recentOrders.slice(0, 5).map((order) => (
+                    <OrderCard
+                      key={order.id}
+                      order={order}
+                      onClick={() => router.push(`/vendor/orders/${order.id}`)}
+                    />
+                  ))}
+                  {recentOrders.length > 5 && (
+                    <button
+                      onClick={() => router.push("/vendor/orders")}
+                      className="w-full text-center py-3 text-sm font-bold text-orange-600 hover:text-orange-700"
+                    >
+                      View All Orders â†’
+                    </button>
+                  )}
+                </div>
+              )}
+            </SectionCard>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/preferences/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { toast } from "@/lib/ui/toast";
+
+type VendorPrefs = {
+  notificationsOrders: boolean;
+  notificationsPayments: boolean;
+  notificationsTips: boolean;
+
+  defaultMarketEnabled: boolean;
+  openWhatsAppInNewTab: boolean;
+
+  reduceDataUsage: boolean;
+};
+
+const KEY = "bizhub_vendor_prefs_v1";
+
+const FALLBACK: VendorPrefs = {
+  notificationsOrders: true,
+  notificationsPayments: true,
+  notificationsTips: true,
+
+  defaultMarketEnabled: true,
+  openWhatsAppInNewTab: true,
+
+  reduceDataUsage: false,
+};
+
+function loadPrefs(): VendorPrefs {
+  if (typeof window === "undefined") return FALLBACK;
+
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (!raw) return FALLBACK;
+
+    const v = JSON.parse(raw);
+    return {
+      notificationsOrders: typeof v?.notificationsOrders === "boolean" ? v.notificationsOrders : FALLBACK.notificationsOrders,
+      notificationsPayments: typeof v?.notificationsPayments === "boolean" ? v.notificationsPayments : FALLBACK.notificationsPayments,
+      notificationsTips: typeof v?.notificationsTips === "boolean" ? v.notificationsTips : FALLBACK.notificationsTips,
+
+      defaultMarketEnabled: typeof v?.defaultMarketEnabled === "boolean" ? v.defaultMarketEnabled : FALLBACK.defaultMarketEnabled,
+      openWhatsAppInNewTab: typeof v?.openWhatsAppInNewTab === "boolean" ? v.openWhatsAppInNewTab : FALLBACK.openWhatsAppInNewTab,
+
+      reduceDataUsage: typeof v?.reduceDataUsage === "boolean" ? v.reduceDataUsage : FALLBACK.reduceDataUsage,
+    };
+  } catch {
+    return FALLBACK;
+  }
+}
+
+function savePrefs(p: VendorPrefs) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(KEY, JSON.stringify(p));
+}
+
+function ToggleRow({
+  title,
+  subtitle,
+  value,
+  onChange,
+}: {
+  title: string;
+  subtitle: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className="w-full text-left rounded-2xl border border-biz-line bg-white p-4 hover:bg-black/[0.02] transition"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-extrabold text-biz-ink">{title}</p>
+          <p className="text-xs text-biz-muted mt-1">{subtitle}</p>
+        </div>
+
+        <span
+          className={
+            value
+              ? "px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100 shrink-0"
+              : "px-3 py-1 rounded-full text-[11px] font-extrabold bg-orange-50 text-orange-700 border border-orange-100 shrink-0"
+          }
+        >
+          {value ? "ON" : "OFF"}
+        </span>
+      </div>
+    </button>
+  );
+}
+
+export default function VendorPreferencesPage() {
+  const [prefs, setPrefs] = useState<VendorPrefs>(() => loadPrefs());
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setSaving(true);
+      savePrefs(prefs);
+      toast.success("Preferences saved.");
+      setSaving(false);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [prefs]);
+
+  const summary = useMemo(() => {
+    const onCount = Object.values(prefs).filter(Boolean).length;
+    return `${onCount} of ${Object.keys(prefs).length} settings enabled`;
+  }, [prefs]);
+
+  function reset() {
+    const ok = confirm("Reset all preferences to default?");
+    if (!ok) return;
+    setPrefs(FALLBACK);
+    toast.info("Preferences reset to default.");
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Preferences" subtitle="Control how myBizHub works for you" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        <Card className="p-4">
+          <p className="text-sm font-extrabold text-biz-ink">Overview</p>
+          <p className="text-xs text-biz-muted mt-1">{summary}</p>
+          <p className="text-[11px] text-biz-muted mt-2">These settings are saved on this device only.</p>
+        </Card>
+
+        <Card className="p-4 space-y-2">
+          <p className="text-sm font-extrabold text-biz-ink">Notifications</p>
+
+          <ToggleRow
+            title="Order updates"
+            subtitle="Get alerts for new orders and order changes"
+            value={prefs.notificationsOrders}
+            onChange={(v) => setPrefs((p) => ({ ...p, notificationsOrders: v }))}
+          />
+
+          <ToggleRow
+            title="Payment updates"
+            subtitle="Get alerts when payments are confirmed or need attention"
+            value={prefs.notificationsPayments}
+            onChange={(v) => setPrefs((p) => ({ ...p, notificationsPayments: v }))}
+          />
+
+          <ToggleRow
+            title="Tips to sell better"
+            subtitle="Short suggestions to help you improve sales"
+            value={prefs.notificationsTips}
+            onChange={(v) => setPrefs((p) => ({ ...p, notificationsTips: v }))}
+          />
+        </Card>
+
+        <Card className="p-4 space-y-2">
+          <p className="text-sm font-extrabold text-biz-ink">Selling defaults</p>
+
+          <ToggleRow
+            title="Show new products in Marketplace by default"
+            subtitle="If OFF, you can still enable per product"
+            value={prefs.defaultMarketEnabled}
+            onChange={(v) => setPrefs((p) => ({ ...p, defaultMarketEnabled: v }))}
+          />
+
+          <ToggleRow
+            title="Open WhatsApp in a new tab"
+            subtitle="Keeps myBizHub open while you chat with buyers"
+            value={prefs.openWhatsAppInNewTab}
+            onChange={(v) => setPrefs((p) => ({ ...p, openWhatsAppInNewTab: v }))}
+          />
+        </Card>
+
+        <Card className="p-4 space-y-2">
+          <p className="text-sm font-extrabold text-biz-ink">Data & speed</p>
+
+          <ToggleRow
+            title="Use less data"
+            subtitle="Loads fewer images when your network is slow"
+            value={prefs.reduceDataUsage}
+            onChange={(v) => setPrefs((p) => ({ ...p, reduceDataUsage: v }))}
+          />
+
+          <p className="text-[11px] text-biz-muted mt-2">Tip: If your phone is slow or data is expensive, turn this ON.</p>
+        </Card>
+
+        <Card className="p-4">
+          <Button variant="secondary" onClick={reset} disabled={saving}>
+            Reset all preferences
+          </Button>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/products/[productId]/edit/page.tsx
+
+
+
+// FILE: src/app/vendor/products/new/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { auth } from "@/lib/firebase/client";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { useRouter } from "next/navigation";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+import { OptionGroup, VariationBuilder } from "@/components/vendor/VariationBuilder";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Chip } from "@/components/ui/Chip";
+import { toast } from "@/lib/ui/toast";
+import { type CoverAspectKey, normalizeCoverAspect } from "@/lib/products/coverAspect";
+import { MARKET_CATEGORIES, suggestCategoriesFromText, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
+
+const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
+const MAX_IMAGES = 10;
+const DRAFT_KEY = "bizhub_vendor_new_product_draft_v1";
+
+function digitsOnly(s: string) {
+  return String(s || "").replace(/[^\d]/g, "");
+}
+function formatNumberText(s: string) {
+  const d = digitsOnly(s);
+  if (!d) return "";
+  return Number(d).toLocaleString("en-NG");
+}
+function parseNumberText(s: string) {
+  const d = digitsOnly(s);
+  return d ? Number(d) : 0;
+}
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString("en-NG")}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+function uniq<T>(arr: T[]) {
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (const x of arr) {
+    const k = String(x);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
+  }
+  return out;
+}
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
+export default function VendorNewProductPage() {
+  const router = useRouter();
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  const [priceText, setPriceText] = useState<string>("");
+  const [stockText, setStockText] = useState<string>("");
+
+  const [packagingChoice, setPackagingChoice] = useState<string>("Box");
+  const [packagingOther, setPackagingOther] = useState<string>("");
+
+  const [images, setImages] = useState<string[]>([]);
+  const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
+
+  const [coverAspect, setCoverAspect] = useState<CoverAspectKey>("1:1");
+
+  const [categoryKeys, setCategoryKeys] = useState<MarketCategoryKey[]>([]);
+  const [categoriesTouched, setCategoriesTouched] = useState(false);
+  const [catMsg, setCatMsg] = useState<string | null>(null);
+  const [colorsCsv, setColorsCsv] = useState("");
+  const [sizesCsv, setSizesCsv] = useState("");
+
+  const [msg, setMsg] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const price = useMemo(() => parseNumberText(priceText), [priceText]);
+  const stock = useMemo(() => parseNumberText(stockText), [stockText]);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw || "{}");
+
+      if (typeof d?.name === "string") setName(d.name);
+      if (typeof d?.description === "string") setDescription(d.description);
+      if (typeof d?.priceText === "string") setPriceText(d.priceText);
+      if (typeof d?.stockText === "string") setStockText(d.stockText);
+      if (typeof d?.packagingChoice === "string") setPackagingChoice(d.packagingChoice);
+      if (typeof d?.packagingOther === "string") setPackagingOther(d.packagingOther);
+      if (Array.isArray(d?.images)) setImages(d.images.slice(0, MAX_IMAGES));
+      if (Array.isArray(d?.optionGroups)) setOptionGroups(d.optionGroups);
+
+      const ca = normalizeCoverAspect(d?.coverAspect);
+      if (ca) setCoverAspect(ca);
+
+      if (Array.isArray(d?.categoryKeys)) setCategoryKeys(d.categoryKeys.slice(0, 3));
+      if (typeof d?.categoriesTouched === "boolean") setCategoriesTouched(d.categoriesTouched);
+      if (typeof d?.colorsCsv === "string") setColorsCsv(d.colorsCsv);
+      if (typeof d?.sizesCsv === "string") setSizesCsv(d.sizesCsv);
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        sessionStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            name,
+            description,
+            priceText,
+            stockText,
+            packagingChoice,
+            packagingOther,
+            images: images.slice(0, MAX_IMAGES),
+            optionGroups,
+            coverAspect,
+            categoryKeys: categoryKeys.slice(0, 3),
+            categoriesTouched,
+            colorsCsv,
+            sizesCsv,
+            ts: Date.now(),
+          })
+        );
+      } catch {}
+    }, 250);
+
+    return () => clearTimeout(t);
+  }, [
+    name,
+    description,
+    priceText,
+    stockText,
+    packagingChoice,
+    packagingOther,
+    images,
+    optionGroups,
+    coverAspect,
+    categoryKeys,
+    categoriesTouched,
+    colorsCsv,
+    sizesCsv,
+  ]);
+
+  // auto-suggest categories (if not touched)
+  useEffect(() => {
+    if (categoriesTouched) return;
+    const text = `${name} ${description}`.trim();
+    if (!text) return;
+
+    const current = Array.isArray(categoryKeys) ? categoryKeys : [];
+    const isEmptyOrOtherOnly = current.length === 0 || (current.length === 1 && String(current[0]) === "other");
+    if (!isEmptyOrOtherOnly) return;
+
+    setCategoryKeys(suggestCategoriesFromText(text, 3));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [name, description, categoriesTouched]);
+
+  const packagingFinal = useMemo(() => {
+    if (packagingChoice === "Other") return packagingOther.trim() || "Other";
+    return packagingChoice;
+  }, [packagingChoice, packagingOther]);
+
+  const priceOk = useMemo(() => {
+    if (!name.trim()) return false;
+    return price > 0;
+  }, [price, name]);
+
+  const imagesOk = useMemo(() => images.length > 0, [images.length]);
+  const canCreate = priceOk && imagesOk && !loading;
+
+  function toggleCategory(k: MarketCategoryKey) {
+    setCatMsg(null);
+    setCategoriesTouched(true);
+
+    setCategoryKeys((prev) => {
+      const cur = uniq((prev || []) as MarketCategoryKey[]).slice(0, 3);
+      if (cur.includes(k)) return cur.filter((x) => x !== k);
+      if (cur.length >= 3) {
+        setCatMsg("You can select up to 3 categories.");
+        toast.info("You can select up to 3 categories.");
+        return cur;
+      }
+      return [...cur, k].slice(0, 3);
+    });
+  }
+
+  async function create() {
+    setLoading(true);
+    setMsg(null);
+    setLocked(false);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Please log in again to continue.");
+
+      const r = await fetch("/api/vendor/products", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          description,
+          price: Number(price || 0),
+          stock: Number(stock || 0),
+          packaging: packagingFinal,
+          images: images.slice(0, MAX_IMAGES),
+          optionGroups,
+          variants: [],
+          coverAspect,
+
+          categoryKeys: categoryKeys.slice(0, 3),
+          colorsCsv,
+          sizesCsv,
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) {
+        if (data?.code === "PLAN_LIMIT_PRODUCTS") {
+          setLocked(true);
+          throw new Error(data?.error || "You've reached your product limit. Upgrade to add more.");
+        }
+        throw new Error(data?.error || "Could not create product. Please try again.");
+      }
+
+      try {
+        sessionStorage.removeItem(DRAFT_KEY);
+      } catch {}
+
+      toast.success("Product created.");
+      router.push(`/vendor/products/${data.productId}/edit`);
+    } catch (e: any) {
+      const m = niceError(e, "Could not create product. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="New product" showBack={true} subtitle="Add a product to your store" />
+
+      <div className="px-4 pb-24 space-y-3">
+        {msg ? (
+          <Card className={locked ? "p-4 text-orange-700" : "p-4 text-red-700"}>
+            <p className="font-bold text-biz-ink">{locked ? "Upgrade required" : "Issue"}</p>
+            <p className="text-sm mt-2">{msg}</p>
+
+            {locked ? (
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button onClick={() => router.push("/vendor/subscription")}>Upgrade</Button>
+                <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
+                  Back
+                </Button>
+              </div>
+            ) : null}
+          </Card>
+        ) : null}
+
+        <Card className="p-4 space-y-2">
+          <Input placeholder="Product name" value={name} onChange={(e) => setName(e.target.value)} disabled={loading} />
+
+          <textarea
+            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40 disabled:opacity-50"
+            placeholder="Description (optional)"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            disabled={loading}
+            rows={4}
+          />
+
+          <div className="relative">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-extrabold text-biz-muted pointer-events-none">
+              â‚¦
+            </span>
+            <input
+              className="w-full border border-biz-line rounded-2xl p-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40 disabled:opacity-50"
+              placeholder="Price"
+              inputMode="numeric"
+              value={priceText}
+              onChange={(e) => setPriceText(formatNumberText(e.target.value))}
+              disabled={loading}
+            />
+          </div>
+
+          <Input
+            placeholder="Stock (optional)"
+            inputMode="numeric"
+            value={stockText}
+            onChange={(e) => setStockText(formatNumberText(e.target.value))}
+            disabled={loading}
+          />
+
+          <div className="mt-2">
+            <p className="text-sm font-bold text-biz-ink">Packaging</p>
+
+            <select
+              className="mt-2 w-full border border-biz-line rounded-2xl p-3 text-sm bg-white disabled:opacity-50"
+              value={packagingChoice}
+              onChange={(e) => setPackagingChoice(e.target.value)}
+              disabled={loading}
+            >
+              {PACKAGING.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
+              ))}
+            </select>
+
+            {packagingChoice === "Other" ? (
+              <Input
+                className="mt-2"
+                placeholder="Specify packaging"
+                value={packagingOther}
+                onChange={(e) => setPackagingOther(e.target.value)}
+                disabled={loading}
+              />
+            ) : null}
+          </div>
+
+          <p className="text-[11px] text-biz-muted">
+            Preview: <b className="text-biz-ink">{fmtNaira(price)}</b> â€¢ Stock: <b className="text-biz-ink">{stockText || "â€”"}</b> â€¢
+            Packaging: <b className="text-biz-ink">{packagingFinal}</b>
+          </p>
+        </Card>
+
+        <Card className="p-4">
+          <p className="text-sm font-bold text-biz-ink">Categories (max 3)</p>
+          <p className="text-[11px] text-biz-muted mt-1">Help buyers find your product</p>
+
+          <div className="mt-3 flex flex-wrap gap-2">
+            {MARKET_CATEGORIES.map((c) => {
+              const active = categoryKeys.includes(c.key);
+              return (
+                <Chip key={c.key} active={active} onClick={() => toggleCategory(c.key)}>
+                  {c.label}
+                </Chip>
+              );
+            })}
+          </div>
+
+          {catMsg ? <p className="mt-2 text-[11px] text-red-700">{catMsg}</p> : null}
+
+          <div className="mt-4 grid grid-cols-1 gap-2">
+            <Input
+              placeholder="Colors (comma separated) e.g. black, red, white"
+              value={colorsCsv}
+              onChange={(e) => setColorsCsv(e.target.value)}
+              disabled={loading}
+            />
+            <Input
+              placeholder="Sizes (comma separated) e.g. 40, 41, L, XL"
+              value={sizesCsv}
+              onChange={(e) => setSizesCsv(e.target.value)}
+              disabled={loading}
+            />
+          </div>
+
+          <p className="mt-2 text-[11px] text-biz-muted">
+            Colors and sizes help buyers filter search results. They don't affect stock or pricing.
+          </p>
+        </Card>
+
+        <Card className="p-4">
+          <ImageUploader
+            label="Product images"
+            value={images}
+            onChange={(next) => setImages(next)}
+            max={MAX_IMAGES}
+            folderBase="bizhub/uploads/products"
+            disabled={loading}
+            autoOpenCrop={true}
+            allowFreeAspect={false}
+            aspectKey={coverAspect}
+            onAspectKeyChange={setCoverAspect}
+          />
+
+          {images.length === 0 ? (
+            <p className="mt-2 text-[11px] text-red-700">Add at least 1 image to continue.</p>
+          ) : (
+            <p className="mt-2 text-[11px] text-biz-muted">The first image is your cover photo.</p>
+          )}
+        </Card>
+
+        <Card className="p-4">
+          <VariationBuilder value={optionGroups} onChange={setOptionGroups} maxGroups={10} />
+        </Card>
+
+        <Card className="p-4">
+          <Button onClick={create} loading={loading} disabled={!canCreate}>
+            Create product
+          </Button>
+
+          {!priceOk && name.trim() ? (
+            <p className="mt-2 text-[11px] text-red-700">Price must be greater than â‚¦0.</p>
+          ) : !name.trim() ? (
+            <p className="mt-2 text-[11px] text-biz-muted">Enter a product name and price to continue.</p>
+          ) : !imagesOk ? (
+            <p className="mt-2 text-[11px] text-red-700">Add at least 1 image to continue.</p>
+          ) : null}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/products/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { auth } from "@/lib/firebase/client";
+
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { IconButton } from "@/components/ui/IconButton";
+
+import { Plus, RefreshCw, Search, Megaphone, Share2, Copy, Lock } from "lucide-react";
+import { cloudinaryOptimizedUrl } from "@/lib/cloudinary/url";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString("en-NG")}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function Chip({ children, tone = "neutral" }: { children: React.ReactNode; tone?: "neutral" | "good" | "warn" }) {
+  const cls =
+    tone === "good"
+      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+      : tone === "warn"
+        ? "bg-orange-50 text-orange-700 border-orange-100"
+        : "bg-white text-gray-700 border-biz-line";
+
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border ${cls}`}>
+      {children}
+    </span>
+  );
+}
+
+function waShareLink(text: string) {
+  return `https://wa.me/?text=${encodeURIComponent(text)}`;
+}
+
+function buildShareCaption(p: any) {
+  const name = String(p?.name || "Product");
+  const price = Number(p?.price || 0);
+  const slug = String(p?.businessSlug || "");
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const link = slug && p?.id ? `${origin}/b/${slug}/p/${p.id}` : "";
+
+  const lines: string[] = [];
+  lines.push(name);
+  if (price > 0) lines.push(`Price: ${fmtNaira(price)}`);
+  if (link) lines.push(`Link: ${link}`);
+  lines.push(`(You can checkout securely via myBizHub)`);
+
+  return lines.join("\n");
+}
+
+type Access = {
+  ok?: boolean;
+  role?: "owner" | "staff" | string;
+  planKey?: string;
+  features?: any;
+  staff?: {
+    staffJobTitle?: string | null;
+    staffPermissions?: {
+      productsView?: boolean;
+      productsManage?: boolean;
+      [k: string]: any;
+    } | null;
+  } | null;
+};
+
+export default function VendorProductsPage() {
+  const router = useRouter();
+
+  const [items, setItems] = useState<any[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [loading, setLoading] = useState(false);
+
+  const [q, setQ] = useState("");
+
+  const [access, setAccess] = useState<Access | null>(null);
+  const [planKey, setPlanKey] = useState<string>("â€”");
+  const [features, setFeatures] = useState<any>(null);
+
+  const [prodError, setProdError] = useState<string | null>(null);
+  const [prodStatus, setProdStatus] = useState<number | null>(null);
+
+  const [shareOpen, setShareOpen] = useState(false);
+  const [shareText, setShareText] = useState("");
+  const [shareTitle, setShareTitle] = useState("");
+
+  const role = String(access?.role || "");
+  const staffPerms = (access?.staff?.staffPermissions && typeof access.staff.staffPermissions === "object"
+    ? access.staff.staffPermissions
+    : {}) as any;
+
+  const canManage = role === "owner" || !!staffPerms.productsManage;
+  const canView = role === "owner" || !!staffPerms.productsView || !!staffPerms.productsManage;
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    setProdError(null);
+    setProdStatus(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        router.replace("/account/login?next=" + encodeURIComponent("/vendor/products"));
+        return;
+      }
+
+      // 1) Load access FIRST
+      const pRes = await fetch("/api/vendor/access", { headers: { Authorization: `Bearer ${token}` } });
+      const pData = (await pRes.json().catch(() => ({}))) as any;
+      if (!pRes.ok) throw new Error(pData?.error || "Failed to load access");
+
+      setAccess(pData);
+      setPlanKey(String(pData?.planKey || "FREE").toUpperCase());
+      setFeatures(pData?.features || {});
+
+      // 2) Load products
+      const prodRes = await fetch("/api/vendor/products", { headers: { Authorization: `Bearer ${token}` } });
+      const data = await prodRes.json().catch(() => ({}));
+
+      if (!prodRes.ok) {
+        setProdStatus(prodRes.status);
+        setProdError(String(data?.error || "Failed to load products"));
+        setItems([]);
+        return;
+      }
+
+      setItems(Array.isArray(data.products) ? data.products : []);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filtered = useMemo(() => {
+    const t = q.trim().toLowerCase();
+    if (!t) return items;
+    return items.filter((p) => String(p?.name || "").toLowerCase().includes(t));
+  }, [items, q]);
+
+  async function copyText(text: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      setMsg("Copied.");
+      setTimeout(() => setMsg(null), 1200);
+    } catch {
+      setMsg("Copy failed.");
+      setTimeout(() => setMsg(null), 1200);
+    }
+  }
+
+  function openShare(p: any) {
+    const caption = buildShareCaption(p);
+    setShareTitle(String(p?.name || "Share"));
+    setShareText(caption);
+    setShareOpen(true);
+  }
+
+  const marketOn = !!features?.marketplace;
+  const showMarketplaceLock = access && !marketOn;
+
+  const showNotAuthorized =
+    (prodStatus === 403 || String(prodError || "").toLowerCase().includes("not authorized")) && !!access;
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Products"
+        subtitle="Create, manage, and promote"
+        showBack={false}
+        right={
+          <div className="flex items-center gap-2">
+            <IconButton aria-label="Refresh" onClick={load} disabled={loading}>
+              <RefreshCw className="h-5 w-5 text-gray-700" />
+            </IconButton>
+
+            <IconButton
+              aria-label="Add product"
+              onClick={() => (canManage ? router.push("/vendor/products/new") : undefined)}
+              disabled={!canManage}
+              title={!canManage ? "You donâ€™t have permission to add products" : "Add product"}
+            >
+              <Plus className="h-5 w-5 text-gray-700" />
+            </IconButton>
+          </div>
+        }
+      />
+
+      <div className="px-4 pb-6 space-y-3">
+        {msg ? <Card className="p-4">{msg}</Card> : null}
+
+        {showNotAuthorized ? (
+          <Card className="p-4">
+            <p className="text-sm font-bold text-biz-ink">Not authorized</p>
+            <p className="text-xs text-gray-500 mt-1">This staff account canâ€™t view/manage products.</p>
+            <p className="text-[11px] text-gray-500 mt-2">
+              Plan: <b className="text-biz-ink">{planKey}</b>
+              {role === "staff" && access?.staff?.staffJobTitle ? (
+                <>
+                  {" "}
+                  â€¢ Role: <b className="text-biz-ink">{String(access.staff.staffJobTitle)}</b>
+                </>
+              ) : null}
+            </p>
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                Dashboard
+              </Button>
+              <Button variant="secondary" onClick={load} disabled={loading}>
+                Retry
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        {showMarketplaceLock ? (
+          <Card className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
+                <Lock className="h-5 w-5 text-orange-700" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-biz-ink">Marketplace is locked</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  People can still buy with your store link. Upgrade to show products on Market.
+                </p>
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button onClick={() => router.push("/vendor/subscription")}>Upgrade</Button>
+                  <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                    Dashboard
+                  </Button>
+                </div>
+                <p className="mt-2 text-[11px] text-gray-500">
+                  Plan: <b className="text-biz-ink">{planKey}</b>
+                </p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        <Card className="p-4">
+          <div className="flex items-center gap-2">
+            <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center border border-transparent">
+              <Search className="h-5 w-5 text-orange-700" />
+            </div>
+            <Input placeholder="Search productsâ€¦" value={q} onChange={(e) => setQ(e.target.value)} />
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button
+              onClick={() => (canManage ? router.push("/vendor/products/new") : undefined)}
+              leftIcon={<Plus className="h-4 w-4" />}
+              disabled={!canManage}
+            >
+              Add product
+            </Button>
+            <Button variant="secondary" onClick={load} loading={loading}>
+              Refresh
+            </Button>
+          </div>
+        </Card>
+
+        {loading && items.length === 0 ? <Card className="p-4">Loadingâ€¦</Card> : null}
+
+        {!loading && !showNotAuthorized && prodError ? <Card className="p-4 text-red-700">{prodError}</Card> : null}
+
+        {/* âœ… Minimal empty state: no products */}
+        {!loading && !showNotAuthorized && items.length === 0 ? (
+          <Card variant="soft" className="p-5">
+            <p className="text-sm font-extrabold text-biz-ink">No products yet</p>
+            <p className="text-xs text-gray-500 mt-1">Add one product to start selling.</p>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => router.push("/vendor/products/new")} disabled={!canManage}>
+                Add product
+              </Button>
+              <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                Dashboard
+              </Button>
+            </div>
+
+            {!canManage ? (
+              <p className="mt-3 text-[11px] text-gray-500">
+                You canâ€™t add products with this account.
+              </p>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {/* âœ… Minimal empty state: no matches */}
+        {!loading && items.length > 0 && filtered.length === 0 ? (
+          <Card variant="soft" className="p-5 text-center">
+            <p className="text-sm font-extrabold text-biz-ink">No matches</p>
+            <p className="text-xs text-gray-500 mt-1">Try another keyword.</p>
+            <div className="mt-4">
+              <Button variant="secondary" onClick={() => setQ("")}>
+                Clear search
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        <div className="space-y-3">
+          {filtered.map((p) => {
+            const marketEnabled = p?.marketEnabled !== false;
+            const slug = String(p?.businessSlug || "");
+            const imgRaw = Array.isArray(p?.images) ? p.images[0] : "";
+            const img = imgRaw ? cloudinaryOptimizedUrl(imgRaw, { w: 160, h: 160 }) : "";
+            const isService = String(p?.listingType || "product") === "service";
+            const boosted = Number(p?.boostUntilMs || 0) > Date.now();
+
+            return (
+              <Card key={p.id} className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="h-16 w-16 rounded-2xl bg-biz-cream overflow-hidden shrink-0">
+                    {img ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={img} alt={p?.name || "Product"} className="h-full w-full object-cover" loading="lazy" decoding="async" />
+                    ) : null}
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="font-bold text-biz-ink truncate">{p?.name || "Unnamed product"}</p>
+
+                      <div className="flex items-center gap-2">
+                        {boosted ? <Chip tone="good">Promoted</Chip> : null}
+                        <Chip tone={marketEnabled ? "neutral" : "warn"}>{marketEnabled ? "Market: On" : "Market: Off"}</Chip>
+                      </div>
+                    </div>
+
+                    <p className="text-sm text-gray-700 mt-1">
+                      {isService ? "Service" : fmtNaira(p?.price || 0)} â€¢ Stock: <b>{Number(p?.stock ?? 0)}</b>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button variant="secondary" size="sm" onClick={() => (canManage ? router.push(`/vendor/products/${p.id}/edit`) : undefined)} disabled={!canManage}>
+                    Edit
+                  </Button>
+
+                  <Button variant="secondary" size="sm" onClick={() => router.push(`/b/${slug}/p/${p.id}`)} disabled={!slug}>
+                    View
+                  </Button>
+
+                  <Button size="sm" leftIcon={<Megaphone className="h-4 w-4" />} onClick={() => (canManage ? router.push(`/vendor/promote?productId=${encodeURIComponent(p.id)}`) : undefined)} disabled={!canManage || isService}>
+                    Promote
+                  </Button>
+
+                  <Button size="sm" variant="secondary" leftIcon={<Share2 className="h-4 w-4" />} onClick={() => openShare(p)} disabled={!slug}>
+                    Share
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+
+        {shareOpen ? (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-end justify-center">
+            <div className="w-full max-w-[430px] px-4 safe-pb pb-4">
+              <Card className="p-4">
+                <p className="text-sm font-bold text-biz-ink">{shareTitle}</p>
+                <p className="text-[11px] text-gray-500 mt-1">You can edit before sending.</p>
+
+                <textarea
+                  className="mt-3 w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                  value={shareText}
+                  onChange={(e) => setShareText(e.target.value)}
+                  rows={7}
+                />
+
+                <div className="mt-3 grid grid-cols-2 gap-2">
+                  <Button variant="secondary" leftIcon={<Copy className="h-4 w-4" />} onClick={() => copyText(shareText)}>
+                    Copy
+                  </Button>
+
+                  <Button onClick={() => window.open(waShareLink(shareText), "_blank")}>WhatsApp</Button>
+
+                  <Button variant="secondary" onClick={() => setShareOpen(false)} className="col-span-2">
+                    Close
+                  </Button>
+                </div>
+              </Card>
+            </div>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/promote/faq/chat/page.tsx
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { auth } from "@/lib/firebase/client";
+
+type ChatMsg = {
+  role: "user" | "assistant";
+  text: string;
+  atMs: number;
+};
+
+function safeText(v: any, max = 2000) {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  if (s.length <= max) return s;
+  return s.slice(0, max).trim();
+}
+
+function makeMsg(role: ChatMsg["role"], text: string): ChatMsg {
+  return { role, text, atMs: Date.now() };
+}
+
+export default function VendorSupportChatPage() {
+  const [msgs, setMsgs] = useState<ChatMsg[]>([
+    makeMsg("assistant", "Hi. Iâ€™m myBizHub support. Tell me what youâ€™re trying to do, and what went wrong."),
+  ]);
+
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs.length]);
+
+  const canSend = useMemo(() => !busy && safeText(text).length >= 2, [busy, text]);
+
+  async function send() {
+    const message = safeText(text);
+    if (!message || busy) return;
+
+    setErr(null);
+    setBusy(true);
+    setText("");
+
+    const nextUser = makeMsg("user", message);
+
+    // Keep short history
+    const history = [...msgs, nextUser].slice(-12);
+    setMsgs(history);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Please login again to use support chat.");
+
+      const r = await fetch("/api/vendor/support/chat", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message,
+          history: history.map((m) => ({ role: m.role, text: m.text })),
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data?.ok) throw new Error(data?.error || "Support chat failed");
+
+      const reply = safeText(data.reply || "I didnâ€™t understand. Please try again.");
+
+      setMsgs((prev): ChatMsg[] => [...prev, makeMsg("assistant", reply)].slice(-20));
+    } catch (e: any) {
+      setErr(e?.message || "Failed");
+      setMsgs((prev): ChatMsg[] => [
+        ...prev,
+        makeMsg("assistant", "I couldnâ€™t reply right now. Please try again in a moment."),
+      ].slice(-20));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Support chat" subtitle="Explain your issue in simple words" showBack={true} />
+
+      <div className="px-4 pb-28 space-y-3">
+        {err ? <Card className="p-4 text-red-700">{err}</Card> : null}
+
+        <div className="space-y-2">
+          {msgs.map((m, idx) => (
+            <div
+              key={idx}
+              className={[
+                "rounded-2xl border border-biz-line p-3 text-sm",
+                m.role === "user" ? "bg-white" : "bg-biz-cream",
+              ].join(" ")}
+            >
+              <p className="text-[11px] text-gray-500 font-bold">{m.role === "user" ? "You" : "myBizHub support"}</p>
+              <p className="mt-1 whitespace-pre-wrap text-gray-800">{m.text}</p>
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+
+        <Card className="p-4">
+          <p className="text-[11px] text-biz-muted">Donâ€™t share passwords, OTP codes, or private banking details.</p>
+
+          <div className="mt-3 flex gap-2">
+            <input
+              className="flex-1 border border-biz-line rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30"
+              placeholder={busy ? "Replyingâ€¦" : "Type your messageâ€¦"}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") send();
+              }}
+              disabled={busy}
+            />
+            <Button onClick={send} disabled={!canSend} loading={busy}>
+              Send
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/promote/faq/page.tsx
+"use client";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { Sparkles, MessageCircle, Lightbulb } from "lucide-react";
+
+type TopicKey =
+  | "getting_started"
+  | "products"
+  | "orders"
+  | "payments"
+  | "payouts"
+  | "subscription"
+  | "promotions"
+  | "growth"
+  | "security";
+
+type Faq = { q: string; a: string };
+
+function TopicCard({
+  title,
+  subtitle,
+  onClick,
+}: {
+  title: string;
+  subtitle: string;
+  onClick: () => void;
+}) {
+  return (
+    <button onClick={onClick} className="w-full text-left">
+      <div className="rounded-2xl border border-biz-line bg-white p-4 hover:bg-black/[0.02] transition">
+        <p className="text-sm font-extrabold text-biz-ink">{title}</p>
+        <p className="text-xs text-biz-muted mt-1">{subtitle}</p>
+      </div>
+    </button>
+  );
+}
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen((v) => !v)}
+      className="w-full text-left rounded-2xl border border-biz-line bg-white p-4 hover:bg-black/[0.02] transition"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-extrabold text-biz-ink">{q}</p>
+          {open ? <p className="text-sm text-gray-700 mt-2 whitespace-pre-wrap">{a}</p> : null}
+        </div>
+        <span className="text-gray-400 font-extrabold shrink-0">{open ? "â€“" : "+"}</span>
+      </div>
+      {!open ? <p className="text-[11px] text-biz-muted mt-2">Tap to expand</p> : null}
+    </button>
+  );
+}
+
+export default function VendorHelpCenterPage() {
+  const router = useRouter();
+
+  const [topic, setTopic] = useState<TopicKey>("getting_started");
+
+  const topics = useMemo(
+    () =>
+      [
+        {
+          key: "getting_started",
+          title: "Getting started",
+          subtitle: "Set up your store and start receiving orders",
+        },
+        {
+          key: "products",
+          title: "Products",
+          subtitle: "Add, edit, stock, photos, variations",
+        },
+        {
+          key: "orders",
+          title: "Orders",
+          subtitle: "Order status, delivery, cancellations, disputes",
+        },
+        {
+          key: "payments",
+          title: "Payments",
+          subtitle: "Checkout issues and payment confirmations",
+        },
+        {
+          key: "payouts",
+          title: "Wallet & withdrawals",
+          subtitle: "How money moves and how to withdraw",
+        },
+        {
+          key: "subscription",
+          title: "Plans & upgrades",
+          subtitle: "Limits, upgrades and what changes after you pay",
+        },
+        {
+          key: "promotions",
+          title: "Promotions",
+          subtitle: "Boosting products and getting more visibility",
+        },
+        {
+          key: "growth",
+          title: "Growth tips",
+          subtitle: "How to get more customers and increase sales",
+        },
+        {
+          key: "security",
+          title: "Account safety",
+          subtitle: "Keeping your account safe and avoiding scams",
+        },
+      ] as const,
+    []
+  );
+
+  const faqsByTopic: Record<TopicKey, Faq[]> = {
+    getting_started: [
+      {
+        q: "How do I share my store link?",
+        a: "Open your vendor dashboard, then copy your store link and share it on WhatsApp, Instagram, Facebook, or anywhere your customers are.\n\nTip: Share your store link first, then share individual product links for best results.",
+      },
+      {
+        q: "Why can't customers see my products?",
+        a: "Check these:\n- Your products have photos and a price\n- Your product is not out of stock\n- Your marketplace setting is ON (if you want it in the Marketplace)\n\nIf it still doesn't show, contact support and tell us your store name.",
+      },
+      {
+        q: "What should I do first after signing up?",
+        a: "Best order:\n1. Add 5â€“10 products with clear photos\n2. Set correct price and stock\n3. Add your WhatsApp number in store settings\n4. Share your store link with your customers",
+      },
+    ],
+
+    products: [
+      {
+        q: "How many photos should I upload?",
+        a: "1 photo is enough to start, but 3â€“5 photos sell better.\n\nUse clear photos with good lighting. Make the first photo your best one (it's your cover photo).",
+      },
+      {
+        q: "What are variations?",
+        a: "Variations help customers choose options like size, color, weight, or model.\n\nIf your product has different options, add variations so customers know exactly what they're buying.",
+      },
+      {
+        q: "Why is my product showing 'out of stock'?",
+        a: "That means the stock number is 0.\n\nUpdate the stock in the product editor, then save.",
+      },
+      {
+        q: "How do I make my products easier to find?",
+        a: "Use clear product names (e.g., \"Men's Black Sneakers Size 42\" instead of \"Item 123\").\n\nAdd categories and colors/sizes if applicable. This helps buyers find you faster.",
+      },
+    ],
+
+    orders: [
+      {
+        q: "Where do I see new orders?",
+        a: "Go to Vendor â†’ Orders.\n\nYou'll see the newest orders at the top.",
+      },
+      {
+        q: "A customer says they paid but I can't see it",
+        a: "Ask the customer to confirm they completed payment and didn't cancel.\n\nIf you have a payment reference, contact support and share the reference so we can check the status.",
+      },
+      {
+        q: "How do disputes work?",
+        a: "If there's an issue, a dispute can be opened so the order can be reviewed fairly.\n\nAlways keep your proof (chat screenshots, receipts, delivery updates). This helps resolve disputes faster.",
+      },
+      {
+        q: "What should I do when I get a new order?",
+        a: "Best practice:\n1. Confirm the order details (items, price, delivery)\n2. Message the customer on WhatsApp to confirm\n3. Update order status as you progress (contacted â†’ paid â†’ in transit â†’ delivered)\n4. Keep the customer updated",
+      },
+    ],
+
+    payments: [
+      {
+        q: "My customer's payment failed. What can we do?",
+        a: "Tell the customer to try again.\n\nIf it still fails:\n- Use a different card\n- Check network connection\n- Try a bank transfer option (if available)\n\nYou can also share the order link again.",
+      },
+      {
+        q: "Do customers abroad need a special card?",
+        a: "Most international cards work.\n\nSometimes a bank blocks online payments. The customer should enable online/international payments in their banking app.",
+      },
+      {
+        q: "Will customers see extra charges?",
+        a: "Some banks add small charges for online/international payments.\n\nThat depends on the customer's bank, not your store.",
+      },
+    ],
+
+    payouts: [
+      {
+        q: "How do I withdraw my money?",
+        a: "Go to your Wallet/Balance page and follow the withdrawal steps.\n\nMake sure your payout details (bank account) are correct before withdrawing.",
+      },
+      {
+        q: "Why can't I withdraw yet?",
+        a: "This can happen if:\n- Your payout details are missing or incorrect\n- There's a pending review on your account\n- Your account needs an extra verification check\n\nContact support and tell us what you see on the screen.",
+      },
+      {
+        q: "How long does withdrawal take?",
+        a: "Withdrawals usually arrive within 1â€“3 business days.\n\nIf it takes longer, contact support with your withdrawal reference.",
+      },
+    ],
+
+    subscription: [
+      {
+        q: "What changes after I upgrade?",
+        a: "Upgrades unlock higher limits and more tools (more products, more analytics, staff accounts, etc.).\n\nYour plan determines what features you can use.",
+      },
+      {
+        q: "I paid but my plan didn't change",
+        a: "Sometimes it takes a moment to sync.\n\nIf it doesn't update within 5 minutes, contact support and share your payment reference.",
+      },
+      {
+        q: "Can I cancel my subscription?",
+        a: "You can downgrade at any time, but paid subscriptions don't auto-renew (you pay per cycle).\n\nIf you don't renew, you'll drop back to Free access when your current plan expires.",
+      },
+    ],
+
+    promotions: [
+      {
+        q: "What is a promotion?",
+        a: "Promotions help your products appear more often in the Marketplace (like ads).\n\nThe longer you run a promotion, the more exposure you get.",
+      },
+      {
+        q: "How long can I promote?",
+        a: "You can run promotions for multiple days (2 days, 7 days, 14 days, etc.).\n\nLonger promotions give more time for customers to discover your product.",
+      },
+      {
+        q: "Any tips to get better results?",
+        a: "Best tips:\n- Promote your best-selling product (the one customers already love)\n- Use a clear cover photo with good lighting\n- Use a simple product name customers understand\n- Make sure price and stock are correct before you promote",
+      },
+    ],
+
+    growth: [
+      {
+        q: "How do I get more customers?",
+        a: "Best strategies:\n1. Share your store link everywhere (WhatsApp, Instagram, Facebook, TikTok)\n2. Post your products on social media regularly\n3. Offer discounts to first-time buyers (use coupon codes)\n4. Ask happy customers to refer their friends\n5. Use re-engagement to bring back past buyers",
+      },
+      {
+        q: "What makes customers buy more?",
+        a: "Top tips:\n- Clear product photos (3â€“5 photos per product)\n- Fair prices (not too high, not too low)\n- Fast responses on WhatsApp\n- Good reviews from other customers\n- Regular updates (new products, sales, promotions)",
+      },
+      {
+        q: "Should I run sales or discounts?",
+        a: "Yes! Sales work very well.\n\nBest times to run sales:\n- End of month (payday)\n- Weekends\n- Holidays (Christmas, New Year, Valentine's, etc.)\n\nUse coupon codes or product discounts to make it easy.",
+      },
+      {
+        q: "How do I keep customers coming back?",
+        a: "Best practices:\n- Deliver on time (or update customers if delayed)\n- Message customers after delivery to say thank you\n- Use re-engagement to send follow-up messages\n- Offer loyalty discounts (e.g., \"10% off your next order\")\n- Keep adding new products so they have a reason to return",
+      },
+    ],
+
+    security: [
+      {
+        q: "How do I keep my account safe?",
+        a: "Best practices:\n- Don't share your login code (OTP)\n- Don't share your password\n- Be careful with unknown links\n- Only trust what you see inside your myBizHub dashboard\n- Enable 2-step verification if available",
+      },
+      {
+        q: "Someone is pretending to be myBizHub support",
+        a: "myBizHub support will NEVER ask for your password or OTP.\n\nIf someone asks for your password or login code, ignore them and report it in support chat immediately.",
+      },
+      {
+        q: "What should I do if my account is hacked?",
+        a: "Contact support immediately and tell us:\n- What happened\n- When it happened\n- Any suspicious messages or links you clicked\n\nWe'll help you secure your account.",
+      },
+    ],
+  };
+
+  const faqs = faqsByTopic[topic];
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Help & Support" subtitle="Quick answers + support chat" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {/* âœ… AI Assistant placeholder (UI only, no backend yet) */}
+        <Card className="p-4 border-2 border-dashed border-biz-accent/30 bg-gradient-to-br from-orange-50 to-white">
+          <div className="flex items-start gap-3">
+            <div className="h-12 w-12 rounded-2xl bg-gradient-to-br from-biz-accent2 to-biz-accent flex items-center justify-center shrink-0">
+              <Sparkles className="h-6 w-6 text-white" />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-extrabold text-biz-ink">AI Assistant (coming soon)</p>
+              <p className="text-xs text-biz-muted mt-1">
+                Get instant answers to your questions. Ask anything about selling on myBizHub.
+              </p>
+
+              <div className="mt-3">
+                <Button variant="soft" disabled className="opacity-60">
+                  <Sparkles className="h-4 w-4" />
+                  Ask AI Assistant
+                </Button>
+              </div>
+
+              <p className="text-[11px] text-biz-muted mt-2">
+                This feature is coming soon. For now, use "Talk to support" below or browse the help topics.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <div className="flex items-start gap-3">
+            <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center shrink-0">
+              <MessageCircle className="h-5 w-5 text-orange-700" />
+            </div>
+
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-extrabold text-biz-ink">Talk to support</p>
+              <p className="text-xs text-biz-muted mt-1">
+                Stuck? Explain your issue in simple words and our team will help.
+              </p>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button onClick={() => router.push("/vendor/promote/faq/chat")}>
+                  <MessageCircle className="h-4 w-4" />
+                  Chat with us
+                </Button>
+                <Button variant="secondary" onClick={() => setTopic("getting_started")} leftIcon={<Lightbulb className="h-4 w-4" />}>
+                  Quick tips
+                </Button>
+              </div>
+
+              <p className="mt-3 text-[11px] text-biz-muted">
+                Never share your password or OTP code in chat.
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <p className="text-sm font-extrabold text-biz-ink">Help topics</p>
+          <p className="text-xs text-biz-muted mt-1">Choose what you need help with</p>
+
+          <div className="mt-3 grid grid-cols-1 gap-2">
+            {topics.map((t) => (
+              <TopicCard key={t.key} title={t.title} subtitle={t.subtitle} onClick={() => setTopic(t.key)} />
+            ))}
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <p className="text-sm font-extrabold text-biz-ink">Answers</p>
+          <p className="text-xs text-biz-muted mt-1">
+            Topic:{" "}
+            <b className="text-biz-ink">
+              {topics.find((x) => x.key === topic)?.title || "Help"}
+            </b>
+          </p>
+
+          <div className="mt-3 space-y-2">
+            {faqs.map((f) => (
+              <FaqItem key={f.q} q={f.q} a={f.a} />
+            ))}
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/promote/page.tsx
+import { Suspense } from "react";
+import ClientPage from "./page-client";
+
+export const dynamic = "force-dynamic";
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <ClientPage />
+    </Suspense>
+  );
+}
+
+
+
+
+// FILE: src/app/vendor/promote/page-client.tsx
+"use client";
+
+
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { auth } from "@/lib/firebase/client";
+import { CheckCircle2, HelpCircle, Megaphone } from "lucide-react";
+
+type Tab = "setup" | "summary";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function clampInt(n: any, min: number, max: number) {
+  const v = Math.floor(Number(n));
+  if (!Number.isFinite(v)) return min;
+  return Math.max(min, Math.min(max, v));
+}
+
+function parseIds(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+export default function PromoteWizardPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const presetProductId = sp.get("productId");
+  const presetIds = parseIds(sp.get("ids"));
+  const presetDays = sp.get("days");
+  const presetDaily = sp.get("daily");
+
+  const [tab, setTab] = useState<Tab>("setup");
+
+  const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [products, setProducts] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const [days, setDays] = useState<number>(2);
+  const [dailyBudget, setDailyBudget] = useState<number>(1700);
+  const maxProducts = 5;
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      setLoading(true);
+      setMsg(null);
+      try {
+        const data = await authedFetch("/api/vendor/products");
+        const list = Array.isArray(data.products) ? data.products : [];
+        const onlyProducts = list.filter((p: any) => String(p?.listingType || "product") !== "service");
+
+        if (!mounted) return;
+        setProducts(onlyProducts);
+
+        // Apply presets
+        const nextIds: string[] = [];
+
+        // ids=... takes priority
+        for (const id of presetIds) {
+          const exists = onlyProducts.some((p: any) => String(p.id) === id);
+          if (exists) nextIds.push(id);
+        }
+
+        // fallback: productId
+        if (nextIds.length === 0 && presetProductId) {
+          const exists = onlyProducts.some((p: any) => String(p.id) === String(presetProductId));
+          if (exists) nextIds.push(String(presetProductId));
+        }
+
+        if (nextIds.length) setSelectedIds(nextIds.slice(0, maxProducts));
+
+        if (presetDays) setDays(clampInt(presetDays, 2, 60));
+        if (presetDaily) setDailyBudget(clampInt(presetDaily, 1700, 500000));
+      } catch (e: any) {
+        if (!mounted) return;
+        setMsg(e?.message || "Failed to load products");
+        setProducts([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [presetProductId, presetDays, presetDaily]); // presetIds is derived from query; safe
+
+  function toggle(id: string) {
+    setSelectedIds((prev) => {
+      const has = prev.includes(id);
+      if (has) return prev.filter((x) => x !== id);
+      if (prev.length >= maxProducts) return prev;
+      return [...prev, id];
+    });
+  }
+
+  const selectedProducts = useMemo(() => {
+    const map = new Map(products.map((p) => [String(p.id), p]));
+    return selectedIds.map((id) => map.get(id)).filter(Boolean);
+  }, [products, selectedIds]);
+
+  const safeDays = useMemo(() => clampInt(days, 2, 60), [days]);
+  const safeDaily = useMemo(() => clampInt(dailyBudget, 1700, 500000), [dailyBudget]);
+
+  const totalCost = useMemo(() => safeDays * safeDaily, [safeDays, safeDaily]);
+
+  const exposureNote = useMemo(() => {
+    if (selectedIds.length <= 1) {
+      return "Higher daily budget increases how often your product appears in promoted slots.";
+    }
+    return "Your campaign will promote multiple products. Exposure is shared across selected products.";
+  }, [selectedIds.length]);
+
+  const canContinue =
+    selectedIds.length >= 1 &&
+    selectedIds.length <= maxProducts &&
+    safeDays >= 2 &&
+    safeDaily >= 1700;
+
+  async function startPayment() {
+    if (!canContinue) return;
+
+    setPaying(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/promotions/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productIds: selectedIds,
+          days: safeDays,
+          dailyBudgetKobo: safeDaily * 100,
+        }),
+      });
+
+      window.location.href = data.authorization_url;
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to start payment");
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Promotion"
+        subtitle="Boost a product like ads"
+        showBack={true}
+        right={
+          <button
+            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-bold shadow-soft inline-flex items-center gap-2"
+            onClick={() => router.push("/vendor/promote/faq")}
+          >
+            <HelpCircle className="h-4 w-4 text-gray-700" />
+            FAQ
+          </button>
+        }
+      />
+
+      <div className="px-4 pb-6 space-y-3">
+        <SegmentedControl<Tab>
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "setup", label: "Setup" },
+            { value: "summary", label: "Summary" },
+          ]}
+        />
+
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            {tab === "setup" ? (
+              <>
+                <SectionCard
+                  title="Select products"
+                  subtitle={`Choose 1â€“${maxProducts} products to promote`}
+                  right={
+                    <span className="text-[11px] text-biz-muted">
+                      Selected: <b className="text-biz-ink">{selectedIds.length}</b>/{maxProducts}
+                    </span>
+                  }
+                >
+                  {products.length === 0 ? (
+                    <div className="text-sm text-biz-muted">
+                      You have no products yet. Add a product first.
+                      <div className="mt-3">
+                        <Button onClick={() => router.push("/vendor/products/new")}>Add product</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {products.slice(0, 50).map((p: any) => {
+                        const id = String(p.id);
+                        const on = selectedIds.includes(id);
+                        const img = Array.isArray(p?.images) ? p.images[0] : "";
+
+                        return (
+                          <button
+                            key={id}
+                            onClick={() => toggle(id)}
+                            className={[
+                              "w-full text-left rounded-2xl border p-3 transition",
+                              on
+                                ? "border-transparent bg-gradient-to-br from-biz-accent2 to-biz-accent text-white shadow-float"
+                                : "border-biz-line bg-white hover:bg-black/[0.02]",
+                            ].join(" ")}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="h-12 w-12 rounded-2xl bg-biz-cream overflow-hidden shrink-0 border border-black/5">
+                                {img ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={img} alt={p?.name || "Product"} className="h-full w-full object-cover" />
+                                ) : null}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <p className={on ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
+                                  {p?.name || "Product"}
+                                </p>
+                                <p className={on ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-biz-muted mt-1"}>
+                                  â‚¦{Number(p?.price || 0).toLocaleString()}
+                                </p>
+                              </div>
+
+                              {on ? (
+                                <CheckCircle2 className="h-5 w-5 text-white shrink-0 mt-0.5" />
+                              ) : (
+                                <span className="h-5 w-5 rounded-full border border-biz-line bg-white shrink-0 mt-0.5" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <p className="mt-3 text-[11px] text-biz-muted">
+                    If you select multiple products, exposure is shared across them.
+                  </p>
+                </SectionCard>
+
+                <SectionCard title="Budget & duration" subtitle="More budget = more exposure">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-biz-muted mb-1">Days (minimum 2)</p>
+                      <Input
+                        type="number"
+                        min={2}
+                        max={60}
+                        value={String(days)}
+                        onChange={(e) => setDays(Number(e.target.value))}
+                        placeholder="2"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-biz-muted mb-1">Daily budget (minimum â‚¦1,700)</p>
+                      <Input
+                        type="number"
+                        min={1700}
+                        step={100}
+                        value={String(dailyBudget)}
+                        onChange={(e) => setDailyBudget(Number(e.target.value))}
+                        placeholder="1700"
+                      />
+                      <p className="mt-2 text-[11px] text-biz-muted">{exposureNote}</p>
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <Card className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-biz-ink">Estimated total</p>
+                      <p className="text-[11px] text-biz-muted mt-1">
+                        {safeDays} day(s) Ã— {fmtNaira(safeDaily)}
+                      </p>
+                    </div>
+                    <p className="text-lg font-bold text-biz-ink">{fmtNaira(totalCost)}</p>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => setTab("summary")}
+                      disabled={!canContinue}
+                      leftIcon={<Megaphone className="h-4 w-4" />}
+                    >
+                      Continue
+                    </Button>
+                    <Button variant="secondary" onClick={() => router.push("/vendor/promotions")}>
+                      Campaigns
+                    </Button>
+                  </div>
+
+                  {!canContinue ? (
+                    <p className="mt-2 text-[11px] text-red-700">
+                      Select at least 1 product (max {maxProducts}), and use at least 2 days + â‚¦1,700/day.
+                    </p>
+                  ) : null}
+                </Card>
+              </>
+            ) : null}
+
+            {tab === "summary" ? (
+              <>
+                <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+                  <p className="text-xs opacity-95">Promotion summary</p>
+                  <p className="text-xl font-bold mt-1">{fmtNaira(totalCost)}</p>
+                  <p className="text-[11px] opacity-95 mt-2">
+                    Duration: <b>{safeDays} day(s)</b> â€¢ Daily budget: <b>{fmtNaira(safeDaily)}</b>
+                  </p>
+                  <p className="text-[11px] opacity-95 mt-1">
+                    Products: <b>{selectedIds.length}</b> (shared exposure if multiple)
+                  </p>
+                </div>
+
+                <SectionCard title="Selected products" subtitle="These will be promoted">
+                  <div className="space-y-2">
+                    {selectedProducts.map((p: any) => (
+                      <div key={String(p.id)} className="rounded-2xl border border-biz-line bg-white p-3">
+                        <p className="text-sm font-bold text-biz-ink">{p?.name || "Product"}</p>
+                        <p className="text-[11px] text-biz-muted mt-1">â‚¦{Number(p?.price || 0).toLocaleString()}</p>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+
+                <div className="fixed bottom-0 left-0 right-0 z-40">
+                  <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+                    <Card className="p-4 space-y-2">
+                      <Button onClick={startPayment} loading={paying} disabled={!canContinue}>
+                        Pay {fmtNaira(totalCost)}
+                      </Button>
+                      <Button variant="secondary" onClick={() => setTab("setup")}>
+                        Edit campaign
+                      </Button>
+                    </Card>
+                  </div>
+                </div>
+
+                <div className="h-28" />
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+
+
+// FILE: src/app/vendor/promotions/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
+import { Megaphone, RefreshCw, HelpCircle } from "lucide-react";
+
+function fmtNairaFromKobo(kobo: number) {
+  const n = Number(kobo || 0) / 100;
+  try {
+    return `â‚¦${n.toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function fmtDate(ms?: number) {
+  if (!ms) return "â€”";
+  try {
+    return new Date(ms).toLocaleDateString();
+  } catch {
+    return String(ms);
+  }
+}
+
+function remainingText(endsAtMs: number) {
+  if (!endsAtMs) return "â€”";
+  const diff = endsAtMs - Date.now();
+  if (diff <= 0) return "Ended";
+  const hours = Math.ceil(diff / (60 * 60 * 1000));
+  const days = Math.ceil(diff / (24 * 60 * 60 * 1000));
+  if (days >= 2) return `${days} days left`;
+  return `${hours} hours left`;
+}
+
+function StatusPill({ active }: { active: boolean }) {
+  return (
+    <span
+      className={[
+        "inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border",
+        active
+          ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+          : "bg-orange-50 text-orange-700 border-orange-100",
+      ].join(" ")}
+    >
+      {active ? "Active" : "Ended"}
+    </span>
+  );
+}
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
+export default function VendorPromotionsPage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [campaigns, setCampaigns] = useState<any[]>([]);
+
+  async function api(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "We couldn't complete that request.");
+    return data;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const data = await api("/api/promotions/my");
+      setCampaigns(Array.isArray(data.campaigns) ? data.campaigns : []);
+    } catch (e: any) {
+      const m = niceError(e, "Could not load campaigns. Please try again.");
+      setMsg(m);
+      setCampaigns([]);
+      toast.error(m);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const activeCount = useMemo(
+    () => campaigns.filter((c) => Number(c.endsAtMs || 0) > Date.now()).length,
+    [campaigns]
+  );
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Promotions"
+        subtitle="Boost your products in the marketplace"
+        showBack={true}
+        right={
+          <button
+            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-bold shadow-soft inline-flex items-center gap-2"
+            onClick={() => router.push("/vendor/promote/faq")}
+          >
+            <HelpCircle className="h-4 w-4 text-gray-700" />
+            Help
+          </button>
+        }
+      />
+
+      <div className="px-4 pb-6 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            <Card className="p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-biz-ink">Overview</p>
+                  <p className="text-xs text-biz-muted mt-1">
+                    Active campaigns: <b className="text-biz-ink">{activeCount}</b>
+                  </p>
+                </div>
+
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={load}
+                  leftIcon={<RefreshCw className="h-4 w-4" />}
+                >
+                  Refresh
+                </Button>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button onClick={() => router.push("/vendor/promote")} leftIcon={<Megaphone className="h-4 w-4" />}>
+                  New campaign
+                </Button>
+                <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
+                  Products
+                </Button>
+              </div>
+
+              <p className="mt-3 text-[11px] text-biz-muted">
+                Promotions increase visibility by showing your products at the top of the marketplace for the duration you choose.
+              </p>
+            </Card>
+
+            {campaigns.length === 0 ? (
+              <EmptyState
+                title="No campaigns yet"
+                description="Start a campaign to boost your products in the marketplace and reach more buyers."
+                ctaLabel="Create campaign"
+                onCta={() => router.push("/vendor/promote")}
+              />
+            ) : (
+              <SectionCard title="Your campaigns" subtitle="Tap Renew to run again">
+                <div className="space-y-3">
+                  {campaigns.map((c) => {
+                    const endsAtMs = Number(c.endsAtMs || 0);
+                    const startedAtMs = Number(c.startedAtMs || 0);
+                    const active = endsAtMs > Date.now();
+
+                    const productIds: string[] = Array.isArray(c.productIds) ? c.productIds : [];
+                    const products: any[] = Array.isArray(c.products) ? c.products : [];
+
+                    const daily = Number(c.dailyBudgetKobo || 0);
+                    const total = Number(c.totalBudgetKobo || 0);
+                    const days = Number(c.days || 0);
+
+                    return (
+                      <div key={String(c.reference || c.id)} className="rounded-2xl border border-biz-line bg-white p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <StatusPill active={active} />
+                              <span className="text-[11px] text-gray-500">{remainingText(endsAtMs)}</span>
+                            </div>
+
+                            <p className="mt-2 text-sm font-bold text-biz-ink">
+                              {productIds.length} product{productIds.length !== 1 ? "s" : ""} â€¢ {days || "â€”"} day{days !== 1 ? "s" : ""}
+                            </p>
+
+                            <p className="text-[11px] text-gray-500 mt-1">
+                              Start: {fmtDate(startedAtMs)} â€¢ End: {fmtDate(endsAtMs)}
+                            </p>
+
+                            <p className="text-[11px] text-gray-500 mt-1">
+                              Daily budget: <b className="text-biz-ink">{fmtNairaFromKobo(daily)}</b> â€¢ Total:{" "}
+                              <b className="text-biz-ink">{fmtNairaFromKobo(total)}</b>
+                            </p>
+                          </div>
+
+                          <div className="shrink-0">
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                const ids = encodeURIComponent(productIds.join(","));
+                                const q = `ids=${ids}&days=${encodeURIComponent(String(days || 2))}&daily=${encodeURIComponent(
+                                  String(Math.max(1700, Math.round(daily / 100)))
+                                )}`;
+                                router.push(`/vendor/promote?${q}`);
+                              }}
+                            >
+                              Renew
+                            </Button>
+                          </div>
+                        </div>
+
+                        {products.length ? (
+                          <div className="mt-3 grid grid-cols-5 gap-2">
+                            {products.slice(0, 5).map((p) => (
+                              <div
+                                key={p.id}
+                                className="h-12 w-full rounded-2xl bg-biz-cream overflow-hidden border border-black/5"
+                              >
+                                {p.imageUrl ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={p.imageUrl} alt={p.name} className="h-full w-full object-cover" />
+                                ) : null}
+                              </div>
+                            ))}
+                          </div>
+                        ) : null}
+
+                        <p className="mt-3 text-[11px] text-biz-muted break-all">ID: {String(c.reference || c.id)}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+              </SectionCard>
+            )}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/purchases/callback/page.tsx
+import { Suspense } from "react";
+import ClientPage from "./page-client";
+
+export const dynamic = "force-dynamic";
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <ClientPage />
+    </Suspense>
+  );
+}
+
+
+
+// FILE: src/app/vendor/purchases/callback/page-client.tsx
+// FILE: src/app/vendor/purchases/callback/page-client.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { auth } from "@/lib/firebase/client";
+
+export default function VendorPurchasesCallbackPageClient() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const reference = String(sp.get("tx_ref") || sp.get("reference") || "").trim();
+  const transactionId = String(sp.get("transaction_id") || sp.get("transactionId") || "").trim();
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string>("Confirming purchase...");
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      if (!reference) {
+        setLoading(false);
+        setMsg("Missing reference.");
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setMsg("Confirming purchase...");
+
+        await authedFetch("/api/vendor/purchases/confirm", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ reference, transactionId }),
+        });
+
+        if (!mounted) return;
+        setMsg("Purchase confirmed. Add-on activated (or extended).");
+      } catch (e: any) {
+        if (!mounted) return;
+        setMsg(e?.message || "Failed to confirm purchase");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, [reference, transactionId]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Purchase status" subtitle="Plan add-ons" showBack={true} />
+      <div className="px-4 pb-24 space-y-3">
+        <Card className="p-4">{msg}</Card>
+
+        <Card className="p-4 space-y-2">
+          <Button onClick={() => router.push("/vendor/purchases")} disabled={loading}>
+            Back to Plan purchases
+          </Button>
+          <Button variant="secondary" onClick={() => router.push("/vendor")} disabled={loading}>
+            Go to Dashboard
+          </Button>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/purchases/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { auth } from "@/lib/firebase/client";
+import { CheckCircle2, ShoppingBag } from "lucide-react";
+
+type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
+type AddonCycle = "monthly" | "yearly";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString("en-NG")}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+type CatalogItem = {
+  sku: string;
+  kind: "item" | "bundle";
+  title: string;
+  description: string;
+  includesSkus?: string[];
+  priceNgn: { monthly: number; yearly: number };
+  status?: "active" | "paused" | "inactive";
+  expiresAtMs?: number;
+};
+
+type CatalogResponse = {
+  ok: boolean;
+  planKey: BizhubPlanKey;
+  subscriptionActive: boolean;
+  cycleDefault: AddonCycle;
+  items: CatalogItem[];
+};
+
+export default function VendorPurchasesPage() {
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [cycle, setCycle] = useState<AddonCycle>("yearly");
+  const [planKey, setPlanKey] = useState<BizhubPlanKey>("FREE");
+  const [subscriptionActive, setSubscriptionActive] = useState(false);
+
+  const [items, setItems] = useState<CatalogItem[]>([]);
+  const [buyingSku, setBuyingSku] = useState<string>("");
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    return data;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const data = (await authedFetch("/api/vendor/purchases/catalog")) as CatalogResponse;
+      setPlanKey(data.planKey);
+      setSubscriptionActive(!!data.subscriptionActive);
+      setCycle(data.cycleDefault || "yearly");
+      setItems(Array.isArray(data.items) ? data.items : []);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const grouped = useMemo(() => {
+    const bundles = items.filter((x) => x.kind === "bundle");
+    const singles = items.filter((x) => x.kind === "item");
+    return { bundles, singles };
+  }, [items]);
+
+  async function buy(sku: string) {
+    setBuyingSku(sku);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/vendor/purchases/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sku, cycle }),
+      });
+
+      if (!data?.authorization_url) throw new Error("Failed to start payment");
+      window.location.href = String(data.authorization_url);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to start purchase");
+    } finally {
+      setBuyingSku("");
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Plan purchases" subtitle="Buy add-ons based on your plan" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+
+        {!loading ? (
+          <>
+            <Card className="p-4">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center">
+                  <ShoppingBag className="h-5 w-5 text-orange-700" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-extrabold text-biz-ink">Your plan: {planKey}</p>
+                  <p className="text-[11px] text-biz-muted mt-1">
+                    Add-ons pause when your subscription expires and resume when your subscription is active again.
+                  </p>
+                  {!subscriptionActive ? (
+                    <p className="mt-2 text-[11px] font-bold text-orange-700">Subscription is not active right now.</p>
+                  ) : null}
+                </div>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCycle("yearly")}
+                  className={
+                    cycle === "yearly"
+                      ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                      : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+                  }
+                >
+                  Yearly (best value)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCycle("monthly")}
+                  className={
+                    cycle === "monthly"
+                      ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                      : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-gray-500"
+                  }
+                >
+                  Monthly
+                </button>
+              </div>
+            </Card>
+
+            {grouped.bundles.length ? (
+              <Card className="p-4">
+                <p className="text-sm font-extrabold text-biz-ink">Bundles</p>
+                <p className="text-[11px] text-biz-muted mt-1">Bundles are cheaper than buying items separately.</p>
+
+                <div className="mt-3 space-y-2">
+                  {grouped.bundles.map((a) => {
+                    const price = cycle === "yearly" ? a.priceNgn.yearly : a.priceNgn.monthly;
+                    const disabled = buyingSku === a.sku;
+
+                    return (
+                      <div key={a.sku} className="rounded-2xl border border-biz-line bg-white p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-extrabold text-biz-ink">{a.title}</p>
+                            <p className="text-[11px] text-biz-muted mt-1">{a.description}</p>
+                            <p className="text-[11px] text-biz-muted mt-2">
+                              Includes: <b className="text-biz-ink">{(a.includesSkus || []).length}</b> items
+                            </p>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-extrabold text-biz-ink">{fmtNaira(price)}</p>
+                            <p className="text-[11px] text-biz-muted">{cycle}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3">
+                          <Button onClick={() => buy(a.sku)} loading={disabled} disabled={disabled}>
+                            Buy
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ) : null}
+
+            {grouped.singles.length ? (
+              <Card className="p-4">
+                <p className="text-sm font-extrabold text-biz-ink">Add-ons</p>
+                <div className="mt-3 space-y-2">
+                  {grouped.singles.map((a) => {
+                    const price = cycle === "yearly" ? a.priceNgn.yearly : a.priceNgn.monthly;
+                    const disabled = buyingSku === a.sku;
+
+                    return (
+                      <div key={a.sku} className="rounded-2xl border border-biz-line bg-white p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-extrabold text-biz-ink">{a.title}</p>
+                            <p className="text-[11px] text-biz-muted mt-1">{a.description}</p>
+                            {a.status ? (
+                              <p className="mt-2 text-[11px] text-biz-muted">
+                                Status:{" "}
+                                <b className="text-biz-ink">
+                                  {a.status.toUpperCase()}
+                                  {a.expiresAtMs ? ` â€¢ expires: ${new Date(a.expiresAtMs).toLocaleDateString()}` : ""}
+                                </b>
+                              </p>
+                            ) : null}
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-extrabold text-biz-ink">{fmtNaira(price)}</p>
+                            <p className="text-[11px] text-biz-muted">{cycle}</p>
+                          </div>
+                        </div>
+
+                        <div className="mt-3">
+                          <Button onClick={() => buy(a.sku)} loading={disabled} disabled={disabled}>
+                            Buy
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </Card>
+            ) : null}
+
+            {!grouped.bundles.length && !grouped.singles.length ? (
+              <Card className="p-4">
+                <p className="text-sm text-biz-muted">No purchases available on this plan.</p>
+              </Card>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/reengagement/page.tsx
+// FILE: src/app/vendor/reengagement/page.tsx
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { toast } from "@/lib/ui/toast";
+import { auth } from "@/lib/firebase/client";
+import { MessageCircle, AlertTriangle, RefreshCw, Copy, Sparkles, Search, Clock } from "lucide-react";
+import {
+  composeSmartMessage,
+  segmentLabel,
+  type ReengagementPerson,
+  type ReengagementSegment,
+  type PlanKey,
+} from "@/lib/vendor/reengagement/compose";
+
+type Mode = "buyers" | "abandoned";
+
+function waLink(phone: string, text: string) {
+  const digits = String(phone || "").replace(/[^\d]/g, "");
+  return `https://wa.me/${digits}?text=${encodeURIComponent(text)}`;
+}
+
+function fmtDate(ms: number) {
+  if (!ms) return "â€”";
+  try {
+    return new Date(ms).toLocaleDateString();
+  } catch {
+    return "â€”";
+  }
+}
+
+function defaultBaseFor(mode: Mode) {
+  if (mode === "abandoned") {
+    return `I noticed you started an order but didn't complete payment.\n\nDo you still want it? I can help you complete it.`;
+  }
+  return `Thank you for buying from my myBizHub store.\n\nIf you need anything else or want to reorder, I'm available.`;
+}
+
+function fmtCountdown(msLeft: number) {
+  const ms = Math.max(0, Math.floor(msLeft || 0));
+  const totalSec = Math.floor(ms / 1000);
+  const h = Math.floor(totalSec / 3600);
+  const m = Math.floor((totalSec % 3600) / 60);
+  const s = totalSec % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(h)}:${pad(m)}:${pad(s)}`;
+}
+
+function cleanPlanKey(v: any): PlanKey {
+  const k = String(v || "FREE").toUpperCase();
+  return (k === "LAUNCH" || k === "MOMENTUM" || k === "APEX" ? k : "FREE") as PlanKey;
+}
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
+type RemixUsage = {
+  cap: number;
+  used: number;
+  windowStartMs?: number;
+  resetAtMs?: number;
+};
+
+export default function VendorReengagementPage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [mode, setMode] = useState<Mode>("buyers");
+
+  const [segment, setSegment] = useState<ReengagementSegment>("buyers_all");
+  const [days, setDays] = useState<number>(30);
+  const [q, setQ] = useState("");
+
+  const [people, setPeople] = useState<ReengagementPerson[]>([]);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+
+  const [baseText, setBaseText] = useState<string>(defaultBaseFor("buyers"));
+
+  const [planKey, setPlanKey] = useState<PlanKey>("FREE");
+  const [features, setFeatures] = useState<any>(null);
+  const [limits, setLimits] = useState<any>(null);
+  const [businessSlug, setBusinessSlug] = useState<string>("");
+  const [businessName, setBusinessName] = useState<string>("");
+
+  const [counts, setCounts] = useState<Record<string, number>>({});
+
+  const [rotationKey, setRotationKey] = useState<string>(() => `rot_${Date.now().toString(36)}`);
+
+  const [autoRemixAfterCopy, setAutoRemixAfterCopy] = useState<boolean>(() => {
+    try {
+      const v = localStorage.getItem("bizhub_reengage_auto_remix");
+      return v === "1";
+    } catch {
+      return false;
+    }
+  });
+
+  const reengagementUnlocked = !!features?.reengagement;
+
+  const smartGroupsOn = !!features?.reengagementSmartGroups;
+  const smartMessagesOn = !!features?.reengagementSmartMessages;
+
+  const aiRemixUnlocked = !!features?.reengagementAiRemix;
+  const vipAllowed = cleanPlanKey(planKey) === "APEX" && aiRemixUnlocked;
+
+  const [sending, setSending] = useState(false);
+  const sendQueueRef = useRef<any[]>([]);
+  const sendIdxRef = useRef<number>(0);
+
+  const [remixUsage, setRemixUsage] = useState<RemixUsage | null>(null);
+  const [remixInfo, setRemixInfo] = useState<any>(null);
+  const [remixing, setRemixing] = useState(false);
+  const [tick, setTick] = useState(0);
+
+  const selectedPeople = useMemo(() => people.filter((p) => selected[p.key]), [people, selected]);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "We couldn't complete that request.");
+    return data;
+  }
+
+  async function loadAccess() {
+    try {
+      const data = await authedFetch("/api/vendor/access");
+      const pk = String(data?.planKey || "FREE").toUpperCase() as PlanKey;
+
+      setPlanKey(pk);
+      setFeatures(data?.features || null);
+      setLimits(data?.limits || null);
+
+      setBusinessSlug(String(data?.business?.slug || ""));
+      setBusinessName(String(data?.business?.name || ""));
+    } catch {}
+  }
+
+  function currentSegment(): ReengagementSegment {
+    if (mode === "abandoned") return "abandoned";
+    if (!smartGroupsOn) return "buyers_all";
+    if (segment === "vip" && !vipAllowed) return "buyers_all";
+    return segment;
+  }
+
+  async function loadAudience() {
+    setLoading(true);
+    setMsg(null);
+
+    try {
+      const seg = currentSegment();
+
+      const params = new URLSearchParams();
+      params.set("segment", seg);
+      if (seg === "abandoned") params.set("days", String(days));
+      if (q.trim()) params.set("q", q.trim());
+
+      const data = await authedFetch(`/api/vendor/reengagement/audience?${params.toString()}`);
+
+      const list = Array.isArray(data.people) ? (data.people as ReengagementPerson[]) : [];
+      setPeople(list);
+
+      setCounts(data?.counts || {});
+      const initSel: Record<string, boolean> = {};
+      for (const p of list.slice(0, 50)) initSel[String(p.key)] = true;
+      setSelected(initSel);
+
+      if (data?.meta?.planKey) setPlanKey(String(data.meta.planKey).toUpperCase() as PlanKey);
+      if (data?.meta?.features) setFeatures(data.meta.features);
+      if (data?.meta?.limits) setLimits(data.meta.limits);
+    } catch (e: any) {
+      const m = niceError(e, "Could not load audience. Please try again.");
+      setMsg(m);
+      setPeople([]);
+      setSelected({});
+      toast.error(m);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadAccess();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    setBaseText(defaultBaseFor(mode));
+    if (mode === "abandoned") setSegment("buyers_all");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode]);
+
+  useEffect(() => {
+    loadAudience();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, segment, days, smartGroupsOn, vipAllowed]);
+
+  useEffect(() => {
+    const t = setTimeout(() => loadAudience(), 350);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [q]);
+
+  useEffect(() => {
+    const resetAtMs = Number(remixUsage?.resetAtMs || remixInfo?.resetAtMs || 0);
+    if (!resetAtMs) return;
+    const t = setInterval(() => setTick((x) => x + 1), 1000);
+    return () => clearInterval(t);
+  }, [remixUsage?.resetAtMs, remixInfo?.resetAtMs]);
+
+  function toggle(key: string) {
+    setSelected((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function toggleAll(on: boolean) {
+    const next: Record<string, boolean> = {};
+    for (const p of people) next[String(p.key)] = on;
+    setSelected(next);
+  }
+
+  async function requestRemix(opts?: { silent?: boolean }) {
+    if (!aiRemixUnlocked) return;
+
+    setRemixing(true);
+    if (!opts?.silent) setMsg(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const r = await fetch("/api/vendor/reengagement/remix", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await r.json().catch(() => ({}));
+
+      if (data?.ok) {
+        const rk = String(data?.rotationKey || "").trim();
+        if (rk) setRotationKey(rk);
+
+        if (data?.usage) {
+          setRemixUsage({
+            cap: Number(data.usage.cap || 0),
+            used: Number(data.usage.used || 0),
+            windowStartMs: Number(data.usage.windowStartMs || 0) || 0,
+            resetAtMs: Number(data.usage.resetAtMs || 0) || 0,
+          });
+        }
+
+        setRemixInfo(null);
+        if (!opts?.silent) toast.success("Message remixed.");
+      } else {
+        setRemixInfo(data || null);
+        const m = String(data?.error || "Remix unavailable right now.");
+        if (!opts?.silent) {
+          setMsg(m);
+          toast.info(m);
+        }
+      }
+    } catch (e: any) {
+      const m = niceError(e, "Could not remix message. Please try again.");
+      if (!opts?.silent) {
+        setMsg(m);
+        toast.error(m);
+      }
+    } finally {
+      setRemixing(false);
+    }
+  }
+
+  async function copyForPerson(p: ReengagementPerson) {
+    try {
+      const seg = currentSegment();
+
+      const text = smartMessagesOn
+        ? composeSmartMessage({
+            planKey,
+            features: { reengage

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -24,10 +24,10 @@ function allSettled(installments: any[]) {
   return arr.length > 0 && arr.every((x) => isSettled(String(x?.status || "")));
 }
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: string; idx: string }> }) {
+export async function POST(req: Request, ctx: { params: Promise<{ orderId: string; idx: string }> }) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
 
     // ✅ packages-controlled security (includes add-on unlock)
     if (!access?.features?.installmentPlans) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Installment plans are locked on your plan." },
         { status: 403 }
       );
@@ -45,9 +45,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     const orderIdClean = String(orderId || "").trim();
     const i = Math.floor(Number(idx));
 
-    if (!orderIdClean) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+    if (!orderIdClean) return Response.json({ ok: false, error: "Missing orderId" }, { status: 400 });
     if (!Number.isFinite(i) || i < 0) {
-      return NextResponse.json({ ok: false, error: "Invalid installment index" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid installment index" }, { status: 400 });
     }
 
     const body = (await req.json().catch(() => ({}))) as any;
@@ -55,34 +55,34 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     const rejectReason = String(body?.rejectReason || "").trim().slice(0, 300);
 
     if (action !== "accept" && action !== "reject") {
-      return NextResponse.json({ ok: false, error: "Invalid action" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid action" }, { status: 400 });
     }
 
     const ref = adminDb.collection("orders").doc(orderIdClean);
     const snap = await ref.get();
-    if (!snap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+    if (!snap.exists) return Response.json({ ok: false, error: "Order not found" }, { status: 404 });
 
     const o = snap.data() as any;
     if (String(o?.businessId || "") !== String(me.businessId || "")) {
-      return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+      return Response.json({ ok: false, error: "Not allowed" }, { status: 403 });
     }
 
     // Only bank transfer installments need manual review
     if (String(o?.paymentType || "") !== "direct_transfer") {
-      return NextResponse.json({ ok: false, error: "This is not a bank transfer order." }, { status: 400 });
+      return Response.json({ ok: false, error: "This is not a bank transfer order." }, { status: 400 });
     }
 
     const plan = o?.paymentPlan;
     const list = Array.isArray(plan?.installments) ? plan.installments : [];
     if (!plan?.enabled || list.length === 0) {
-      return NextResponse.json({ ok: false, error: "No installment plan on this order." }, { status: 400 });
+      return Response.json({ ok: false, error: "No installment plan on this order." }, { status: 400 });
     }
 
-    if (i >= list.length) return NextResponse.json({ ok: false, error: "Installment not found." }, { status: 404 });
+    if (i >= list.length) return Response.json({ ok: false, error: "Installment not found." }, { status: 404 });
 
     const inst = list[i] || {};
     if (!inst?.proof?.cloudinary?.secureUrl) {
-      return NextResponse.json({ ok: false, error: "No proof uploaded for this installment yet." }, { status: 400 });
+      return Response.json({ ok: false, error: "No proof uploaded for this installment yet." }, { status: 400 });
     }
 
     const now = Date.now();
@@ -124,11 +124,11 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
 
     await ref.set(patch, { merge: true });
 
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -55,7 +55,7 @@ export async function GET(req: Request) {
     // ✅ IMPORTANT: capture as a guaranteed string for TS + callbacks
     const businessId = me.businessId;
     if (!businessId) {
-      return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+      return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
     }
 
     await requireVendorUnlocked(businessId);
@@ -218,7 +218,7 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       meta: {
         planKey,
@@ -234,11 +234,11 @@ export async function GET(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." },
         { status: 403 }
       );
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireMe } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -49,7 +49,7 @@ async function sendEmail(to: string, code: string) {
 export async function POST(req: Request) {
   try {
     const me = await requireMe(req);
-    if (!me.email) return NextResponse.json({ error: "Missing email" }, { status: 400 });
+    if (!me.email) return Response.json({ error: "Missing email" }, { status: 400 });
 
     const code = makeCode();
     const expiresAtMs = Date.now() + 10 * 60 * 1000; // 10 minutes
@@ -73,12 +73,12 @@ export async function POST(req: Request) {
     const devCode =
       process.env.NODE_ENV !== "production" && !emailResult.sent ? code : undefined;
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       sent: emailResult.sent,
       devCode, // only appears in dev when SMTP not set
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import nodemailer from "nodemailer";
 import { buildDailyPlatformReport } from "@/lib/reports/platformDaily";
@@ -36,9 +36,9 @@ export async function GET(req: Request) {
   try {
     await requireRole(req, "admin");
     const report = await buildDailyPlatformReport();
-    return NextResponse.json({ ok: true, report });
+    return Response.json({ ok: true, report });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
 
     const t = getTransport();
     if (!t) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: "SMTP is not configured (SMTP_HOST/USER/PASS/FROM)." },
         { status: 500 }
       );
@@ -69,8 +69,8 @@ export async function POST(req: Request) {
       text: report.text,
     });
 
-    return NextResponse.json({ ok: true, sentTo: to, dayKey: report.dayKey });
+    return Response.json({ ok: true, sentTo: to, dayKey: report.dayKey });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

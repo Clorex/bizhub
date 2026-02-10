@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -120,10 +120,10 @@ function validateInstallmentDates(installments: any[], nowMs: number, maxPlanDay
   return { ok: true as const };
 }
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: string }> }) {
+export async function POST(req: Request, ctx: { params: Promise<{ orderId: string }> }) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
 
     // ✅ packages-controlled security (includes add-on unlock)
     if (!access?.features?.installmentPlans) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Installment plans are locked on your plan." },
         { status: 403 }
       );
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     const planKey = cleanPlanKey(access?.planKey || "FREE");
     const rules = installmentRulesForPlan(planKey);
     if (rules.maxInstallments <= 0) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Installment plans are locked on your plan." },
         { status: 403 }
       );
@@ -148,29 +148,29 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
 
     const { orderId } = await ctx.params;
     const orderIdClean = String(orderId || "").trim();
-    if (!orderIdClean) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+    if (!orderIdClean) return Response.json({ ok: false, error: "Missing orderId" }, { status: 400 });
 
     const body = (await req.json().catch(() => ({}))) as any;
 
     const ref = adminDb.collection("orders").doc(orderIdClean);
     const snap = await ref.get();
-    if (!snap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+    if (!snap.exists) return Response.json({ ok: false, error: "Order not found" }, { status: 404 });
 
     const o = snap.data() as any;
     if (String(o?.businessId || "") !== String(me.businessId || "")) {
-      return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+      return Response.json({ ok: false, error: "Not allowed" }, { status: 403 });
     }
 
     const paymentType = String(o?.paymentType || "");
     const orderSource = String(o?.orderSource || "");
     if (!canUseInstallmentsForPaymentType(paymentType, orderSource)) {
-      return NextResponse.json({ ok: false, error: "Installments are not allowed for this order type." }, { status: 400 });
+      return Response.json({ ok: false, error: "Installments are not allowed for this order type." }, { status: 400 });
     }
 
     // Clear plan
     if (String(body?.action || "") === "clear") {
       await ref.set({ paymentPlan: null, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
-      return NextResponse.json({ ok: true });
+      return Response.json({ ok: true });
     }
 
     // Do not allow changing a plan if payments already started
@@ -179,7 +179,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
       const existingInstallments = Array.isArray(existingPlan?.installments) ? existingPlan.installments : [];
       const hasActivity = existingInstallments.some((x: any) => String(x?.status || "") !== "pending");
       if (hasActivity) {
-        return NextResponse.json(
+        return Response.json(
           { ok: false, error: "This plan already has payments. Clear the plan before changing it." },
           { status: 400 }
         );
@@ -189,14 +189,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     const installments = cleanInstallments(body?.installments || [], rules.maxInstallments);
 
     if (installments.length < 2) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: `Add at least 2 installments. (Your plan allows up to ${rules.maxInstallments}.)` },
         { status: 400 }
       );
     }
 
     if (installments.length > rules.maxInstallments) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: `Too many installments for your plan (max ${rules.maxInstallments}).` },
         { status: 400 }
       );
@@ -204,12 +204,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
 
     const totalKobo = Math.floor(Number(o?.amountKobo || 0));
     if (!Number.isFinite(totalKobo) || totalKobo <= 0) {
-      return NextResponse.json({ ok: false, error: "Invalid order total." }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid order total." }, { status: 400 });
     }
 
     const sum = installments.reduce((s, x) => s + Number(x.amountKobo || 0), 0);
     if (sum !== totalKobo) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: "Installment amounts must add up exactly to the order total." },
         { status: 400 }
       );
@@ -219,7 +219,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
 
     const dateCheck = validateInstallmentDates(installments, now, rules.maxPlanDays);
     if (!dateCheck.ok) {
-      return NextResponse.json({ ok: false, error: dateCheck.error }, { status: 400 });
+      return Response.json({ ok: false, error: dateCheck.error }, { status: 400 });
     }
 
     const plan = {
@@ -247,14 +247,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
       { merge: true }
     );
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       plan: { tier: rules.tier, maxInstallments: rules.maxInstallments, maxPlanDays: rules.maxPlanDays },
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 import { groqMoodTip, type Mood } from "@/lib/ai/groqMoodTip";
 
@@ -30,8 +30,8 @@ export async function POST(req: Request) {
 
     const out = await groqMoodTip({ mood, storeSlug, snapshot });
 
-    return NextResponse.json({ ok: true, mood, ...out });
+    return Response.json({ ok: true, mood, ...out });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

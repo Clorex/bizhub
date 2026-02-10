@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/onboard/route.ts
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { requireMe } from "@/lib/auth/server";
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     const { businessName, businessSlug, description } = body;
 
     if (!businessName) {
-      return NextResponse.json({ error: "businessName is required" }, { status: 400 });
+      return Response.json({ error: "businessName is required" }, { status: 400 });
     }
 
     // If already onboarded, return current profile
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     const userData = userSnap.exists ? (userSnap.data() as any) : null;
 
     if (userData?.businessId) {
-      return NextResponse.json({
+      return Response.json({
         ok: true,
         alreadyOnboarded: true,
         businessId: userData.businessId,
@@ -100,8 +100,8 @@ export async function POST(req: Request) {
       { merge: true }
     );
 
-    return NextResponse.json({ ok: true, businessId, businessSlug: slug });
+    return Response.json({ ok: true, businessId, businessSlug: slug });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Vendor onboard failed" }, { status: 500 });
+    return Response.json({ error: e?.message || "Vendor onboard failed" }, { status: 500 });
   }
 }

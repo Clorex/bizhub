@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/orders/route.ts
-import { NextResponse } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -38,7 +38,7 @@ function computeOpsEffective(o: any) {
 export async function GET(req: Request) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
       orderSource: o.orderSource ?? null,
     }));
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       meta: {
         planKey: access.planKey,
@@ -81,11 +81,11 @@ export async function GET(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
         { status: 403 }
       );
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

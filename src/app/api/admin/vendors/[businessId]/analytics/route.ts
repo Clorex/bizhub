@@ -1,5 +1,5 @@
 // FILE: src/app/api/admin/vendors/[businessId]/analytics/route.ts
-import { NextResponse, type NextRequest } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { Timestamp } from "firebase-admin/firestore";
@@ -46,13 +46,13 @@ function dayKeyFromMs(ms: number) {
 }
 
 // ✅ Next.js 16 route handler typing: params is a Promise
-export async function GET(req: NextRequest, ctx: { params: Promise<{ businessId: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ businessId: string }> }) {
   try {
     await requireRole(req, "admin");
 
     const { businessId } = await ctx.params;
     const businessIdClean = String(businessId || "").trim();
-    if (!businessIdClean) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!businessIdClean) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     const url = new URL(req.url);
     const range = url.searchParams.get("range") || "week";
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ businessId:
 
     // Business details
     const bizSnap = await adminDb.collection("businesses").doc(businessIdClean).get();
-    if (!bizSnap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+    if (!bizSnap.exists) return Response.json({ ok: false, error: "Business not found" }, { status: 404 });
     const biz = { id: bizSnap.id, ...(bizSnap.data() as any) };
 
     // Orders for window
@@ -150,7 +150,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ businessId:
         createdAt: o.createdAt || null,
       }));
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       window: { range, month: month || null, startMs, endMs },
       business: {
@@ -176,6 +176,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ businessId:
       recentOrders,
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

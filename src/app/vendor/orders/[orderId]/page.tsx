@@ -1,1135 +1,1073 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import Image from "next/image";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
-import { auth } from "@/lib/firebase/client";
-import { Button } from "@/components/ui/Button";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { Button } from "@/components/ui/Button";
+import { OrderStatusPill } from "@/components/vendor/OrderStatusPill";
+import { OrderStatusTimeline } from "@/components/vendor/OrderStatusTimeline";
+import { DetailSkeleton } from "@/components/vendor/PageSkeleton";
+import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
+import { cn } from "@/lib/cn";
+import { cloudinaryOptimizedUrl } from "@/lib/cloudinary/url";
+
 import {
+  RefreshCw,
+  Banknote,
   MessageCircle,
   AlertTriangle,
-  ExternalLink,
-  Plus,
-  Trash2,
-  Send,
+  Phone,
+  Mail,
+  MapPin,
+  Truck,
+  Package,
+  ChevronRight,
+  Copy,
+  CheckCircle2,
   Clock,
+  User,
+  CreditCard,
+  Calendar,
+  Hash,
+  ExternalLink,
+  FileText,
+  Download,
+  Printer,
+  MoreHorizontal,
+  X,
+  ArrowRight,
+  Shield,
+  Star,
+  Receipt,
+  Navigation,
+  Building2,
+  Sparkles,
+  AlertCircle,
+  XCircle,
+  CheckCircle,
+  CircleDot,
+  Loader2,
+  Send,
+  Image as ImageIcon,
 } from "lucide-react";
 
-function fmtNaira(n: number) {
-  try {
-    return `₦${Number(n || 0).toLocaleString()}`;
-  } catch {
-    return `₦${n}`;
-  }
+/* ─────────────────────── Types ─────────────────────── */
+
+type OpsStatus = "new" | "contacted" | "paid" | "in_transit" | "delivered" | "cancelled";
+
+interface OrderItem {
+  id?: string;
+  productId?: string;
+  name: string;
+  price: number;
+  quantity: number;
+  variant?: string;
+  image?: string;
 }
 
-function fmtDate(v: any) {
+interface Customer {
+  fullName?: string;
+  name?: string;
+  email?: string;
+  phone?: string;
+}
+
+interface Shipping {
+  method?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  fee?: number;
+  trackingNumber?: string;
+  carrier?: string;
+}
+
+/* ─────────────────────── Helpers ─────────────────────── */
+
+function fmtNaira(n: number): string {
+  if (typeof n !== "number" || isNaN(n)) return "₦0";
+  return `₦${n.toLocaleString("en-NG")}`;
+}
+
+function fmtDate(v: any, options?: { includeTime?: boolean }): string {
   try {
     if (!v) return "—";
-    if (typeof v?.toDate === "function") return v.toDate().toLocaleString();
-    return String(v);
+    
+    let date: Date;
+    if (typeof v?.toDate === "function") {
+      date = v.toDate();
+    } else if (typeof v === "string" || typeof v === "number") {
+      date = new Date(v);
+    } else {
+      return String(v);
+    }
+
+    if (isNaN(date.getTime())) return "—";
+
+    if (options?.includeTime) {
+      return date.toLocaleString("en-NG", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    }
+
+    return date.toLocaleDateString("en-NG", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    });
   } catch {
     return "—";
   }
 }
 
-function fmtDateMs(ms?: number) {
-  if (!ms) return "—";
+function fmtRelativeTime(v: any): string {
   try {
-    return new Date(ms).toLocaleString();
+    if (!v) return "";
+    
+    let date: Date;
+    if (typeof v?.toDate === "function") {
+      date = v.toDate();
+    } else {
+      date = new Date(v);
+    }
+
+    if (isNaN(date.getTime())) return "";
+
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+    
+    return fmtDate(date);
   } catch {
-    return String(ms);
+    return "";
   }
 }
 
-function digitsOnlyPhone(v: string) {
-  return String(v || "").replace(/[^\d]/g, "");
+function getPhoneDigits(phone: string): string {
+  return String(phone || "").replace(/[^\d]/g, "");
 }
 
-function waLink(wa: string, text: string) {
-  const digits = digitsOnlyPhone(wa);
-  const t = encodeURIComponent(text);
-  return `https://wa.me/${digits}?text=${t}`;
+function getStatusColor(status: string): { bg: string; text: string; border: string } {
+  const s = status.toLowerCase();
+  const colors: Record<string, { bg: string; text: string; border: string }> = {
+    new: { bg: "bg-orange-500", text: "text-white", border: "border-orange-500" },
+    contacted: { bg: "bg-blue-500", text: "text-white", border: "border-blue-500" },
+    paid: { bg: "bg-green-500", text: "text-white", border: "border-green-500" },
+    in_transit: { bg: "bg-purple-500", text: "text-white", border: "border-purple-500" },
+    delivered: { bg: "bg-emerald-500", text: "text-white", border: "border-emerald-500" },
+    cancelled: { bg: "bg-gray-500", text: "text-white", border: "border-gray-500" },
+    disputed: { bg: "bg-red-500", text: "text-white", border: "border-red-500" },
+  };
+  return colors[s] || colors.new;
 }
 
-function toLocalDateTimeInput(ms?: number) {
-  if (!ms) return "";
-  const d = new Date(ms);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const yyyy = d.getFullYear();
-  const mm = pad(d.getMonth() + 1);
-  const dd = pad(d.getDate());
-  const hh = pad(d.getHours());
-  const mi = pad(d.getMinutes());
-  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
-}
+/* ─────────────────────── Status Flow Data ─────────────────────── */
 
-function fromLocalDateTimeInput(v: string) {
-  if (!v) return 0;
-  const ms = new Date(v).getTime();
-  return Number.isFinite(ms) ? ms : 0;
-}
-
-function parseNairaToKobo(v: string) {
-  const s = String(v || "").replace(/[^\d.]/g, "");
-  const n = Number(s);
-  if (!Number.isFinite(n)) return 0;
-  return Math.round(n * 100);
-}
-
-function koboToNairaString(kobo: number) {
-  const n = Number(kobo || 0) / 100;
-  return Number.isFinite(n) ? String(n) : "0";
-}
-
-function isSettled(status: string) {
-  const s = String(status || "");
-  return s === "paid" || s === "accepted";
-}
-
-function fmtCountdown(msLeft: number) {
-  const ms = Math.max(0, Math.floor(msLeft || 0));
-  const totalSec = Math.floor(ms / 1000);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(h)}:${pad(m)}:${pad(s)}`;
-}
-
-type Ops = "new" | "contacted" | "paid" | "in_transit" | "delivered" | "cancelled";
-
-const OPS_OPTIONS: { value: Ops; label: string }[] = [
-  { value: "new", label: "New" },
-  { value: "contacted", label: "Contacted" },
-  { value: "paid", label: "Paid" },
-  { value: "in_transit", label: "In transit" },
-  { value: "delivered", label: "Delivered" },
-  { value: "cancelled", label: "Cancelled" },
+const STATUS_FLOW: { key: OpsStatus; label: string; icon: any; description: string }[] = [
+  { key: "new", label: "New", icon: Sparkles, description: "Order received" },
+  { key: "contacted", label: "Contacted", icon: MessageCircle, description: "Customer contacted" },
+  { key: "paid", label: "Paid", icon: CheckCircle2, description: "Payment confirmed" },
+  { key: "in_transit", label: "In Transit", icon: Truck, description: "Order shipped" },
+  { key: "delivered", label: "Delivered", icon: Package, description: "Order completed" },
 ];
 
+/* ─────────────────────── Main Component ─────────────────────── */
+
 export default function VendorOrderDetailPage() {
-  const router = useRouter();
   const params = useParams();
-  const orderId = String((params as any)?.orderId ?? "");
+  const router = useRouter();
+  const orderId = String(params?.orderId || "");
 
+  // State
   const [loading, setLoading] = useState(true);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [order, setOrder] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  const [meta, setMeta] = useState<any>(null);
-  const [o, setO] = useState<any>(null);
+  // Status update
+  const [updating, setUpdating] = useState(false);
+  const [showStatusSheet, setShowStatusSheet] = useState(false);
 
-  const [notes, setNotes] = useState<any[]>([]);
-  const [noteText, setNoteText] = useState("");
-  const [savingNote, setSavingNote] = useState(false);
+  // Action sheet
+  const [showActionSheet, setShowActionSheet] = useState(false);
 
-  const [savingStatus, setSavingStatus] = useState(false);
+  // Copy state
+  const [copied, setCopied] = useState<string | null>(null);
 
-  // Single transfer proof review (whole order)
-  const [reviewing, setReviewing] = useState(false);
-  const [rejectReason, setRejectReason] = useState("");
-
-  // Installment plan
-  const [planDraft, setPlanDraft] = useState<any[]>([]);
-  const [savingPlan, setSavingPlan] = useState(false);
-  const [planMsg, setPlanMsg] = useState<string | null>(null);
-
-  // Installment review (bank transfer installments)
-  const [reviewingInstallment, setReviewingInstallment] = useState<string | null>(null);
-  const [rejectReasonMap, setRejectReasonMap] = useState<Record<string, string>>({});
-
-  // Follow-ups
-  const [followUpText, setFollowUpText] = useState("");
-  const [sendingFollowUp, setSendingFollowUp] = useState(false);
-  const [tick, setTick] = useState(0);
-
-  const [followUpLimitInfo, setFollowUpLimitInfo] = useState<any>(null);
-
-  const items = useMemo(() => (Array.isArray(o?.items) ? o.items : []), [o]);
-  const amount = Number(o?.amount || (o?.amountKobo ? o.amountKobo / 100 : 0) || 0);
-  const totalKobo = Number(o?.amountKobo || Math.round(amount * 100) || 0);
-
-  const canUpdateStatus = !!meta?.limits?.canUpdateStatus;
-  const canUseNotes = !!meta?.limits?.canUseNotes;
-
-  const transferProofUnlocked = !!meta?.limits?.transferProofUnlocked;
-
-  // ✅ now unlocks on Launch/Momentum via add-on, core on Apex
-  const installmentPlansUnlocked = !!meta?.limits?.installmentPlansUnlocked;
-
-  const vendorPlanKey = String(meta?.planKey || "FREE").toUpperCase();
-  const showInstallmentBuyAddon = !installmentPlansUnlocked && (vendorPlanKey === "LAUNCH" || vendorPlanKey === "MOMENTUM");
-  const installmentAddonTitle =
-    vendorPlanKey === "LAUNCH"
-      ? "Buy Installment plans (basic)"
-      : vendorPlanKey === "MOMENTUM"
-      ? "Buy Installment plans (advanced)"
-      : "Upgrade";
-  const installmentRulesHint =
-    vendorPlanKey === "LAUNCH"
-      ? "Launch basic: max 2 installments • max 30 days."
-      : vendorPlanKey === "MOMENTUM"
-      ? "Momentum advanced: max 4 installments • max 90 days."
-      : vendorPlanKey === "APEX"
-      ? "Apex: higher caps."
-      : "Upgrade to unlock installment plans.";
-
-  const followUpsUnlocked = !!meta?.limits?.followUpsUnlocked;
-  const followUpsCap = Number(meta?.limits?.followUpsCap72h || 0);
-  const followUpsUsed = Number(meta?.limits?.followUpsUsed72h || 0);
-  const followUpsResetAtMs = Number(meta?.limits?.followUpsResetAtMs || 0);
-
-  const followUpsBoostSuggestionFromMeta = meta?.limits?.followUpsBoostSuggestion || null;
-  const followUpsSuggestion = followUpLimitInfo?.suggestion || followUpsBoostSuggestionFromMeta || null;
-
-  const paymentType = String(o?.paymentType || "");
-  const isTransfer = paymentType === "direct_transfer";
-  const isPaystack = paymentType === "paystack_escrow";
-
-  const plan = o?.paymentPlan || null;
-  const planEnabled = !!plan?.enabled;
-  const planInstallments: any[] = Array.isArray(plan?.installments) ? plan.installments : [];
-
-  const tp = o?.transferProof || null;
-  const tpStatus = String(tp?.status || "");
-  const tpViewUrl = String(tp?.viewUrl || "");
-  const disputed =
-    String(o?.orderStatus || "").toLowerCase() === "disputed" ||
-    String(o?.escrowStatus || "").toLowerCase() === "disputed";
-
-  const planDraftSumKobo = useMemo(() => {
-    return (planDraft || []).reduce((s, x) => s + Math.max(0, Number(x?.amountKobo || 0)), 0);
-  }, [planDraft]);
-
-  const planDraftValid = useMemo(() => {
-    const list = Array.isArray(planDraft) ? planDraft : [];
-    if (list.length < 2) return false;
-    if (planDraftSumKobo !== totalKobo) return false;
-    const hasAllDue = list.every((x) => Number(x?.dueAtMs || 0) > 0);
-    if (!hasAllDue) return false;
-    return true;
-  }, [planDraft, planDraftSumKobo, totalKobo]);
-
-  const planPaidKobo = Number(plan?.paidKobo || 0);
-  const planRemainingKobo = Math.max(0, Number(plan?.totalKobo || 0) - planPaidKobo);
-
-  const shouldHideSingleTransferProof = isTransfer && planEnabled;
-
-  const followUpsRemaining = Math.max(0, followUpsCap - followUpsUsed);
-  const followUpsLimitReached = followUpsCap > 0 && followUpsUsed >= followUpsCap;
-  const countdownMs = followUpsResetAtMs ? Math.max(0, followUpsResetAtMs - Date.now()) : 0;
-
-  useEffect(() => {
-    if (!followUpsResetAtMs) return;
-    const t = setInterval(() => setTick((x) => x + 1), 1000);
-    return () => clearInterval(t);
-  }, [followUpsResetAtMs]);
-
-  async function authedFetch(path: string, init?: RequestInit) {
-    const token = await auth.currentUser?.getIdToken();
-    const r = await fetch(path, {
-      ...init,
-      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
-    return data;
-  }
-
-  async function load() {
-    setLoading(true);
-    setMsg(null);
-    setPlanMsg(null);
-    setFollowUpLimitInfo(null);
-
-    try {
-      const data = await authedFetch(`/api/vendor/orders/${encodeURIComponent(orderId)}`);
-      setMeta(data?.meta || null);
-      setO(data?.order || null);
-
-      if (data?.meta?.limits?.canUseNotes) {
-        const n = await authedFetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/notes`);
-        setNotes(Array.isArray(n.notes) ? n.notes : []);
-      } else {
-        setNotes([]);
-      }
-
-      const order = data?.order || null;
-      const p = order?.paymentPlan || null;
-      const enabled = !!p?.enabled;
-      if (!enabled) {
-        setPlanDraft([
-          { label: "Installment 1", amountKobo: 0, dueAtMs: 0 },
-          { label: "Installment 2", amountKobo: 0, dueAtMs: 0 },
-        ]);
-      } else {
-        setPlanDraft([]);
-      }
-
-      const custName = String(order?.customer?.fullName || "").trim();
-      if (!followUpText) {
-        const shortId = String(orderId).slice(0, 8);
-        setFollowUpText(
-          `Hello${custName ? ` ${custName}` : ""}, this is regarding your myBizHub order #${shortId}. Just checking in—any update for me?`
-        );
-      }
-    } catch (e: any) {
-      setMsg(e?.message || "Failed to load order");
-      setMeta(null);
-      setO(null);
-      setNotes([]);
-    } finally {
-      setLoading(false);
+  /* ─────── Load Order ─────── */
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
+      setLoading(true);
     }
-  }
-
-  useEffect(() => {
-    if (orderId) load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [orderId]);
-
-  const opsValue: Ops = useMemo(() => {
-    const v = String(o?.opsStatus || o?.opsStatusEffective || "").trim();
-    const ok = (OPS_OPTIONS.map((x) => x.value) as string[]).includes(v);
-    return (ok ? v : "new") as Ops;
-  }, [o]);
-
-  async function setOpsStatus(next: Ops) {
-    if (!canUpdateStatus) return;
-    setSavingStatus(true);
-    setMsg(null);
-    try {
-      await authedFetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/ops-status`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ opsStatus: next }),
-      });
-      await load();
-    } catch (e: any) {
-      setMsg(e?.message || "Failed to update status");
-    } finally {
-      setSavingStatus(false);
-    }
-  }
-
-  async function addNote() {
-    if (!canUseNotes) return;
-    if (noteText.trim().length < 2) return;
-
-    setSavingNote(true);
-    setMsg(null);
-    try {
-      await authedFetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/notes`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ text: noteText }),
-      });
-      setNoteText("");
-      await load();
-    } catch (e: any) {
-      setMsg(e?.message || "Failed to add note");
-    } finally {
-      setSavingNote(false);
-    }
-  }
-
-  async function reviewProof(action: "accept" | "reject") {
-    if (!transferProofUnlocked) return;
-    if (!isTransfer) return;
-
-    setReviewing(true);
-    setMsg(null);
-    try {
-      await authedFetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/transfer-proof/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action,
-          rejectReason: action === "reject" ? rejectReason : "",
-        }),
-      });
-      setRejectReason("");
-      await load();
-      setMsg(action === "accept" ? "Proof accepted." : "Proof rejected.");
-    } catch (e: any) {
-      setMsg(e?.message || "Failed to review proof");
-    } finally {
-      setReviewing(false);
-    }
-  }
-
-  async function savePlan() {
-    if (!installmentPlansUnlocked) return;
-
-    setSavingPlan(true);
-    setPlanMsg(null);
-
-    try {
-      const payload = {
-        installments: (planDraft || []).map((x: any, idx: number) => ({
-          label: String(x?.label || `Installment ${idx + 1}`),
-          amountKobo: Math.floor(Number(x?.amountKobo || 0)),
-          dueAtMs: Math.floor(Number(x?.dueAtMs || 0)),
-        })),
-      };
-
-      await authedFetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/payment-plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      setPlanMsg("Installment plan saved.");
-      await load();
-    } catch (e: any) {
-      setPlanMsg(e?.message || "Failed to save plan");
-    } finally {
-      setSavingPlan(false);
-    }
-  }
-
-  async function clearPlan() {
-    if (!installmentPlansUnlocked) return;
-
-    const ok = confirm("Clear this installment plan? Use only if no payment has been made yet.");
-    if (!ok) return;
-
-    setSavingPlan(true);
-    setPlanMsg(null);
-
-    try {
-      await authedFetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/payment-plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "clear" }),
-      });
-
-      setPlanMsg("Plan cleared.");
-      await load();
-    } catch (e: any) {
-      setPlanMsg(e?.message || "Failed to clear plan");
-    } finally {
-      setSavingPlan(false);
-    }
-  }
-
-  async function reviewInstallment(idx: number, action: "accept" | "reject") {
-    setReviewingInstallment(String(idx));
-    setMsg(null);
-
-    try {
-      await authedFetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/installments/${idx}/review`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action,
-          rejectReason: action === "reject" ? String(rejectReasonMap[String(idx)] || "") : "",
-        }),
-      });
-
-      setRejectReasonMap((m) => ({ ...m, [String(idx)]: "" }));
-      await load();
-      setMsg(action === "accept" ? `Installment ${idx + 1} accepted.` : `Installment ${idx + 1} rejected.`);
-    } catch (e: any) {
-      setMsg(e?.message || "Failed to review installment");
-    } finally {
-      setReviewingInstallment(null);
-    }
-  }
-
-  function renderFollowUpsSuggestion() {
-    if (!followUpsSuggestion) return null;
-
-    const action = String(followUpsSuggestion?.action || "");
-    const title = String(followUpsSuggestion?.title || "");
-    const url = String(followUpsSuggestion?.url || "");
-
-    if (!action || !url) return null;
-
-    return (
-      <Card variant="soft" className="p-3">
-        <p className="text-sm font-bold text-biz-ink">Need more follow-ups?</p>
-        <p className="text-[11px] text-biz-muted mt-1">{title || "Increase your follow-up capacity."}</p>
-        <div className="mt-2">
-          <Button size="sm" onClick={() => router.push(url)}>
-            {action === "buy_addon" ? "Buy boost" : "Upgrade"}
-          </Button>
-        </div>
-      </Card>
-    );
-  }
-
-  async function sendFollowUp() {
-    if (!followUpsUnlocked) return;
-
-    const phone = String(o?.customer?.phone || "").trim();
-    if (!phone) {
-      setMsg("No customer phone on this order.");
-      return;
-    }
-
-    setSendingFollowUp(true);
-    setMsg(null);
-    setFollowUpLimitInfo(null);
+    setError(null);
 
     try {
       const token = await auth.currentUser?.getIdToken();
-      const r = await fetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/followups`, {
+      if (!token) throw new Error("Please log in to view this order.");
+
+      const r = await fetch(`/api/vendor/orders/${encodeURIComponent(orderId)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await r.json().catch(() => ({}));
+
+      if (!r.ok) throw new Error(data?.error || "Could not load order.");
+
+      setOrder(data.order || null);
+
+      if (isRefresh) {
+        toast.success("Order refreshed!");
+      }
+    } catch (e: any) {
+      setError(e?.message || "Could not load order.");
+      setOrder(null);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }, [orderId]);
+
+  useEffect(() => {
+    if (orderId) {
+      load();
+    } else {
+      setError("Invalid order ID");
+      setLoading(false);
+    }
+  }, [orderId, load]);
+
+  /* ─────── Update Status ─────── */
+  const updateStatus = useCallback(async (newStatus: OpsStatus) => {
+    setUpdating(true);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Please log in again.");
+
+      const r = await fetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/status`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-        body: JSON.stringify({ text: followUpText }),
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ opsStatus: newStatus }),
       });
 
       const data = await r.json().catch(() => ({}));
 
-      if (!r.ok) {
-        if (String(data?.code || "") === "FOLLOWUP_LIMIT") {
-          setFollowUpLimitInfo(data || { code: "FOLLOWUP_LIMIT" });
-        }
-        throw new Error(data?.error || data?.code || "Request failed");
-      }
+      if (!r.ok) throw new Error(data?.error || "Could not update status.");
 
-      const url = String(data?.waUrl || "");
-      if (url) window.open(url, "_blank");
-
-      await load();
+      toast.success(`Status updated to "${newStatus}"`);
+      setShowStatusSheet(false);
+      await load(true);
     } catch (e: any) {
-      setMsg(e?.message || "Failed to send follow-up");
-      await load();
+      toast.error(e?.message || "Could not update status.");
     } finally {
-      setSendingFollowUp(false);
+      setUpdating(false);
     }
+  }, [orderId, load]);
+
+  /* ─────── Copy to Clipboard ─────── */
+  const copyToClipboard = useCallback(async (text: string, label: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(label);
+      toast.success(`${label} copied!`);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      toast.error("Failed to copy");
+    }
+  }, []);
+
+  /* ─────── Derived Data ─────── */
+  const currentStatus = useMemo(() => {
+    return String(order?.opsStatusEffective || order?.opsStatus || "new") as OpsStatus;
+  }, [order]);
+
+  const amount = useMemo(() => {
+    if (!order) return 0;
+    return Number(order.amount || (order.amountKobo ? order.amountKobo / 100 : 0) || 0);
+  }, [order]);
+
+  const items: OrderItem[] = useMemo(() => {
+    return Array.isArray(order?.items) ? order.items : [];
+  }, [order]);
+
+  const customer: Customer = useMemo(() => {
+    return order?.customer || {};
+  }, [order]);
+
+  const shipping: Shipping = useMemo(() => {
+    return order?.shipping || {};
+  }, [order]);
+
+  const subtotal = useMemo(() => {
+    return items.reduce((sum, item) => sum + (item.price || 0) * (item.quantity || 1), 0);
+  }, [items]);
+
+  const shippingFee = useMemo(() => {
+    return Number(shipping.fee) || 0;
+  }, [shipping]);
+
+  const whatsappLink = useMemo(() => {
+    const phone = getPhoneDigits(customer.phone || "");
+    if (!phone) return null;
+    const message = `Hi ${customer.fullName || customer.name || "there"}! Regarding your order #${orderId.slice(0, 8)} for ${fmtNaira(amount)}...`;
+    return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
+  }, [customer, orderId, amount]);
+
+  const callLink = useMemo(() => {
+    const phone = getPhoneDigits(customer.phone || "");
+    return phone ? `tel:${phone}` : null;
+  }, [customer]);
+
+  const emailLink = useMemo(() => {
+    if (!customer.email) return null;
+    const subject = `Order #${orderId.slice(0, 8)}`;
+    return `mailto:${customer.email}?subject=${encodeURIComponent(subject)}`;
+  }, [customer, orderId]);
+
+  const isDisputed = order?.disputeStatus === "open" || order?.hasDispute;
+  const paymentType = order?.paymentType || order?.paymentMethod || "card";
+  const isDirectTransfer = paymentType === "direct_transfer";
+
+  /* ─────── Render Loading ─────── */
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <GradientHeader
+          title="Order Details"
+          subtitle="Loading..."
+          showBack={true}
+        />
+        <DetailSkeleton />
+      </div>
+    );
   }
 
-  function messageCustomer() {
-    const phone = String(o?.customer?.phone || "").trim();
-    if (!phone) {
-      setMsg("No customer phone on this order. If this came from chat, continue the WhatsApp thread.");
-      return;
-    }
-
-    const shortId = String(orderId).slice(0, 8);
-    const text = `Hello, this is regarding your myBizHub order #${shortId}.`;
-
-    window.open(waLink(phone, text), "_blank");
-  }
-
-  return (
-    <div className="min-h-screen">
-      <GradientHeader title="Order details" subtitle={orderId ? `#${orderId.slice(0, 8)}` : undefined} showBack={true} />
-
-      <div className="px-4 pb-6 space-y-3">
-        {loading ? <Card className="p-4">Loading…</Card> : null}
-        {msg ? (
-          <Card
-            className={
-              msg.toLowerCase().includes("accepted") ||
-              msg.toLowerCase().includes("saved") ||
-              msg.toLowerCase().includes("cleared")
-                ? "p-4 text-green-700"
-                : "p-4 text-red-700"
-            }
-          >
-            {msg}
+  /* ─────── Render Error ─────── */
+  if (error || !order) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <GradientHeader
+          title="Order Details"
+          subtitle="Error"
+          showBack={true}
+        />
+        <div className="px-4 pt-4 space-y-4">
+          <Card className="p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+            </div>
+            <p className="text-lg font-bold text-gray-900">Order Not Found</p>
+            <p className="text-sm text-gray-500 mt-2">
+              {error || "This order doesn't exist or you don't have access."}
+            </p>
+            <div className="mt-6 flex justify-center gap-3">
+              <Button onClick={() => load()}>
+                Try Again
+              </Button>
+              <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                All Orders
+              </Button>
+            </div>
           </Card>
-        ) : null}
+        </div>
+      </div>
+    );
+  }
 
-        {!loading && o ? (
-          <>
-            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
-              <p className="text-xs opacity-95">Amount</p>
-              <p className="text-2xl font-extrabold mt-1">{fmtNaira(amount)}</p>
-              <p className="text-xs opacity-95 mt-1">
-                {String(o?.paymentType || "—")} • <b>{String(o?.opsStatusEffective || o?.opsStatus || "—")}</b>
-              </p>
-              <p className="text-[11px] opacity-90 mt-2">Created: {fmtDate(o?.createdAt)}</p>
+  /* ─────── Render Order ─────── */
+  return (
+    <div className="min-h-screen bg-gray-50 pb-32">
+      {/* Header */}
+      <GradientHeader
+        title={`#${orderId.slice(0, 8).toUpperCase()}`}
+        subtitle={fmtRelativeTime(order.createdAt)}
+        showBack={true}
+        right={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => load(true)}
+              disabled={refreshing}
+              className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
+              aria-label="Refresh"
+            >
+              <RefreshCw className={cn("w-5 h-5 text-white", refreshing && "animate-spin")} />
+            </button>
+            <button
+              onClick={() => setShowActionSheet(true)}
+              className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition"
+              aria-label="More actions"
+            >
+              <MoreHorizontal className="w-5 h-5 text-white" />
+            </button>
+          </div>
+        }
+      />
 
-              {disputed ? (
-                <p className="text-[11px] opacity-95 mt-2">
-                  Dispute: <b>Open</b>
+      <div className="px-4 space-y-4 pt-4">
+        {/* Dispute Warning */}
+        {isDisputed && (
+          <Card className="p-4 bg-red-50 border-red-200">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-red-800">Order Disputed</p>
+                <p className="text-xs text-red-600 mt-0.5">
+                  This order has an active dispute. Please resolve it as soon as possible.
                 </p>
-              ) : null}
+                <Button
+                  size="sm"
+                  className="mt-3 bg-red-600 hover:bg-red-700"
+                  onClick={() => router.push(`/vendor/orders/${orderId}/dispute`)}
+                  rightIcon={<ChevronRight className="w-4 h-4" />}
+                >
+                  View Dispute
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Order Amount Hero */}
+        <div className="bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+          {/* Decorative elements */}
+          <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+          <div className="absolute top-1/2 right-8 w-20 h-20 bg-white/5 rounded-full" />
+
+          <div className="relative z-10">
+            {/* Status Badge */}
+            <div className="flex items-center justify-between mb-4">
+              <OrderStatusPill status={currentStatus} size="md" />
+              {isDirectTransfer && (
+                <span className="px-3 py-1 rounded-full bg-white/20 text-xs font-bold">
+                  Direct Transfer
+                </span>
+              )}
             </div>
 
-            <SectionCard
-              title="Customer contact"
-              subtitle="Quick message shortcut"
-              right={
-                <Button size="sm" variant="secondary" onClick={messageCustomer} leftIcon={<MessageCircle className="h-4 w-4" />}>
-                  Message
-                </Button>
-              }
-            >
-              <div className="text-sm text-gray-700 space-y-1">
-                <div>
-                  Name: <b className="text-biz-ink">{o?.customer?.fullName || "—"}</b>
-                </div>
-                <div>
-                  Phone: <b className="text-biz-ink">{o?.customer?.phone || "—"}</b>
-                </div>
-                {o?.customer?.address ? (
-                  <div>
-                    Address: <b className="text-biz-ink">{o.customer.address}</b>
-                  </div>
-                ) : null}
-                <div className="text-[11px] text-gray-500 mt-2 break-all">
-                  Order ID: <b className="text-biz-ink">{orderId}</b>
-                </div>
-
-                <div className="mt-3">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    leftIcon={<AlertTriangle className="h-4 w-4" />}
-                    onClick={() => router.push(`/vendor/orders/${encodeURIComponent(orderId)}/dispute`)}
-                  >
-                    Report an issue
-                  </Button>
-                </div>
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Follow-up messages" subtitle="WhatsApp follow-ups with a 72-hour limit">
-              {!followUpsUnlocked ? (
-                <Card variant="soft" className="p-3">
-                  <p className="text-sm font-bold text-biz-ink">Locked</p>
-                  <p className="text-[11px] text-biz-muted mt-1">Upgrade your plan to send follow-up messages.</p>
-                  <div className="mt-2">
-                    <Button size="sm" onClick={() => router.push("/vendor/subscription")}>
-                      Upgrade
-                    </Button>
-                  </div>
-                </Card>
-              ) : (
-                <div className="space-y-2">
-                  <Card className="p-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-bold text-biz-ink">Usage</p>
-                        <p className="text-[11px] text-gray-500 mt-1">
-                          Sent: <b className="text-biz-ink">{followUpsUsed}</b> / <b className="text-biz-ink">{followUpsCap}</b> in 72 hours{" "}
-                          • Remaining: <b className="text-biz-ink">{followUpsRemaining}</b>
-                        </p>
-
-                        {followUpsResetAtMs ? (
-                          <p className="text-[11px] text-gray-500 mt-1 flex items-center gap-2">
-                            <Clock className="h-4 w-4" />
-                            Resets in: <b className="text-biz-ink">{fmtCountdown(countdownMs)}</b>
-                          </p>
-                        ) : (
-                          <p className="text-[11px] text-gray-500 mt-1">Timer starts after you send the first follow-up.</p>
-                        )}
-                      </div>
-                    </div>
-                  </Card>
-
-                  {renderFollowUpsSuggestion()}
-
-                  <textarea
-                    className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-                    value={followUpText}
-                    onChange={(e) => setFollowUpText(e.target.value)}
-                    rows={3}
-                    placeholder="Write your follow-up message..."
-                  />
-
-                  <Button
-                    onClick={sendFollowUp}
-                    loading={sendingFollowUp}
-                    disabled={sendingFollowUp || followUpsLimitReached || !String(o?.customer?.phone || "").trim()}
-                    leftIcon={<Send className="h-4 w-4" />}
-                  >
-                    Send follow-up (WhatsApp)
-                  </Button>
-
-                  {followUpsLimitReached ? (
-                    <p className="text-[11px] text-biz-muted">You’ve reached your limit. Wait for the timer to reset.</p>
-                  ) : null}
-                </div>
-              )}
-            </SectionCard>
-
-            <SectionCard title="Installment plan" subtitle="Split payment into parts">
-              {!installmentPlansUnlocked ? (
-                <Card variant="soft" className="p-3">
-                  <p className="text-sm font-bold text-biz-ink">Locked</p>
-                  <p className="text-[11px] text-biz-muted mt-1">
-                    {showInstallmentBuyAddon
-                      ? "Installment plans are not included on your plan by default. Buy the add-on to unlock it."
-                      : "Upgrade your plan to unlock installment plans."}
-                  </p>
-                  <p className="text-[11px] text-gray-500 mt-2">{installmentRulesHint}</p>
-
-                  <div className="mt-2 flex gap-2">
-                    {showInstallmentBuyAddon ? (
-                      <Button size="sm" onClick={() => router.push("/vendor/purchases")}>
-                        {installmentAddonTitle}
-                      </Button>
-                    ) : null}
-
-                    <Button size="sm" variant="secondary" onClick={() => router.push("/vendor/subscription")}>
-                      Upgrade
-                    </Button>
-                  </div>
-                </Card>
-              ) : planEnabled ? (
-                <div className="space-y-2">
-                  <Card className="p-3">
-                    <p className="text-sm font-bold text-biz-ink">Plan active</p>
-                    <p className="text-[11px] text-gray-500 mt-1">
-                      Paid: <b className="text-biz-ink">{fmtNaira(planPaidKobo / 100)}</b> • Remaining:{" "}
-                      <b className="text-biz-ink">{fmtNaira(planRemainingKobo / 100)}</b>
-                    </p>
-                    <p className="text-[11px] text-gray-500 mt-1">
-                      Completed: <b className="text-biz-ink">{plan?.completed ? "Yes" : "No"}</b>
-                    </p>
-
-                    <p className="text-[11px] text-gray-500 mt-2">{installmentRulesHint}</p>
-
-                    <div className="mt-2">
-                      <Button variant="secondary" size="sm" onClick={clearPlan} loading={savingPlan} disabled={savingPlan}>
-                        Clear plan
-                      </Button>
-                    </div>
-
-                    {planMsg ? (
-                      <p
-                        className={
-                          planMsg.toLowerCase().includes("saved") || planMsg.toLowerCase().includes("cleared")
-                            ? "text-[11px] text-emerald-700 mt-2"
-                            : "text-[11px] text-rose-700 mt-2"
-                        }
-                      >
-                        {planMsg}
-                      </p>
-                    ) : null}
-                  </Card>
-
-                  <div className="space-y-2">
-                    {planInstallments.map((it, idx) => {
-                      const status = String(it?.status || "pending");
-                      const dueAtMs = Number(it?.dueAtMs || 0);
-                      const proofUrl = it?.proof?.cloudinary?.secureUrl ? String(it.proof.cloudinary.secureUrl) : "";
-                      const isSubmitted = status === "submitted";
-                      const isDone = isSettled(status);
-
-                      return (
-                        <Card key={idx} className="p-3">
-                          <div className="flex items-start justify-between gap-3">
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-biz-ink">
-                                {it?.label || `Installment ${idx + 1}`} •{" "}
-                                <span
-                                  className={
-                                    status === "accepted" || status === "paid"
-                                      ? "text-emerald-700"
-                                      : status === "rejected"
-                                      ? "text-rose-700"
-                                      : status === "submitted"
-                                      ? "text-orange-700"
-                                      : "text-gray-700"
-                                  }
-                                >
-                                  {status}
-                                </span>
-                              </p>
-                              <p className="text-[11px] text-gray-500 mt-1">
-                                Amount: <b className="text-biz-ink">{fmtNaira(Number(it?.amountKobo || 0) / 100)}</b>
-                              </p>
-                              <p className="text-[11px] text-gray-500 mt-1">
-                                Due: <b className="text-biz-ink">{fmtDateMs(dueAtMs)}</b>
-                              </p>
-
-                              {it?.rejectReason ? (
-                                <p className="text-[11px] text-rose-700 mt-2">
-                                  Reason: <b>{String(it.rejectReason)}</b>
-                                </p>
-                              ) : null}
-                            </div>
-
-                            {proofUrl ? (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={() => window.open(proofUrl, "_blank")}
-                                leftIcon={<ExternalLink className="h-4 w-4" />}
-                              >
-                                View proof
-                              </Button>
-                            ) : null}
-                          </div>
-
-                          {isTransfer ? (
-                            isSubmitted ? (
-                              <div className="mt-3 space-y-2">
-                                <div>
-                                  <p className="text-[11px] text-biz-muted mb-1 font-bold">Reject reason (optional)</p>
-                                  <textarea
-                                    className="w-full rounded-2xl border border-biz-line bg-white p-3 text-sm outline-none"
-                                    rows={2}
-                                    value={String(rejectReasonMap[String(idx)] || "")}
-                                    onChange={(e) =>
-                                      setRejectReasonMap((m) => ({ ...m, [String(idx)]: e.target.value }))
-                                    }
-                                    placeholder="e.g. Amount does not match / Receipt unclear"
-                                  />
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-2">
-                                  <Button
-                                    variant="secondary"
-                                    loading={reviewingInstallment === String(idx)}
-                                    disabled={reviewingInstallment === String(idx)}
-                                    onClick={() => reviewInstallment(idx, "reject")}
-                                  >
-                                    Reject
-                                  </Button>
-                                  <Button
-                                    loading={reviewingInstallment === String(idx)}
-                                    disabled={reviewingInstallment === String(idx)}
-                                    onClick={() => reviewInstallment(idx, "accept")}
-                                  >
-                                    Accept
-                                  </Button>
-                                </div>
-                              </div>
-                            ) : isDone ? null : (
-                              <p className="text-[11px] text-biz-muted mt-2">Waiting for customer proof upload.</p>
-                            )
-                          ) : null}
-
-                          {isPaystack ? (
-                            <p className="text-[11px] text-biz-muted mt-2">
-                              Paystack installments will show as <b>paid</b> after verification.
-                            </p>
-                          ) : null}
-                        </Card>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Card variant="soft" className="p-3">
-                    <p className="text-sm font-bold text-biz-ink">No plan yet</p>
-                    <p className="text-[11px] text-biz-muted mt-1">
-                      Add installment amounts and due dates. The total must match the order total exactly.
-                    </p>
-                    <p className="text-[11px] text-gray-500 mt-2">{installmentRulesHint}</p>
-                  </Card>
-
-                  <Card className="p-3">
-                    <p className="text-[11px] text-gray-500">
-                      Order total: <b className="text-biz-ink">{fmtNaira(totalKobo / 100)}</b> • Draft sum:{" "}
-                      <b className={planDraftSumKobo === totalKobo ? "text-emerald-700" : "text-rose-700"}>
-                        {fmtNaira(planDraftSumKobo / 100)}
-                      </b>
-                    </p>
-
-                    <div className="mt-3 space-y-2">
-                      {(planDraft || []).map((x, idx) => (
-                        <div key={idx} className="rounded-2xl border border-biz-line bg-white p-3 space-y-2">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-bold text-biz-ink">Installment {idx + 1}</p>
-                            <button
-                              type="button"
-                              className="text-rose-700 text-xs font-bold"
-                              onClick={() => setPlanDraft((prev) => prev.filter((_: any, i: number) => i !== idx))}
-                              disabled={(planDraft || []).length <= 2}
-                            >
-                              <span className="inline-flex items-center gap-1">
-                                <Trash2 className="h-4 w-4" /> Remove
-                              </span>
-                            </button>
-                          </div>
-
-                          <input
-                            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none bg-white"
-                            placeholder={`Label (e.g. Week ${idx + 1})`}
-                            value={String(x?.label || "")}
-                            onChange={(e) =>
-                              setPlanDraft((prev) =>
-                                prev.map((p: any, i: number) => (i === idx ? { ...p, label: e.target.value } : p))
-                              )
-                            }
-                          />
-
-                          <input
-                            className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none bg-white"
-                            placeholder="Amount (₦)"
-                            inputMode="decimal"
-                            value={koboToNairaString(Number(x?.amountKobo || 0))}
-                            onChange={(e) => {
-                              const amountKobo = parseNairaToKobo(e.target.value);
-                              setPlanDraft((prev) =>
-                                prev.map((p: any, i: number) => (i === idx ? { ...p, amountKobo } : p))
-                              );
-                            }}
-                          />
-
-                          <div>
-                            <p className="text-[11px] text-biz-muted mb-1 font-bold">Due date</p>
-                            <input
-                              type="datetime-local"
-                              className="w-full border border-biz-line rounded-2xl p-3 text-sm outline-none bg-white"
-                              value={toLocalDateTimeInput(Number(x?.dueAtMs || 0))}
-                              onChange={(e) => {
-                                const dueAtMs = fromLocalDateTimeInput(e.target.value);
-                                setPlanDraft((prev) =>
-                                  prev.map((p: any, i: number) => (i === idx ? { ...p, dueAtMs } : p))
-                                );
-                              }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() =>
-                          setPlanDraft((prev) => [
-                            ...(prev || []),
-                            { label: `Installment ${(prev || []).length + 1}`, amountKobo: 0, dueAtMs: 0 },
-                          ])
-                        }
-                        leftIcon={<Plus className="h-4 w-4" />}
-                      >
-                        Add installment
-                      </Button>
-
-                      <Button size="sm" onClick={savePlan} loading={savingPlan} disabled={savingPlan || !planDraftValid}>
-                        Save plan
-                      </Button>
-                    </div>
-
-                    {!planDraftValid ? (
-                      <p className="text-[11px] text-biz-muted mt-2">
-                        At least 2 installments, all due dates set, and the sum equals the order total.
-                      </p>
-                    ) : null}
-
-                    {planMsg ? (
-                      <p
-                        className={
-                          planMsg.toLowerCase().includes("saved")
-                            ? "text-[11px] text-emerald-700 mt-2"
-                            : "text-[11px] text-rose-700 mt-2"
-                        }
-                      >
-                        {planMsg}
-                      </p>
-                    ) : null}
-                  </Card>
-                </div>
-              )}
-            </SectionCard>
-
-            {!shouldHideSingleTransferProof ? (
-              <SectionCard title="Bank transfer proof" subtitle="Customer upload (paid plans)">
-                {!isTransfer ? (
-                  <Card variant="soft" className="p-3">
-                    <p className="text-sm font-bold text-biz-ink">Not a bank transfer</p>
-                    <p className="text-[11px] text-biz-muted mt-1">Proof upload is only for bank transfer orders.</p>
-                  </Card>
-                ) : !transferProofUnlocked ? (
-                  <Card variant="soft" className="p-3">
-                    <p className="text-sm font-bold text-biz-ink">Locked</p>
-                    <p className="text-[11px] text-biz-muted mt-1">Upgrade to enable proof-of-payment upload and review.</p>
-                    <div className="mt-2">
-                      <Button size="sm" onClick={() => router.push("/vendor/subscription")}>
-                        Upgrade
-                      </Button>
-                    </div>
-                  </Card>
-                ) : !tp ? (
-                  <Card variant="soft" className="p-3">
-                    <p className="text-sm font-bold text-biz-ink">No proof uploaded yet</p>
-                    <p className="text-[11px] text-biz-muted mt-1">
-                      The customer will upload on the bank details page after transfer.
-                    </p>
-                  </Card>
-                ) : (
-                  <div className="space-y-2">
-                    <Card className="p-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-bold text-biz-ink">
-                            Status:{" "}
-                            <b
-                              className={
-                                tpStatus === "accepted"
-                                  ? "text-emerald-700"
-                                  : tpStatus === "rejected"
-                                  ? "text-rose-700"
-                                  : "text-orange-700"
-                              }
-                            >
-                              {tpStatus || "submitted"}
-                            </b>
-                          </p>
-                          <p className="text-[11px] text-gray-500 mt-1 break-all">
-                            File: <b className="text-biz-ink">{tp.originalName || "—"}</b>
-                          </p>
-                          <p className="text-[11px] text-gray-500 mt-1">
-                            Uploaded: <b className="text-biz-ink">{fmtDateMs(Number(tp.uploadedAtMs || 0))}</b>
-                          </p>
-
-                          {tp.reviewedAtMs ? (
-                            <p className="text-[11px] text-gray-500 mt-1">
-                              Reviewed: <b className="text-biz-ink">{fmtDateMs(Number(tp.reviewedAtMs || 0))}</b>
-                            </p>
-                          ) : null}
-
-                          {tp.rejectReason ? (
-                            <p className="text-[11px] text-rose-700 mt-2">
-                              Reason: <b>{String(tp.rejectReason)}</b>
-                            </p>
-                          ) : null}
-                        </div>
-
-                        {tpViewUrl ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => window.open(tpViewUrl, "_blank")}
-                            leftIcon={<ExternalLink className="h-4 w-4" />}
-                          >
-                            View
-                          </Button>
-                        ) : null}
-                      </div>
-                    </Card>
-
-                    {tpStatus === "submitted" ? (
-                      <Card className="p-3 space-y-2">
-                        <p className="text-[11px] text-biz-muted">
-                          Accept if the transfer details look correct. Reject if it’s unclear or wrong.
-                        </p>
-
-                        <div>
-                          <p className="text-[11px] text-biz-muted mb-1 font-bold">Reject reason (optional)</p>
-                          <textarea
-                            className="w-full rounded-2xl border border-biz-line bg-white p-3 text-sm outline-none"
-                            rows={2}
-                            value={rejectReason}
-                            onChange={(e) => setRejectReason(e.target.value)}
-                            placeholder="e.g. Amount does not match / Receipt unclear"
-                          />
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-2">
-                          <Button variant="secondary" loading={reviewing} disabled={reviewing} onClick={() => reviewProof("reject")}>
-                            Reject
-                          </Button>
-                          <Button loading={reviewing} disabled={reviewing} onClick={() => reviewProof("accept")}>
-                            Accept
-                          </Button>
-                        </div>
-                      </Card>
-                    ) : null}
-                  </div>
-                )}
-              </SectionCard>
-            ) : (
-              <SectionCard title="Bank transfer proof" subtitle="Installments active">
-                <Card variant="soft" className="p-3">
-                  <p className="text-sm font-bold text-biz-ink">Installment plan is active</p>
-                  <p className="text-[11px] text-biz-muted mt-1">
-                    Proof is collected and reviewed per installment (see installment list above).
-                  </p>
-                </Card>
-              </SectionCard>
-            )}
-
-            <SectionCard title="Order progress" subtitle="Update how this order is moving">
-              {!canUpdateStatus ? (
-                <Card variant="soft" className="p-3">
-                  <p className="text-sm font-bold text-biz-ink">Locked</p>
-                  <p className="text-[11px] text-biz-muted mt-1">Upgrade to update order progress.</p>
-                  <div className="mt-2">
-                    <Button size="sm" onClick={() => router.push("/vendor/subscription")}>
-                      Upgrade
-                    </Button>
-                  </div>
-                </Card>
-              ) : (
-                <>
-                  <SegmentedControl<Ops>
-                    value={opsValue}
-                    onChange={(v) => setOpsStatus(v)}
-                    options={OPS_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
-                    className="!grid-cols-3"
-                  />
-                  {savingStatus ? <p className="text-[11px] text-biz-muted mt-2">Updating…</p> : null}
-                </>
-              )}
-
-              <p className="text-[11px] text-biz-muted mt-3">
-                Payment state still exists separately (escrow/transfer/installments). This is the operational progress.
+            {/* Amount */}
+            <div>
+              <p className="text-xs font-bold uppercase tracking-widest text-orange-100 mb-1">
+                Order Total
               </p>
-            </SectionCard>
+              <p className="text-4xl font-black tracking-tight">{fmtNaira(amount)}</p>
+            </div>
 
-            <SectionCard title="Internal notes" subtitle="Private notes for your team">
-              {!canUseNotes ? (
-                <Card variant="soft" className="p-3">
-                  <p className="text-sm font-bold text-biz-ink">Locked</p>
-                  <p className="text-[11px] text-biz-muted mt-1">Upgrade to use internal notes.</p>
-                  <div className="mt-2">
-                    <Button size="sm" onClick={() => router.push("/vendor/subscription")}>
-                      Upgrade
-                    </Button>
-                  </div>
-                </Card>
-              ) : (
-                <>
-                  <textarea
-                    className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-                    placeholder="Write a note (e.g. Customer asked for red color, dispatch tomorrow)…"
-                    value={noteText}
-                    onChange={(e) => setNoteText(e.target.value)}
-                    rows={4}
-                  />
-                  <div className="mt-2">
-                    <Button onClick={addNote} loading={savingNote} disabled={savingNote || noteText.trim().length < 2}>
-                      Add note
-                    </Button>
-                  </div>
-
-                  {notes.length === 0 ? (
-                    <p className="text-sm text-biz-muted mt-3">No notes yet.</p>
-                  ) : (
-                    <div className="mt-3 space-y-2">
-                      {notes.map((n) => (
-                        <div key={n.id} className="rounded-2xl border border-biz-line bg-white p-3">
-                          <p className="text-sm text-gray-800 whitespace-pre-wrap">{String(n.text || "")}</p>
-                          <p className="text-[11px] text-gray-500 mt-2">
-                            {n.createdAtMs ? new Date(Number(n.createdAtMs)).toLocaleString() : "—"}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              )}
-            </SectionCard>
-
-            <Card className="p-4">
-              <div className="grid grid-cols-2 gap-2">
-                <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
-                  Back to orders
-                </Button>
-                <Button onClick={() => router.push("/vendor")}>Dashboard</Button>
+            {/* Meta Info */}
+            <div className="mt-4 flex flex-wrap gap-4">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-orange-200" />
+                <span className="text-sm text-orange-100">
+                  {fmtDate(order.createdAt, { includeTime: true })}
+                </span>
               </div>
-            </Card>
-          </>
-        ) : null}
+              <div className="flex items-center gap-2">
+                <Package className="w-4 h-4 text-orange-200" />
+                <span className="text-sm text-orange-100">
+                  {items.length} item{items.length !== 1 ? "s" : ""}
+                </span>
+              </div>
+            </div>
+
+            {/* Order ID Copy */}
+            <button
+              onClick={() => copyToClipboard(orderId, "Order ID")}
+              className="mt-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-white/20 hover:bg-white/30 transition"
+            >
+              <Hash className="w-4 h-4" />
+              <span className="text-sm font-mono">{orderId.slice(0, 12)}...</span>
+              {copied === "Order ID" ? (
+                <CheckCircle2 className="w-4 h-4 text-green-300" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+            </button>
+          </div>
+        </div>
+
+        {/* Status Progress */}
+        <SectionCard
+          title="Order Progress"
+          subtitle="Update order status"
+          right={
+            <button
+              onClick={() => setShowStatusSheet(true)}
+              className="text-xs font-bold text-orange-600 flex items-center gap-1"
+            >
+              Change
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          }
+        >
+          <div className="relative">
+            {/* Progress Line */}
+            <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-gray-200" />
+            
+            {/* Progress Fill */}
+            {(() => {
+              const currentIndex = STATUS_FLOW.findIndex(s => s.key === currentStatus);
+              const fillHeight = currentIndex >= 0 ? `${(currentIndex / (STATUS_FLOW.length - 1)) * 100}%` : "0%";
+              return (
+                <div
+                  className="absolute left-5 top-5 w-0.5 bg-orange-500 transition-all duration-500"
+                  style={{ height: fillHeight }}
+                />
+              );
+            })()}
+
+            {/* Status Steps */}
+            <div className="relative space-y-1">
+              {STATUS_FLOW.map((step, idx) => {
+                const currentIndex = STATUS_FLOW.findIndex(s => s.key === currentStatus);
+                const isPast = idx < currentIndex;
+                const isCurrent = step.key === currentStatus;
+                const isFuture = idx > currentIndex;
+                const Icon = step.icon;
+
+                return (
+                  <div
+                    key={step.key}
+                    className={cn(
+                      "flex items-center gap-4 p-3 rounded-2xl transition-all",
+                      isCurrent && "bg-orange-50 border border-orange-200",
+                      !isCurrent && "hover:bg-gray-50"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-all relative z-10",
+                        isPast && "bg-orange-500 text-white",
+                        isCurrent && "bg-orange-500 text-white ring-4 ring-orange-100",
+                        isFuture && "bg-gray-100 text-gray-400"
+                      )}
+                    >
+                      {isPast ? (
+                        <CheckCircle2 className="w-5 h-5" />
+                      ) : (
+                        <Icon className="w-5 h-5" />
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <p
+                        className={cn(
+                          "text-sm font-semibold",
+                          isCurrent ? "text-orange-700" : isPast ? "text-gray-900" : "text-gray-400"
+                        )}
+                      >
+                        {step.label}
+                      </p>
+                      <p
+                        className={cn(
+                          "text-xs mt-0.5",
+                          isCurrent ? "text-orange-600" : "text-gray-500"
+                        )}
+                      >
+                        {step.description}
+                      </p>
+                    </div>
+                    {isCurrent && (
+                      <span className="px-2 py-1 rounded-full bg-orange-500 text-white text-[10px] font-bold">
+                        CURRENT
+                      </span>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Cancelled state (if applicable) */}
+              {currentStatus === "cancelled" && (
+                <div className="flex items-center gap-4 p-3 rounded-2xl bg-gray-100">
+                  <div className="w-10 h-10 rounded-xl bg-gray-500 text-white flex items-center justify-center shrink-0">
+                    <XCircle className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700">Cancelled</p>
+                    <p className="text-xs text-gray-500">Order was cancelled</p>
+                  </div>
+                  <span className="px-2 py-1 rounded-full bg-gray-500 text-white text-[10px] font-bold">
+                    FINAL
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* Quick Contact */}
+        <SectionCard title="Contact Customer" subtitle="Reach out to the buyer">
+          <div className="grid grid-cols-3 gap-3">
+            {whatsappLink && (
+              <button
+                onClick={() => window.open(whatsappLink, "_blank")}
+                className="flex flex-col items-center justify-center p-4 rounded-2xl bg-green-50 hover:bg-green-100 border border-green-200 transition"
+              >
+                <div className="w-12 h-12 rounded-xl bg-green-500 flex items-center justify-center mb-2">
+                  <MessageCircle className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-bold text-green-700">WhatsApp</span>
+              </button>
+            )}
+            {callLink && (
+              <button
+                onClick={() => window.open(callLink, "_blank")}
+                className="flex flex-col items-center justify-center p-4 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-200 transition"
+              >
+                <div className="w-12 h-12 rounded-xl bg-blue-500 flex items-center justify-center mb-2">
+                  <Phone className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-bold text-blue-700">Call</span>
+              </button>
+            )}
+            {emailLink && (
+              <button
+                onClick={() => window.open(emailLink, "_blank")}
+                className="flex flex-col items-center justify-center p-4 rounded-2xl bg-purple-50 hover:bg-purple-100 border border-purple-200 transition"
+              >
+                <div className="w-12 h-12 rounded-xl bg-purple-500 flex items-center justify-center mb-2">
+                  <Mail className="w-6 h-6 text-white" />
+                </div>
+                <span className="text-xs font-bold text-purple-700">Email</span>
+              </button>
+            )}
+          </div>
+
+          {/* Customer Card */}
+          <div className="mt-4 p-4 rounded-2xl bg-white border border-gray-100">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shrink-0">
+                <span className="text-lg font-bold text-white">
+                  {(customer.fullName || customer.name || "A")[0].toUpperCase()}
+                </span>
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold text-gray-900">
+                  {customer.fullName || customer.name || "Anonymous"}
+                </p>
+                {customer.email && (
+                  <p className="text-sm text-gray-500 mt-1 truncate">{customer.email}</p>
+                )}
+                {customer.phone && (
+                  <button
+                    onClick={() => copyToClipboard(customer.phone!, "Phone")}
+                    className="flex items-center gap-1.5 mt-1 text-sm text-gray-600 hover:text-orange-600"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    {customer.phone}
+                    {copied === "Phone" ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* Order Items */}
+        <SectionCard
+          title="Order Items"
+          subtitle={`${items.length} item${items.length !== 1 ? "s" : ""}`}
+        >
+          <div className="space-y-3">
+            {items.map((item, idx) => {
+              const itemImg = item.image ? cloudinaryOptimizedUrl(item.image, { w: 120, h: 120 }) : "";
+              const itemTotal = (item.price || 0) * (item.quantity || 1);
+
+              return (
+                <div
+                  key={idx}
+                  className="flex items-start gap-4 p-4 rounded-2xl bg-white border border-gray-100"
+                >
+                  {/* Image */}
+                  <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden shrink-0">
+                    {itemImg ? (
+                      <img
+                        src={itemImg}
+                        alt={item.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <Package className="w-6 h-6 text-gray-300" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Details */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 line-clamp-2">
+                      {item.name || "Product"}
+                    </p>
+                    {item.variant && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Variant: {item.variant}
+                      </p>
+                    )}
+                    <div className="flex items-center justify-between mt-2">
+                      <p className="text-xs text-gray-500">
+                        {fmtNaira(item.price || 0)} × {item.quantity || 1}
+                      </p>
+                      <p className="text-sm font-bold text-gray-900">
+                        {fmtNaira(itemTotal)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Order Summary */}
+          <div className="mt-4 p-4 rounded-2xl bg-gray-50 border border-gray-100 space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Subtotal</span>
+              <span className="font-medium text-gray-900">{fmtNaira(subtotal)}</span>
+            </div>
+            {shippingFee > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Shipping</span>
+                <span className="font-medium text-gray-900">{fmtNaira(shippingFee)}</span>
+              </div>
+            )}
+            <div className="pt-3 border-t border-gray-200 flex justify-between">
+              <span className="text-base font-bold text-gray-900">Total</span>
+              <span className="text-base font-black text-orange-600">{fmtNaira(amount)}</span>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* Shipping Details */}
+        {(shipping.address || shipping.method) && (
+          <SectionCard title="Shipping Details" subtitle="Delivery information">
+            <div className="p-4 rounded-2xl bg-white border border-gray-100 space-y-4">
+              {shipping.method && (
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-purple-50 flex items-center justify-center shrink-0">
+                    <Truck className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Method</p>
+                    <p className="text-sm font-semibold text-gray-900 mt-0.5">{shipping.method}</p>
+                  </div>
+                </div>
+              )}
+
+              {shipping.address && (
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
+                    <MapPin className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Address</p>
+                    <p className="text-sm font-semibold text-gray-900 mt-0.5">{shipping.address}</p>
+                    {(shipping.city || shipping.state) && (
+                      <p className="text-sm text-gray-600 mt-0.5">
+                        {[shipping.city, shipping.state].filter(Boolean).join(", ")}
+                      </p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => copyToClipboard(shipping.address!, "Address")}
+                    className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200"
+                  >
+                    {copied === "Address" ? (
+                      <CheckCircle2 className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-gray-500" />
+                    )}
+                  </button>
+                </div>
+              )}
+
+              {shipping.trackingNumber && (
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center shrink-0">
+                    <Navigation className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Tracking</p>
+                    <p className="text-sm font-mono font-semibold text-gray-900 mt-0.5">
+                      {shipping.trackingNumber}
+                    </p>
+                    {shipping.carrier && (
+                      <p className="text-xs text-gray-500 mt-0.5">{shipping.carrier}</p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {shippingFee > 0 && (
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+                    <Banknote className="w-5 h-5 text-orange-600" />
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase tracking-wide">Shipping Fee</p>
+                    <p className="text-sm font-bold text-gray-900 mt-0.5">{fmtNaira(shippingFee)}</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </SectionCard>
+        )}
+
+        {/* Payment Info */}
+        <SectionCard title="Payment" subtitle="Payment information">
+          <div className="p-4 rounded-2xl bg-white border border-gray-100">
+            <div className="flex items-center gap-4">
+              <div
+                className={cn(
+                  "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
+                  isDirectTransfer ? "bg-blue-50" : "bg-green-50"
+                )}
+              >
+                {isDirectTransfer ? (
+                  <Building2 className="w-6 h-6 text-blue-600" />
+                ) : (
+                  <CreditCard className="w-6 h-6 text-green-600" />
+                )}
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-gray-900 capitalize">
+                  {paymentType.replace(/_/g, " ")}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {isDirectTransfer ? "Bank transfer payment" : "Card payment via Paystack"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-bold text-gray-900">{fmtNaira(amount)}</p>
+                <p className="text-xs text-green-600 font-medium mt-0.5">Paid</p>
+              </div>
+            </div>
+
+            {/* Transfer proof for direct transfers */}
+            {isDirectTransfer && order.transferProof && (
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                <p className="text-xs text-gray-500 mb-2">Payment Proof</p>
+                <button
+                  onClick={() => window.open(order.transferProof, "_blank")}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-50 hover:bg-gray-100 transition"
+                >
+                  <ImageIcon className="w-4 h-4 text-gray-500" />
+                  <span className="text-sm text-gray-700">View Screenshot</span>
+                  <ExternalLink className="w-4 h-4 text-gray-400" />
+                </button>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+
+        {/* Timeline */}
+        <SectionCard title="Activity Timeline" subtitle="Order history">
+          <OrderStatusTimeline order={order} />
+        </SectionCard>
       </div>
+
+      {/* Status Change Bottom Sheet */}
+      {showStatusSheet && (
+        <div className="fixed inset-0 z-50 bg-black/50">
+          <div className="absolute inset-0" onClick={() => setShowStatusSheet(false)} />
+          <div className="absolute bottom-0 left-0 right-0 max-w-[430px] mx-auto">
+            <div className="bg-white rounded-t-3xl overflow-hidden safe-pb">
+              {/* Header */}
+              <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+                <div>
+                  <p className="text-base font-bold text-gray-900">Update Status</p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Change order progress
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShowStatusSheet(false)}
+                  className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200"
+                >
+                  <X className="w-5 h-5 text-gray-600" />
+                </button>
+              </div>
+
+              {/* Status Options */}
+              <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+                {STATUS_FLOW.map((status) => {
+                  const Icon = status.icon;
+                  const isActive = currentStatus === status.key;
+
+                  return (
+                    <button
+                      key={status.key}
+                      onClick={() => !isActive && updateStatus(status.key)}
+                      disabled={updating || isActive}
+                      className={cn(
+                        "w-full flex items-center gap-4 p-4 rounded-2xl border transition",
+                        isActive
+                          ? "bg-orange-50 border-orange-200"
+                          : "bg-white border-gray-100 hover:border-orange-200 hover:bg-orange-50/50"
+                      )}
+                    >
+                      <div
+                        className={cn(
+                          "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
+                          isActive ? "bg-orange-500 text-white" : "bg-gray-100 text-gray-600"
+                        )}
+                      >
+                        <Icon className="w-6 h-6" />
+                      </div>
+                      <div className="flex-1 text-left">
+                        <p
+                          className={cn(
+                            "text-sm font-semibold",
+                            isActive ? "text-orange-700" : "text-gray-900"
+                          )}
+                        >
+                          {status.label}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5">{status.description}</p>
+                      </div>
+                      {isActive && (
+                        <CheckCircle2 className="w-6 h-6 text-orange-500 shrink-0" />
+                      )}
+                      {updating && !isActive && (
+                        <Loader2 className="w-5 h-5 text-gray-400 animate-spin shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
+
+                {/* Cancel Option */}
+                <button
+                  onClick={() => updateStatus("cancelled")}
+                  disabled={updating || currentStatus === "cancelled"}
+                  className={cn(
+                    "w-full flex items-center gap-4 p-4 rounded-2xl border transition",
+                    currentStatus === "cancelled"
+                      ? "bg-gray-100 border-gray-200"
+                      : "bg-white border-gray-100 hover:border-red-200 hover:bg-red-50"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
+                      currentStatus === "cancelled" ? "bg-gray-500 text-white" : "bg-red-100 text-red-600"
+                    )}
+                  >
+                    <XCircle className="w-6 h-6" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p
+                      className={cn(
+                        "text-sm font-semibold",
+                        currentStatus === "cancelled" ? "text-gray-700" : "text-red-700"
+                      )}
+                    >
+                      Cancel Order
+                    </p>
+                    <p className="text-xs text-gray-500 mt-0.5">Mark as cancelled</p>
+                  </div>
+                  {currentStatus === "cancelled" && (
+                    <CheckCircle2 className="w-6 h-6 text-gray-500 shrink-0" />
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Action Sheet */}
+      {showActionSheet && (
+        <div className="fixed inset-0 z-50 bg-black/50">
+          <div className="absolute inset-0" onClick={() => setShowActionSheet(false)} />
+          <div className="absolute bottom-0 left-0 right-0 max-w-[430px] mx-auto">
+            <div className="bg-white rounded-t-3xl overflow-hidden safe-pb">
+              <div className="p-4 border-b border-gray-100">
+                <p className="text-base font-bold text-gray-900 text-center">Actions</p>
+              </div>
+
+              <div className="p-2">
+                <button
+                  onClick={() => {
+                    copyToClipboard(orderId, "Order ID");
+                    setShowActionSheet(false);
+                  }}
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 transition"
+                >
+                  <Copy className="w-5 h-5 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-900">Copy Order ID</span>
+                </button>
+
+                {whatsappLink && (
+                  <button
+                    onClick={() => {
+                      window.open(whatsappLink, "_blank");
+                      setShowActionSheet(false);
+                    }}
+                    className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 transition"
+                  >
+                    <MessageCircle className="w-5 h-5 text-green-600" />
+                    <span className="text-sm font-medium text-gray-900">WhatsApp Customer</span>
+                  </button>
+                )}
+
+                <button
+                  onClick={() => {
+                    router.push(`/vendor/orders/${orderId}/dispute`);
+                    setShowActionSheet(false);
+                  }}
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 transition"
+                >
+                  <AlertTriangle className="w-5 h-5 text-orange-500" />
+                  <span className="text-sm font-medium text-gray-900">View/Create Dispute</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    // Could implement print/download receipt
+                    toast.info("Receipt download coming soon!");
+                    setShowActionSheet(false);
+                  }}
+                  className="w-full flex items-center gap-4 p-4 rounded-2xl hover:bg-gray-50 transition"
+                >
+                  <Receipt className="w-5 h-5 text-gray-500" />
+                  <span className="text-sm font-medium text-gray-900">Download Receipt</span>
+                </button>
+              </div>
+
+              <div className="p-4 border-t border-gray-100">
+                <Button
+                  variant="secondary"
+                  onClick={() => setShowActionSheet(false)}
+                  className="w-full"
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

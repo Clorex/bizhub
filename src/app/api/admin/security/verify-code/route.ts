@@ -1,5 +1,5 @@
 // FILE: src/app/api/admin/security/verify-code/route.ts
-import { NextResponse } from "next/server";
+
 import {
   requireAdminStrict,
   verifyAdminOtp,
@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     const code = String(body.code || "").trim();
 
     if (!code) {
-      return NextResponse.json({ ok: false, error: "code required" }, { status: 400 });
+      return Response.json({ ok: false, error: "code required" }, { status: 400 });
     }
 
     await verifyAdminOtp({ uid: me.uid, code, scope: "session" });
@@ -27,10 +27,10 @@ export async function POST(req: Request) {
       email: String(me.email || ""),
     });
 
-    return NextResponse.json({ ok: true, verifiedUntilMs: s.verifiedUntilMs });
+    return Response.json({ ok: true, verifiedUntilMs: s.verifiedUntilMs });
   } catch (e: any) {
     const msg = e?.message || "Failed";
     const code = e?.code || null;
-    return NextResponse.json({ ok: false, code, error: msg }, { status: 400 });
+    return Response.json({ ok: false, code, error: msg }, { status: 400 });
   }
 }

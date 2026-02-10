@@ -1,5 +1,5 @@
 // FILE: src/app/api/subscriptions/confirm/route.ts
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { paymentsProvider } from "@/lib/payments/provider";
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     const reference = String(body.reference || "").trim();
     const transactionId = body.transactionId != null ? String(body.transactionId).trim() : "";
 
-    if (!reference) return NextResponse.json({ ok: false, error: "reference is required" }, { status: 400 });
+    if (!reference) return Response.json({ ok: false, error: "reference is required" }, { status: 400 });
 
     const provider = paymentsProvider();
 
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
     // -------------------------
     if (provider === "flutterwave") {
       if (!transactionId) {
-        return NextResponse.json(
+        return Response.json(
           { ok: false, error: "transactionId is required for Flutterwave confirmation" },
           { status: 400 }
         );
@@ -66,17 +66,17 @@ export async function POST(req: Request) {
 
       const status = String(flwTx?.status || "").toLowerCase();
       if (status !== "successful") {
-        return NextResponse.json({ ok: false, error: `Payment not successful: ${flwTx?.status || "unknown"}` }, { status: 400 });
+        return Response.json({ ok: false, error: `Payment not successful: ${flwTx?.status || "unknown"}` }, { status: 400 });
       }
 
       // Must match the reference we created (tx_ref)
       if (String(flwTx?.tx_ref || "") !== reference) {
-        return NextResponse.json({ ok: false, error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
+        return Response.json({ ok: false, error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
       }
 
       const md = normalizeMetadata((flwTx as any)?.meta);
       if (md?.purpose !== "subscription") {
-        return NextResponse.json({ ok: false, error: "Invalid purpose for this endpoint" }, { status: 400 });
+        return Response.json({ ok: false, error: "Invalid purpose for this endpoint" }, { status: 400 });
       }
 
       const businessId = String(md.businessId || "");
@@ -84,28 +84,28 @@ export async function POST(req: Request) {
       const planKey = String(md.planKey || "") as BizhubPlanKey;
       const cycle = String(md.cycle || "") as BizhubBillingCycle;
 
-      if (!businessId) return NextResponse.json({ ok: false, error: "Missing businessId in metadata" }, { status: 400 });
+      if (!businessId) return Response.json({ ok: false, error: "Missing businessId in metadata" }, { status: 400 });
 
       const allowedPlans: BizhubPlanKey[] = ["LAUNCH", "MOMENTUM", "APEX"];
       const allowedCycles: BizhubBillingCycle[] = ["monthly", "quarterly", "biannually", "yearly"];
-      if (!allowedPlans.includes(planKey)) return NextResponse.json({ ok: false, error: "Invalid planKey" }, { status: 400 });
-      if (!allowedCycles.includes(cycle)) return NextResponse.json({ ok: false, error: "Invalid cycle" }, { status: 400 });
+      if (!allowedPlans.includes(planKey)) return Response.json({ ok: false, error: "Invalid planKey" }, { status: 400 });
+      if (!allowedCycles.includes(cycle)) return Response.json({ ok: false, error: "Invalid cycle" }, { status: 400 });
 
       const expectedKobo = priceKoboFor(planKey, cycle);
 
       const currency = String(flwTx?.currency || "NGN").toUpperCase();
       if (currency !== "NGN") {
-        return NextResponse.json({ ok: false, error: "Invalid currency for subscription (expected NGN)" }, { status: 400 });
+        return Response.json({ ok: false, error: "Invalid currency for subscription (expected NGN)" }, { status: 400 });
       }
 
       const paidMajor = Number((flwTx as any)?.amount || 0); // major unit
       const paidKobo = Math.round(paidMajor * 100);
 
       if (!Number.isFinite(paidKobo) || paidKobo <= 0) {
-        return NextResponse.json({ ok: false, error: "Invalid Flutterwave amount" }, { status: 400 });
+        return Response.json({ ok: false, error: "Invalid Flutterwave amount" }, { status: 400 });
       }
       if (paidKobo !== expectedKobo) {
-        return NextResponse.json({ ok: false, error: "Amount mismatch", expectedKobo, paidKobo }, { status: 400 });
+        return Response.json({ ok: false, error: "Amount mismatch", expectedKobo, paidKobo }, { status: 400 });
       }
 
       const now = Date.now();
@@ -236,7 +236,7 @@ export async function POST(req: Request) {
       });
 
       await syncBusinessSignalsToProducts({ businessId });
-      return NextResponse.json(result);
+      return Response.json(result);
     }
 
     // -------------------------
@@ -244,12 +244,12 @@ export async function POST(req: Request) {
     // -------------------------
     const paystackTx = await verifyPaystack(reference);
     if (paystackTx.status !== "success") {
-      return NextResponse.json({ ok: false, error: `Payment not successful: ${paystackTx.status}` }, { status: 400 });
+      return Response.json({ ok: false, error: `Payment not successful: ${paystackTx.status}` }, { status: 400 });
     }
 
     const md = normalizeMetadata(paystackTx.metadata);
     if (md?.purpose !== "subscription") {
-      return NextResponse.json({ ok: false, error: "Invalid purpose for this endpoint" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid purpose for this endpoint" }, { status: 400 });
     }
 
     const businessId = String(md.businessId || "");
@@ -257,22 +257,22 @@ export async function POST(req: Request) {
     const planKey = String(md.planKey || "") as BizhubPlanKey;
     const cycle = String(md.cycle || "") as BizhubBillingCycle;
 
-    if (!businessId) return NextResponse.json({ ok: false, error: "Missing businessId in metadata" }, { status: 400 });
+    if (!businessId) return Response.json({ ok: false, error: "Missing businessId in metadata" }, { status: 400 });
 
     const allowedPlans: BizhubPlanKey[] = ["LAUNCH", "MOMENTUM", "APEX"];
     const allowedCycles: BizhubBillingCycle[] = ["monthly", "quarterly", "biannually", "yearly"];
 
-    if (!allowedPlans.includes(planKey)) return NextResponse.json({ ok: false, error: "Invalid planKey" }, { status: 400 });
-    if (!allowedCycles.includes(cycle)) return NextResponse.json({ ok: false, error: "Invalid cycle" }, { status: 400 });
+    if (!allowedPlans.includes(planKey)) return Response.json({ ok: false, error: "Invalid planKey" }, { status: 400 });
+    if (!allowedCycles.includes(cycle)) return Response.json({ ok: false, error: "Invalid cycle" }, { status: 400 });
 
     const expectedKobo = priceKoboFor(planKey, cycle);
     const paidKobo = Number(paystackTx.amount || 0);
 
     if (!Number.isFinite(paidKobo) || paidKobo <= 0) {
-      return NextResponse.json({ ok: false, error: "Invalid Paystack amount" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid Paystack amount" }, { status: 400 });
     }
     if (paidKobo !== expectedKobo) {
-      return NextResponse.json({ ok: false, error: "Amount mismatch", expectedKobo, paidKobo }, { status: 400 });
+      return Response.json({ ok: false, error: "Amount mismatch", expectedKobo, paidKobo }, { status: 400 });
     }
 
     const now = Date.now();
@@ -400,8 +400,8 @@ export async function POST(req: Request) {
     });
 
     await syncBusinessSignalsToProducts({ businessId });
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Confirm failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Confirm failed" }, { status: 500 });
   }
 }

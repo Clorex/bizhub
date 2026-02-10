@@ -1,5 +1,5 @@
 // FILE: src/app/api/admin/platform/withdraw/route.ts
-import { NextResponse } from "next/server";
+
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireAdminSessionVerified, verifyAdminOtp } from "@/lib/admin/securityServer";
@@ -30,11 +30,11 @@ export async function POST(req: Request) {
     const note = cleanText(body.note, 200);
 
     if (amountKobo <= 0) {
-      return NextResponse.json({ ok: false, error: "amountKobo must be > 0" }, { status: 400 });
+      return Response.json({ ok: false, error: "amountKobo must be > 0" }, { status: 400 });
     }
 
     if (!otp) {
-      return NextResponse.json({ ok: false, error: "otp is required" }, { status: 400 });
+      return Response.json({ ok: false, error: "otp is required" }, { status: 400 });
     }
 
     // Verify OTP (withdrawal scope)
@@ -97,10 +97,10 @@ export async function POST(req: Request) {
 
     if ((result as any).ok === false) {
       const r: any = result;
-      return NextResponse.json({ ok: false, error: r.error, balanceKobo: r.balanceKobo }, { status: r.status || 400 });
+      return Response.json({ ok: false, error: r.error, balanceKobo: r.balanceKobo }, { status: r.status || 400 });
     }
 
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (e: any) {
     const code = e?.code || null;
     const status =
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
       code === "PIN_INVALID" || code === "PIN_NOT_SET" || code === "PIN_INVALID_LENGTH" ? 400 :
       500;
 
-    return NextResponse.json({ ok: false, code, error: e?.message || "Failed" }, { status });
+    return Response.json({ ok: false, code, error: e?.message || "Failed" }, { status });
   }
 }
 
@@ -125,8 +125,8 @@ export async function GET(req: Request) {
 
     const withdrawals = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
 
-    return NextResponse.json({ ok: true, withdrawals });
+    return Response.json({ ok: true, withdrawals });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, code: e?.code || null, error: e?.message || "Failed" }, { status: 401 });
+    return Response.json({ ok: false, code: e?.code || null, error: e?.message || "Failed" }, { status: 401 });
   }
 }

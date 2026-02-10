@@ -1,24 +1,28 @@
 // FILE: src/app/orders/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { onAuthStateChanged } from "firebase/auth";
+import {
+  Package,
+  ShoppingBag,
+  Loader2,
+  LogIn,
+  RefreshCw,
+  Search,
+} from "lucide-react";
+
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
-import { getRecentOrderIds } from "@/lib/orders/recent";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { SectionCard } from "@/components/ui/SectionCard";
+import { Input } from "@/components/ui/Input";
+import { OrderCard } from "@/components/orders/OrderCard";
+import { Skeleton } from "@/components/ui/Skeleton";
 import { auth } from "@/lib/firebase/client";
-import { onAuthStateChanged } from "firebase/auth";
-
-function fmtNaira(n: number) {
-  try {
-    return `₦${Number(n || 0).toLocaleString()}`;
-  } catch {
-    return `₦${n}`;
-  }
-}
+import { getRecentOrderIds } from "@/lib/orders/recent";
 
 function toMs(v: any) {
   try {
@@ -31,229 +35,282 @@ function toMs(v: any) {
   }
 }
 
-function fmtDateAny(v: any) {
-  const ms = toMs(v);
-  if (!ms) return "—";
-  try {
-    return new Date(ms).toLocaleString();
-  } catch {
-    return "—";
-  }
-}
-
-function customerStatusLabel(o: any) {
-  const orderStatus = String(o?.orderStatus || "").toLowerCase();
-  const ops = String(o?.opsStatusEffective || o?.opsStatus || "").toLowerCase();
-  const escrow = String(o?.escrowStatus || "").toLowerCase();
-
-  if (ops) {
-    if (ops === "delivered") return "Delivered";
-    if (ops === "cancelled") return "Cancelled";
-    if (ops === "in_transit") return "In transit";
-    if (ops === "paid") return "Paid";
-  }
-
-  if (orderStatus.includes("delivered")) return "Delivered";
-  if (orderStatus.includes("cancel")) return "Cancelled";
-  if (orderStatus.includes("paid")) {
-    if (escrow && escrow !== "released") return "Processing";
-    return "Paid";
-  }
-
-  if (escrow) {
-    if (escrow === "released") return "Paid";
-    if (escrow === "disputed") return "Needs attention";
-    return "Processing";
-  }
-
-  return "Processing";
-}
-
-function paymentLabel(o: any) {
-  const paymentType = String(o?.paymentType || "");
-  if (paymentType === "direct_transfer") return "Bank transfer";
-  if (paymentType === "paystack_escrow") return "Card payment";
-  return "";
-}
-
-function code4DigitsFromReference(ref: string) {
-  let h = 0;
-  for (let i = 0; i < ref.length; i++) h = (h * 31 + ref.charCodeAt(i)) | 0;
-  const n = Math.abs(h) % 10000;
-  return String(n).padStart(4, "0");
-}
-
-function StatusPill({ text }: { text: string }) {
-  const t = String(text || "").toLowerCase();
-  const cls =
-    t.includes("attention") || t.includes("issue")
-      ? "bg-red-50 text-red-700 border-red-100"
-      : t.includes("processing") || t.includes("transit")
-        ? "bg-orange-50 text-orange-700 border-orange-100"
-        : t.includes("delivered") || t.includes("paid")
-          ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-          : "bg-biz-cream text-biz-ink border-transparent";
-
-  return <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-extrabold border ${cls}`}>{text}</span>;
+function OrderSkeleton() {
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 p-4">
+      <div className="flex items-start gap-4">
+        <Skeleton className="w-12 h-12 rounded-xl" />
+        <div className="flex-1">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-24 mt-2" />
+          <Skeleton className="h-6 w-20 mt-3 rounded-full" />
+        </div>
+        <Skeleton className="h-5 w-16" />
+      </div>
+    </div>
+  );
 }
 
 export default function OrdersPage() {
+  const router = useRouter();
   const [authLoading, setAuthLoading] = useState(true);
   const [loggedIn, setLoggedIn] = useState(false);
-
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [orders, setOrders] = useState<any[]>([]);
-  const [msg, setMsg] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (u) => {
+    const unsub = onAuthStateChanged(auth, (u) => {
       setAuthLoading(false);
       setLoggedIn(!!u);
     });
     return () => unsub();
   }, []);
 
-  useEffect(() => {
-    let mounted = true;
-
-    async function run() {
-      try {
+  async function loadOrders(isRefresh = false) {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
         setLoading(true);
-        setMsg(null);
-
-        if (!auth.currentUser) {
-          setOrders([]);
-          return;
-        }
-
-        const ids = getRecentOrderIds();
-        if (!ids.length) {
-          setOrders([]);
-          return;
-        }
-
-        const token = await auth.currentUser.getIdToken();
-
-        const r = await fetch("/api/orders/recent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ ids: ids.slice(0, 25) }),
-        });
-
-        const data = await r.json().catch(() => ({}));
-        if (!r.ok) throw new Error(data?.error || "Failed to load orders");
-
-        const list = Array.isArray(data.orders) ? data.orders : [];
-        list.sort((a: any, b: any) => toMs(b.createdAt) - toMs(a.createdAt));
-
-        if (!mounted) return;
-        setOrders(list);
-      } catch (e: any) {
-        setMsg(e?.message || "Failed to load orders");
-        setOrders([]);
-      } finally {
-        if (mounted) setLoading(false);
       }
+      setError(null);
+
+      if (!auth.currentUser) {
+        setOrders([]);
+        return;
+      }
+
+      const ids = getRecentOrderIds();
+      if (!ids.length) {
+        setOrders([]);
+        return;
+      }
+
+      const token = await auth.currentUser.getIdToken();
+
+      const r = await fetch("/api/orders/recent", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ ids: ids.slice(0, 25) }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Failed to load orders");
+
+      const list = Array.isArray(data.orders) ? data.orders : [];
+      list.sort((a: any, b: any) => toMs(b.createdAt) - toMs(a.createdAt));
+
+      setOrders(list);
+    } catch (e: any) {
+      setError(e?.message || "Failed to load orders");
+      setOrders([]);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
+  }
 
-    run();
-    return () => {
-      mounted = false;
-    };
-  }, [loggedIn]);
+  useEffect(() => {
+    if (loggedIn) {
+      loadOrders();
+    } else if (!authLoading) {
+      setLoading(false);
+    }
+  }, [loggedIn, authLoading]);
 
-  const subtitle = useMemo(() => {
-    if (authLoading) return "Preparing…";
-    if (!loggedIn) return "Login required to view orders";
-    if (loading) return "Loading your orders…";
-    if (orders.length === 0) return "No orders on this device yet";
-    return `${orders.length} order(s) found`;
-  }, [authLoading, loggedIn, loading, orders.length]);
+  // Filter orders by search
+  const filteredOrders = useMemo(() => {
+    if (!searchQuery.trim()) return orders;
+    
+    const query = searchQuery.toLowerCase();
+    return orders.filter((o) => {
+      const orderId = String(o.id || "").toLowerCase();
+      const vendor = String(o.businessSlug || "").toLowerCase();
+      return orderId.includes(query) || vendor.includes(query);
+    });
+  }, [orders, searchQuery]);
+
+  // Group orders by status
+  const { activeOrders, completedOrders } = useMemo(() => {
+    const active: any[] = [];
+    const completed: any[] = [];
+
+    filteredOrders.forEach((o) => {
+      const status = String(o?.opsStatusEffective || o?.opsStatus || o?.orderStatus || "").toLowerCase();
+      if (status === "delivered" || status === "cancelled") {
+        completed.push(o);
+      } else {
+        active.push(o);
+      }
+    });
+
+    return { activeOrders: active, completedOrders: completed };
+  }, [filteredOrders]);
+
+  // Not logged in state
+  if (!authLoading && !loggedIn) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <GradientHeader title="My Orders" subtitle="Track your purchases" showBack={false} />
+        
+        <div className="px-4 pt-4 pb-24">
+          <Card className="p-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-orange-100 flex items-center justify-center mx-auto mb-4">
+              <LogIn className="w-8 h-8 text-orange-600" />
+            </div>
+            <h2 className="text-lg font-bold text-gray-900">Login Required</h2>
+            <p className="text-sm text-gray-500 mt-2">
+              Please login to view and track your orders.
+            </p>
+            <Button
+              className="mt-6"
+              onClick={() => router.push(`/account/login?next=${encodeURIComponent("/orders")}`)}
+            >
+              Login to Continue
+            </Button>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen">
-      <GradientHeader title="Orders" subtitle={subtitle} showBack={true} />
+    <div className="min-h-screen bg-gray-50">
+      <GradientHeader
+        title="My Orders"
+        subtitle={loading ? "Loading..." : `${orders.length} order${orders.length !== 1 ? "s" : ""}`}
+        showBack={false}
+        right={
+          <button
+            onClick={() => loadOrders(true)}
+            disabled={refreshing}
+            className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
+          >
+            <RefreshCw className={`w-5 h-5 text-white ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+        }
+      />
 
-      <div className="px-4 pb-24 space-y-3">
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+      <div className="px-4 pt-4 pb-24 space-y-4">
+        {/* Search */}
+        {orders.length > 3 && (
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search by order ID or vendor..."
+              className="w-full pl-12 pr-4 py-3 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:border-orange-300 focus:ring-2 focus:ring-orange-100"
+            />
+          </div>
+        )}
 
-        {!loggedIn && !authLoading ? (
-          <Card className="p-5 text-center">
-            <p className="text-base font-extrabold text-biz-ink">Login required</p>
-            <p className="text-sm text-biz-muted mt-2">Login to view and track your orders.</p>
-            <div className="mt-4">
-              <Link href={`/account/login?next=${encodeURIComponent("/orders")}`} className="block">
-                <Button>Login</Button>
-              </Link>
+        {/* Error */}
+        {error && (
+          <Card className="p-4 bg-red-50 border-red-100">
+            <p className="text-sm text-red-700">{error}</p>
+            <Button variant="secondary" size="sm" className="mt-2" onClick={() => loadOrders()}>
+              Try Again
+            </Button>
+          </Card>
+        )}
+
+        {/* Loading */}
+        {loading && (
+          <div className="space-y-3">
+            <OrderSkeleton />
+            <OrderSkeleton />
+            <OrderSkeleton />
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!loading && orders.length === 0 && (
+          <Card className="overflow-hidden">
+            <div className="p-8 text-center">
+              <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-4">
+                <Package className="w-8 h-8 text-gray-400" />
+              </div>
+              <h2 className="text-lg font-bold text-gray-900">No Orders Yet</h2>
+              <p className="text-sm text-gray-500 mt-2">
+                Your orders will appear here after you make a purchase.
+              </p>
+              <Button
+                className="mt-6"
+                onClick={() => router.push("/market")}
+                leftIcon={<ShoppingBag className="w-4 h-4" />}
+              >
+                Start Shopping
+              </Button>
             </div>
           </Card>
-        ) : null}
+        )}
 
-        {loggedIn && loading ? <Card className="p-4">Loading…</Card> : null}
-
-        {loggedIn && !loading && orders.length === 0 ? (
-          <EmptyState
-            title="No orders yet"
-            description="After you checkout, your order will appear here on this device."
-            ctaLabel="Go to Market"
-            onCta={() => (window.location.href = "/market")}
-          />
-        ) : null}
-
-        {loggedIn && !loading && orders.length > 0 ? (
-          <SectionCard title="Recent orders" subtitle="Tap any order to view details">
-            <div className="space-y-2">
-              {orders.map((o) => {
-                const amount = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
-                const status = customerStatusLabel(o);
-                const vendor = String(o.businessSlug || "").trim() || "—";
-                const pay = paymentLabel(o);
-
-                const ref = String(o?.payment?.reference || "").trim();
-                const code = ref ? code4DigitsFromReference(ref) : "";
-
-                return (
-                  <Link key={o.id} href={`/orders/${o.id}`} className="block">
-                    <div className="rounded-2xl border border-biz-line bg-white p-3 hover:bg-black/[0.02] transition">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-sm font-extrabold text-biz-ink">Order #{String(o.id).slice(0, 8)}</p>
-
-                          <p className="text-[11px] text-biz-muted mt-1">
-                            Vendor: <b className="text-biz-ink">{vendor}</b>
-                            {code ? (
-                              <>
-                                {" "}
-                                • Code: <b className="text-biz-ink">{code}</b>
-                              </>
-                            ) : null}
-                          </p>
-
-                          <div className="mt-2 flex flex-wrap items-center gap-2">
-                            <StatusPill text={status} />
-                            {pay ? <span className="text-[11px] text-gray-500">{pay}</span> : null}
-                          </div>
-
-                          <p className="text-[11px] text-gray-500 mt-2">Created: {fmtDateAny(o.createdAt)}</p>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-extrabold text-biz-ink">{fmtNaira(amount)}</p>
-                        </div>
-                      </div>
-                    </div>
-                  </Link>
-                );
-              })}
+        {/* Active Orders */}
+        {!loading && activeOrders.length > 0 && (
+          <div>
+            <h2 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-orange-500" />
+              Active Orders ({activeOrders.length})
+            </h2>
+            <div className="space-y-3">
+              {activeOrders.map((order) => (
+                <OrderCard key={order.id} order={order} />
+              ))}
             </div>
+          </div>
+        )}
 
-            <div className="mt-3">
-              <Link href="/market" className="block">
-                <Button variant="secondary">Continue shopping</Button>
-              </Link>
+        {/* Completed Orders */}
+        {!loading && completedOrders.length > 0 && (
+          <div>
+            <h2 className="text-sm font-bold text-gray-500 mb-3 flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-gray-400" />
+              Past Orders ({completedOrders.length})
+            </h2>
+            <div className="space-y-3">
+              {completedOrders.map((order) => (
+                <OrderCard key={order.id} order={order} />
+              ))}
             </div>
-          </SectionCard>
-        ) : null}
+          </div>
+        )}
+
+        {/* No search results */}
+        {!loading && orders.length > 0 && filteredOrders.length === 0 && (
+          <Card className="p-6 text-center">
+            <p className="text-sm text-gray-500">No orders match your search</p>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              onClick={() => setSearchQuery("")}
+            >
+              Clear Search
+            </Button>
+          </Card>
+        )}
+
+        {/* Continue shopping CTA */}
+        {!loading && orders.length > 0 && (
+          <Card className="p-4">
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => router.push("/market")}
+              leftIcon={<ShoppingBag className="w-4 h-4" />}
+            >
+              Continue Shopping
+            </Button>
+          </Card>
+        )}
       </div>
     </div>
   );

@@ -1,132 +1,222 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { requireAnyRole } from "@/lib/auth/server";
+// FILE: src/app/api/orders/[orderId]/review/route.ts
+//
+// POST — Buyer submits a review for a completed order.
+// One review per order. Buyer must be the order customer.
+// Order must be delivered/released before review is allowed.
+
+
+import { requireMe } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
-import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
-import { getVendorLimitsResolved } from "@/lib/vendor/limitsServer";
 import { FieldValue } from "firebase-admin/firestore";
+import {
+  MAX_COMMENT_LENGTH,
+  MIN_COMMENT_LENGTH,
+  REVIEW_WINDOW_DAYS,
+  REVIEW_ELIGIBLE_OPS_STATUS,
+  REVIEW_ELIGIBLE_ESCROW_STATUS,
+} from "@/lib/reviews/config";
+import { computeVendorReviewSummary } from "@/lib/reviews/computeReviewScore";
+import { simpleTextGuard } from "@/lib/moderation/simpleTextGuard";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function isSettled(status: string) {
-  const s = String(status || "");
-  return s === "accepted" || s === "paid";
+function toMs(v: any): number {
+  if (!v) return 0;
+  if (typeof v === "number") return v;
+  if (typeof v === "object") {
+    if (typeof v.toMillis === "function") return Number(v.toMillis()) || 0;
+    if (typeof v.seconds === "number") return Math.floor(v.seconds * 1000);
+  }
+  const t = Date.parse(String(v));
+  return Number.isFinite(t) ? t : 0;
 }
 
-function computePaidKobo(installments: any[]) {
-  return (Array.isArray(installments) ? installments : []).reduce((sum, x) => {
-    return sum + (isSettled(String(x?.status || "")) ? Number(x?.amountKobo || 0) : 0);
-  }, 0);
-}
-
-function allSettled(installments: any[]) {
-  const arr = Array.isArray(installments) ? installments : [];
-  return arr.length > 0 && arr.every((x) => isSettled(String(x?.status || "")));
-}
-
-export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: string; idx: string }> }) {
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ orderId: string }> }
+) {
   try {
-    const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    const me = await requireMe(req);
+    const { orderId } = await params;
 
-    await requireVendorUnlocked(me.businessId);
+    if (!orderId) {
+      return Response.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+    }
 
-    const access = await getVendorLimitsResolved(me.businessId);
+    const body = await req.json().catch(() => ({}));
+    const rating = Number(body.rating);
+    if (!rating || rating < 1 || rating > 5 || !Number.isInteger(rating)) {
+      return Response.json({ ok: false, error: "Rating must be 1–5" }, { status: 400 });
+    }
 
-    // ✅ Packages-controlled security
-    if (!access?.features?.installmentPlans) {
-      return NextResponse.json(
-        { ok: false, code: "FEATURE_LOCKED", error: "Installment plans are locked on your plan." },
-        { status: 403 }
+    let comment: string | null = null;
+    if (body.comment && typeof body.comment === "string" && body.comment.trim()) {
+      const trimmed = body.comment.trim().slice(0, MAX_COMMENT_LENGTH);
+      if (trimmed.length < MIN_COMMENT_LENGTH) {
+        return Response.json(
+          { ok: false, error: `Comment must be at least ${MIN_COMMENT_LENGTH} characters` },
+          { status: 400 }
+        );
+      }
+      // Basic moderation check
+      const guardResult = simpleTextGuard(trimmed);
+      if (guardResult.blocked) {
+        return Response.json(
+          { ok: false, error: "Your comment contains inappropriate language. Please revise." },
+          { status: 400 }
+        );
+      }
+      comment = trimmed;
+    }
+
+    // ── Load order ──
+    const orderRef = adminDb.collection("orders").doc(orderId);
+    const orderSnap = await orderRef.get();
+    if (!orderSnap.exists) {
+      return Response.json({ ok: false, error: "Order not found" }, { status: 404 });
+    }
+
+    const order = orderSnap.data() as any;
+
+    // ── Verify buyer owns this order ──
+    const orderCustomerEmail = String(order?.customer?.email || "").toLowerCase().trim();
+    const meEmail = String(me.email || "").toLowerCase().trim();
+    const orderBuyerId = String(order?.buyerUid || order?.customerId || "").trim();
+
+    const isBuyer =
+      (orderBuyerId && orderBuyerId === me.uid) ||
+      (meEmail && orderCustomerEmail && meEmail === orderCustomerEmail);
+
+    if (!isBuyer) {
+      return Response.json({ ok: false, error: "You can only review your own orders" }, { status: 403 });
+    }
+
+    // ── Check order is complete ──
+    const opsStatus = String(order?.opsStatus || "").toLowerCase();
+    const escrowStatus = String(order?.escrowStatus || "").toLowerCase();
+
+    const isComplete =
+      opsStatus === REVIEW_ELIGIBLE_OPS_STATUS ||
+      escrowStatus === REVIEW_ELIGIBLE_ESCROW_STATUS;
+
+    if (!isComplete) {
+      return Response.json(
+        { ok: false, error: "You can only review after your order is delivered" },
+        { status: 400 }
       );
     }
 
-    const { orderId, idx } = await ctx.params;
-    const orderIdClean = String(orderId || "").trim();
-    const i = Math.floor(Number(idx));
-
-    if (!orderIdClean) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
-    if (!Number.isFinite(i) || i < 0) return NextResponse.json({ ok: false, error: "Invalid installment index" }, { status: 400 });
-
-    const body = (await req.json().catch(() => ({}))) as any;
-    const action = String(body?.action || "").toLowerCase(); // accept|reject
-    const rejectReason = String(body?.rejectReason || "").trim().slice(0, 300);
-
-    if (action !== "accept" && action !== "reject") {
-      return NextResponse.json({ ok: false, error: "Invalid action" }, { status: 400 });
+    // ── Check review window ──
+    const completedAtMs = toMs(order?.deliveredAt || order?.releasedAt || order?.updatedAt);
+    if (completedAtMs) {
+      const windowMs = REVIEW_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+      if (Date.now() - completedAtMs > windowMs) {
+        return Response.json(
+          { ok: false, error: `Review window has closed (${REVIEW_WINDOW_DAYS} days after delivery)` },
+          { status: 400 }
+        );
+      }
     }
 
-    const ref = adminDb.collection("orders").doc(orderIdClean);
-    const snap = await ref.get();
-    if (!snap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+    // ── Check for existing review ──
+    const existingSnap = await adminDb
+      .collection("reviews")
+      .where("orderId", "==", orderId)
+      .where("buyerId", "==", me.uid)
+      .limit(1)
+      .get();
 
-    const o = snap.data() as any;
-    if (String(o?.businessId || "") !== String(me.businessId || "")) {
-      return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+    if (!existingSnap.empty) {
+      return Response.json(
+        { ok: false, error: "You have already reviewed this order" },
+        { status: 409 }
+      );
     }
 
-    // Only bank transfer installments need manual review
-    if (String(o?.paymentType || "") !== "direct_transfer") {
-      return NextResponse.json({ ok: false, error: "This is not a bank transfer order." }, { status: 400 });
+    // ── Check buyer is not suspended ──
+    const buyerProfileSnap = await adminDb.collection("buyerReviewProfiles").doc(me.uid).get();
+    if (buyerProfileSnap.exists) {
+      const buyerProfile = buyerProfileSnap.data() as any;
+      if (buyerProfile?.reviewSuspended) {
+        return Response.json(
+          { ok: false, error: "Your review privilege has been temporarily suspended" },
+          { status: 403 }
+        );
+      }
     }
 
-    const plan = o?.paymentPlan;
-    const list = Array.isArray(plan?.installments) ? plan.installments : [];
-    if (!plan?.enabled || list.length === 0) {
-      return NextResponse.json({ ok: false, error: "No installment plan on this order." }, { status: 400 });
+    const businessId = String(order?.businessId || "").trim();
+    if (!businessId) {
+      return Response.json({ ok: false, error: "Order missing business reference" }, { status: 400 });
     }
 
-    if (i >= list.length) return NextResponse.json({ ok: false, error: "Installment not found." }, { status: 404 });
+    // ── Get buyer display name ──
+    const buyerName =
+      String(order?.customer?.fullName || "").trim() ||
+      String(me.email || "").split("@")[0] ||
+      "Anonymous";
 
-    const inst = list[i] || {};
-    if (!inst?.proof?.cloudinary?.secureUrl) {
-      return NextResponse.json({ ok: false, error: "No proof uploaded for this installment yet." }, { status: 400 });
-    }
+    // ── Create review ──
+    const reviewRef = adminDb.collection("reviews").doc();
+    const nowMs = Date.now();
 
-    const now = Date.now();
-    const next = [...list];
-
-    if (action === "accept") {
-      next[i] = { ...inst, status: "accepted", reviewedAtMs: now, rejectReason: null, reviewedByUid: me.uid || null };
-    } else {
-      next[i] = {
-        ...inst,
-        status: "rejected",
-        reviewedAtMs: now,
-        rejectReason: rejectReason || "Rejected",
-        reviewedByUid: me.uid || null,
-      };
-    }
-
-    const paidKobo = computePaidKobo(next);
-    const completed = allSettled(next) && paidKobo === Number(plan?.totalKobo || 0);
-
-    const patch: any = {
+    const reviewData = {
+      orderId,
+      buyerId: me.uid,
+      buyerName,
+      businessId,
+      rating,
+      comment,
+      status: "active" as const,
+      weightFactor: 1.0,
+      createdAt: FieldValue.serverTimestamp(),
+      createdAtMs: nowMs,
       updatedAt: FieldValue.serverTimestamp(),
-      paymentPlan: {
-        ...plan,
-        installments: next,
-        paidKobo,
-        completed,
-        completedAtMs: completed ? now : null,
-        updatedAtMs: now,
-      },
+      updatedAtMs: nowMs,
     };
 
-    if (completed) {
-      patch.paymentStatus = "confirmed";
-      patch.orderStatus = "paid";
-      patch.opsStatus = "paid";
-      patch.opsUpdatedAtMs = now;
+    await reviewRef.set(reviewData);
+
+    // ── Mark order as reviewed ──
+    await orderRef.set(
+      { reviewed: true, reviewId: reviewRef.id, updatedAt: FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+
+    // ── Recompute vendor review summary ──
+    try {
+      const allReviewsSnap = await adminDb
+        .collection("reviews")
+        .where("businessId", "==", businessId)
+        .get();
+
+      const allReviews = allReviewsSnap.docs.map((d) => ({
+        id: d.id,
+        ...(d.data() as any),
+      }));
+
+      const summary = computeVendorReviewSummary(allReviews, nowMs);
+
+      await adminDb.collection("businesses").doc(businessId).set(
+        { reviewSummary: summary, updatedAt: FieldValue.serverTimestamp() },
+        { merge: true }
+      );
+    } catch (e) {
+      console.error("[review] Failed to recompute summary:", e);
+      // Non-fatal — review is already saved
     }
 
-    await ref.set(patch, { merge: true });
-
-    return NextResponse.json({ ok: true });
+    return Response.json({
+      ok: true,
+      reviewId: reviewRef.id,
+      message: "Thank you for your review!",
+    });
   } catch (e: any) {
-    if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
-    }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    console.error("[POST /api/orders/[orderId]/review]", e);
+    return Response.json(
+      { ok: false, error: e?.message || "Failed to submit review" },
+      { status: 500 }
+    );
   }
 }

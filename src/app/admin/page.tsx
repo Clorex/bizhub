@@ -1,3 +1,4 @@
+// FILE: src/app/admin/page.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -44,7 +45,6 @@ export default function AdminHomePage() {
     loadMe();
     loadUnread();
 
-    // optional: refresh badge every 20s while admin is on this page
     const t = setInterval(loadUnread, 20000);
     return () => clearInterval(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,7 +53,7 @@ export default function AdminHomePage() {
   const badgeText = unread > 99 ? "99+" : String(unread);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50/30">
       <GradientHeader
         title="Admin"
         showBack={true}
@@ -62,13 +62,13 @@ export default function AdminHomePage() {
           <button
             type="button"
             onClick={() => router.push("/admin/notifications")}
-            className="relative rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft"
+            className="relative flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm"
             aria-label="Notifications"
             title="Notifications"
           >
             <Bell className="h-5 w-5 text-gray-700" />
             {unread > 0 ? (
-              <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-biz-accent text-white text-[10px] font-extrabold flex items-center justify-center">
+              <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center">
                 {badgeText}
               </span>
             ) : null}
@@ -76,76 +76,88 @@ export default function AdminHomePage() {
         }
       />
 
-      <div className="px-4 pb-24 space-y-3">
-        <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+      <div className="px-4 pb-32 space-y-4">
+        <div className="rounded-3xl p-5 text-white shadow-sm bg-gradient-to-br from-orange-500 to-orange-600">
           <p className="text-sm font-bold">Admin Panel</p>
-          <p className="text-xs opacity-95 mt-1">Role: {me?.role || "—"}</p>
+          <p className="text-xs opacity-90 mt-1">Role: {me?.role || "—"}</p>
         </div>
 
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+        {msg ? (
+          <Card className="p-4">
+            <p className="text-sm text-red-700">{msg}</p>
+          </Card>
+        ) : null}
 
         <Card className="p-4">
-          <p className="font-bold text-biz-ink">Tools</p>
+          <p className="font-bold text-gray-900">Tools</p>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
-              className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold"
+              className="rounded-2xl border border-gray-100 bg-white py-3 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
               onClick={() => router.push("/admin/analytics")}
             >
               Analytics
             </button>
 
             <button
-              className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold"
+              className="rounded-2xl border border-gray-100 bg-white py-3 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
               onClick={() => router.push("/admin/finance")}
             >
               myBizHub Balance
             </button>
 
             <button
-              className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold"
+              className="rounded-2xl border border-gray-100 bg-white py-3 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
               onClick={() => router.push("/admin/vendors")}
             >
               Vendors
             </button>
 
             <button
-              className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold"
+              className="rounded-2xl border border-gray-100 bg-white py-3 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
               onClick={() => router.push("/admin/customers")}
             >
               Customers
             </button>
 
             <button
-              className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold"
+              className="rounded-2xl border border-gray-100 bg-white py-3 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
               onClick={() => router.push("/admin/withdrawals")}
             >
               Withdrawals
             </button>
 
             <button
-              className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold"
+              className="rounded-2xl border border-gray-100 bg-white py-3 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
               onClick={() => router.push("/admin/disputes")}
             >
               Disputes
             </button>
 
             <button
-              className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold"
+              className="rounded-2xl border border-gray-100 bg-white py-3 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
               onClick={() => router.push("/admin/verification")}
             >
               Verification
             </button>
 
             <button
-              className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold"
+              className="rounded-2xl border border-gray-100 bg-white py-3 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
               onClick={() => router.push("/admin/packages")}
             >
               Packages
             </button>
+
+            {/* ✅ ADDED: Smart Match button */}
+            <button
+              className="rounded-2xl border border-orange-200 bg-gradient-to-br from-orange-50 to-white py-3 text-sm font-bold text-orange-700 hover:from-orange-100 transition col-span-2"
+              onClick={() => router.push("/admin/smartmatch")}
+            >
+              ⚡ Smart Match Controls
+            </button>
           </div>
 
-          <p className="mt-3 text-[11px] text-biz-muted">
+          <p className="mt-3 text-[11px] text-gray-500">
             Packages controls all limits and feature locks without code changes.
           </p>
         </Card>

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import crypto from "node:crypto";
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
@@ -27,14 +27,14 @@ function roleFromMe(me: any): "owner" | "staff" {
 export async function POST(req: Request) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     const body = await req.json().catch(() => ({} as any));
     const token = cleanToken(body?.token);
 
-    if (!token) return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });
+    if (!token) return Response.json({ ok: false, error: "Missing token" }, { status: 400 });
 
     const id = shaId(token);
     const role = roleFromMe(me);
@@ -55,11 +55,11 @@ export async function POST(req: Request) {
       { merge: true }
     );
 
-    return NextResponse.json({ ok: true, id, role });
+    return Response.json({ ok: true, id, role });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

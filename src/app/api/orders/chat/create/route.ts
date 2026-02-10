@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendBusinessPush } from "@/lib/push/sendBusinessPush";
@@ -81,19 +81,19 @@ export async function POST(req: Request) {
     const itemsRaw = Array.isArray(body.items) ? body.items : [];
 
     if (!storeSlug) {
-      return NextResponse.json({ ok: false, error: "storeSlug is required" }, { status: 400 });
+      return Response.json({ ok: false, error: "storeSlug is required" }, { status: 400 });
     }
     if (!clientOrderId) {
-      return NextResponse.json({ ok: false, error: "clientOrderId is required" }, { status: 400 });
+      return Response.json({ ok: false, error: "clientOrderId is required" }, { status: 400 });
     }
     if (!itemsRaw.length) {
-      return NextResponse.json({ ok: false, error: "items are required" }, { status: 400 });
+      return Response.json({ ok: false, error: "items are required" }, { status: 400 });
     }
 
     const bizSnap = await adminDb.collection("businesses").where("slug", "==", storeSlug).limit(1).get();
 
     if (bizSnap.empty) {
-      return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
+      return Response.json({ ok: false, error: "Store not found" }, { status: 404 });
     }
 
     const bizDoc = bizSnap.docs[0];
@@ -105,24 +105,24 @@ export async function POST(req: Request) {
     const whatsapp = cleanStr(biz?.whatsapp, 40);
 
     if (!enabledToggle) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "CHAT_DISABLED", error: "Continue in Chat is disabled for this store." },
         { status: 403 }
       );
     }
     if (!subscribed) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "SUBSCRIPTION_REQUIRED", error: "Continue in Chat requires an active subscription." },
         { status: 403 }
       );
     }
     if (!whatsapp) {
-      return NextResponse.json({ ok: false, code: "WHATSAPP_NOT_SET", error: "Vendor WhatsApp is not set." }, { status: 400 });
+      return Response.json({ ok: false, code: "WHATSAPP_NOT_SET", error: "Vendor WhatsApp is not set." }, { status: 400 });
     }
 
     const items = cleanItems(itemsRaw);
     if (!items.length) {
-      return NextResponse.json({ ok: false, error: "No valid items" }, { status: 400 });
+      return Response.json({ ok: false, error: "No valid items" }, { status: 400 });
     }
 
     const subtotalKobo = computeSubtotalKoboFromItems(items);
@@ -185,8 +185,8 @@ export async function POST(req: Request) {
       }).catch(() => {});
     }
 
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed to create chat order" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed to create chat order" }, { status: 500 });
   }
 }

@@ -1,5 +1,5 @@
 // FILE: src/app/api/promotions/confirm/route.ts
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { computeVendorAccessState } from "@/lib/vendor/access";
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     const reference = String(body.reference || "").trim();
     const transactionId = body.transactionId != null ? String(body.transactionId).trim() : "";
 
-    if (!reference) return NextResponse.json({ ok: false, error: "reference is required" }, { status: 400 });
+    if (!reference) return Response.json({ ok: false, error: "reference is required" }, { status: 400 });
 
     const provider = paymentsProvider();
 
@@ -49,23 +49,23 @@ export async function POST(req: Request) {
     // -------------------------
     if (provider === "flutterwave") {
       if (!transactionId) {
-        return NextResponse.json({ ok: false, error: "transactionId is required for Flutterwave confirmation" }, { status: 400 });
+        return Response.json({ ok: false, error: "transactionId is required for Flutterwave confirmation" }, { status: 400 });
       }
 
       const flwTx = await flwVerifyTransaction(transactionId);
 
       const st = String(flwTx?.status || "").toLowerCase();
       if (st !== "successful") {
-        return NextResponse.json({ ok: false, error: `Payment not successful: ${flwTx?.status || "unknown"}` }, { status: 400 });
+        return Response.json({ ok: false, error: `Payment not successful: ${flwTx?.status || "unknown"}` }, { status: 400 });
       }
 
       if (String(flwTx?.tx_ref || "") !== reference) {
-        return NextResponse.json({ ok: false, error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
+        return Response.json({ ok: false, error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
       }
 
       const md = normalizeMetadata((flwTx as any)?.meta);
       if (md?.purpose !== "promotion") {
-        return NextResponse.json({ ok: false, error: "Invalid purpose for this endpoint" }, { status: 400 });
+        return Response.json({ ok: false, error: "Invalid purpose for this endpoint" }, { status: 400 });
       }
 
       const businessId = String(md.businessId || "");
@@ -77,17 +77,17 @@ export async function POST(req: Request) {
       const totalBudgetKobo = Number(md.totalBudgetKobo || 0);
 
       if (!businessId || productIds.length < 1) {
-        return NextResponse.json({ ok: false, error: "Missing businessId/productIds" }, { status: 400 });
+        return Response.json({ ok: false, error: "Missing businessId/productIds" }, { status: 400 });
       }
 
       // HARD LOCK enforcement at confirm-time too:
       const bizSnap = await adminDb.collection("businesses").doc(businessId).get();
-      if (!bizSnap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+      if (!bizSnap.exists) return Response.json({ ok: false, error: "Business not found" }, { status: 404 });
       const biz = { id: bizSnap.id, ...(bizSnap.data() as any) };
 
       const state = computeVendorAccessState(biz);
       if (state.locked) {
-        return NextResponse.json(
+        return Response.json(
           { ok: false, code: "VENDOR_LOCKED", error: "Vendor is locked. Promotion activation blocked." },
           { status: 403 }
         );
@@ -95,16 +95,16 @@ export async function POST(req: Request) {
 
       const currency = String(flwTx?.currency || "NGN").toUpperCase();
       if (currency !== "NGN") {
-        return NextResponse.json({ ok: false, error: "Invalid currency (expected NGN)" }, { status: 400 });
+        return Response.json({ ok: false, error: "Invalid currency (expected NGN)" }, { status: 400 });
       }
 
       const paidKobo = Math.round(Number((flwTx as any)?.amount || 0) * 100);
       if (!Number.isFinite(paidKobo) || paidKobo <= 0) {
-        return NextResponse.json({ ok: false, error: "Invalid amount from Flutterwave" }, { status: 400 });
+        return Response.json({ ok: false, error: "Invalid amount from Flutterwave" }, { status: 400 });
       }
 
       if (totalBudgetKobo && paidKobo !== totalBudgetKobo) {
-        return NextResponse.json(
+        return Response.json(
           { ok: false, error: "Amount mismatch", expected: totalBudgetKobo, paid: paidKobo },
           { status: 400 }
         );
@@ -195,7 +195,7 @@ export async function POST(req: Request) {
         return { ok: true, alreadyProcessed: false, reference, endsAtMs };
       });
 
-      return NextResponse.json(result);
+      return Response.json(result);
     }
 
     // -------------------------
@@ -203,12 +203,12 @@ export async function POST(req: Request) {
     // -------------------------
     const tx = await verifyPaystack(reference);
     if (tx.status !== "success") {
-      return NextResponse.json({ ok: false, error: `Payment not successful: ${tx.status}` }, { status: 400 });
+      return Response.json({ ok: false, error: `Payment not successful: ${tx.status}` }, { status: 400 });
     }
 
     const md = normalizeMetadata(tx.metadata);
     if (md?.purpose !== "promotion") {
-      return NextResponse.json({ ok: false, error: "Invalid purpose for this endpoint" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid purpose for this endpoint" }, { status: 400 });
     }
 
     const businessId = String(md.businessId || "");
@@ -220,16 +220,16 @@ export async function POST(req: Request) {
     const totalBudgetKobo = Number(md.totalBudgetKobo || 0);
 
     if (!businessId || productIds.length < 1) {
-      return NextResponse.json({ ok: false, error: "Missing businessId/productIds" }, { status: 400 });
+      return Response.json({ ok: false, error: "Missing businessId/productIds" }, { status: 400 });
     }
 
     const bizSnap = await adminDb.collection("businesses").doc(businessId).get();
-    if (!bizSnap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+    if (!bizSnap.exists) return Response.json({ ok: false, error: "Business not found" }, { status: 404 });
     const biz = { id: bizSnap.id, ...(bizSnap.data() as any) };
 
     const state = computeVendorAccessState(biz);
     if (state.locked) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "VENDOR_LOCKED", error: "Vendor is locked. Promotion activation blocked." },
         { status: 403 }
       );
@@ -237,11 +237,11 @@ export async function POST(req: Request) {
 
     const paidKobo = Number(tx.amount || 0);
     if (!Number.isFinite(paidKobo) || paidKobo <= 0) {
-      return NextResponse.json({ ok: false, error: "Invalid amount from Paystack" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid amount from Paystack" }, { status: 400 });
     }
 
     if (totalBudgetKobo && paidKobo !== totalBudgetKobo) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: "Amount mismatch", expected: totalBudgetKobo, paid: paidKobo },
         { status: 400 }
       );
@@ -330,8 +330,8 @@ export async function POST(req: Request) {
       return { ok: true, alreadyProcessed: false, reference, endsAtMs };
     });
 
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Confirm failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Confirm failed" }, { status: 500 });
   }
 }

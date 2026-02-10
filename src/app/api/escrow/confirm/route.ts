@@ -1,5 +1,5 @@
 // FILE: src/app/api/escrow/confirm/route.ts
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { buildQuote } from "@/lib/checkout/pricingServer";
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     const reference = String(body.reference || "").trim();
     const transactionId = body.transactionId != null ? String(body.transactionId).trim() : "";
 
-    if (!reference) return NextResponse.json({ error: "reference is required" }, { status: 400 });
+    if (!reference) return Response.json({ error: "reference is required" }, { status: 400 });
 
     const provider = paymentsProvider();
 
@@ -88,24 +88,24 @@ export async function POST(req: Request) {
 
     if (provider === "flutterwave") {
       if (!transactionId) {
-        return NextResponse.json({ error: "transactionId is required for Flutterwave confirmation" }, { status: 400 });
+        return Response.json({ error: "transactionId is required for Flutterwave confirmation" }, { status: 400 });
       }
 
       const flwTx = await flwVerifyTransaction(transactionId);
 
       paidStatus = String(flwTx?.status || "");
       if (String(paidStatus).toLowerCase() !== "successful") {
-        return NextResponse.json({ error: `Payment not successful: ${paidStatus}`, raw: flwTx }, { status: 400 });
+        return Response.json({ error: `Payment not successful: ${paidStatus}`, raw: flwTx }, { status: 400 });
       }
 
       if (String(flwTx?.tx_ref || "") !== reference) {
-        return NextResponse.json({ error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
+        return Response.json({ error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
       }
 
       paidCurrency = String(flwTx?.currency || "NGN").toUpperCase();
       const amtMajor = Number((flwTx as any)?.amount || 0);
       if (!Number.isFinite(amtMajor) || amtMajor <= 0) {
-        return NextResponse.json({ error: "Invalid amount from Flutterwave" }, { status: 400 });
+        return Response.json({ error: "Invalid amount from Flutterwave" }, { status: 400 });
       }
 
       paidMinor = Math.round(amtMajor * 100);
@@ -131,7 +131,7 @@ export async function POST(req: Request) {
 
       paidStatus = String(paystackTx.status || "");
       if (paidStatus !== "success") {
-        return NextResponse.json({ error: `Payment not successful: ${paidStatus}`, raw: paystackTx }, { status: 400 });
+        return Response.json({ error: `Payment not successful: ${paidStatus}`, raw: paystackTx }, { status: 400 });
       }
 
       paidCurrency = String(paystackTx.currency || "NGN").toUpperCase();
@@ -146,11 +146,11 @@ export async function POST(req: Request) {
     const storeSlug = String(metadata.storeSlug || metadata.businessSlug || metadata.slug || "").trim();
 
     if (!storeSlug) {
-      return NextResponse.json({ error: "Missing storeSlug in metadata (expected metadata.storeSlug)" }, { status: 400 });
+      return Response.json({ error: "Missing storeSlug in metadata (expected metadata.storeSlug)" }, { status: 400 });
     }
 
     const itemsMeta = safeItemsFromMetadata(Array.isArray(metadata.items) ? metadata.items : []);
-    if (itemsMeta.length < 1) return NextResponse.json({ error: "Missing items in metadata" }, { status: 400 });
+    if (itemsMeta.length < 1) return Response.json({ error: "Missing items in metadata" }, { status: 400 });
 
     const couponCode = metadata?.coupon?.code ? String(metadata.coupon.code) : null;
     const shipping = cleanShipping(metadata.shipping);
@@ -164,18 +164,18 @@ export async function POST(req: Request) {
     });
 
     const expectedKobo = Number(quote?.pricing?.totalKobo || 0);
-    if (!Number.isFinite(expectedKobo) || expectedKobo <= 0) return NextResponse.json({ error: "Invalid total" }, { status: 400 });
-    if (!Number.isFinite(paidMinor) || paidMinor <= 0) return NextResponse.json({ error: "Invalid paid amount" }, { status: 400 });
+    if (!Number.isFinite(expectedKobo) || expectedKobo <= 0) return Response.json({ error: "Invalid total" }, { status: 400 });
+    if (!Number.isFinite(paidMinor) || paidMinor <= 0) return Response.json({ error: "Invalid paid amount" }, { status: 400 });
 
     const chargeCurrency = String(metadata?.charge?.currency || paidCurrency || "NGN").toUpperCase();
 
     if (chargeCurrency === "USD") {
       const fx = fxNgnPerUsd();
-      if (!fx) return NextResponse.json({ error: "USD payments not configured (missing FX_NGN_PER_USD)" }, { status: 500 });
+      if (!fx) return Response.json({ error: "USD payments not configured (missing FX_NGN_PER_USD)" }, { status: 500 });
 
       const expectedUsdCents = Math.round(expectedKobo / fx);
 
-      if (paidCurrency !== "USD") return NextResponse.json({ error: "Currency mismatch (expected USD)" }, { status: 400 });
+      if (paidCurrency !== "USD") return Response.json({ error: "Currency mismatch (expected USD)" }, { status: 400 });
 
       if (paidMinor !== expectedUsdCents) {
         await adminDb.collection("paymentMismatches").doc(String(reference)).set(
@@ -195,13 +195,13 @@ export async function POST(req: Request) {
           { merge: true }
         );
 
-        return NextResponse.json(
+        return Response.json(
           { error: "Amount mismatch. Please refresh checkout and try again.", code: "AMOUNT_MISMATCH", expectedUsdCents, paidUsdCents: paidMinor },
           { status: 400 }
         );
       }
     } else {
-      if (paidCurrency !== "NGN") return NextResponse.json({ error: "Currency mismatch (expected NGN)" }, { status: 400 });
+      if (paidCurrency !== "NGN") return Response.json({ error: "Currency mismatch (expected NGN)" }, { status: 400 });
 
       if (paidMinor !== expectedKobo) {
         await adminDb.collection("paymentMismatches").doc(String(reference)).set(
@@ -220,7 +220,7 @@ export async function POST(req: Request) {
           { merge: true }
         );
 
-        return NextResponse.json(
+        return Response.json(
           { error: "Amount mismatch. Please refresh checkout and try again.", code: "AMOUNT_MISMATCH", expectedKobo, paidKobo: paidMinor },
           { status: 400 }
         );
@@ -368,8 +368,8 @@ export async function POST(req: Request) {
       return { ok: true, orderId, businessSlug: storeSlug, escrowStatus: "held", holdUntilMs, alreadyProcessed: false };
     });
 
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Escrow confirm failed" }, { status: 500 });
+    return Response.json({ error: e?.message || "Escrow confirm failed" }, { status: 500 });
   }
 }

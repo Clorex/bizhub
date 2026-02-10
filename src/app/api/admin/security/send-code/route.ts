@@ -1,5 +1,5 @@
 // FILE: src/app/api/admin/security/send-code/route.ts
-import { NextResponse } from "next/server";
+
 import { requireAdminStrict, sendAdminOtp } from "@/lib/admin/securityServer";
 
 export const runtime = "nodejs";
@@ -15,8 +15,8 @@ export async function POST(req: Request) {
       scope: "session",
     });
 
-    return NextResponse.json({ ok: true, sent: res.sent, devCode: res.devCode });
+    return Response.json({ ok: true, sent: res.sent, devCode: res.devCode });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

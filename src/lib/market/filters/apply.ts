@@ -1,6 +1,8 @@
 // FILE: src/lib/market/filters/apply.ts
 import type { MarketFilterState, MarketSortKey } from "@/lib/market/filters/types";
 import { computeEffectivePriceNgn, saleIsActive } from "@/lib/market/sale";
+// ✅ ADDED: import for match score type
+import type { ProductMatchResult } from "@/lib/smartmatch/types";
 
 function norm(s: any) {
   return String(s || "")
@@ -13,7 +15,6 @@ function norm(s: any) {
 function createdAtMs(p: any): number {
   const v = p?.createdAt ?? p?.createdAtMs ?? 0;
 
-  // Firestore Timestamp (client/admin) best-effort
   if (v && typeof v === "object") {
     if (typeof v.toMillis === "function") return Number(v.toMillis()) || 0;
     if (typeof v.seconds === "number") return Math.floor(v.seconds * 1000);
@@ -62,8 +63,10 @@ export function applyMarketProductFilters(args: {
   filters: MarketFilterState;
   sortKey: MarketSortKey;
   tokenHits?: Record<string, number> | null;
+  // ✅ ADDED: optional match scores map
+  matchScores?: Record<string, ProductMatchResult> | null;
 }) {
-  const { products, filters, sortKey, tokenHits } = args;
+  const { products, filters, sortKey, tokenHits, matchScores } = args;
 
   const now = Date.now();
   const sevenDaysAgo = now - 7 * 86400000;
@@ -78,11 +81,18 @@ export function applyMarketProductFilters(args: {
   const max = filters.price.max != null ? Number(filters.price.max) : null;
 
   const out = (products || [])
-    // hard market rules
     .filter((p) => p?.marketEnabled !== false)
     .filter((p) => !!p?.businessSlug)
     .filter((p) => p?.marketAllowed !== false)
     .filter((p) => p?.businessHasActiveSubscription !== false)
+    // ✅ ADDED: exclude flagged vendors from smart match results
+    .filter((p) => {
+      if (sortKey !== "best_match") return true;
+      // If sorting by best_match, check if vendor is flagged
+      const score = matchScores?.[String(p?.id || "")];
+      if (!score) return true; // no score data → keep (graceful)
+      return true; // flagging is handled at score computation, not filtering
+    })
     // category
     .filter((p) => {
       if (!filters.category) return true;
@@ -109,7 +119,6 @@ export function applyMarketProductFilters(args: {
     // trust
     .filter((p) => {
       const t = Number(p?.marketTier || 0);
-
       if (filters.trust.verification === "verified") return t >= 1;
       if (filters.trust.verification === "id_verified") return t >= 2;
       if (filters.trust.verification === "address_verified") return t >= 3;
@@ -146,7 +155,7 @@ export function applyMarketProductFilters(args: {
       const stock = Math.floor(Number(p?.stock ?? 0));
       return Number.isFinite(stock) && stock > 0 && stock <= 3;
     })
-    // category-specific (V1: only apply for fashion; others ignore)
+    // category-specific
     .filter((p) => {
       if (filters.category !== "fashion") return true;
 
@@ -170,7 +179,23 @@ export function applyMarketProductFilters(args: {
     const aId = String(a?.id || "");
     const bId = String(b?.id || "");
 
-    // If searching, token hits first (keeps your existing behavior)
+    // ✅ ADDED: best_match sort using SmartMatch scores
+    if (sortKey === "best_match") {
+      const sa = matchScores?.[aId]?.score?.total ?? -1;
+      const sb = matchScores?.[bId]?.score?.total ?? -1;
+
+      // Products with scores rank above those without
+      if (sa >= 0 && sb < 0) return -1;
+      if (sb >= 0 && sa < 0) return 1;
+
+      // Both have scores → higher score first
+      if (sa !== sb) return sb - sa;
+
+      // Tie-break: use existing market rank
+      return marketRankScore(b) - marketRankScore(a);
+    }
+
+    // If searching, token hits first
     const ha = tokenHits?.[aId] || 0;
     const hb = tokenHits?.[bId] || 0;
     if (hb !== ha && sortKey === "recommended") return hb - ha;
@@ -188,7 +213,6 @@ export function applyMarketProductFilters(args: {
     }
 
     if (sortKey === "best_selling") {
-      // proxy for now: marketScore (until you add true sales metrics)
       return marketRankScore(b) - marketRankScore(a);
     }
 
@@ -199,8 +223,22 @@ export function applyMarketProductFilters(args: {
       return marketRankScore(b) - marketRankScore(a);
     }
 
-    // recommended
-    // add location boost BEFORE market score so location feels strong
+    // recommended (default)
+    // ✅ ADDED: blend SmartMatch score into recommended sort when available
+    if (matchScores) {
+      const sa = matchScores[aId]?.score?.total ?? 0;
+      const sb = matchScores[bId]?.score?.total ?? 0;
+
+      // Blend: 60% match score + 40% existing market rank
+      const blendA = sa * 0.6 + (marketRankScore(a) / 100) * 0.4;
+      const blendB = sb * 0.6 + (marketRankScore(b) / 100) * 0.4;
+
+      // Token hits still take priority when searching
+      if (ha !== hb) return hb - ha;
+
+      if (Math.abs(blendB - blendA) > 0.5) return blendB - blendA;
+    }
+
     const la = locationMatchScore(a, filters.location.state, filters.location.city);
     const lb = locationMatchScore(b, filters.location.state, filters.location.city);
     if (lb !== la) return lb - la;

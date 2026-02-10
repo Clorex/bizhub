@@ -1,5 +1,5 @@
 // FILE: src/app/api/paystack/initialize/route.ts
-import { NextResponse } from "next/server";
+
 import crypto from "node:crypto";
 import { FieldValue } from "firebase-admin/firestore";
 import { adminDb } from "@/lib/firebase/admin";
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     const metadata = body.metadata && typeof body.metadata === "object" ? body.metadata : {};
     const requestedCurrency = cleanChargeCurrency(body.currency);
 
-    if (!email) return NextResponse.json({ error: "email is required" }, { status: 400 });
+    if (!email) return Response.json({ error: "email is required" }, { status: 400 });
 
     // Buyer freeze enforcement
     try {
@@ -73,12 +73,12 @@ export async function POST(req: Request) {
       });
     } catch (e: any) {
       if (e?.code === "BUYER_FROZEN") {
-        return NextResponse.json(
+        return Response.json(
           { error: "Your account is currently restricted. Please resolve pending issues before making payments." },
           { status: 403 }
         );
       }
-      return NextResponse.json({ error: e?.message || "Blocked" }, { status: 403 });
+      return Response.json({ error: e?.message || "Blocked" }, { status: 403 });
     }
 
     // ✅ Robust callback URL (works on localhost too) - UPDATED
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
     }
 
     if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
-      return NextResponse.json({ error: "amountKobo must be a positive number" }, { status: 400 });
+      return Response.json({ error: "amountKobo must be a positive number" }, { status: 400 });
     }
 
     const usdAllowed =
@@ -163,13 +163,13 @@ export async function POST(req: Request) {
     if (chargeCurrency === "USD") {
       const fx = fxNgnPerUsd();
       if (!fx) {
-        return NextResponse.json({ error: "USD payments not configured (missing FX_NGN_PER_USD)" }, { status: 500 });
+        return Response.json({ error: "USD payments not configured (missing FX_NGN_PER_USD)" }, { status: 500 });
       }
 
       // amountKobo is NGN kobo (NGN * 100). Divide by NGN/USD => USD * 100 => USD cents.
       const usdCents = Math.round(amountKobo / fx);
       if (!Number.isFinite(usdCents) || usdCents <= 0) {
-        return NextResponse.json({ error: "USD conversion failed" }, { status: 500 });
+        return Response.json({ error: "USD conversion failed" }, { status: 500 });
       }
 
       metadata.charge.fxNgnPerUsd = fx;
@@ -233,7 +233,7 @@ export async function POST(req: Request) {
         // payment_options: chargeCurrency === "USD" ? "card" : undefined,
       });
 
-      return NextResponse.json({
+      return Response.json({
         authorization_url: link,
         reference,
         provider: "flutterwave",
@@ -245,9 +245,9 @@ export async function POST(req: Request) {
     // --------------------------
     // Paystack (NGN only)
     // --------------------------
-    if (!paystackSecret) return NextResponse.json({ error: "Missing PAYSTACK_SECRET_KEY" }, { status: 500 });
+    if (!paystackSecret) return Response.json({ error: "Missing PAYSTACK_SECRET_KEY" }, { status: 500 });
     if (chargeCurrency !== "NGN")
-      return NextResponse.json({ error: "USD checkout is only available on Flutterwave" }, { status: 400 });
+      return Response.json({ error: "USD checkout is only available on Flutterwave" }, { status: 400 });
 
     const res = await fetch("https://api.paystack.co/transaction/initialize", {
       method: "POST",
@@ -264,9 +264,9 @@ export async function POST(req: Request) {
     });
 
     const data = await res.json().catch(() => ({} as any));
-    if (!data?.status) return NextResponse.json({ error: data?.message || "Paystack init failed", raw: data }, { status: 400 });
+    if (!data?.status) return Response.json({ error: data?.message || "Paystack init failed", raw: data }, { status: 400 });
 
-    return NextResponse.json({
+    return Response.json({
       authorization_url: data.data.authorization_url,
       reference: data.data.reference,
       provider: "paystack",
@@ -274,6 +274,6 @@ export async function POST(req: Request) {
       amountMinor: amountKobo,
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Init failed" }, { status: 500 });
+    return Response.json({ error: e?.message || "Init failed" }, { status: 500 });
   }
 }

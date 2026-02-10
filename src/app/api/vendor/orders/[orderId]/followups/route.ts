@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -67,11 +67,11 @@ function suggestionForLimit(args: { planKey: string; cap: number }) {
   return { action: "upgrade", title: "Upgrade to unlock follow‑ups", url: "/vendor/subscription" };
 }
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: string }> }) {
+export async function POST(req: Request, ctx: { params: Promise<{ orderId: string }> }) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
     if (!me.businessId) {
-      return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+      return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
     }
 
     await requireVendorUnlocked(me.businessId);
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     const planKey = String(access.planKey || "FREE").toUpperCase();
 
     if (!access?.features?.followUps) {
-      return NextResponse.json(
+      return Response.json(
         {
           ok: false,
           code: "FEATURE_LOCKED",
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
 
     const cap = Math.max(0, Math.floor(Number(access?.limits?.followUpsCap72h || 0)));
     if (cap <= 0) {
-      return NextResponse.json(
+      return Response.json(
         {
           ok: false,
           code: "FEATURE_LOCKED",
@@ -108,24 +108,24 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     const { orderId } = await ctx.params;
     const orderIdClean = String(orderId || "").trim();
     if (!orderIdClean) {
-      return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+      return Response.json({ ok: false, error: "Missing orderId" }, { status: 400 });
     }
 
     const orderRef = adminDb.collection("orders").doc(orderIdClean);
     const orderSnap = await orderRef.get();
     if (!orderSnap.exists) {
-      return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+      return Response.json({ ok: false, error: "Order not found" }, { status: 404 });
     }
 
     const o = { id: orderSnap.id, ...(orderSnap.data() as any) };
 
     if (String(o?.businessId || "") !== String(me.businessId || "")) {
-      return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+      return Response.json({ ok: false, error: "Not allowed" }, { status: 403 });
     }
 
     const phone = String(o?.customer?.phone || "").trim();
     if (!phone) {
-      return NextResponse.json({ ok: false, error: "This order has no customer phone number." }, { status: 400 });
+      return Response.json({ ok: false, error: "This order has no customer phone number." }, { status: 400 });
     }
 
     const body = (await req.json().catch(() => ({}))) as any;
@@ -198,7 +198,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
       resetAtOut = resetAtMs;
     });
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       usage: { cap, used: usedOut, windowStartMs: windowStartOut, resetAtMs: resetAtOut },
       messageText: text,
@@ -211,7 +211,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
       const resetAtMs = Number(e?.resetAtMs || 0);
       const planKey = String(e?.planKey || "FREE");
 
-      return NextResponse.json(
+      return Response.json(
         {
           ok: false,
           code: "FOLLOWUP_LIMIT",
@@ -225,9 +225,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     }
 
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
 
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

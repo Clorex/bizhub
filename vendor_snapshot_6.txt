@@ -1,0 +1,3099 @@
+﻿ery" | "pickup";
+
+function toNgnFromKobo(kobo: number) {
+  return Math.round(Number(kobo || 0) / 100);
+}
+function toKoboFromNgn(ngn: number) {
+  const n = Math.floor(Number(ngn || 0) * 100);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
+export default function VendorShippingPage() {
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [options, setOptions] = useState<any[]>([]);
+
+  // form
+  const [editingId, setEditingId] = useState<string>("");
+  const [type, setType] = useState<ShipType>("delivery");
+  const [name, setName] = useState("Delivery");
+  const [feeNgn, setFeeNgn] = useState<number | "">("");
+  const [etaDays, setEtaDays] = useState<number | "">("");
+  const [areasText, setAreasText] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<number>(0);
+  const [active, setActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string>("");
+
+  const savingDisabled = useMemo(() => {
+    if (saving) return true;
+    if (!name.trim()) return true;
+    if (type === "delivery" && (feeNgn === "" || feeNgn < 0)) return true;
+    if (etaDays === "" || etaDays < 0) return true;
+    return false;
+  }, [name, type, feeNgn, etaDays, saving]);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "We couldnâ€™t complete that request.");
+    return data;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/vendor/shipping");
+      setOptions(Array.isArray(data.options) ? data.options : []);
+    } catch (e: any) {
+      const m = niceError(e, "Could not load shipping options. Please try again.");
+      setMsg(m);
+      setOptions([]);
+      toast.error(m);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  function resetForm() {
+    setEditingId("");
+    setType("delivery");
+    setName("");
+    setFeeNgn("");
+    setEtaDays("");
+    setAreasText("");
+    setSortOrder(0);
+    setActive(true);
+  }
+
+  function edit(o: any) {
+    setEditingId(String(o.id || ""));
+    setType(String(o.type || "delivery") === "pickup" ? "pickup" : "delivery");
+    setName(String(o.name || "Delivery"));
+    setFeeNgn(toNgnFromKobo(Number(o.feeKobo || 0)));
+    setEtaDays(Number(o.etaDays || 0));
+    setAreasText(String(o.areasText || ""));
+    setSortOrder(Number(o.sortOrder || 0));
+    setActive(o.active === false ? false : true);
+  }
+
+  async function save() {
+    setMsg(null);
+    setSaving(true);
+    try {
+      await authedFetch("/api/vendor/shipping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingId || undefined,
+          type,
+          name: name.trim(),
+          feeKobo: type === "pickup" ? 0 : toKoboFromNgn(Number(feeNgn || 0)),
+          etaDays: Number(etaDays || 0),
+          areasText: areasText.trim(),
+          sortOrder,
+          active,
+        }),
+      });
+
+      toast.success(editingId ? "Shipping option updated." : "Shipping option added.");
+      resetForm();
+      await load();
+    } catch (e: any) {
+      const m = niceError(e, "Could not save. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function del(id: string) {
+    const ok = confirm("Delete this shipping option? This cannot be undone.");
+    if (!ok) return;
+
+    setDeletingId(id);
+    setMsg(null);
+    try {
+      await authedFetch(`/api/vendor/shipping?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      toast.success("Shipping option deleted.");
+      await load();
+    } catch (e: any) {
+      const m = niceError(e, "Could not delete. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setDeletingId("");
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Shipping" subtitle="Set delivery and pickup options for checkout" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        <SectionCard
+          title={editingId ? "Edit option" : "New option"}
+          subtitle="Customers will see these at checkout"
+          right={
+            editingId ? (
+              <Button variant="secondary" size="sm" onClick={resetForm} disabled={saving}>
+                Cancel
+              </Button>
+            ) : null
+          }
+        >
+          <div className="space-y-2">
+            <SegmentedControl<ShipType>
+              value={type}
+              onChange={setType}
+              options={[
+                { value: "delivery", label: "Delivery" },
+                { value: "pickup", label: "Pickup" },
+              ]}
+            />
+
+            <Input 
+              placeholder="Name (e.g. Lagos Mainland Delivery)" 
+              value={name} 
+              onChange={(e) => setName(e.target.value)} 
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                type="number"
+                placeholder="Fee (â‚¦) e.g. 2500"
+                value={type === "pickup" ? "0" : feeNgn}
+                onChange={(e) => setFeeNgn(e.target.value ? Number(e.target.value) : "")}
+                disabled={type === "pickup"}
+              />
+              <Input
+                type="number"
+                placeholder="ETA (Days) e.g. 2"
+                value={etaDays}
+                onChange={(e) => setEtaDays(e.target.value ? Number(e.target.value) : "")}
+                min={0}
+                max={30}
+              />
+            </div>
+
+            <Input
+              placeholder="Areas (optional) e.g. Ikeja, Yaba, Surulere"
+              value={areasText}
+              onChange={(e) => setAreasText(e.target.value)}
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                type="number"
+                placeholder="Sort order (0 for top)"
+                value={String(sortOrder)}
+                onChange={(e) => setSortOrder(Number(e.target.value))}
+              />
+
+              <button
+                type="button"
+                className={
+                  active
+                    ? "rounded-2xl px-4 py-3 text-sm font-bold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                    : "rounded-2xl px-4 py-3 text-sm font-bold bg-white border border-biz-line text-biz-ink shadow-soft"
+                }
+                onClick={() => setActive((v) => !v)}
+                disabled={saving}
+              >
+                {active ? "Active" : "Inactive"}
+              </button>
+            </div>
+
+            <Button onClick={save} disabled={savingDisabled} loading={saving}>
+              {editingId ? "Save changes" : "Add option"}
+            </Button>
+            <p className="text-[11px] text-biz-muted">Note: Pickup options always have a â‚¦0 fee.</p>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Current options" subtitle="Tap Edit to modify">
+          {options.length === 0 ? (
+            <p className="text-sm text-biz-muted">No shipping options yet. Add one above.</p>
+          ) : (
+            <div className="space-y-2">
+              {options.map((o) => {
+                const id = String(o.id);
+                const isPickup = String(o.type || "delivery") === "pickup";
+                const feeKobo = Number(o.feeKobo || 0);
+
+                return (
+                  <div key={id} className="rounded-2xl border border-biz-line bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-biz-ink">{o.name || (isPickup ? "Pickup" : "Delivery")}</p>
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          Type: <b className="text-biz-ink">{isPickup ? "Pickup" : "Delivery"}</b> â€¢ Fee:{" "}
+                          <b className="text-biz-ink">â‚¦{(feeKobo / 100).toLocaleString()}</b> â€¢ ETA:{" "}
+                          <b className="text-biz-ink">{Number(o.etaDays || 0)} day(s)</b>
+                        </p>
+                        {o.areasText ? <p className="text-[11px] text-gray-500 mt-1">{String(o.areasText)}</p> : null}
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          Status: <b className="text-biz-ink">{o.active === false ? "Inactive" : "Active"}</b> â€¢ Sort:{" "}
+                          <b className="text-biz-ink">{Number(o.sortOrder || 0)}</b>
+                        </p>
+                      </div>
+                      <div className="shrink-0 space-y-2">
+                        <Button size="sm" variant="secondary" onClick={() => edit(o)} disabled={saving || deletingId === id}>Edit</Button>
+                        <Button size="sm" variant="danger" onClick={() => del(id)} disabled={saving || deletingId === id} loading={deletingId === id}>Delete</Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-3">
+            <Button variant="secondary" onClick={load} disabled={loading || saving}>Refresh</Button>
+          </div>
+        </SectionCard>
+      </div>
+    </div>
+  );
+}
+
+// FILE: src/app/vendor/staff/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
+
+type Perms = {
+  productsView: boolean;
+  productsManage: boolean;
+  ordersView: boolean;
+  ordersManage: boolean;
+  analyticsView: boolean;
+  storeManage: boolean;
+  walletAccess: boolean;
+  payoutAccess: boolean;
+};
+
+const DEFAULT_PERMS: Perms = {
+  productsView: true,
+  productsManage: false,
+  ordersView: true,
+  ordersManage: false,
+  analyticsView: true,
+  storeManage: false,
+  walletAccess: false,
+  payoutAccess: false,
+};
+
+const JOB_SUGGESTIONS = [
+  "Sales",
+  "Customer Support",
+  "Social Media Manager",
+  "Marketing",
+  "Inventory Manager",
+  "Operations",
+  "Dispatch / Logistics",
+  "Finance",
+  "Analyst",
+  "Store Manager",
+];
+
+function Toggle({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => (!disabled ? onChange(!value) : undefined)}
+      className={[
+        "w-full rounded-2xl border p-3 flex items-center justify-between",
+        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-black/[0.02]",
+        "border-biz-line bg-white transition",
+      ].join(" ")}
+    >
+      <span className="text-sm font-bold text-biz-ink">{label}</span>
+      <span
+        className={
+          value
+            ? "px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100"
+            : "px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100"
+        }
+      >
+        {value ? "ON" : "OFF"}
+      </span>
+    </button>
+  );
+}
+
+type NotifSettingsRes = {
+  ok: boolean;
+  staffNudgesEnabled?: boolean;
+  staffPushEnabled?: boolean;
+  error?: string;
+};
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
+export default function VendorStaffPage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [me, setMe] = useState<any>(null);
+  const [staff, setStaff] = useState<any[]>([]);
+  const [invites, setInvites] = useState<any[]>([]);
+  const [seats, setSeats] = useState<any>(null);
+
+  const [staffNudgesEnabled, setStaffNudgesEnabled] = useState(false);
+  const [staffPushEnabled, setStaffPushEnabled] = useState(false);
+  const [notifBusy, setNotifBusy] = useState(false);
+
+  const [name, setName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [email, setEmail] = useState("");
+  const [perms, setPerms] = useState<Perms>(DEFAULT_PERMS);
+  const [creating, setCreating] = useState(false);
+
+  const [revokingId, setRevokingId] = useState<string>("");
+  const [removingId, setRemovingId] = useState<string>("");
+
+  const isOwner = useMemo(() => String(me?.role || "") === "owner", [me]);
+
+  const seatLimit = Number(seats?.seatLimit || 0);
+  const usedSeats = Number(seats?.used || 0);
+  const remainingSeats = Math.max(0, Number(seats?.remaining || 0));
+  const planKey = String(seats?.planKey || "").toUpperCase();
+
+  const canInvite = isOwner && seatLimit > 0 && remainingSeats > 0;
+  const showBuySeatAddon = isOwner && planKey === "LAUNCH" && seatLimit > 0 && remainingSeats <= 0;
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "We couldn't complete that request.");
+    return data;
+  }
+
+  async function loadNotifSettings() {
+    try {
+      const j = (await authedFetch("/api/vendor/settings/notifications")) as NotifSettingsRes;
+      setStaffNudgesEnabled(!!j.staffNudgesEnabled);
+      setStaffPushEnabled(!!j.staffPushEnabled);
+    } catch {
+      setStaffNudgesEnabled(false);
+      setStaffPushEnabled(false);
+    }
+  }
+
+  async function saveNotifSettings(next: { staffNudgesEnabled?: boolean; staffPushEnabled?: boolean }) {
+    try {
+      setNotifBusy(true);
+      setMsg(null);
+
+      await authedFetch("/api/vendor/settings/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+
+      toast.success("Settings saved.");
+    } catch (e: any) {
+      const m = niceError(e, "Could not save settings. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setNotifBusy(false);
+    }
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+      const meData = await rMe.json().catch(() => ({}));
+      if (!rMe.ok) throw new Error(meData?.error || "Could not load your profile.");
+      setMe(meData.me);
+
+      const data = await authedFetch("/api/vendor/staff");
+      setStaff(Array.isArray(data.staff) ? data.staff : []);
+      setInvites(Array.isArray(data.invites) ? data.invites : []);
+      setSeats(data.seats || null);
+
+      await loadNotifSettings();
+    } catch (e: any) {
+      const m = niceError(e, "Could not load staff. Please try again.");
+      setMsg(m);
+      setStaff([]);
+      setInvites([]);
+      setSeats(null);
+      toast.error(m);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function createInvite() {
+    if (!canInvite) {
+      if (seatLimit <= 0) {
+        toast.info("Upgrade your plan to add staff members.");
+        setMsg("Upgrade your plan to add staff members.");
+      } else if (showBuySeatAddon) {
+        toast.info("You've reached your staff limit. Buy +1 seat to add one more staff member.");
+        setMsg("You've reached your staff limit. Buy +1 seat to add one more staff member.");
+      } else {
+        toast.info("You've reached your staff limit. Upgrade to add more.");
+        setMsg("You've reached your staff limit. Upgrade to add more.");
+      }
+      return;
+    }
+
+    setCreating(true);
+    setMsg(null);
+
+    try {
+      const data = await authedFetch("/api/vendor/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, jobTitle, email, permissions: perms }),
+      });
+
+      const link = String(data.inviteLink || "");
+      if (link) {
+        try {
+          await navigator.clipboard.writeText(link);
+          toast.success("Invite created. Link copied to clipboard.");
+        } catch {
+          toast.info("Invite created. Copy the link manually.");
+          setMsg("Invite created. Copy link: " + link);
+        }
+      } else {
+        toast.success("Invite created.");
+      }
+
+      setName("");
+      setJobTitle("");
+      setEmail("");
+      setPerms(DEFAULT_PERMS);
+      await load();
+    } catch (e: any) {
+      const m = niceError(e, "Could not create invite. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function revokeInvite(inviteId: string) {
+    const ok = confirm("Revoke this invite? This cannot be undone.");
+    if (!ok) return;
+
+    setRevokingId(inviteId);
+    setMsg(null);
+
+    try {
+      await authedFetch(`/api/vendor/staff?inviteId=${encodeURIComponent(inviteId)}`, { method: "DELETE" });
+      toast.success("Invite revoked.");
+      await load();
+    } catch (e: any) {
+      const m = niceError(e, "Could not revoke invite. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setRevokingId("");
+    }
+  }
+
+  async function removeStaff(staffUid: string) {
+    const ok = confirm("Remove this staff member? This cannot be undone.");
+    if (!ok) return;
+
+    setRemovingId(staffUid);
+    setMsg(null);
+
+    try {
+      await authedFetch(`/api/vendor/staff?staffUid=${encodeURIComponent(staffUid)}`, { method: "DELETE" });
+      toast.success("Staff member removed.");
+      await load();
+    } catch (e: any) {
+      const m = niceError(e, "Could not remove staff member. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setRemovingId("");
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Staff"
+        subtitle="Invite and manage team access"
+        showBack={true}
+        right={
+          <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
+            Refresh
+          </Button>
+        }
+      />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && !isOwner ? (
+          <Card className="p-4">
+            <p className="text-sm font-bold text-biz-ink">Owner only</p>
+            <p className="text-xs text-biz-muted mt-1">Staff management is available to the business owner only.</p>
+            <div className="mt-3">
+              <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                Back to dashboard
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        {!loading && isOwner ? (
+          <>
+            <Card className="p-4">
+              <p className="text-sm font-extrabold text-biz-ink">Team seats</p>
+              <p className="text-xs text-biz-muted mt-1">
+                Plan: <b className="text-biz-ink">{planKey || "â€”"}</b> â€¢ Used:{" "}
+                <b className="text-biz-ink">{Number.isFinite(usedSeats) ? usedSeats : 0}</b> /{" "}
+                <b className="text-biz-ink">{Number.isFinite(seatLimit) ? seatLimit : 0}</b>
+              </p>
+              <p className="text-[11px] text-gray-500 mt-1">Seats include active staff + pending invites.</p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {showBuySeatAddon ? <Button onClick={() => router.push("/vendor/purchases")}>Buy +1 staff seat</Button> : null}
+
+                <Button variant="secondary" onClick={() => router.push("/vendor/subscription")}>
+                  Upgrade plan
+                </Button>
+              </div>
+            </Card>
+
+            <SectionCard title="Staff notifications" subtitle="Decide what staff can receive">
+              <div className="space-y-2">
+                <Toggle
+                  label="Allow staff nudges (inâ€‘app reminders)"
+                  value={staffNudgesEnabled}
+                  disabled={notifBusy}
+                  onChange={(v) => {
+                    setStaffNudgesEnabled(v);
+                    saveNotifSettings({ staffNudgesEnabled: v });
+                  }}
+                />
+
+                <Toggle
+                  label="Allow staff push notifications (outside the app)"
+                  value={staffPushEnabled}
+                  disabled={notifBusy}
+                  onChange={(v) => {
+                    setStaffPushEnabled(v);
+                    saveNotifSettings({ staffPushEnabled: v });
+                  }}
+                />
+
+                <p className="text-[11px] text-biz-muted">
+                  Note: Staff still need to enable notifications on their own device (tap the floating "Notify" button).
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Invite staff" subtitle="Create a personalized invite">
+              <div className="space-y-2">
+                <Input
+                  placeholder="Staff name (optional)"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={!canInvite || creating}
+                />
+
+                <Input
+                  placeholder="Job title / role (e.g. Sales, Social Media)"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  disabled={!canInvite || creating}
+                />
+                <div className="flex flex-wrap gap-2">
+                  {JOB_SUGGESTIONS.slice(0, 6).map((j) => (
+                    <button
+                      key={j}
+                      type="button"
+                      onClick={() => setJobTitle(j)}
+                      className="px-3 py-1 rounded-full text-[11px] font-bold border border-biz-line bg-white hover:bg-black/[0.02]"
+                      disabled={!canInvite || creating}
+                    >
+                      {j}
+                    </button>
+                  ))}
+                </div>
+
+                <Input
+                  placeholder="Staff email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={!canInvite || creating}
+                />
+
+                <div className="rounded-2xl border border-biz-line bg-white p-3">
+                  <p className="text-sm font-bold text-biz-ink">Permissions</p>
+                  <p className="text-[11px] text-biz-muted mt-1">Owner-only: store settings, wallet, payouts.</p>
+
+                  <div className="mt-3 space-y-2">
+                    <Toggle
+                      label="View products"
+                      value={perms.productsView}
+                      onChange={(v) => setPerms((p) => ({ ...p, productsView: v }))}
+                      disabled={!canInvite || creating}
+                    />
+                    <Toggle
+                      label="Manage products"
+                      value={perms.productsManage}
+                      onChange={(v) => setPerms((p) => ({ ...p, productsManage: v }))}
+                      disabled={!canInvite || creating}
+                    />
+                    <Toggle
+                      label="View orders"
+                      value={perms.ordersView}
+                      onChange={(v) => setPerms((p) => ({ ...p, ordersView: v }))}
+                      disabled={!canInvite || creating}
+                    />
+                    <Toggle
+                      label="Manage orders"
+                      value={perms.ordersManage}
+                      onChange={(v) => setPerms((p) => ({ ...p, ordersManage: v }))}
+                      disabled={!canInvite || creating}
+                    />
+                    <Toggle
+                      label="View analytics"
+                      value={perms.analyticsView}
+                      onChange={(v) => setPerms((p) => ({ ...p, analyticsView: v }))}
+                      disabled={!canInvite || creating}
+                    />
+                  </div>
+                </div>
+
+                <Button onClick={createInvite} loading={creating} disabled={creating || !email.trim() || !canInvite}>
+                  {seatLimit <= 0
+                    ? "Upgrade to invite staff"
+                    : remainingSeats <= 0
+                      ? planKey === "LAUNCH"
+                        ? "Limit reached (Buy +1 seat)"
+                        : "Limit reached (Upgrade)"
+                      : "Create invite"}
+                </Button>
+
+                {!canInvite && remainingSeats <= 0 && planKey === "LAUNCH" ? (
+                  <div className="mt-2">
+                    <Button variant="secondary" size="sm" onClick={() => router.push("/vendor/purchases")}>
+                      Buy +1 staff seat
+                    </Button>
+                  </div>
+                ) : null}
+
+                <p className="text-[11px] text-biz-muted">
+                  Staff must log in with the invited email, then open the invite link to join your business.
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Pending invites" subtitle="Revoke if needed">
+              {invites.length === 0 ? (
+                <p className="text-sm text-biz-muted">No invites yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {invites.map((inv) => (
+                    <div key={inv.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <p className="text-sm font-bold text-biz-ink">{inv.email || "â€”"}</p>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        {inv.jobTitle ? (
+                          <span>
+                            Role: <b className="text-biz-ink">{inv.jobTitle}</b> â€¢{" "}
+                          </span>
+                        ) : null}
+                        Status: <b className="text-biz-ink">{inv.status || "Pending"}</b>
+                      </p>
+
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={async () => {
+                            const link = `${window.location.origin}/staff/register?code=${encodeURIComponent(inv.id)}`;
+                            try {
+                              await navigator.clipboard.writeText(link);
+                              toast.success("Invite link copied.");
+                            } catch {
+                              toast.error("Couldn't copy the link. Please copy it manually.");
+                            }
+                          }}
+                          disabled={revokingId === inv.id}
+                        >
+                          Copy link
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => revokeInvite(inv.id)}
+                          disabled={revokingId === inv.id}
+                          loading={revokingId === inv.id}
+                        >
+                          Revoke
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Staff members" subtitle="Active team access">
+              {staff.length === 0 ? (
+                <p className="text-sm text-biz-muted">No staff members yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {staff.map((s) => (
+                    <div key={s.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <p className="text-sm font-bold text-biz-ink">{s.email || s.id}</p>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        {s.jobTitle ? (
+                          <span>
+                            Role: <b className="text-biz-ink">{s.jobTitle}</b> â€¢{" "}
+                          </span>
+                        ) : null}
+                        Status: <b className="text-biz-ink">{s.status || "Active"}</b>
+                      </p>
+
+                      <div className="mt-2">
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => removeStaff(s.id)}
+                          disabled={removingId === s.id}
+                          loading={removingId === s.id}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// FILE: src/app/vendor/store/page.tsx
+// FILE: src/app/vendor/store/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { auth } from "@/lib/firebase/client";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+
+export default function VendorStoreSettingsPage() {
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [stateNg, setStateNg] = useState("");
+  const [city, setCity] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [instagram, setInstagram] = useState("");
+
+  const [logoUrl, setLogoUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+
+  const [continueInChatEnabled, setContinueInChatEnabled] = useState(false);
+
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [planKey, setPlanKey] = useState<string>("FREE");
+  const [features, setFeatures] = useState<any>(null);
+
+  // âœ… NEW: store keywords
+  const [searchTagsCsv, setSearchTagsCsv] = useState("");
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const [storeData, accessData] = await Promise.all([authedFetch("/api/vendor/store"), authedFetch("/api/vendor/access")]);
+
+        const b = storeData?.business;
+        if (!mounted) return;
+
+        setName(String(b?.name || ""));
+        setDescription(String(b?.description || ""));
+        setStateNg(String(b?.state || ""));
+        setCity(String(b?.city || ""));
+        setWhatsapp(String(b?.whatsapp || ""));
+        setInstagram(String(b?.instagram || ""));
+        setLogoUrl(String(b?.logoUrl || ""));
+        setBannerUrl(String(b?.bannerUrl || ""));
+
+        setContinueInChatEnabled(b?.continueInChatEnabled === true);
+
+        setHasActiveSubscription(!!accessData?.hasActiveSubscription);
+        setPlanKey(String(accessData?.planKey || "FREE"));
+        setFeatures(accessData?.features || null);
+
+        const tags = Array.isArray(b?.searchTags) ? b.searchTags : [];
+        setSearchTagsCsv(tags.join(", "));
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load store settings");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const canEnableChat = useMemo(() => hasActiveSubscription && !!features?.continueInChat, [hasActiveSubscription, features]);
+  const canCustomize = useMemo(() => !!features?.storeCustomize, [features]);
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          description,
+          state: stateNg,
+          city,
+          whatsapp,
+          instagram,
+
+          logoUrl,
+          bannerUrl,
+
+          continueInChatEnabled,
+
+          // âœ… NEW
+          searchTagsCsv,
+        }),
+      });
+      setMsg("Saved successfully.");
+    } catch (e: any) {
+      setMsg(e?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Store settings" subtitle="Customize your website" showBack={false} />
+
+      <div className="px-4 pb-6 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className={msg.includes("Saved") ? "p-4 text-green-700" : "p-4 text-red-700"}>{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            {planKey === "FREE" ? (
+              <Card className="p-4">
+                <p className="text-sm font-bold text-biz-ink">Free plan</p>
+                <p className="text-xs text-biz-muted mt-1">
+                  You can use myBizHubâ€™s default store design. Upgrade to unlock full store customization and marketplace visibility.
+                </p>
+                <div className="mt-3">
+                  <Button onClick={() => (window.location.href = "/vendor/subscription")}>Upgrade</Button>
+                </div>
+              </Card>
+            ) : null}
+
+            <SectionCard title="Brand" subtitle="What customers see on your storefront">
+              <div className="space-y-2">
+                <Input placeholder="Business name" value={name} onChange={(e) => setName(e.target.value)} />
+
+                <textarea
+                  className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                  placeholder="About your business (what you sell / what service you offer)"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                />
+
+                <Input
+                  placeholder="Search keywords (comma separated) e.g. slippers, bags, hair, perfumes"
+                  value={searchTagsCsv}
+                  onChange={(e) => setSearchTagsCsv(e.target.value)}
+                />
+
+                <p className="text-[11px] text-biz-muted">
+                  These keywords help customers find your store on Market search.
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Location (Nigeria)" subtitle="Improves trust and discovery">
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="State (e.g. Lagos)" value={stateNg} onChange={(e) => setStateNg(e.target.value)} />
+                <Input placeholder="City (e.g. Lekki)" value={city} onChange={(e) => setCity(e.target.value)} />
+              </div>
+              <p className="mt-2 text-xs text-biz-muted">This helps customers know where you operate.</p>
+            </SectionCard>
+
+            <SectionCard title="Contact" subtitle="Recommended for services (lash, nails, repairs)">
+              <div className="space-y-2">
+                <Input placeholder="WhatsApp number (e.g. 2348012345678)" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+                <Input placeholder="Instagram handle (e.g. mybrand)" value={instagram} onChange={(e) => setInstagram(e.target.value)} />
+              </div>
+              <p className="mt-2 text-xs text-biz-muted">Tip: remove â€œ@â€ â€” myBizHub will format it automatically.</p>
+            </SectionCard>
+
+            <SectionCard title="Checkout & Chat" subtitle="Let customers continue in WhatsApp from cart">
+              <div className="rounded-2xl border border-biz-line bg-white p-3">
+                <p className="text-sm font-bold text-biz-ink">Continue in Chat</p>
+                <p className="text-[11px] text-biz-muted mt-1">
+                  When ON, customers can tap â€œContinue in Chatâ€ from their cart. myBizHub creates an order record and opens WhatsApp with the order details.
+                </p>
+
+                {!canEnableChat ? (
+                  <p className="mt-2 text-[11px] text-orange-700">Upgrade required: Continue in Chat is not available on your current plan.</p>
+                ) : null}
+
+                {!whatsapp.trim() ? (
+                  <p className="mt-2 text-[11px] text-orange-700">WhatsApp is not set. Add your WhatsApp number above before turning this ON.</p>
+                ) : null}
+
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-xs text-biz-muted">
+                    Status: <b className="text-biz-ink">{continueInChatEnabled ? "ON" : "OFF"}</b>
+                  </span>
+
+                  <button
+                    type="button"
+                    className={
+                      continueInChatEnabled
+                        ? "px-3 py-2 rounded-2xl text-xs font-bold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent"
+                        : "px-3 py-2 rounded-2xl text-xs font-bold border border-biz-line bg-white"
+                    }
+                    onClick={() => {
+                      if (!canEnableChat && !continueInChatEnabled) {
+                        setMsg("Upgrade to enable Continue in Chat.");
+                        return;
+                      }
+                      if (!whatsapp.trim() && !continueInChatEnabled) {
+                        setMsg("Add your WhatsApp number before enabling Continue in Chat.");
+                        return;
+                      }
+                      setContinueInChatEnabled((v) => !v);
+                    }}
+                  >
+                    {continueInChatEnabled ? "ON" : "OFF"}
+                  </button>
+                </div>
+              </div>
+
+              <p className="mt-2 text-[11px] text-biz-muted">Note: Checkout remains available.</p>
+            </SectionCard>
+
+            <SectionCard title="Media" subtitle={canCustomize ? "Logo + banner make your store look premium" : "Upgrade to customize logo and banner"}>
+              {!canCustomize ? (
+                <div className="rounded-2xl border border-biz-line bg-white p-3">
+                  <p className="text-xs text-biz-muted">Youâ€™re using myBizHub default design. Upgrade to upload logo and banner.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-sm font-extrabold text-biz-ink">Logo</p>
+                    <p className="text-xs text-biz-muted mt-1">Square image recommended.</p>
+                    <div className="mt-3">
+                      <ImageUploader label="Upload logo" multiple={false} onUploaded={(urls) => setLogoUrl(urls[0] || "")} />
+                    </div>
+                    {logoUrl ? (
+                      <div className="mt-3 h-20 w-20 rounded-2xl overflow-hidden border border-biz-line bg-biz-cream">
+                        <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-biz-muted">No logo yet.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-sm font-extrabold text-biz-ink">Banner</p>
+                    <p className="text-xs text-biz-muted mt-1">Wide image recommended.</p>
+                    <div className="mt-3">
+                      <ImageUploader label="Upload banner" multiple={false} onUploaded={(urls) => setBannerUrl(urls[0] || "")} />
+                    </div>
+                    {bannerUrl ? (
+                      <div className="mt-3 h-24 w-full rounded-2xl overflow-hidden border border-biz-line bg-biz-cream">
+                        <img src={bannerUrl} alt="Banner" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-biz-muted">No banner yet.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </SectionCard>
+
+            <Card className="p-4">
+              <Button onClick={save} loading={saving}>
+                Save changes
+              </Button>
+              <p className="mt-2 text-xs text-biz-muted">After saving, your public store page will update.</p>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// FILE: src/app/vendor/subscription/page.tsx
+import { Suspense } from "react";
+import ClientPage from "./page-client";
+
+export const dynamic = "force-dynamic";
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <ClientPage />
+    </Suspense>
+  );
+}
+
+// FILE: src/app/vendor/subscription/summary/page.tsx
+import { Suspense } from "react";
+import ClientPage from "./page-client";
+
+export const dynamic = "force-dynamic";
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <ClientPage />
+    </Suspense>
+  );
+}
+
+// FILE: src/app/vendor/verification/page.tsx
+// FILE: src/app/vendor/verification/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { auth } from "@/lib/firebase/client";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+
+type IdType = "nin" | "drivers_licence" | "voters_card" | "passport";
+
+function TierPill({ tier }: { tier: number }) {
+  const t = Number(tier || 0);
+  const cls =
+    t >= 3
+      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+      : t === 2
+        ? "bg-blue-50 text-blue-700 border-blue-100"
+        : t === 1
+          ? "bg-orange-50 text-orange-700 border-orange-100"
+          : "bg-white text-gray-700 border-biz-line";
+
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border ${cls}`}>
+      Tier {t || 0}
+    </span>
+  );
+}
+
+export default function VendorVerificationPage() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [tier, setTier] = useState<number>(0);
+  const [verification, setVerification] = useState<any>(null);
+  const [trust, setTrust] = useState<any>(null);
+
+  // Tier 1
+  const [selfieUrls, setSelfieUrls] = useState<string[]>([]);
+
+  // Tier 2
+  const [idType, setIdType] = useState<IdType>("nin");
+  const [idNumber, setIdNumber] = useState<string>("");
+
+  // Tier 3
+  const [proofUrls, setProofUrls] = useState<string[]>([]);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    return data;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/vendor/verification");
+      setTier(Number(data.verificationTier || 0));
+      setVerification(data.verification || null);
+      setTrust(data.trust || null);
+
+      const t1 = data?.verification?.tier1;
+      if (t1?.selfieUrls?.length) setSelfieUrls(t1.selfieUrls);
+
+      const t2 = data?.verification?.tier2;
+      if (t2?.idType) setIdType(String(t2.idType) as any);
+      if (t2?.idNumber) setIdNumber(String(t2.idNumber));
+
+      const t3 = data?.verification?.tier3;
+      if (t3?.proofUrls?.length) setProofUrls(t3.proofUrls);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to load");
+      setVerification(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const t1Status = String(verification?.tier1?.status || "not_started");
+  const t2Status = String(verification?.tier2?.status || "not_started");
+  const t3Status = String(verification?.tier3?.status || "not_started");
+
+  const openDisputes = Number(trust?.openDisputes || 0);
+
+  async function submitTier1() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: "tier1", selfieUrls }),
+      });
+      setMsg("Tier 1 updated.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitTier2() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: "tier2", idType, idNumber }),
+      });
+      setMsg("Tier 2 submitted. Admin review can take up to 8 hours.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitTier3() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: "tier3", proofUrls }),
+      });
+      setMsg("Tier 3 submitted. Admin review can take up to 8 hours.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const showVisibilityNote = useMemo(() => {
+    return "Important: vendors with higher tiers appear more in the marketplace. Tier 0 is reduced visibility.";
+  }, []);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Verification" subtitle="Tier system for trust + visibility" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Your verification</p>
+              <div className="mt-2 flex items-center gap-2">
+                <TierPill tier={tier} />
+                {openDisputes > 0 ? (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border bg-red-50 text-red-700 border-red-100">
+                    Open disputes: {openDisputes}
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-[11px] opacity-95 mt-3">{showVisibilityNote}</p>
+            </div>
+
+            <SectionCard title="Tier 1 â€” Face check" subtitle="Upload clear selfies (bright light)">
+              <p className="text-[11px] text-biz-muted">
+                Guidance: take a clear photo of your face (front), and if you can, add extra angles.
+              </p>
+
+              <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
+                <ImageUploader
+                  label="Upload selfie photos"
+                  multiple={true}
+                  onUploaded={(urls) => setSelfieUrls((prev) => [...prev, ...urls].slice(0, 6))}
+                />
+
+                {selfieUrls.length ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {selfieUrls.map((u) => (
+                      <div key={u} className="rounded-2xl border border-biz-line overflow-hidden bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="Selfie" className="h-24 w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-biz-muted">
+                  Status: <b className="text-biz-ink">{t1Status}</b>
+                </span>
+                <Button onClick={submitTier1} loading={saving} disabled={saving || selfieUrls.length < 1}>
+                  Save Tier 1
+                </Button>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Tier 2 â€” ID number" subtitle="Enter your verification number (no photo)">
+              <SegmentedControl<IdType>
+                value={idType}
+                onChange={setIdType}
+                options={[
+                  { value: "nin", label: "NIN" },
+                  { value: "drivers_licence", label: "Driverâ€™s" },
+                  { value: "voters_card", label: "Voterâ€™s" },
+                  { value: "passport", label: "Passport" },
+                ]}
+              />
+
+              <div className="mt-2">
+                <Input
+                  placeholder="Enter your ID number"
+                  value={idNumber}
+                  onChange={(e) => setIdNumber(e.target.value)}
+                />
+              </div>
+
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-biz-muted">
+                  Status: <b className="text-biz-ink">{t2Status}</b>
+                </span>
+                <Button onClick={submitTier2} loading={saving} disabled={saving || idNumber.trim().length < 5}>
+                  Submit Tier 2
+                </Button>
+              </div>
+
+              {verification?.tier2?.adminNote ? (
+                <p className="mt-2 text-[11px] text-red-700">Admin note: {String(verification.tier2.adminNote)}</p>
+              ) : null}
+            </SectionCard>
+
+            <SectionCard title="Tier 3 â€” Proof of address" subtitle="Upload a document showing your address">
+              <div className="rounded-2xl border border-biz-line bg-white p-3">
+                <ImageUploader
+                  label="Upload proof of address"
+                  multiple={true}
+                  onUploaded={(urls) => setProofUrls((prev) => [...prev, ...urls].slice(0, 6))}
+                />
+
+                {proofUrls.length ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {proofUrls.map((u) => (
+                      <div key={u} className="rounded-2xl border border-biz-line overflow-hidden bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="Proof" className="h-24 w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-biz-muted">
+                  Status: <b className="text-biz-ink">{t3Status}</b>
+                </span>
+                <Button onClick={submitTier3} loading={saving} disabled={saving || proofUrls.length < 1}>
+                  Submit Tier 3
+                </Button>
+              </div>
+
+              {verification?.tier3?.adminNote ? (
+                <p className="mt-2 text-[11px] text-red-700">Admin note: {String(verification.tier3.adminNote)}</p>
+              ) : null}
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// FILE: src/app/vendor/wallet/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { auth } from "@/lib/firebase/client";
+import { Button } from "@/components/ui/Button";
+import { useRouter } from "next/navigation";
+
+function fmtNairaFromKobo(kobo: number) {
+  const n = Number(kobo || 0) / 100;
+  try {
+    return `â‚¦${n.toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+export default function VendorBalancePage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [wallet, setWallet] = useState<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("Not logged in");
+
+        const r = await fetch("/api/vendor/wallet", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Failed to load balance");
+
+        if (!mounted) return;
+        setWallet(data?.wallet || data);
+      } catch (e: any) {
+        setMsg(e?.message || "Failed");
+        setWallet(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const pending = useMemo(() => Number(wallet?.pendingBalanceKobo || 0), [wallet]);
+  const available = useMemo(() => Number(wallet?.availableBalanceKobo || 0), [wallet]);
+  const hold = useMemo(() => Number(wallet?.withdrawHoldKobo || 0), [wallet]);
+  const total = useMemo(() => Number(wallet?.totalEarnedKobo || 0), [wallet]);
+
+  const allZero = !loading && !msg && pending === 0 && available === 0 && hold === 0 && total === 0;
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="myBizHub Balance" subtitle="Earnings & withdrawals" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {/* âœ… Minimal empty state */}
+        {allZero ? (
+          <Card variant="soft" className="p-5">
+            <p className="text-sm font-extrabold text-biz-ink">No earnings yet</p>
+            <p className="text-xs text-gray-500 mt-1">Your balance will show here after paid orders.</p>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => router.push("/vendor/products/new")}>
+                Add product
+              </Button>
+              <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                View orders
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        {!loading && !msg && !allZero ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Available balance</p>
+              <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(available)}</p>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button onClick={() => router.push("/vendor/withdrawals")} disabled={available <= 0}>
+                  Withdraw
+                </Button>
+                <Button variant="secondary" onClick={() => window.location.reload()}>
+                  Refresh
+                </Button>
+              </div>
+
+              <p className="mt-3 text-[11px] opacity-90">
+                Pending withdrawals (hold): <b>{fmtNairaFromKobo(hold)}</b>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Pending settlement</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(pending)}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Total earned</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(total)}</p>
+              </Card>
+            </div>
+
+            <Card className="p-4">
+              <p className="font-bold text-biz-ink">Tip</p>
+              <p className="text-sm text-gray-700 mt-2">
+                Escrow orders move from Pending to Available after the hold time if thereâ€™s no dispute.
+              </p>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// FILE: src/app/vendor/withdrawals/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+
+function fmtNairaFromKobo(kobo: number) {
+  const n = Number(kobo || 0) / 100;
+  try {
+    return `â‚¦${n.toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function fmtDate(ms?: number) {
+  if (!ms) return "â€”";
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
+  }
+}
+
+export default function VendorWithdrawalsPage() {
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [wallet, setWallet] = useState<any>(null);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+
+  const [amountNgn, setAmountNgn] = useState<number>(1000);
+  const [sending, setSending] = useState(false);
+
+  async function api(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error || "Request failed");
+    return j;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const j = await api("/api/vendor/withdrawals");
+      setWallet(j.wallet || null);
+      setWithdrawals(Array.isArray(j.withdrawals) ? j.withdrawals : []);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to load");
+      setWallet(null);
+      setWithdrawals([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const availableKobo = useMemo(() => Number(wallet?.availableBalanceKobo || 0), [wallet]);
+  const holdKobo = useMemo(() => Number(wallet?.withdrawHoldKobo || 0), [wallet]);
+
+  async function requestWithdrawal() {
+    setSending(true);
+    setMsg(null);
+    try {
+      const amountKobo = Math.floor(Number(amountNgn || 0) * 100);
+      await api("/api/vendor/withdrawals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amountKobo }),
+      });
+
+      setMsg("Withdrawal request submitted.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Withdrawals" subtitle="Request payout from myBizHub Balance" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Available</p>
+              <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(availableKobo)}</p>
+              <p className="text-[11px] opacity-95 mt-2">
+                On hold: <b>{fmtNairaFromKobo(holdKobo)}</b>
+              </p>
+            </div>
+
+            <SectionCard title="Request withdrawal" subtitle="Minimum â‚¦1,000">
+              <div className="space-y-2">
+                <Input
+                  type="number"
+                  min={1000}
+                  step={500}
+                  value={String(amountNgn)}
+                  onChange={(e) => setAmountNgn(Number(e.target.value))}
+                  placeholder="1000"
+                />
+
+                <Button onClick={requestWithdrawal} loading={sending} disabled={sending}>
+                  Request payout
+                </Button>
+
+                <p className="text-[11px] text-biz-muted">
+                  Your requested amount will move to â€œholdâ€ until admin processes it.
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="History" subtitle="Your recent withdrawal requests">
+              {withdrawals.length === 0 ? (
+                <div className="text-sm text-biz-muted">No withdrawal requests yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {withdrawals.map((w) => (
+                    <div key={w.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-biz-ink">
+                            {w.status || "pending"}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            {fmtDate(Number(w.createdAtMs || 0))}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1 break-all">
+                            Bank: {w?.payoutDetails?.bankName || "â€”"} â€¢ {w?.payoutDetails?.accountNumber || "â€”"}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-biz-ink">
+                            {fmtNairaFromKobo(Number(w.amountKobo || 0))}
+                          </p>
+                        </div>
+                      </div>
+                      {w.adminNote ? (
+                        <p className="text-[11px] text-gray-600 mt-2">
+                          Note: {String(w.adminNote)}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3">
+                <Button variant="secondary" onClick={load}>
+                  Refresh
+                </Button>
+              </div>
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+// FILE: src/components/Card.tsx
+import type { ComponentPropsWithoutRef } from "react";
+import { cn } from "@/lib/cn";
+
+type CardVariant = "default" | "soft" | "ghost";
+
+export function Card(
+  props: ComponentPropsWithoutRef<"div"> & { variant?: CardVariant }
+) {
+  const { className = "", variant = "default", ...rest } = props;
+
+  const base =
+    "rounded-[22px] border shadow-soft overflow-hidden";
+  const styles =
+    variant === "soft"
+      ? "bg-biz-cream border-transparent"
+      : variant === "ghost"
+        ? "bg-transparent border-transparent shadow-none"
+        : "bg-white border-biz-line";
+
+  return <div className={cn(base, styles, className)} {...rest} />;
+}
+
+// FILE: src/components/checkout/CouponInput.tsx
+// FILE: src/components/checkout/CouponInput.tsx
+"use client";
+
+import { memo, useState } from "react";
+import { Tag, X, Check, Loader2 } from "lucide-react";
+import { cn } from "@/lib/cn";
+
+interface CouponInputProps {
+  code: string;
+  onCodeChange: (code: string) => void;
+  onApply: () => void;
+  onRemove: () => void;
+  loading?: boolean;
+  applied?: boolean;
+  discountAmount?: number;
+  message?: string | null;
+}
+
+function fmtNaira(n: number) {
+  return `â‚¦${Number(n || 0).toLocaleString("en-NG")}`;
+}
+
+export const CouponInput = memo(function CouponInput({
+  code,
+  onCodeChange,
+  onApply,
+  onRemove,
+  loading = false,
+  applied = false,
+  discountAmount = 0,
+  message = null,
+}: CouponInputProps) {
+  const [focused, setFocused] = useState(false);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      onApply();
+    }
+  };
+
+  if (applied && discountAmount > 0) {
+    return (
+      <div className="rounded-2xl border border-green-200 bg-green-50 p-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-green-500 text-white flex items-center justify-center">
+              <Check className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-green-800">
+                {code} applied!
+              </p>
+              <p className="text-xs text-green-600">
+                You save {fmtNaira(discountAmount / 100)}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onRemove}
+            className="p-2 rounded-lg hover:bg-green-100 transition"
+            aria-label="Remove coupon"
+          >
+            <X className="w-5 h-5 text-green-600" />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div
+        className={cn(
+          "flex items-center rounded-2xl border bg-white transition-all overflow-hidden",
+          focused ? "border-orange-300 ring-2 ring-orange-100" : "border-gray-200"
+        )}
+      >
+        <div className="pl-4 pr-2 py-3">
+          <Tag className="w-5 h-5 text-gray-400" />
+        </div>
+        <input
+          type="text"
+          value={code}
+          onChange={(e) => onCodeChange(e.target.value.toUpperCase())}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          onKeyDown={handleKeyDown}
+          placeholder="Enter code"
+          className="flex-1 min-w-0 text-sm text-gray-900 placeholder:text-gray-400 outline-none bg-transparent uppercase py-3"
+        />
+        <button
+          onClick={onApply}
+          disabled={loading || !code.trim()}
+          className={cn(
+            "px-4 py-3 text-sm font-semibold transition-colors shrink-0",
+            loading || !code.trim()
+              ? "text-gray-300 cursor-not-allowed"
+              : "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+          )}
+        >
+          {loading ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            "Apply"
+          )}
+        </button>
+      </div>
+
+      {message && (
+        <p className={cn(
+          "text-xs mt-2 px-1",
+          message.toLowerCase().includes("applied") || message.toLowerCase().includes("success")
+            ? "text-green-600"
+            : message.toLowerCase().includes("removed")
+            ? "text-gray-500"
+            : "text-red-500"
+        )}>
+          {message}
+        </p>
+      )}
+    </div>
+  );
+});
+
+// FILE: src/components/emails/OrderReceiptEmail.tsx
+import * as React from "react";
+import { Html, Head, Preview, Body, Container, Section, Heading, Text, Row, Column } from "@react-email/components";
+
+// Helper to format currency
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+interface OrderReceiptEmailProps {
+  orderId: string;
+  orderDate: string;
+  storeName: string;
+  customerName: string;
+  customerEmail: string;
+  items: { name: string; qty: number; price: number; selectedOptions?: Record<string, string> }[];
+  pricing: {
+    originalSubtotalKobo: number;
+    saleDiscountKobo: number;
+    couponDiscountKobo: number;
+    shippingFeeKobo: number;
+    totalKobo: number;
+  };
+}
+
+// CHANGED: From a const arrow function to a standard function declaration to fix type error.
+export function OrderReceiptEmail({
+  orderId,
+  orderDate,
+  storeName,
+  items,
+  pricing,
+}: Readonly<OrderReceiptEmailProps>) {
+  return (
+    <Html>
+      <Head />
+      <Preview>Your {storeName} Order Receipt #{orderId.slice(0, 8)}</Preview>
+      <Body style={main}>
+        <Container style={container}>
+          <Section style={header}>
+            <Heading style={heading}>Thank you for your order!</Heading>
+            <Text style={subheading}>
+              Here is your receipt for order #{orderId.slice(0, 8)} from {storeName}.
+            </Text>
+          </Section>
+
+          <Section style={box}>
+            <Row>
+              <Column>
+                <Text style={label}>Order ID</Text>
+                <Text style={value}>{orderId}</Text>
+              </Column>
+              <Column style={{ textAlign: "right" }}>
+                <Text style={label}>Order Date</Text>
+                <Text style={value}>{orderDate}</Text>
+              </Column>
+            </Row>
+          </Section>
+
+          <Section style={box}>
+            <Heading as="h2" style={sectionHeading}>
+              Items
+            </Heading>
+            {items.map((item, idx) => (
+              <Row key={idx} style={itemRow}>
+                <Column>
+                  <Text style={itemText}>
+                    {item.qty} x {item.name}
+                  </Text>
+                  {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
+                    <Text style={itemOptions}>
+                      {Object.entries(item.selectedOptions)
+                        .map(([k, v]) => `${k}: ${v}`)
+                        .join(", ")}
+                    </Text>
+                  )}
+                </Column>
+                <Column style={{ textAlign: "right" }}>
+                  <Text style={itemText}>{fmtNaira(item.price * item.qty)}</Text>
+                </Column>
+              </Row>
+            ))}
+          </Section>
+
+          <Section style={box}>
+            <Heading as="h2" style={sectionHeading}>
+              Summary
+            </Heading>
+            <Row style={summaryRow}>
+              <Column>
+                <Text style={summaryLabel}>Subtotal</Text>
+              </Column>
+              <Column style={{ textAlign: "right" }}>
+                <Text style={summaryValue}>{fmtNaira(pricing.originalSubtotalKobo / 100)}</Text>
+              </Column>
+            </Row>
+            {pricing.saleDiscountKobo > 0 && (
+              <Row style={summaryRow}>
+                <Column>
+                  <Text style={summaryLabel}>Sale Discount</Text>
+                </Column>
+                <Column style={{ textAlign: "right" }}>
+                  <Text style={summaryValue}>-{fmtNaira(pricing.saleDiscountKobo / 100)}</Text>
+                </Column>
+              </Row>
+            )}
+            {pricing.couponDiscountKobo > 0 && (
+              <Row style={summaryRow}>
+                <Column>
+                  <Text style={summaryLabel}>Coupon Discount</Text>
+                </Column>
+                <Column style={{ textAlign: "right" }}>
+                  <Text style={summaryValue}>-{fmtNaira(pricing.couponDiscountKobo / 100)}</Text>
+                </Column>
+              </Row>
+            )}
+            <Row style={summaryRow}>
+              <Column>
+                <Text style={summaryLabel}>Shipping</Text>
+              </Column>
+              <Column style={{ textAlign: "right" }}>
+                <Text style={summaryValue}>{fmtNaira(pricing.shippingFeeKobo / 100)}</Text>
+              </Column>
+            </Row>
+            <hr style={hr} />
+            <Row style={summaryRow}>
+              <Column>
+                <Text style={totalLabel}>Total Paid</Text>
+              </Column>
+              <Column style={{ textAlign: "right" }}>
+                <Text style={totalValue}>{fmtNaira(pricing.totalKobo / 100)}</Text>
+              </Column>
+            </Row>
+          </Section>
+          <Text style={footer}>
+            myBizHub â€¢ If you have any questions, please contact the vendor directly.
+          </Text>
+        </Container>
+      </Body>
+    </Html>
+  );
+}
+
+// Styles
+const main = { backgroundColor: "#f6f9fc", fontFamily: "Arial, sans-serif" };
+const container = { backgroundColor: "#ffffff", margin: "0 auto", padding: "20px 0 48px", width: "580px" };
+const header = { padding: "0 48px", textAlign: "center" as const };
+const heading = { color: "#1a1a1a", fontSize: "28px", fontWeight: "bold" };
+const subheading = { color: "#555", fontSize: "16px" };
+const box = { padding: "24px 48px", borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb", margin: "20px 0" };
+const sectionHeading = { color: "#1a1a1a", fontSize: "18px", fontWeight: "bold", margin: "0 0 16px" };
+const label = { color: "#888", fontSize: "12px", textTransform: "uppercase" as const };
+const value = { color: "#333", fontSize: "14px", fontWeight: "bold" };
+const itemRow = { marginBottom: "12px" };
+const itemText = { color: "#333", fontSize: "14px", margin: 0 };
+const itemOptions = { color: "#777", fontSize: "12px", margin: "4px 0 0" };
+const summaryRow = { marginBottom: "8px" };
+const summaryLabel = { color: "#555", fontSize: "14px", margin: 0 };
+const summaryValue = { color: "#333", fontSize: "14px", margin: 0 };
+const hr = { borderColor: "#e5e7eb", margin: "16px 0" };
+const totalLabel = { color: "#1a1a1a", fontSize: "16px", fontWeight: "bold", margin: 0 };
+const totalValue = { color: "#1a1a1a", fontSize: "16px", fontWeight: "bold", margin: 0 };
+const footer = { color: "#888888", fontSize: "12px", textAlign: "center" as const, marginTop: "20px" };
+
+// FILE: src/components/GradientHeader.tsx
+"use client";
+
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/cn";
+import { BrandLogo } from "@/components/brand/BrandLogo";
+
+export function GradientHeader({
+  title,
+  subtitle,
+  showBack = false,
+  right,
+  className,
+}: {
+  title: string;
+  subtitle?: string;
+  showBack?: boolean;
+  right?: React.ReactNode;
+  className?: string;
+}) {
+  const router = useRouter();
+
+  return (
+    <div className={cn("relative", className)}>
+      {/* Brand strip */}
+      <div className="h-2 w-full bg-gradient-to-r from-biz-accent2 to-biz-accent" />
+
+      {/* Header body */}
+      <div className="px-4 pt-5 pb-5 bg-gradient-to-b from-biz-sand to-biz-bg">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-3">
+            {showBack ? (
+              <button
+                onClick={() => router.back()}
+                className={cn(
+                  "h-10 w-10 rounded-2xl bg-white border border-biz-line shadow-soft",
+                  "flex items-center justify-center text-biz-ink"
+                )}
+                aria-label="Back"
+              >
+                <span className="text-lg leading-none">←</span>
+              </button>
+            ) : null}
+
+            {/* Brand logo */}
+            <div className="mt-0.5">
+              <BrandLogo size={34} priority />
+            </div>
+
+            <div className="min-w-0">
+              <h1 className="text-lg font-bold tracking-tight text-biz-ink">{title}</h1>
+
+              {subtitle ? <p className="text-xs text-biz-muted mt-1">{subtitle}</p> : null}
+            </div>
+          </div>
+
+          {right ? <div className="shrink-0">{right}</div> : null}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default GradientHeader;
+
+// FILE: src/components/market/ProductCard.tsx
+// FILE: src/components/market/ProductCard.tsx
+"use client";
+
+import { memo } from "react";
+import { BadgeCheck, Sparkles, Plus, ShoppingBag } from "lucide-react";
+import { Card } from "@/components/Card";
+import { CloudImage } from "@/components/CloudImage";
+import {
+  normalizeCoverAspect,
+  coverAspectToTailwindClass,
+  coverAspectToWH,
+  type CoverAspectKey,
+} from "@/lib/products/coverAspect";
+import { computeSalePriceNgn, saleBadgeText, saleIsActive } from "@/lib/market/sale";
+import { cn } from "@/lib/cn";
+
+function fmtNaira(n: number) {
+  try {
+    return `â‚¦${Number(n || 0).toLocaleString("en-NG")}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function verificationLabel(n: any) {
+  const t = Number(n || 0);
+  if (t >= 3) return "Address verified";
+  if (t === 2) return "ID verified";
+  if (t === 1) return "Verified";
+  return "New seller";
+}
+
+interface ProductCardProps {
+  product: any;
+  onClick: () => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
+  compact?: boolean;
+}
+
+export const ProductCard = memo(function ProductCard({
+  product: p,
+  onClick,
+  onAddToCart,
+  compact = false,
+}: ProductCardProps) {
+  const img = Array.isArray(p?.images) ? p.images[0] : "";
+  const boosted = Number(p?.boostUntilMs || 0) > Date.now();
+  const tier = Number(p?.marketTier ?? p?.verificationTier ?? 0);
+  const isService = String(p?.listingType || "product") === "service";
+  const serviceMode = String(p?.serviceMode || "book");
+  const bookOnly = isService && serviceMode === "book";
+  const basePrice = Number(p?.price || 0);
+  const onSale = !bookOnly && saleIsActive(p);
+  const finalPrice = onSale ? computeSalePriceNgn(p) : basePrice;
+  const apexBadgeActive = p?.apexBadgeActive === true;
+  const coverAspect: CoverAspectKey = normalizeCoverAspect(p?.coverAspect) ?? "1:1";
+  const aspectClass = coverAspectToTailwindClass(coverAspect);
+  const { w, h } = coverAspectToWH(coverAspect, compact ? 320 : 520);
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Check if the click was on the add to cart button area
+    const target = e.target as HTMLElement;
+    if (target.closest('[data-add-to-cart]')) {
+      return; // Don't trigger card click
+    }
+    onClick();
+  };
+
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    e.preventDefault();
+    onAddToCart?.(e);
+  };
+
+  return (
+    <div
+      onClick={handleCardClick}
+      className="block w-full text-left group cursor-pointer"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+    >
+      <Card className="p-2.5 transition-all duration-200 hover:shadow-md hover:border-orange-200 group-active:scale-[0.98]">
+        <div
+          className={cn(
+            aspectClass,
+            "w-full rounded-xl bg-gradient-to-br from-gray-100 to-gray-50 overflow-hidden relative"
+          )}
+        >
+          {img ? (
+            <CloudImage
+              src={img}
+              alt={p?.name || "Product"}
+              w={w}
+              h={h}
+              sizes={compact ? "(max-width: 430px) 40vw, 160px" : "(max-width: 430px) 45vw, 220px"}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center">
+              <ShoppingBag className="w-8 h-8 text-gray-300" />
+            </div>
+          )}
+
+          {/* Top badges */}
+          <div className="absolute top-2 left-2 right-2 flex items-start justify-between gap-1 pointer-events-none">
+            <div className="flex flex-col gap-1">
+              {apexBadgeActive && (
+                <div className="px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white inline-flex items-center gap-1 shadow-sm">
+                  <BadgeCheck className="h-3 w-3" />
+                  <span>Trusted</span>
+                </div>
+              )}
+              {!apexBadgeActive && boosted && (
+                <div className="px-2 py-1 rounded-full text-[10px] font-bold bg-white/95 text-orange-600 inline-flex items-center gap-1 shadow-sm">
+                  <Sparkles className="h-3 w-3" />
+                  <span>Promoted</span>
+                </div>
+              )}
+            </div>
+
+            {onSale && (
+              <div className="px-2 py-1 rounded-full text-[10px] font-bold bg-red-500 text-white shadow-sm">
+                {saleBadgeText(p, fmtNaira)}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom row */}
+          <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between">
+            <div className="px-2 py-1 rounded-full text-[9px] font-semibold bg-white/95 text-gray-600 shadow-sm pointer-events-none">
+              {verificationLabel(tier)}
+            </div>
+
+            {!bookOnly && onAddToCart && (
+              <div
+                data-add-to-cart
+                onClick={handleAddToCart}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onAddToCart?.(e as any);
+                  }
+                }}
+                className="h-8 w-8 bg-orange-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-orange-600 transition-all active:scale-90 cursor-pointer"
+                aria-label="Add to cart"
+              >
+                <Plus className="h-4 w-4" strokeWidth={2.5} />
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-2.5 px-0.5">
+          <p className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight">
+            {p?.name || "Unnamed product"}
+          </p>
+          <p className="mt-1.5 text-sm">
+            {bookOnly ? (
+              <span className="text-gray-500 font-medium">Book only</span>
+            ) : onSale ? (
+              <>
+                <span className="line-through text-gray-400 mr-1.5 text-xs">{fmtNaira(basePrice)}</span>
+                <span className="text-red-600 font-bold">{fmtNaira(finalPrice)}</span>
+              </>
+            ) : (
+              <span className="text-gray-900 font-bold">{fmtNaira(basePrice)}</span>
+            )}
+          </p>
+        </div>
+      </Card>
+    </div>
+  );
+});
+
+// FILE: src/components/market/StoreCard.tsx
+// FILE: src/components/market/StoreCard.tsx
+"use client";
+
+import { memo } from "react";
+import Link from "next/link";
+import { Store, MapPin, BadgeCheck } from "lucide-react";
+
+interface StoreCardProps {
+  store: any;
+}
+
+export const StoreCard = memo(function StoreCard({ store: b }: StoreCardProps) {
+  const slug = String(b?.slug || "").trim();
+  const name = String(b?.name || slug || "Store");
+  const state = String(b?.state || "").trim();
+  const city = String(b?.city || "").trim();
+  const loc = [city, state].filter(Boolean).join(", ");
+  const description = String(b?.description || "").trim();
+  const verified = Number(b?.verificationTier || 0) >= 2;
+
+  if (!slug) return null;
+
+  return (
+    <Link
+      href={`/b/${slug}`}
+      className="block rounded-2xl border border-gray-100 bg-white p-4 hover:border-orange-200 hover:shadow-md transition-all group"
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-50 flex items-center justify-center shrink-0">
+          <Store className="w-5 h-5 text-orange-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-gray-900 truncate">{name}</p>
+            {verified && (
+              <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />
+            )}
+          </div>
+          {description && (
+            <p className="text-xs text-gray-500 mt-1 line-clamp-2">{description}</p>
+          )}
+          <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+            <span className="font-medium">@{slug}</span>
+            {loc && (
+              <>
+                <span>â€¢</span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {loc}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+});
+
+// FILE: src/components/orders/OrderCard.tsx
+// FILE: src/components/orders/OrderCard.tsx
+"use client";
+
+import { memo } from "react";
+import Link from "next/link";
+import { 
+  Package, 
+  Clock, 
+  CheckCircle2, 
+  AlertCircle, 
+  Truck,
+  XCircle,
+  ChevronRight
+} from "lucide-react";
+import { cn } from "@/lib/cn";
+
+interface OrderCardProps {
+  order: any;
+}
+
+function fmtNaira(n: number) {
+  return `â‚¦${Number(n || 0).toLocaleString("en-NG")}`;
+}
+
+function toMs(v: any) {
+  try {
+    if (!v) return 0;
+    if (typeof v?.toDate === "function") return v.toDate().getTime();
+    if (typeof v?.seconds === "number") return v.seconds * 1000;
+    return 0;
+  } catch {
+    return 0;
+  }
+}
+
+function formatDate(v: any) {
+  const ms = toMs(v);
+  if (!ms) return "";
+  
+  try {
+    const date = new Date(ms);
+    const now = new Date();
+    const diffDays = Math.floor((now.getTime() - ms) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays === 0) {
+      return `Today, ${date.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })}`;
+    } else if (diffDays === 1) {
+      return `Yesterday, ${date.toLocaleTimeString("en-NG", { hour: "2-digit", minute: "2-digit" })}`;
+    } else if (diffDays < 7) {
+      return date.toLocaleDateString("en-NG", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    } else {
+      return date.toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" });
+    }
+  } catch {
+    return "";
+  }
+}
+
+type OrderStatus = "processing" | "paid" | "in_transit" | "delivered" | "cancelled" | "attention";
+
+function getOrderStatus(o: any): { status: OrderStatus; label: string } {
+  const orderStatus = String(o?.orderStatus || "").toLowerCase();
+  const ops = String(o?.opsStatusEffective || o?.opsStatus || "").toLowerCase();
+  const escrow = String(o?.escrowStatus || "").toLowerCase();
+
+  if (ops === "delivered" || orderStatus.includes("delivered")) {
+    return { status: "delivered", label: "Delivered" };
+  }
+  if (ops === "cancelled" || orderStatus.includes("cancel")) {
+    return { status: "cancelled", label: "Cancelled" };
+  }
+  if (ops === "in_transit") {
+    return { status: "in_transit", label: "In Transit" };
+  }
+  if (escrow === "disputed") {
+    return { status: "attention", label: "Needs Attention" };
+  }
+  if (ops === "paid" || orderStatus.includes("paid") || escrow === "released") {
+    return { status: "paid", label: "Paid" };
+  }
+
+  return { status: "processing", label: "Processing" };
+}
+
+const STATUS_CONFIG: Record<OrderStatus, { icon: any; bgColor: string; textColor: string; iconColor: string }> = {
+  processing: {
+    icon: Clock,
+    bgColor: "bg-orange-50",
+    textColor: "text-orange-700",
+    iconColor: "text-orange-500",
+  },
+  paid: {
+    icon: CheckCircle2,
+    bgColor: "bg-blue-50",
+    textColor: "text-blue-700",
+    iconColor: "text-blue-500",
+  },
+  in_transit: {
+    icon: Truck,
+    bgColor: "bg-purple-50",
+    textColor: "text-purple-700",
+    iconColor: "text-purple-500",
+  },
+  delivered: {
+    icon: CheckCircle2,
+    bgColor: "bg-green-50",
+    textColor: "text-green-700",
+    iconColor: "text-green-500",
+  },
+  cancelled: {
+    icon: XCircle,
+    bgColor: "bg-gray-100",
+    textColor: "text-gray-600",
+    iconColor: "text-gray-400",
+  },
+  attention: {
+    icon: AlertCircle,
+    bgColor: "bg-red-50",
+    textColor: "text-red-700",
+    iconColor: "text-red-500",
+  },
+};
+
+function getPaymentLabel(o: any) {
+  const paymentType = String(o?.paymentType || "");
+  if (paymentType === "direct_transfer") return "Bank Transfer";
+  if (paymentType === "paystack_escrow") return "Card";
+  return "";
+}
+
+export const OrderCard = memo(function OrderCard({ order: o }: OrderCardProps) {
+  const amount = Number(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0) || 0);
+  const { status, label } = getOrderStatus(o);
+  const config = STATUS_CONFIG[status];
+  const Icon = config.icon;
+  const vendor = String(o.businessSlug || "").trim() || "Unknown";
+  const paymentLabel = getPaymentLabel(o);
+  const itemCount = Array.isArray(o.items) ? o.items.length : 0;
+  const dateStr = formatDate(o.createdAt);
+
+  return (
+    <Link href={`/orders/${o.id}`} className="block">
+      <div className="bg-white rounded-2xl border border-gray-100 p-4 hover:border-orange-200 hover:shadow-md transition-all group">
+        <div className="flex items-start gap-4">
+          {/* Status Icon */}
+          <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center shrink-0", config.bgColor)}>
+            <Icon className={cn("w-6 h-6", config.iconColor)} />
+          </div>
+
+          {/* Content */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="min-w-0">
+                <p className="text-sm font-bold text-gray-900">
+                  Order #{String(o.id).slice(0, 8).toUpperCase()}
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  @{vendor} â€¢ {itemCount} item{itemCount !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <div className="text-right shrink-0">
+                <p className="text-base font-bold text-gray-900">{fmtNaira(amount)}</p>
+              </div>
+            </div>
+
+            {/* Status and Payment */}
+            <div className="flex items-center gap-2 mt-3">
+              <span className={cn(
+                "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold",
+                config.bgColor, config.textColor
+              )}>
+                {label}
+              </span>
+              {paymentLabel && (
+                <span className="text-xs text-gray-400">{paymentLabel}</span>
+              )}
+            </div>
+
+            {/* Date */}
+            {dateStr && (
+              <p className="text-xs text-gray-400 mt-2">{dateStr}</p>
+            )}
+          </div>
+
+          {/* Arrow */}
+          <ChevronRight className="w-5 h-5 text-gray-300 group-hover:text-orange-500 transition shrink-0 self-center" />
+        </div>
+      </div>
+    </Link>
+  );
+});
+
+// FILE: src/components/orders/OrderStatusTimeline.tsx
+// FILE: src/components/orders/OrderStatusTimeline.tsx
+"use client";
+
+import { memo } from "react";
+import { 
+  ShoppingCart, 
+  CreditCard, 
+  Package, 
+  Truck, 
+  CheckCircle2,
+  Circle
+} from "lucide-react";
+import { cn } from "@/lib/cn";
+
+interface OrderStatusTimelineProps {
+  currentStatus: string;
+  paymentType: string;
+}
+
+const STEPS = [
+  { key: "ordered", label: "Order Placed", icon: ShoppingCart },
+  { key: "paid", label: "Payment Received", icon: CreditCard },
+  { key: "processing", label: "Processing", icon: Package },
+  { key: "in_transit", label: "In Transit", icon: Truck },
+  { key: "delivered", label: "Delivered", icon: CheckCircle2 },
+];
+
+function getStepIndex(status: string): number {
+  const s = String(status || "").toLowerCase();
+  
+  if (s.includes("delivered")) return 4;
+  if (s.includes("transit")) return 3;
+  if (s.includes("processing") || s === "paid" || s === "accepted") return 2;
+  if (s.includes("paid") || s === "released") return 1;
+  
+  return 0;
+}
+
+export const OrderStatusTimeline = memo(function OrderStatusTimeline({
+  currentStatus,
+  paymentType,
+}: OrderStatusTimelineProps) {
+  const currentIndex = getStepIndex(currentStatus);
+  const isTransfer = paymentType === "direct_transfer";
+
+  return (
+    <div className="relative">
+      {STEPS.map((step, index) => {
+        const Icon = step.icon;
+        const isCompleted = index <= currentIndex;
+        const isCurrent = index === currentIndex;
+
+        // For direct transfer, show "Awaiting Confirmation" instead of "Payment Received"
+        let label = step.label;
+        if (step.key === "paid" && isTransfer && currentIndex < 2) {
+          label = "Awaiting Confirmation";
+        }
+
+        return (
+          <div key={step.key} className="flex items-start gap-4 relative">
+            {/* Vertical line */}
+            {index < STEPS.length - 1 && (
+              <div
+                className={cn(
+                  "absolute left-5 top-10 w-0.5 h-12",
+                  index < currentIndex ? "bg-green-500" : "bg-gray-200"
+                )}
+              />
+            )}
+
+            {/* Icon */}
+            <div
+              className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center shrink-0 z-10 transition-all",
+                isCompleted
+                  ? "bg-green-500 text-white"
+                  : isCurrent
+                  ? "bg-orange-500 text-white"
+                  : "bg-gray-100 text-gray-400"
+              )}
+            >
+              {isCompleted && index < currentIndex ? (
+                <CheckCircle2 className="w-5 h-5" />
+              ) : (
+                <Icon className="w-5 h-5" />
+              )}
+            </div>
+
+            {/* Content */}
+            <div className={cn("pb-8", index === STEPS.length - 1 && "pb-0")}>
+              <p
+                className={cn(
+                  "text-sm font-semibold",
+                  isCompleted ? "text-gray-900" : "text-gray-400"
+                )}
+              >
+                {label}
+              </p>
+              {isCurrent && (
+                <p className="text-xs text-orange-600 mt-0.5">Current status</p>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+});
+
+// FILE: src/components/ProductCard.tsx
+// FILE: src/components/ProductCard.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { normalizeCoverAspect, coverAspectToTailwindClass, type CoverAspectKey } from "@/lib/products/coverAspect";
+
+function formatPriceNaira(value: any) {
+  const n = Number(value ?? 0);
+  if (!Number.isFinite(n)) return "₦0";
+  return `₦${n.toLocaleString()}`;
+}
+
+function saleIsActive(p: any, now = Date.now()) {
+  if (p?.saleActive !== true) return false;
+
+  const start = Number(p?.saleStartsAtMs || 0);
+  const end = Number(p?.saleEndsAtMs || 0);
+
+  if (start && now < start) return false;
+  if (end && now > end) return false;
+
+  const t = String(p?.saleType || "");
+  return t === "percent" || t === "fixed";
+}
+
+function computeSalePriceNgn(p: any) {
+  const base = Number(p?.priceKobo != null ? Number(p.priceKobo) / 100 : p?.price || 0);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+  if (!saleIsActive(p)) return base;
+
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return Math.max(0, Math.floor(base - Math.max(0, off)));
+  }
+
+  const pct = Math.max(0, Math.min(90, Number(p?.salePercent || 0)));
+  const off = Math.floor((base * pct) / 100);
+  return Math.max(0, Math.floor(base - off));
+}
+
+function saleBadgeText(p: any) {
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return off > 0 ? `${formatPriceNaira(off)} OFF` : "Sale";
+  }
+  const pct = Number(p?.salePercent || 0);
+  return pct > 0 ? `${pct}% OFF` : "Sale";
+}
+
+type TrustBadgeType = "earned_apex" | "temporary_apex" | null;
+
+const trustCache = new Map<string, { fetchedAtMs: number; data: any; inflight?: Promise<any> }>();
+const TRUST_TTL_MS = 5 * 60 * 1000;
+
+async function fetchStoreTrust(slug: string) {
+  const s = String(slug || "").trim().toLowerCase();
+  if (!s) return null;
+
+  const url = `/api/public/store/${encodeURIComponent(s)}/trust`;
+
+  const r = await fetch(url);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) return null;
+  return data;
+}
+
+function badgeTypeFromTrust(t: any): TrustBadgeType {
+  const badge = t?.badge || null;
+  const bActive = badge?.active === true;
+  const bType = String(badge?.type || "");
+
+  if (bActive && (bType === "earned_apex" || bType === "temporary_apex")) return bType as any;
+
+  if (t?.apexBadgeActive === true) return "earned_apex";
+  if (t?.temporaryApexBadgeActive === true) return "temporary_apex";
+
+  return null;
+}
+
+export function ProductCard({ slug, product }: { slug: string; product: any }) {
+  const name = product?.name ?? "Product";
+  const img = Array.isArray(product?.images) ? product.images?.[0] : null;
+
+  const listingType = String(product?.listingType || "product");
+  const serviceMode = String(product?.serviceMode || "book");
+  const bookOnly = listingType === "service" && serviceMode === "book";
+
+  const basePrice = Number(product?.priceKobo != null ? Number(product.priceKobo) / 100 : product?.price || 0);
+  const onSale = !bookOnly && saleIsActive(product);
+  const finalPrice = onSale ? computeSalePriceNgn(product) : basePrice;
+
+  const coverAspect: CoverAspectKey = normalizeCoverAspect(product?.coverAspect) ?? "1:1";
+  const aspectClass = coverAspectToTailwindClass(coverAspect);
+
+  const [trust, setTrust] = useState<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadTrust() {
+      const s = String(slug || "").trim().toLowerCase();
+      if (!s) return;
+
+      const cached = trustCache.get(s);
+      const now = Date.now();
+
+      if (cached && cached.data && now - cached.fetchedAtMs < TRUST_TTL_MS) {
+        if (mounted) setTrust(cached.data);
+        return;
+      }
+
+      if (cached?.inflight) {
+        const d = await cached.inflight.catch(() => null);
+        if (mounted && d) setTrust(d);
+        return;
+      }
+
+      const inflight = fetchStoreTrust(s);
+      trustCache.set(s, { fetchedAtMs: now, data: cached?.data || null, inflight });
+
+      const d = await inflight.catch(() => null);
+      trustCache.set(s, { fetchedAtMs: Date.now(), data: d, inflight: undefined });
+
+      if (mounted) setTrust(d);
+    }
+
+    loadTrust();
+    return () => {
+      mounted = false;
+    };
+  }, [slug]);
+
+  const badgeType = badgeTypeFromTrust(trust);
+
+  return (
+    <Link
+      href={`/b/${slug}/p/${product.id}`}
+      className="block rounded-2xl border border-black/5 bg-white shadow-sm active:scale-[0.99] transition"
+    >
+      <div className={`${aspectClass} w-full rounded-2xl bg-[#F3F4F6] overflow-hidden relative`}>
+        {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={img} alt={name} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No image</div>
+        )}
+
+        {onSale ? (
+          <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
+            {saleBadgeText(product)}
+          </div>
+        ) : null}
+
+        {badgeType === "earned_apex" ? (
+          <div
+            className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-[#0F172A] text-white border border-white/20"
+            title="Verified Apex badge (earned + maintained)"
+          >
+            Verified Apex
+          </div>
+        ) : null}
+
+        {badgeType === "temporary_apex" ? (
+          <div
+            className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-white/90 text-orange-700 border border-orange-200"
+            title="Temporary / probation Apex badge"
+          >
+            Apex (Temporary)
+          </div>
+        ) : null}
+      </div>
+
+      <div className="p-3">
+        <p className="text-sm font-semibold text-gray-900 line-clamp-1">{name}</p>
+
+        <p className="mt-1 text-sm text-gray-700">
+          {bookOnly ? (
+            "Book only"
+          ) : onSale ? (
+            <>
+              <span className="line-through text-gray-400 mr-1">{formatPriceNaira(basePrice)}</span>
+              <span className="text-emerald-700 font-extrabold">{formatPriceNaira(finalPrice)}</span>
+            </>
+          ) : (
+            formatPriceNaira(basePrice)
+          )}
+        </p>
+
+        <div className="mt-2">
+          <span className="inline-flex items-center rounded-full bg-[#FFF3E6] text-[#C2410C] px-2 py-1 text-[11px] font-medium">
+            View details
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+// FILE: src/components/ui/Button.tsx
+// FILE: src/components/ui/Button.tsx
+import { cn } from "@/lib/cn";
+
+type ButtonVariant = "primary" | "secondary" | "soft" | "ghost" | "danger";
+type ButtonSize = "sm" | "md" | "lg";
+
+export function Button({
+  variant = "primary",
+  size = "md",
+  loading,
+  leftIcon,
+  className,
+  children,
+  disabled,
+  type,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  loading?: boolean;
+  leftIcon?: React.ReactNode;
+}) {
+  const base =
+    "inline-flex w-full items-center justify-center gap-2 font-bold transition active:scale-[0.99] disabled:opacity-50 disabled:active:scale-100";
+
+  const sizes =
+    size === "sm"
+      ? "rounded-2xl px-4 py-2 text-xs"
+      : size === "lg"
+        ? "rounded-2xl px-5 py-3.5 text-sm"
+        : "rounded-2xl px-5 py-3 text-sm";
+
+  const styles =
+    variant === "primary"
+      ? "text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+      : variant === "secondary"
+        ? "bg-white border border-biz-line text-biz-ink shadow-soft"
+        : variant === "soft"
+          ? "bg-biz-cream text-biz-ink border border-transparent shadow-soft"
+          : variant === "danger"
+            ? "bg-red-600 text-white shadow-float"
+            : "bg-transparent text-biz-ink border border-transparent";
+
+  return (
+    <button
+      type={type || "button"}
+      className={cn(base, sizes, styles, className)}
+      disabled={disabled || loading}
+      {...props}
+    >
+      {loading ? (
+        <span
+          className="h-4 w-4 rounded-full border-2 border-current/40 border-t-current animate-spin"
+          aria-label="loading"
+        />
+      ) : leftIcon ? (
+        <span className="shrink-0">{leftIcon}</span>
+      ) : null}
+
+      <span>{children}</span>
+    </button>
+  );
+}
+
+// FILE: src/components/ui/SectionCard.tsx
+import { Card } from "@/components/Card";
+import { cn } from "@/lib/cn";
+
+export function SectionCard({
+  title,
+  subtitle,
+  right,
+  children,
+  className,
+}: {
+  title: string;
+  subtitle?: string;
+  right?: React.ReactNode;
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <Card className={cn("p-4", className)}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="font-bold text-biz-ink">{title}</p>
+          {subtitle ? (
+            <p className="text-xs text-biz-muted mt-1">{subtitle}</p>
+          ) : null}
+        </div>
+
+        {right ? <div className="shrink-0">{right}</div> : null}
+      </div>
+
+      <div className="mt-3">{children}</div>
+    </Card>
+  );
+}
+
+// FILE: src/components/vendor/VendorAccessGate.tsx
+// FILE: src/components/vendor/VendorAccessGate.tsx
+"use client";
+
+/**
+ * Batch 8 change:
+ * - No more hard redirect/lock to subscription screen.
+ * - Vendors stay inside the app; features are gated softly/hard-blocked per feature.
+ */
+export function VendorAccessGate({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}
+
+// FILE: src/components/vendor/VendorBottomNav.tsx
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import {
+  LayoutDashboard,
+  Package,
+  ClipboardList,
+  MoreHorizontal,
+} from "lucide-react";
+import { cn } from "@/lib/cn";
+
+const items = [
+  { href: "/vendor", label: "Dashboard", Icon: LayoutDashboard, exact: true },
+  { href: "/vendor/products", label: "Products", Icon: Package },
+  { href: "/vendor/orders", label: "Orders", Icon: ClipboardList },
+  { href: "/vendor/more", label: "More", Icon: MoreHorizontal },
+];
+
+export function VendorBottomNav() {
+  const pathname = usePathname();
+
+  return (
+    <div className="fixed bottom-0 left-0 right-0 z-50">
+      <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+        <div className="rounded-3xl border border-biz-line bg-white/90 backdrop-blur shadow-float px-2 py-2 flex">
+          {items.map(({ href, label, Icon, exact }) => {
+            // Fix: Dashboard should NOT match every /vendor/* route
+            const active = exact
+              ? pathname === href || pathname === href + "/"
+              : pathname === href || pathname.startsWith(href + "/");
+
+            return (
+              <Link
+                key={href}
+                href={href}
+                className={cn(
+                  "flex-1 py-2 flex flex-col items-center justify-center gap-1 rounded-2xl transition",
+                  active ? "bg-biz-cream" : "hover:bg-black/5"
+                )}
+              >
+                <Icon
+                  className={cn(
+                    "h-5 w-5",
+                    active ? "text-biz-accent" : "text-gray-500"
+                  )}
+                />
+                <span
+                  className={cn(
+                    "text-[11px]",
+                    active ? "font-bold text-biz-accent" : "text-gray-500"
+                  )}
+                >
+                  {label}
+                </span>
+
+                <span
+                  className={cn(
+                    "h-1 w-6 rounded-full transition",
+                    active
+                      ? "bg-gradient-to-r from-biz-accent2 to-biz-accent"
+                      : "bg-transparent"
+                  )}
+                />
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// FILE: src/components/vendor/VendorShell.tsx
+"use client";
+
+import { usePathname } from "next/navigation";
+import { VendorBottomNav } from "@/components/vendor/VendorBottomNav";
+
+export function VendorShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+
+  // When locked, user will be on /vendor/subscription (or summary).
+  // Hide the vendor bottom nav there so the screen is â€œsubscription-onlyâ€.
+  const hideNav = pathname.startsWith("/vendor/subscription");
+
+  return (
+    <div className="min-h-screen">
+      <div className={hideNav ? "pb-6" : "pb-24"}>{children}</div>
+      {hideNav ? null : <VendorBottomNav />}
+    </div>
+  );
+}
+
+

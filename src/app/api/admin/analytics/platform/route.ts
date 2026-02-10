@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { dayKeysBetween, fetchPlatformDailyMetrics, monthRangeFromYYYYMM } from "@/lib/metrics/daily";
@@ -106,7 +106,7 @@ export async function GET(req: Request) {
       views: delta(Number(todayRow.views || 0), Number(yRow.views || 0)),
     } : null;
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       window: { range, month: month || null, startMs, endMs },
       totals: {
@@ -120,6 +120,6 @@ export async function GET(req: Request) {
       series, // per-day chart data
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

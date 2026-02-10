@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 import { groqPageHelp } from "@/lib/ai/groqPageHelp";
 
@@ -23,8 +23,8 @@ export async function POST(req: Request) {
     const pageHint = clamp(body?.pageHint, 600);
     const question = clamp(body?.question, 500);
 
-    if (!path) return NextResponse.json({ ok: false, error: "Missing path" }, { status: 400 });
-    if (!question) return NextResponse.json({ ok: false, error: "Missing question" }, { status: 400 });
+    if (!path) return Response.json({ ok: false, error: "Missing path" }, { status: 400 });
+    if (!question) return Response.json({ ok: false, error: "Missing question" }, { status: 400 });
 
     const out = await groqPageHelp({
       path,
@@ -33,8 +33,8 @@ export async function POST(req: Request) {
       question,
     });
 
-    return NextResponse.json({ ok: true, ...out });
+    return Response.json({ ok: true, ...out });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

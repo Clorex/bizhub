@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
 import { getVendorLimitsResolved } from "@/lib/vendor/limitsServer";
@@ -40,20 +40,20 @@ async function uploadToCloudinary(opts: { buffer: Buffer; folder: string; public
   });
 }
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: string }> }) {
+export async function POST(req: Request, ctx: { params: Promise<{ orderId: string }> }) {
   try {
     const { orderId } = await ctx.params;
     const orderIdClean = String(orderId || "").trim();
-    if (!orderIdClean) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+    if (!orderIdClean) return Response.json({ ok: false, error: "Missing orderId" }, { status: 400 });
 
     const orderRef = adminDb.collection("orders").doc(orderIdClean);
     const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+    if (!orderSnap.exists) return Response.json({ ok: false, error: "Order not found" }, { status: 404 });
 
     const o = orderSnap.data() as any;
 
     const businessId = String(o?.businessId || "");
-    if (!businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     // store must be active / unlocked
     await requireVendorUnlocked(businessId);
@@ -61,21 +61,21 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     // ✅ packages-controlled security
     const access = await getVendorLimitsResolved(businessId);
     if (!access?.hasActiveSubscription) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "This store does not currently accept proof uploads." },
         { status: 403 }
       );
     }
 
     if (!access?.features?.proofOfPayment) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Proof-of-payment upload is not available for this store." },
         { status: 403 }
       );
     }
 
     if (String(o?.paymentType || "") !== "direct_transfer") {
-      return NextResponse.json({ ok: false, error: "This order is not a bank transfer order." }, { status: 400 });
+      return Response.json({ ok: false, error: "This order is not a bank transfer order." }, { status: 400 });
     }
 
     const form = await req.formData();
@@ -92,17 +92,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     const emailOk = !!lowerEmail(orderEmail) && lowerEmail(customerEmail) === lowerEmail(orderEmail);
 
     if (!phoneOk && !emailOk) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: "Customer details do not match this order. Use the same phone/email used for the order." },
         { status: 403 }
       );
     }
 
-    if (!f) return NextResponse.json({ ok: false, error: "Missing file" }, { status: 400 });
+    if (!f) return Response.json({ ok: false, error: "Missing file" }, { status: 400 });
 
     const maxBytes = 5 * 1024 * 1024; // 5MB
     if (typeof (f as any)?.size === "number" && (f as any).size > maxBytes) {
-      return NextResponse.json({ ok: false, error: "File too large. Max 5MB." }, { status: 400 });
+      return Response.json({ ok: false, error: "File too large. Max 5MB." }, { status: 400 });
     }
 
     const contentType = String((f as any)?.type || "application/octet-stream");
@@ -121,7 +121,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     const format = String(up?.format || "");
 
     if (!secureUrl || !cloudPublicId) {
-      return NextResponse.json({ ok: false, error: "Upload failed. Try again." }, { status: 500 });
+      return Response.json({ ok: false, error: "Upload failed. Try again." }, { status: 500 });
     }
 
     await orderRef.set(
@@ -152,17 +152,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
       { merge: true }
     );
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       proof: { status: "submitted", uploadedAtMs: now, originalName, secureUrl },
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "VENDOR_LOCKED", error: "This store is not currently accepting proof uploads." },
         { status: 403 }
       );
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

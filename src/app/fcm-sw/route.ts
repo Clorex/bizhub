@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -63,7 +63,7 @@ self.addEventListener("notificationclick", (event) => {
 });
 `;
 
-  return new NextResponse(js, {
+  return new Response(js, {
     headers: {
       "Content-Type": "application/javascript; charset=utf-8",
       "Cache-Control": "no-store",

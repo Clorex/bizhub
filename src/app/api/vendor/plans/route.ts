@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/plans/route.ts
-import { NextResponse } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 import { getPlanConfig, fallbackPlanConfig, type BizhubPlanKey } from "@/lib/vendor/planConfigServer";
 import { addonsForPlan } from "@/lib/vendor/addons/catalog";
@@ -203,8 +203,8 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({ ok: true, plans: plansOut });
+    return Response.json({ ok: true, plans: plansOut });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

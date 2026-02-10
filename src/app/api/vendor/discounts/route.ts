@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -66,7 +66,7 @@ async function commitBatches(writes: Array<{ ref: FirebaseFirestore.DocumentRefe
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -80,7 +80,7 @@ export async function GET(req: Request) {
       .map((d) => ({ id: d.id, ...(d.data() as any) }))
       .sort((a, b) => Number(b.createdAtMs || 0) - Number(a.createdAtMs || 0));
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       meta: {
         planKey,
@@ -93,16 +93,16 @@ export async function GET(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -126,9 +126,9 @@ export async function POST(req: Request) {
 
     const productIds = cleanProductIds(body.productIds);
 
-    if (productIds.length < 1) return NextResponse.json({ ok: false, error: "Select at least 1 product" }, { status: 400 });
+    if (productIds.length < 1) return Response.json({ ok: false, error: "Select at least 1 product" }, { status: 400 });
     if (productIds.length > cap) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "PLAN_LIMIT", error: `Your plan allows sales on up to ${cap} products.`, limit: cap },
         { status: 403 }
       );
@@ -138,14 +138,14 @@ export async function POST(req: Request) {
 
     // Scheduled sales only for Momentum/Apex
     if (startsAtMs && startsAtMs > nowMs && !canSchedule(planKey)) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Scheduled sales are available on Momentum and Apex." },
         { status: 403 }
       );
     }
 
     if (startsAtMs && endsAtMs && endsAtMs <= startsAtMs) {
-      return NextResponse.json({ ok: false, error: "End date must be after start date" }, { status: 400 });
+      return Response.json({ ok: false, error: "End date must be after start date" }, { status: 400 });
     }
 
     const discountRef = discountId
@@ -238,11 +238,11 @@ export async function POST(req: Request) {
 
     await commitBatches(writes);
 
-    return NextResponse.json({ ok: true, discountId: discountIdFinal });
+    return Response.json({ ok: true, discountId: discountIdFinal });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

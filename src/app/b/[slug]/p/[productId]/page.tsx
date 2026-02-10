@@ -1,20 +1,27 @@
-// FILE: src/app/b/[slug]/p/[productId]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { CloudImage } from "@/components/CloudImage";
 import { db } from "@/lib/firebase/client";
 import { doc, getDoc } from "firebase/firestore";
 import { useCart } from "@/lib/cart/CartContext";
 import { track } from "@/lib/track/client";
-import { Button } from "@/components/ui/Button";
-import { SectionCard } from "@/components/ui/SectionCard";
-import { Input } from "@/components/ui/Input";
-import { CloudImage } from "@/components/CloudImage";
-import { BadgeCheck } from "lucide-react";
 import { toast } from "@/lib/ui/toast";
+import {
+  BadgeCheck,
+  ShoppingCart,
+  Package,
+  Truck,
+  MessageCircle,
+  AlertCircle,
+  Tag,
+} from "lucide-react";
 import {
   normalizeCoverAspect,
   coverAspectToTailwindClass,
@@ -67,16 +74,12 @@ function makeClientOrderId() {
   return `chat_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 }
 
-/** --- Sale helpers (display + client pricing) --- */
 function saleIsActive(p: any, now = Date.now()) {
   if (p?.saleActive !== true) return false;
-
   const start = Number(p?.saleStartsAtMs || 0);
   const end = Number(p?.saleEndsAtMs || 0);
-
   if (start && now < start) return false;
   if (end && now > end) return false;
-
   const t = String(p?.saleType || "");
   return t === "percent" || t === "fixed";
 }
@@ -85,13 +88,11 @@ function computeSalePriceNgn(p: any) {
   const base = Number(p?.price || 0);
   if (!Number.isFinite(base) || base <= 0) return 0;
   if (!saleIsActive(p)) return Math.floor(base);
-
   const t = String(p?.saleType || "");
   if (t === "fixed") {
     const off = Number(p?.saleAmountOffNgn || 0);
     return Math.max(0, Math.floor(base - Math.max(0, off)));
   }
-
   const pct = Math.max(0, Math.min(90, Number(p?.salePercent || 0)));
   const off = Math.floor((base * pct) / 100);
   return Math.max(0, Math.floor(base - off));
@@ -148,7 +149,10 @@ export default function ProductPage() {
   const [chatAvail, setChatAvail] = useState<ChatAvailability | null>(null);
 
   const images: string[] = useMemo(() => (Array.isArray(p?.images) ? p.images : []), [p]);
-  const optionGroups: OptionGroup[] = useMemo(() => (Array.isArray(p?.optionGroups) ? p.optionGroups : []), [p]);
+  const optionGroups: OptionGroup[] = useMemo(
+    () => (Array.isArray(p?.optionGroups) ? p.optionGroups : []),
+    [p]
+  );
 
   const coverAspect: CoverAspectKey = normalizeCoverAspect(p?.coverAspect) ?? "1:1";
   const coverAspectClass = coverAspectToTailwindClass(coverAspect);
@@ -212,9 +216,9 @@ export default function ProductPage() {
     return q >= 1;
   }, [qty, p, canChat, bookOnly, outOfStock, shippingRequired, selectedShipping, deliveryLocation]);
 
+  // Load trust badge
   useEffect(() => {
     let mounted = true;
-
     fetch(`/api/public/store/${encodeURIComponent(slug)}/trust`)
       .then((r) => r.json())
       .then((j) => {
@@ -222,12 +226,12 @@ export default function ProductPage() {
         setStoreTrustBadge(trustBadgeTypeFromTrust(j));
       })
       .catch(() => {});
-
     return () => {
       mounted = false;
     };
   }, [slug]);
 
+  // Load product
   useEffect(() => {
     let mounted = true;
 
@@ -244,7 +248,6 @@ export default function ProductPage() {
         }
 
         const data = { id: snap.id, ...snap.data() } as any;
-
         const productSlug = String(data?.businessSlug || "");
         if (productSlug && productSlug !== slug) {
           setMsg("This listing does not belong to this vendor.");
@@ -277,6 +280,7 @@ export default function ProductPage() {
     };
   }, [productId, slug]);
 
+  // Load shipping
   useEffect(() => {
     let mounted = true;
 
@@ -292,7 +296,6 @@ export default function ProductPage() {
         if (!mounted) return;
 
         setShippingOptions(opts);
-
         if (opts.length > 0) {
           setSelectedShipId(String(opts[0].id));
         } else {
@@ -314,6 +317,7 @@ export default function ProductPage() {
     };
   }, [slug]);
 
+  // Load chat availability
   useEffect(() => {
     let mounted = true;
 
@@ -345,7 +349,6 @@ export default function ProductPage() {
 
   function add() {
     if (!p) return;
-
     addToCart(
       slug,
       {
@@ -357,12 +360,11 @@ export default function ProductPage() {
       },
       1
     );
-
     toast.success("Added to cart.");
   }
 
   function bookOnlyHandler() {
-    toast.info("To book this service, you’ll message the vendor on WhatsApp from the vendor page.");
+    toast.info("To book this service, you'll message the vendor on WhatsApp from the vendor page.");
     router.push(`/b/${slug}`);
   }
 
@@ -446,7 +448,6 @@ export default function ProductPage() {
       }
 
       if (selectedShipping) lines.push(`Estimated shipping fee: ${fmtNaira(shippingFeeNgn)}`);
-
       lines.push(`Estimated total: ${fmtNaira(estimatedTotalNgn)}`);
       lines.push(``);
       lines.push(`myBizHub chat order ref: ${refShort}`);
@@ -457,24 +458,26 @@ export default function ProductPage() {
     }
   }
 
-  const activeUrl = images.length ? images[Math.max(0, Math.min(activeImg, images.length - 1))] : "";
-
+  const activeUrl = images.length
+    ? images[Math.max(0, Math.min(activeImg, images.length - 1))]
+    : "";
   const mainWH = coverAspectToWH(coverAspect, 980);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50/30">
       <GradientHeader
         title={listingType === "service" ? "Service" : "Product"}
         showBack={true}
         subtitle={slug ? `Vendor: ${slug}` : undefined}
         right={
           <button
-            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft relative"
+            className="relative flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm"
             onClick={() => router.push("/cart")}
           >
+            <ShoppingCart className="h-3.5 w-3.5" />
             Cart
             {cartCount > 0 ? (
-              <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-biz-accent text-white text-[10px] font-extrabold flex items-center justify-center">
+              <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center">
                 {cartCount}
               </span>
             ) : null}
@@ -482,14 +485,44 @@ export default function ProductPage() {
         }
       />
 
-      <div className="px-4 pb-24 space-y-3">
-        {loading ? <Card className="p-4">Loading…</Card> : null}
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+      <div className="px-4 pb-32 space-y-4">
+        {/* Loading skeleton */}
+        {loading ? (
+          <>
+            <Card className="p-4">
+              <div className="aspect-square w-full rounded-3xl bg-gray-100 animate-pulse" />
+              <div className="mt-4 space-y-2">
+                <div className="h-5 w-3/4 rounded bg-gray-100 animate-pulse" />
+                <div className="h-4 w-1/3 rounded bg-gray-100 animate-pulse" />
+                <div className="h-3 w-full rounded bg-gray-100 animate-pulse" />
+                <div className="h-3 w-2/3 rounded bg-gray-100 animate-pulse" />
+              </div>
+            </Card>
+          </>
+        ) : null}
+
+        {/* Error */}
+        {msg && !loading ? (
+          <Card className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-red-700">Error</p>
+                <p className="text-xs text-gray-500 mt-0.5">{msg}</p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
 
         {!loading && p ? (
           <>
+            {/* Product image + details */}
             <Card className="p-4">
-              <div className={`${coverAspectClass} w-full rounded-3xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
+              <div
+                className={`${coverAspectClass} w-full rounded-3xl bg-gradient-to-br from-gray-100 to-gray-50 overflow-hidden relative`}
+              >
                 {activeUrl ? (
                   <CloudImage
                     src={activeUrl}
@@ -501,16 +534,20 @@ export default function ProductPage() {
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No image</div>
+                  <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">
+                    <Package className="h-8 w-8 text-gray-300" />
+                  </div>
                 )}
 
                 {onSale ? (
-                  <div className="absolute top-3 left-3 px-3 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <Tag className="h-3 w-3" />
                     {saleBadgeText(p)}
                   </div>
                 ) : null}
               </div>
 
+              {/* Thumbnail strip */}
               {images.length > 1 ? (
                 <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                   {images.slice(0, 10).map((u, idx) => {
@@ -521,78 +558,110 @@ export default function ProductPage() {
                         type="button"
                         onClick={() => setActiveImg(idx)}
                         className={[
-                          "h-14 w-14 rounded-2xl overflow-hidden border shrink-0",
-                          active ? "border-biz-accent shadow-soft" : "border-biz-line bg-white",
+                          "h-14 w-14 rounded-2xl overflow-hidden border-2 shrink-0 transition",
+                          active
+                            ? "border-orange-400 shadow-sm"
+                            : "border-gray-100 bg-white",
                         ].join(" ")}
                         aria-label={`Image ${idx + 1}`}
                       >
-                        <CloudImage src={u} alt={`Preview ${idx + 1}`} w={160} h={160} sizes="56px" className="h-full w-full object-cover" />
+                        <CloudImage
+                          src={u}
+                          alt={`Preview ${idx + 1}`}
+                          w={160}
+                          h={160}
+                          sizes="56px"
+                          className="h-full w-full object-cover"
+                        />
                       </button>
                     );
                   })}
                 </div>
               ) : null}
 
-              <div className="mt-3 flex items-center gap-2 flex-wrap">
-                <p className="text-lg font-extrabold text-biz-ink">{p?.name}</p>
+              {/* Name + trust badge */}
+              <div className="mt-4 flex items-center gap-2 flex-wrap">
+                <p className="text-lg font-bold text-gray-900">{p?.name}</p>
 
                 {storeTrustBadge === "earned_apex" ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
-                    <BadgeCheck className="h-4 w-4" />
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <BadgeCheck className="h-3.5 w-3.5" />
                     Verified Apex
                   </span>
                 ) : null}
 
                 {storeTrustBadge === "temporary_apex" ? (
-                  <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-extrabold bg-white text-orange-700 border border-orange-200">
-                    <BadgeCheck className="h-4 w-4" />
-                    Apex (Temporary)
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    Apex
                   </span>
                 ) : null}
               </div>
 
-              <div className="mt-1 text-sm text-gray-700">
+              {/* Price */}
+              <div className="mt-2">
                 {bookOnly ? (
-                  "Book only"
+                  <p className="text-sm font-medium text-gray-500">Book only</p>
                 ) : onSale ? (
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="line-through text-gray-400">{fmtNaira(baseUnitPriceNgn)}</span>
-                    <span className="font-extrabold text-emerald-700">{fmtNaira(unitPriceNgn)}</span>
+                    <span className="text-sm line-through text-gray-400">
+                      {fmtNaira(baseUnitPriceNgn)}
+                    </span>
+                    <span className="text-lg font-black text-emerald-600">
+                      {fmtNaira(unitPriceNgn)}
+                    </span>
                   </div>
                 ) : (
-                  fmtNaira(baseUnitPriceNgn)
+                  <p className="text-lg font-black text-gray-900">
+                    {fmtNaira(baseUnitPriceNgn)}
+                  </p>
                 )}
               </div>
 
-              <div className="mt-2 flex items-center justify-between text-xs text-biz-muted">
-                <span>
+              {/* Stock / type + packaging */}
+              <div className="mt-3 flex items-center gap-4">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <Package className="h-3.5 w-3.5" />
                   {listingType === "product" ? (
-                    <>
-                      Stock: <b className="text-biz-ink">{Number(p?.stock ?? 0)}</b>
-                    </>
+                    <span>
+                      Stock: <span className="font-semibold text-gray-900">{Number(p?.stock ?? 0)}</span>
+                    </span>
                   ) : (
-                    <>
-                      Type: <b className="text-biz-ink">Service</b>
-                    </>
+                    <span>
+                      Type: <span className="font-semibold text-gray-900">Service</span>
+                    </span>
                   )}
-                </span>
-                <span>
-                  Packaging: <b className="text-biz-ink">{p?.packaging || "—"}</b>
-                </span>
+                </div>
+                <div className="text-xs text-gray-500">
+                  Packaging:{" "}
+                  <span className="font-semibold text-gray-900">{p?.packaging || "—"}</span>
+                </div>
               </div>
 
-              {p?.description ? <p className="mt-3 text-sm text-gray-700 whitespace-pre-wrap">{String(p.description)}</p> : null}
+              {/* Description */}
+              {p?.description ? (
+                <p className="mt-4 text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+                  {String(p.description)}
+                </p>
+              ) : null}
             </Card>
 
+            {/* Options / Variations */}
             {optionGroups.length ? (
-              <SectionCard title="Variations" subtitle="Optional choices (price/stock stays the same)">
+              <SectionCard
+                title="Variations"
+                subtitle="Optional choices (price/stock stays the same)"
+              >
                 <div className="space-y-4">
                   {optionGroups.map((g) => (
                     <div key={g.name}>
                       <div className="flex items-center justify-between">
-                        <p className="text-sm font-extrabold text-biz-ink">{g.name}</p>
+                        <p className="text-sm font-bold text-gray-900">{g.name}</p>
                         {selected[g.name] ? (
-                          <button className="text-xs font-extrabold text-biz-accent" onClick={() => pick(g.name, selected[g.name])}>
+                          <button
+                            className="text-xs font-semibold text-orange-600"
+                            onClick={() => pick(g.name, selected[g.name])}
+                          >
                             Clear
                           </button>
                         ) : null}
@@ -607,8 +676,8 @@ export default function ProductPage() {
                               onClick={() => pick(g.name, v)}
                               className={
                                 active
-                                  ? "px-4 py-2 rounded-full text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent"
-                                  : "px-4 py-2 rounded-full text-xs font-extrabold bg-biz-cream text-biz-ink"
+                                  ? "px-4 py-2 rounded-full text-xs font-bold text-white bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm"
+                                  : "px-4 py-2 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
                               }
                             >
                               {v}
@@ -622,6 +691,81 @@ export default function ProductPage() {
               </SectionCard>
             ) : null}
 
+            {/* Shipping options */}
+            {shippingOptions.length > 0 ? (
+              <SectionCard title="Delivery" subtitle="Select a delivery or pickup option">
+                <div className="space-y-2">
+                  {shippingOptions.map((opt) => {
+                    const active = selectedShipId === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setSelectedShipId(opt.id)}
+                        className={[
+                          "w-full text-left rounded-2xl border p-3 transition",
+                          active
+                            ? "border-orange-300 ring-2 ring-orange-100"
+                            : "border-gray-100 hover:bg-gray-50/50",
+                        ].join(" ")}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={[
+                              "mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center",
+                              active ? "border-orange-500" : "border-gray-300",
+                            ].join(" ")}
+                          >
+                            {active ? (
+                              <div className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+                            ) : null}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Truck className="h-3.5 w-3.5 text-gray-400" />
+                              <p className="text-sm font-bold text-gray-900">{opt.name}</p>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 capitalize">
+                                {opt.type}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Fee: {opt.feeKobo === 0 ? "Free" : fmtNaira(opt.feeKobo / 100)}
+                              {opt.etaDays ? ` · ${opt.etaDays} day${opt.etaDays > 1 ? "s" : ""}` : ""}
+                            </p>
+                            {opt.areasText ? (
+                              <p className="text-[11px] text-gray-400 mt-0.5">{opt.areasText}</p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Delivery location input */}
+                {selectedShipping && selectedShipping.type !== "pickup" ? (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Delivery location
+                    </label>
+                    <Input
+                      placeholder="Enter your delivery address"
+                      value={deliveryLocation}
+                      onChange={(e) => setDeliveryLocation(e.target.value)}
+                    />
+                  </div>
+                ) : null}
+              </SectionCard>
+            ) : null}
+
+            {shipMsg ? (
+              <Card className="p-3">
+                <p className="text-xs text-gray-500">{shipMsg}</p>
+              </Card>
+            ) : null}
+
+            {/* Fixed bottom CTA */}
             <div className="fixed bottom-0 left-0 right-0 z-40">
               <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
                 <Card className="p-4 space-y-2">
@@ -630,14 +774,17 @@ export default function ProductPage() {
                   ) : canChat ? (
                     <>
                       <Button onClick={continueInChatQuickOrder} disabled={!canQuickOrderChat}>
+                        <MessageCircle className="h-4 w-4 mr-1.5" />
                         Continue in Chat
                       </Button>
                       <Button variant="secondary" onClick={add} disabled={outOfStock}>
+                        <ShoppingCart className="h-4 w-4 mr-1.5" />
                         {outOfStock ? "Out of stock" : "Add to cart"}
                       </Button>
                     </>
                   ) : (
                     <Button onClick={add} disabled={outOfStock}>
+                      <ShoppingCart className="h-4 w-4 mr-1.5" />
                       {outOfStock ? "Out of stock" : "Add to cart"}
                     </Button>
                   )}
@@ -647,8 +794,8 @@ export default function ProductPage() {
                   </Button>
 
                   {canChat && !canQuickOrderChat ? (
-                    <p className="text-[11px] text-biz-muted">
-                      Select delivery option and enter delivery location (for delivery) to continue in chat.
+                    <p className="text-[11px] text-gray-400 text-center">
+                      Select delivery option and enter delivery location to continue in chat.
                     </p>
                   ) : null}
                 </Card>

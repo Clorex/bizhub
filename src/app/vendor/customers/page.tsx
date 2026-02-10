@@ -1,479 +1,505 @@
+// FILE: src/app/vendor/customers/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { IconButton } from "@/components/ui/IconButton";
+import { VendorEmptyState } from "@/components/vendor/EmptyState";
+import { ListSkeleton } from "@/components/vendor/PageSkeleton";
 import { auth } from "@/lib/firebase/client";
-import { useRouter } from "next/navigation";
-import { RefreshCw, Download } from "lucide-react";
+import { toast } from "@/lib/ui/toast";
+import { cn } from "@/lib/cn";
+
+import {
+  RefreshCw,
+  Download,
+  Search,
+  Users,
+  Star,
+  AlertTriangle,
+  DollarSign,
+  Clock,
+  ChevronDown,
+  ChevronUp,
+  Save,
+  Lock,
+  Zap,
+  X,
+  Phone,
+  Mail,
+  ShoppingCart,
+  Plus,
+  MessageCircle,
+  ChevronRight,
+} from "lucide-react";
+
+/* ─────────────────────── Helpers ─────────────────────── */
 
 function fmtNaira(n: number) {
-  try {
-    return `₦${Number(n || 0).toLocaleString()}`;
-  } catch {
-    return `₦${n}`;
-  }
+  try { return `₦${Number(n || 0).toLocaleString("en-NG")}`; }
+  catch { return `₦${n}`; }
 }
 
-function fmtDateMs(ms?: number) {
+function fmtDate(ms?: number) {
   if (!ms) return "—";
   try {
-    return new Date(ms).toLocaleString();
-  } catch {
-    return String(ms);
-  }
+    return new Date(ms).toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" });
+  } catch { return "—"; }
 }
 
-function Chip({ children, tone }: { children: any; tone: "green" | "orange" | "red" | "gray" }) {
-  const cls =
-    tone === "green"
-      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-      : tone === "orange"
-        ? "bg-orange-50 text-orange-700 border-orange-100"
-        : tone === "red"
-          ? "bg-rose-50 text-rose-700 border-rose-100"
-          : "bg-gray-50 text-gray-700 border-gray-100";
-
-  return <span className={`px-2 py-1 rounded-full text-[11px] font-bold border ${cls}`}>{children}</span>;
-}
+/* ─────────────────────── Main Component ─────────────────────── */
 
 export default function VendorCustomersPage() {
   const router = useRouter();
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  const [msg, setMsg] = useState<string | null>(null);
   const [meta, setMeta] = useState<any>(null);
   const [customers, setCustomers] = useState<any[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  const [q, setQ] = useState("");
-  const [includeContactsOptedOut, setIncludeContactsOptedOut] = useState(false);
+  // Notes state
+  const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
+  const [savingNotes, setSavingNotes] = useState<string | null>(null);
 
-  // Notes UI state
-  const [openNotesKey, setOpenNotesKey] = useState<string | null>(null);
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-
-  async function authedFetchJson(path: string, init?: RequestInit) {
+  /* ─── Authed fetch ─── */
+  const authedFetch = useCallback(async (path: string, init?: RequestInit) => {
     const token = await auth.currentUser?.getIdToken();
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
-
-    const isJsonBody = init?.body && !(init.body instanceof FormData);
-    if (isJsonBody) headers["Content-Type"] = "application/json";
-
-    const r = await fetch(path, {
-      ...init,
-      headers: { ...headers, ...(init?.headers as any) },
-    });
-
+    if (init?.body && !(init.body instanceof FormData)) {
+      headers["Content-Type"] = "application/json";
+    }
+    const r = await fetch(path, { ...init, headers: { ...headers, ...(init?.headers as any) } });
     const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    if (!r.ok) throw new Error(data?.error || "Request failed");
     return data;
-  }
+  }, []);
 
-  async function load() {
+  /* ─── Load ─── */
+  const load = useCallback(async (isRefresh = false) => {
+    if (isRefresh) setRefreshing(true);
+    else setLoading(true);
+    setError(null);
+
     try {
-      setLoading(true);
-      setMsg(null);
-      const data = await authedFetchJson("/api/vendor/customers");
+      const data = await authedFetch("/api/vendor/customers");
       setCustomers(Array.isArray(data.customers) ? data.customers : []);
       setMeta(data.meta || null);
+      if (isRefresh) toast.success("Customers refreshed!");
     } catch (e: any) {
-      setMsg(e?.message || "Failed to load customers");
+      setError(e?.message || "Failed to load customers");
       setCustomers([]);
-      setMeta(null);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }
+  }, [authedFetch]);
 
-  async function exportCsv() {
+  useEffect(() => { load(); }, [load]);
+
+  /* ─── Export ─── */
+  const exportCsv = useCallback(async () => {
+    setExporting(true);
     try {
-      setExporting(true);
-      setMsg(null);
-
       const token = await auth.currentUser?.getIdToken();
-      const qs = includeContactsOptedOut ? "?includeContacts=1" : "";
-      const r = await fetch(`/api/vendor/customers/export${qs}`, {
+      const r = await fetch("/api/vendor/customers/export", {
         headers: { Authorization: `Bearer ${token}` },
       });
-
       if (!r.ok) {
         const data = await r.json().catch(() => ({}));
-        const err = String(data?.error || "Export failed");
-        setMsg(err);
-        return;
+        throw new Error(data?.error || "Export failed");
       }
-
       const blob = await r.blob();
       const cd = r.headers.get("content-disposition") || "";
-      const m = cd.match(/filename="([^"]+)"/i);
-      const filename = m?.[1] || `customers_export_${new Date().toISOString().slice(0, 10)}.csv`;
+      const match = cd.match(/filename="([^"]+)"/i);
+      const filename = match?.[1] || `customers_${new Date().toISOString().slice(0, 10)}.csv`;
 
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
+      a.href = url; a.download = filename;
+      document.body.appendChild(a); a.click(); a.remove();
       window.URL.revokeObjectURL(url);
+      toast.success("Customers exported!");
     } catch (e: any) {
-      setMsg(e?.message || "Failed to export");
+      toast.error(e?.message || "Export failed");
     } finally {
       setExporting(false);
     }
-  }
-
-  useEffect(() => {
-    load();
   }, []);
 
-  const planKey = String(meta?.planKey || "FREE");
+  /* ─── Save notes ─── */
+  const saveNotes = useCallback(async (customer: any) => {
+    setSavingNotes(customer.customerKey);
+    try {
+      const res = await authedFetch("/api/vendor/customers/notes", {
+        method: "PUT",
+        body: JSON.stringify({
+          customerKey: customer.customerKey,
+          vip: !!customer.notes?.vip,
+          debt: !!customer.notes?.debt,
+          issue: !!customer.notes?.issue,
+          note: String(customer.notes?.note || ""),
+          debtAmount: Number(customer.notes?.debtAmount || 0),
+        }),
+      });
+      setCustomers((prev) =>
+        prev.map((x) => x.customerKey === customer.customerKey ? { ...x, notes: res.note } : x)
+      );
+      toast.success("Notes saved!");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save notes");
+    } finally {
+      setSavingNotes(null);
+    }
+  }, [authedFetch]);
+
+  /* ─── Derived ─── */
+  const planKey = String(meta?.planKey || "FREE").toUpperCase();
   const exportUnlocked = !!meta?.limits?.customersExportUnlocked;
   const notesUnlocked = !!meta?.limits?.customerNotesUnlocked;
-  const visibleCap = Number(meta?.limits?.customersVisible || customers.length || 0);
+  const visibleCap = Number(meta?.limits?.customersVisible || customers.length);
 
   const filtered = useMemo(() => {
-    const s = q.trim().toLowerCase();
-    if (!s) return customers;
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return customers;
     return customers.filter((c) => {
       const name = String(c.fullName || "").toLowerCase();
       const phone = String(c.phone || "").toLowerCase();
       const email = String(c.email || "").toLowerCase();
-      return name.includes(s) || phone.includes(s) || email.includes(s);
+      return name.includes(q) || phone.includes(q) || email.includes(q);
     });
-  }, [customers, q]);
+  }, [customers, searchQuery]);
 
-  const noCustomersYet = !loading && customers.length === 0;
-  const noMatches = !loading && customers.length > 0 && filtered.length === 0;
+  const totalSpent = useMemo(
+    () => customers.reduce((sum, c) => sum + Number(c.totalSpent || 0), 0),
+    [customers]
+  );
+
+  /* ─── Update customer note field locally ─── */
+  function updateCustomerNote(key: string, field: string, value: any) {
+    setCustomers((prev) =>
+      prev.map((c) =>
+        c.customerKey === key
+          ? { ...c, notes: { ...(c.notes || {}), [field]: value } }
+          : c
+      )
+    );
+  }
+
+  /* ─── Render ─── */
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <GradientHeader title="Customers" subtitle="Loading..." showBack={true} />
+        <ListSkeleton count={4} />
+      </div>
+    );
+  }
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen pb-28 bg-gray-50">
       <GradientHeader
         title="Customers"
-        subtitle="People who bought from your store"
+        subtitle={`${customers.length} customer${customers.length !== 1 ? "s" : ""}`}
         showBack={true}
         right={
-          <IconButton aria-label="Refresh" onClick={load} disabled={loading}>
-            <RefreshCw className="h-5 w-5 text-gray-700" />
-          </IconButton>
+          <div className="flex items-center gap-2">
+            {exportUnlocked && (
+              <button
+                onClick={exportCsv}
+                disabled={exporting || customers.length === 0}
+                className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
+              >
+                <Download className={cn("w-5 h-5 text-white", exporting && "animate-pulse")} />
+              </button>
+            )}
+            <button
+              onClick={() => load(true)}
+              disabled={refreshing}
+              className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
+            >
+              <RefreshCw className={cn("w-5 h-5 text-white", refreshing && "animate-spin")} />
+            </button>
+          </div>
         }
       />
 
-      <div className="px-4 pb-24 space-y-3">
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+      <div className="px-4 space-y-4 pt-4">
+        {/* Error */}
+        {error && (
+          <Card className="p-4 bg-red-50 border-red-200">
+            <p className="text-sm font-medium text-red-800">{error}</p>
+          </Card>
+        )}
 
-        <Card className="p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="font-extrabold text-biz-ink">Overview</p>
-              <p className="text-xs text-gray-500 mt-1">
-                {customers.length} customer(s) • showing up to {visibleCap}
+        {/* Summary Card */}
+        {customers.length > 0 && (
+          <div className="grid grid-cols-3 gap-3">
+            <Card className="p-3 text-center">
+              <Users className="w-5 h-5 text-blue-600 mx-auto" />
+              <p className="text-lg font-black text-gray-900 mt-2">{customers.length}</p>
+              <p className="text-[11px] text-gray-500">Customers</p>
+            </Card>
+            <Card className="p-3 text-center">
+              <DollarSign className="w-5 h-5 text-green-600 mx-auto" />
+              <p className="text-lg font-black text-gray-900 mt-2">{fmtNaira(totalSpent)}</p>
+              <p className="text-[11px] text-gray-500">Total Spent</p>
+            </Card>
+            <Card className="p-3 text-center">
+              <ShoppingCart className="w-5 h-5 text-orange-600 mx-auto" />
+              <p className="text-lg font-black text-gray-900 mt-2">
+                {customers.reduce((s, c) => s + Number(c.ordersCount || 0), 0)}
               </p>
-              <p className="text-[11px] text-gray-500 mt-1">
-                Plan: <b className="text-biz-ink">{planKey}</b>
-              </p>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={exportCsv}
-                loading={exporting}
-                disabled={loading || exporting || !exportUnlocked}
-                leftIcon={<Download className="h-4 w-4" />}
-              >
-                Export
-              </Button>
-              <Button variant="secondary" size="sm" onClick={load} loading={loading}>
-                Refresh
-              </Button>
-            </div>
+              <p className="text-[11px] text-gray-500">Total Orders</p>
+            </Card>
           </div>
+        )}
 
-          {!exportUnlocked ? (
-            <div className="mt-3">
-              <Card variant="soft" className="p-3">
-                <p className="text-sm font-bold text-biz-ink">CSV export locked</p>
-                <p className="text-[11px] text-gray-500 mt-1">Upgrade to export customer lists.</p>
-                <div className="mt-2">
-                  <Button size="sm" onClick={() => router.push("/vendor/subscription")}>
-                    Upgrade
-                  </Button>
-                </div>
-              </Card>
-            </div>
-          ) : null}
-
-          <div className="mt-3 grid gap-2">
-            <Input placeholder="Search name / phone / email" value={q} onChange={(e) => setQ(e.target.value)} />
-
-            <button
-              type="button"
-              className="w-full rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between"
-              onClick={() => setIncludeContactsOptedOut((v) => !v)}
-              disabled={!exportUnlocked}
-            >
-              <div className="text-left">
-                <p className="text-sm font-bold text-biz-ink">Include contacts for opted-out customers</p>
-                <p className="text-[11px] text-gray-500 mt-1">Default export hides phone/email (recommended).</p>
+        {/* Export Lock Notice */}
+        {!exportUnlocked && customers.length > 0 && (
+          <Card className="p-4 bg-orange-50 border-orange-200">
+            <div className="flex items-start gap-3">
+              <Lock className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-orange-800">CSV export locked</p>
+                <p className="text-xs text-orange-600 mt-0.5">Upgrade to export your customer list.</p>
+                <Button size="sm" className="mt-2" onClick={() => router.push("/vendor/subscription")} leftIcon={<Zap className="w-4 h-4" />}>
+                  Upgrade
+                </Button>
               </div>
-              <span
-                className={
-                  includeContactsOptedOut
-                    ? "px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100"
-                    : "px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100"
-                }
+            </div>
+          </Card>
+        )}
+
+        {/* Search */}
+        <Card className="p-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search by name, phone, or email..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300"
               >
-                {includeContactsOptedOut ? "ON" : "OFF"}
-              </span>
-            </button>
+                <X className="w-3 h-3 text-gray-600" />
+              </button>
+            )}
           </div>
         </Card>
 
-        {loading ? <Card className="p-4">Loading…</Card> : null}
+        {/* Empty States */}
+        {customers.length === 0 && !error && (
+          <VendorEmptyState
+            icon={Users}
+            title="No customers yet"
+            description="Customers will appear here after your first order."
+            actions={[
+              { label: "Add Product", onClick: () => router.push("/vendor/products/new"), icon: Plus, variant: "primary" },
+              { label: "View Orders", onClick: () => router.push("/vendor/orders"), icon: ShoppingCart, variant: "secondary" },
+            ]}
+          />
+        )}
 
-        {/* ✅ Minimal empty state: no customers */}
-        {noCustomersYet ? (
-          <Card variant="soft" className="p-5">
-            <p className="text-sm font-extrabold text-biz-ink">No customers yet</p>
-            <p className="text-xs text-gray-500 mt-1">Customers will appear after your first order.</p>
+        {customers.length > 0 && filtered.length === 0 && (
+          <VendorEmptyState
+            icon={Search}
+            title="No matches"
+            description="Try a different search term."
+            compact
+            actions={[
+              { label: "Clear", onClick: () => setSearchQuery(""), variant: "secondary" },
+            ]}
+          />
+        )}
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
-              <Button variant="secondary" onClick={() => router.push("/vendor/products/new")}>
-                Add product
-              </Button>
-              <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
-                View orders
-              </Button>
-            </div>
-          </Card>
-        ) : null}
-
-        {/* ✅ Minimal empty state: no matches */}
-        {noMatches ? (
-          <Card variant="soft" className="p-5 text-center">
-            <p className="text-sm font-extrabold text-biz-ink">No matches</p>
-            <p className="text-xs text-gray-500 mt-1">Try another keyword.</p>
-            <div className="mt-4">
-              <Button variant="secondary" onClick={() => setQ("")}>
-                Clear search
-              </Button>
-            </div>
-          </Card>
-        ) : null}
-
-        <div className="space-y-2">
+        {/* Customer List */}
+        <div className="space-y-3">
           {filtered.map((c) => {
-            const opted = !!c.marketingOptedOut;
-            const scope = String(c.optOutScope || "");
+            const isExpanded = expandedCustomer === c.customerKey;
+            const hasVip = !!c.notes?.vip;
+            const hasDebt = !!c.notes?.debt;
+            const hasIssue = !!c.notes?.issue;
+            const initial = (c.fullName || c.phone || "?")[0]?.toUpperCase() || "?";
 
             return (
-              <Card key={c.customerKey} className="p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="font-extrabold text-biz-ink">{c.fullName || c.phone || c.email || "Customer"}</p>
-                    <p className="text-[11px] text-gray-500 mt-1 break-all">
-                      {c.phone || "—"} • {c.email || "—"}
-                    </p>
+              <Card key={c.customerKey} className="overflow-hidden">
+                {/* Main Row */}
+                <div className="p-4">
+                  <div className="flex items-start gap-3">
+                    {/* Avatar */}
+                    <div className={cn(
+                      "w-11 h-11 rounded-full flex items-center justify-center shrink-0 text-sm font-semibold",
+                      hasVip
+                        ? "bg-gradient-to-br from-amber-400 to-amber-600 text-white"
+                        : "bg-gradient-to-br from-gray-200 to-gray-300 text-gray-600"
+                    )}>
+                      {initial}
+                    </div>
 
-                    <p className="text-[11px] text-gray-500 mt-2">
-                      Last order: {fmtDateMs(Number(c.lastOrderMs || 0))} • Orders:{" "}
-                      <b className="text-biz-ink">{Number(c.ordersCount || 0)}</b>
-                    </p>
+                    {/* Info */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">
+                        {c.fullName || c.phone || c.email || "Customer"}
+                      </p>
 
-                    {/* Notes tags + toggle */}
-                    {notesUnlocked ? (
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        {c?.notes?.vip ? <Chip tone="green">VIP</Chip> : null}
-                        {c?.notes?.debt ? <Chip tone="orange">Debt</Chip> : null}
-                        {c?.notes?.issue ? <Chip tone="red">Issue</Chip> : null}
-                        {!c?.notes?.vip && !c?.notes?.debt && !c?.notes?.issue ? <Chip tone="gray">No notes</Chip> : null}
+                      {c.phone && (
+                        <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+                          <Phone className="w-3 h-3" /> {c.phone}
+                        </p>
+                      )}
+                      {c.email && (
+                        <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 truncate">
+                          <Mail className="w-3 h-3" /> {c.email}
+                        </p>
+                      )}
 
-                        <button
-                          type="button"
-                          className="ml-auto text-[11px] font-bold text-biz-ink underline"
-                          onClick={() => setOpenNotesKey((prev) => (prev === c.customerKey ? null : c.customerKey))}
-                        >
-                          {openNotesKey === c.customerKey ? "Close" : "Notes"}
-                        </button>
+                      {/* Tags */}
+                      <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                        {hasVip && (
+                          <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold flex items-center gap-1">
+                            <Star className="w-3 h-3" /> VIP
+                          </span>
+                        )}
+                        {hasDebt && (
+                          <span className="px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 text-[10px] font-semibold">
+                            Debt {c.notes?.debtAmount ? fmtNaira(c.notes.debtAmount) : ""}
+                          </span>
+                        )}
+                        {hasIssue && (
+                          <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-semibold flex items-center gap-1">
+                            <AlertTriangle className="w-3 h-3" /> Issue
+                          </span>
+                        )}
+                        <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-[10px] font-semibold">
+                          {c.ordersCount || 0} orders
+                        </span>
                       </div>
-                    ) : (
-                      <div className="mt-2 flex items-center gap-2">
-                        <Chip tone="gray">Notes locked</Chip>
+
+                      <p className="text-[11px] text-gray-400 mt-1.5">
+                        Last order: {fmtDate(Number(c.lastOrderMs || 0))}
+                      </p>
+                    </div>
+
+                    {/* Amount + Expand */}
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-semibold text-gray-900">{fmtNaira(Number(c.totalSpent || 0))}</p>
+                      <p className="text-[11px] text-gray-400">total spent</p>
+
+                      {notesUnlocked && (
                         <button
-                          type="button"
-                          className="text-[11px] font-bold text-biz-ink underline"
-                          onClick={() => router.push("/vendor/subscription")}
+                          onClick={() => setExpandedCustomer(isExpanded ? null : c.customerKey)}
+                          className="mt-2 text-xs font-medium text-orange-600 flex items-center gap-0.5 ml-auto"
                         >
-                          Upgrade
+                          Notes
+                          {isExpanded
+                            ? <ChevronUp className="w-3.5 h-3.5" />
+                            : <ChevronDown className="w-3.5 h-3.5" />}
                         </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Notes Panel */}
+                {notesUnlocked && isExpanded && (
+                  <div className="border-t border-gray-100 bg-gray-50 p-4 space-y-3">
+                    {/* Tag Toggles */}
+                    <div className="flex flex-wrap gap-3">
+                      {[
+                        { key: "vip", label: "VIP", icon: Star },
+                        { key: "debt", label: "Debt", icon: DollarSign },
+                        { key: "issue", label: "Issue", icon: AlertTriangle },
+                      ].map(({ key, label, icon: Icon }) => (
+                        <label key={key} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={!!c.notes?.[key]}
+                            onChange={(e) => updateCustomerNote(c.customerKey, key, e.target.checked)}
+                            className="rounded border-gray-300"
+                          />
+                          <Icon className="w-3.5 h-3.5 text-gray-500" />
+                          {label}
+                        </label>
+                      ))}
+                    </div>
+
+                    {/* Debt Amount */}
+                    {c.notes?.debt && (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">
+                          Debt Amount (₦)
+                        </label>
+                        <Input
+                          inputMode="numeric"
+                          value={String(c.notes?.debtAmount ?? "")}
+                          onChange={(e) => {
+                            const v = Number(String(e.target.value).replace(/[^\d.]/g, "")) || 0;
+                            updateCustomerNote(c.customerKey, "debtAmount", v);
+                          }}
+                          placeholder="0"
+                        />
                       </div>
                     )}
 
-                    {/* Notes editor */}
-                    {notesUnlocked && openNotesKey === c.customerKey ? (
-                      <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3 space-y-3">
-                        <div className="flex flex-wrap items-center gap-3">
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={!!c?.notes?.vip}
-                              onChange={(e) => {
-                                const vip = e.target.checked;
-                                setCustomers((prev) =>
-                                  prev.map((x) =>
-                                    x.customerKey === c.customerKey ? { ...x, notes: { ...(x.notes || {}), vip } } : x
-                                  )
-                                );
-                              }}
-                            />
-                            VIP
-                          </label>
+                    {/* Note Text */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Note</label>
+                      <textarea
+                        className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 resize-none"
+                        rows={3}
+                        value={String(c.notes?.note || "")}
+                        onChange={(e) => updateCustomerNote(c.customerKey, "note", e.target.value)}
+                        placeholder="Add a private note about this customer..."
+                      />
+                    </div>
 
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={!!c?.notes?.debt}
-                              onChange={(e) => {
-                                const debt = e.target.checked;
-                                setCustomers((prev) =>
-                                  prev.map((x) =>
-                                    x.customerKey === c.customerKey
-                                      ? {
-                                          ...x,
-                                          notes: {
-                                            ...(x.notes || {}),
-                                            debt,
-                                            debtAmount: debt ? Number(x.notes?.debtAmount || 0) : 0,
-                                          },
-                                        }
-                                      : x
-                                  )
-                                );
-                              }}
-                            />
-                            Debt
-                          </label>
-
-                          <label className="flex items-center gap-2 text-sm">
-                            <input
-                              type="checkbox"
-                              checked={!!c?.notes?.issue}
-                              onChange={(e) => {
-                                const issue = e.target.checked;
-                                setCustomers((prev) =>
-                                  prev.map((x) =>
-                                    x.customerKey === c.customerKey ? { ...x, notes: { ...(x.notes || {}), issue } } : x
-                                  )
-                                );
-                              }}
-                            />
-                            Issue
-                          </label>
-                        </div>
-
-                        {c?.notes?.debt ? (
-                          <div>
-                            <p className="text-[11px] text-gray-500 mb-1 font-bold">Debt amount (₦)</p>
-                            <Input
-                              inputMode="numeric"
-                              value={String(c?.notes?.debtAmount ?? "")}
-                              onChange={(e) => {
-                                const debtAmount = Number(String(e.target.value || "0").replace(/[^\d.]/g, "")) || 0;
-                                setCustomers((prev) =>
-                                  prev.map((x) =>
-                                    x.customerKey === c.customerKey ? { ...x, notes: { ...(x.notes || {}), debtAmount } } : x
-                                  )
-                                );
-                              }}
-                              placeholder="0"
-                            />
-                          </div>
-                        ) : null}
-
-                        <div>
-                          <p className="text-[11px] text-gray-500 mb-1 font-bold">Note</p>
-                          <textarea
-                            className="w-full rounded-2xl border border-biz-line bg-white p-3 text-sm outline-none"
-                            rows={3}
-                            value={String(c?.notes?.note || "")}
-                            onChange={(e) => {
-                              const note = e.target.value;
-                              setCustomers((prev) =>
-                                prev.map((x) =>
-                                  x.customerKey === c.customerKey ? { ...x, notes: { ...(x.notes || {}), note } } : x
-                                )
-                              );
-                            }}
-                            placeholder="Add a note…"
-                          />
-                        </div>
-
-                        <Button
-                          size="sm"
-                          loading={savingKey === c.customerKey}
-                          onClick={async () => {
-                            try {
-                              setSavingKey(c.customerKey);
-                              setMsg(null);
-
-                              const payload = {
-                                customerKey: c.customerKey,
-                                vip: !!c?.notes?.vip,
-                                debt: !!c?.notes?.debt,
-                                issue: !!c?.notes?.issue,
-                                note: String(c?.notes?.note || ""),
-                                debtAmount: Number(c?.notes?.debtAmount || 0),
-                              };
-
-                              const res = await authedFetchJson("/api/vendor/customers/notes", {
-                                method: "PUT",
-                                body: JSON.stringify(payload),
-                              });
-
-                              setCustomers((prev) =>
-                                prev.map((x) => (x.customerKey === c.customerKey ? { ...x, notes: res.note } : x))
-                              );
-                            } catch (e: any) {
-                              setMsg(e?.message || "Failed to save notes");
-                            } finally {
-                              setSavingKey(null);
-                            }
-                          }}
-                        >
-                          Save notes
-                        </Button>
-
-                        {c?.notes?.updatedAtMs ? (
-                          <p className="text-[11px] text-gray-500">
-                            Last updated: {fmtDateMs(Number(c.notes.updatedAtMs || 0))}
-                          </p>
-                        ) : null}
-                      </div>
-                    ) : null}
-
-                    {opted ? (
-                      <p className="text-[11px] text-orange-700 mt-2">
-                        Marketing opt-out: <b>{scope || "yes"}</b>
-                      </p>
-                    ) : null}
+                    {/* Save */}
+                    <Button
+                      size="sm"
+                      loading={savingNotes === c.customerKey}
+                      onClick={() => saveNotes(c)}
+                      leftIcon={<Save className="w-4 h-4" />}
+                    >
+                      Save Notes
+                    </Button>
                   </div>
+                )}
 
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-extrabold text-biz-ink">{fmtNaira(Number(c.totalSpent || 0))}</p>
-                    <p className="text-[11px] text-gray-500 mt-1">Total spent</p>
+                {/* Notes locked message */}
+                {!notesUnlocked && (
+                  <div className="border-t border-gray-100 px-4 py-3 flex items-center justify-between">
+                    <span className="text-xs text-gray-400">Customer notes locked</span>
+                    <button
+                      onClick={() => router.push("/vendor/subscription")}
+                      className="text-xs font-medium text-orange-600 flex items-center gap-1"
+                    >
+                      Upgrade <ChevronRight className="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                </div>
+                )}
               </Card>
             );
           })}
         </div>
+
+        {/* Plan Info */}
+        {meta && customers.length > 0 && (
+          <p className="text-xs text-gray-400 text-center pt-2">
+            Plan: {planKey} · Showing up to {visibleCap} customers
+          </p>
+        )}
       </div>
     </div>
   );

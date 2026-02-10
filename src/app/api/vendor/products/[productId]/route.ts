@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/products/[productId]/route.ts
-import { NextResponse, type NextRequest } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -51,47 +51,47 @@ function cleanCategoryKeys(input: any): MarketCategoryKey[] {
   return out;
 }
 
-export async function GET(req: NextRequest, ctx: { params: Promise<{ productId: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ productId: string }> }) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     if (me.role === "staff") {
       const perms = await getStaffPerms(me.uid);
-      if (!perms.productsView && !perms.productsManage) return NextResponse.json({ ok: false, error: "Not authorized" }, { status: 403 });
+      if (!perms.productsView && !perms.productsManage) return Response.json({ ok: false, error: "Not authorized" }, { status: 403 });
     }
 
     const { productId } = await ctx.params;
     const { data } = await getOwnedProduct(me, String(productId || ""));
-    if (!data) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    if (!data) return Response.json({ ok: false, error: "Not found" }, { status: 404 });
 
     if (!data.coverAspect) data.coverAspect = "1:1";
     if (!Array.isArray(data.categoryKeys) || !data.categoryKeys.length) data.categoryKeys = ["other"];
     if (!data.attrs) data.attrs = { colors: [], sizes: [] };
 
-    return NextResponse.json({ ok: true, product: data });
+    return Response.json({ ok: true, product: data });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
-export async function PUT(req: NextRequest, ctx: { params: Promise<{ productId: string }> }) {
+export async function PUT(req: Request, ctx: { params: Promise<{ productId: string }> }) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     if (me.role === "staff") {
       const perms = await getStaffPerms(me.uid);
-      if (!perms.productsManage) return NextResponse.json({ ok: false, error: "Not authorized" }, { status: 403 });
+      if (!perms.productsManage) return Response.json({ ok: false, error: "Not authorized" }, { status: 403 });
     }
 
     const { productId } = await ctx.params;
     const { ref, data: existing } = await getOwnedProduct(me, String(productId || ""));
-    if (!existing) return NextResponse.json({ ok: false, error: "Not found" }, { status: 404 });
+    if (!existing) return Response.json({ ok: false, error: "Not found" }, { status: 404 });
 
     const body = await req.json().catch(() => ({}));
 
@@ -101,8 +101,8 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ productId: 
     const stock = Number(body.stock ?? existing.stock ?? 0);
     const packaging = String(body.packaging ?? existing.packaging ?? "Box");
 
-    if (!name) return NextResponse.json({ ok: false, error: "name is required" }, { status: 400 });
-    if (!(price > 0)) return NextResponse.json({ ok: false, error: "price must be > 0" }, { status: 400 });
+    if (!name) return Response.json({ ok: false, error: "name is required" }, { status: 400 });
+    if (!(price > 0)) return Response.json({ ok: false, error: "price must be > 0" }, { status: 400 });
 
     const images = cleanImages(typeof body.images !== "undefined" ? body.images : existing.images);
     const optionGroups = Array.isArray(body.optionGroups) ? body.optionGroups : existing.optionGroups || [];
@@ -141,8 +141,8 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ productId: 
       { merge: true }
     );
 
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Update failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Update failed" }, { status: 500 });
   }
 }

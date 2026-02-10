@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 
 export const runtime = "nodejs";
@@ -10,7 +10,7 @@ export async function GET(req: Request) {
     const storeSlug = String(url.searchParams.get("storeSlug") || "").trim();
 
     if (!storeSlug) {
-      return NextResponse.json({ ok: false, error: "storeSlug required" }, { status: 400 });
+      return Response.json({ ok: false, error: "storeSlug required" }, { status: 400 });
     }
 
     const bizSnap = await adminDb
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
       .limit(1)
       .get();
 
-    if (bizSnap.empty) return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
+    if (bizSnap.empty) return Response.json({ ok: false, error: "Store not found" }, { status: 404 });
 
     const bizDoc = bizSnap.docs[0];
     const businessId = bizDoc.id;
@@ -44,8 +44,8 @@ export async function GET(req: Request) {
         areasText: o.areasText || null,
       }));
 
-    return NextResponse.json({ ok: true, businessId, storeSlug, options });
+    return Response.json({ ok: true, businessId, storeSlug, options });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

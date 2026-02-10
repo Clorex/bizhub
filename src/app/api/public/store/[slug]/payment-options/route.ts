@@ -1,5 +1,5 @@
 // FILE: src/app/api/public/store/[slug]/payment-options/route.ts
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
 import { paymentsProvider } from "@/lib/payments/provider";
@@ -21,10 +21,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
   try {
     const { slug } = await ctx.params;
     const s = cleanSlug(slug);
-    if (!s) return NextResponse.json({ ok: false, error: "Missing slug" }, { status: 400 });
+    if (!s) return Response.json({ ok: false, error: "Missing slug" }, { status: 400 });
 
     const snap = await adminDb.collection("businesses").where("slug", "==", s).limit(1).get();
-    if (snap.empty) return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
+    if (snap.empty) return Response.json({ ok: false, error: "Store not found" }, { status: 404 });
 
     const bizDoc = snap.docs[0];
     const businessId = bizDoc.id;
@@ -45,7 +45,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
       (planKey === "MOMENTUM" || planKey === "APEX") &&
       usdFeature;
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       slug: s,
       businessId,
@@ -59,6 +59,6 @@ export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }
       },
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

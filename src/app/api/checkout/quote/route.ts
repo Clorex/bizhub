@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { buildQuote } from "@/lib/checkout/pricingServer";
 
 export const runtime = "nodejs";
@@ -20,8 +20,8 @@ export async function POST(req: Request) {
       shippingFeeKobo,
     });
 
-    return NextResponse.json({ ok: true, ...q });
+    return Response.json({ ok: true, ...q });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed to quote" }, { status: 400 });
+    return Response.json({ ok: false, error: e?.message || "Failed to quote" }, { status: 400 });
   }
 }

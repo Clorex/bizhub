@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireMe } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     const allow = adminEmails();
 
     if (!me.email || !allow.includes(me.email.toLowerCase())) {
-      return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+      return Response.json({ ok: false, error: "Not allowed" }, { status: 403 });
     }
 
     await adminDb.collection("users").doc(me.uid).set(
@@ -32,8 +32,8 @@ export async function POST(req: Request) {
       { merge: true }
     );
 
-    return NextResponse.json({ ok: true, role: "admin" });
+    return Response.json({ ok: true, role: "admin" });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 401 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 401 });
   }
 }

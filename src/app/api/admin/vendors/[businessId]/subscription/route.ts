@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { requireAnyRole } from "@/lib/auth/server";
 import { FieldValue } from "firebase-admin/firestore";
@@ -19,14 +19,14 @@ function cleanCycle(v: any): BizhubBillingCycle {
   return "monthly";
 }
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ businessId: string }> }) {
+export async function POST(req: Request, ctx: { params: Promise<{ businessId: string }> }) {
   try {
     // Admin only
     const me = await requireAnyRole(req, ["admin"]);
 
     const { businessId } = await ctx.params;
     const businessIdClean = String(businessId || "").trim();
-    if (!businessIdClean) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!businessIdClean) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     const body = (await req.json().catch(() => ({}))) as any;
     const action = String(body?.action || "set").toLowerCase(); // set | clear
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ businessId
 
     const ref = adminDb.collection("businesses").doc(businessIdClean);
     const snap = await ref.get();
-    if (!snap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+    if (!snap.exists) return Response.json({ ok: false, error: "Business not found" }, { status: 404 });
 
     if (action === "clear") {
       await ref.set(
@@ -60,14 +60,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ businessId
         byUid: me.uid || null,
       });
 
-      return NextResponse.json({ ok: true });
+      return Response.json({ ok: true });
     }
 
     const planKey = cleanPlanKey(body?.planKey);
     const cycle = cleanCycle(body?.cycle);
 
     if (planKey === "FREE") {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: "Use action=clear to remove subscription, or set LAUNCH/MOMENTUM/APEX." },
         { status: 400 }
       );
@@ -109,8 +109,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ businessId
       byUid: me.uid || null,
     });
 
-    return NextResponse.json({ ok: true, planKey, cycle, startedAtMs, expiresAtMs });
+    return Response.json({ ok: true, planKey, cycle, startedAtMs, expiresAtMs });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

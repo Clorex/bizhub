@@ -1,5 +1,5 @@
 // FILE: src/app/api/marketing/optout/route.ts
-import { NextResponse } from "next/server";
+
 import { requireMe } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -26,9 +26,9 @@ export async function GET(req: Request) {
       ? prefs.storeOptOutSlugs.map(String).filter(Boolean).slice(0, 500)
       : [];
 
-    return NextResponse.json({ ok: true, globalOptOut, storeOptOutSlugs });
+    return Response.json({ ok: true, globalOptOut, storeOptOutSlugs });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
+    return Response.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
   }
 }
 
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     const storeSlug = cleanSlug(body.storeSlug);
     const optOut = body.optOut === true;
 
-    if (!storeSlug) return NextResponse.json({ ok: false, error: "storeSlug required" }, { status: 400 });
+    if (!storeSlug) return Response.json({ ok: false, error: "storeSlug required" }, { status: 400 });
 
     const ref = adminDb.collection("users").doc(me.uid);
 
@@ -71,8 +71,8 @@ export async function POST(req: Request) {
       );
     });
 
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

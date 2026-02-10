@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/purchases/initialize/route.ts
-import { NextResponse } from "next/server";
+
 import crypto from "node:crypto";
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
@@ -74,16 +74,16 @@ function genReference() {
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     const body = await req.json().catch(() => ({} as any));
     const sku = String(body.sku || "").trim();
     const cycle = cleanCycle(body.cycle);
 
-    if (!sku) return NextResponse.json({ ok: false, error: "sku is required" }, { status: 400 });
+    if (!sku) return Response.json({ ok: false, error: "sku is required" }, { status: 400 });
 
     const addon = findAddonBySku(sku);
-    if (!addon) return NextResponse.json({ ok: false, error: "Unknown add-on" }, { status: 400 });
+    if (!addon) return Response.json({ ok: false, error: "Unknown add-on" }, { status: 400 });
 
     const plan = await getBusinessPlanResolved(me.businessId);
     const planKey = cleanPlanKey(plan.planKey);
@@ -91,12 +91,12 @@ export async function POST(req: Request) {
 
     // Only allow buying add-ons for your current plan
     if (planKey !== addon.plan) {
-      return NextResponse.json({ ok: false, error: `This add-on is only available for ${addon.plan} plan.` }, { status: 403 });
+      return Response.json({ ok: false, error: `This add-on is only available for ${addon.plan} plan.` }, { status: 403 });
     }
 
     // Require subscription active
     if (!isSubscriptionActive(biz)) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: "Your subscription is not active. Renew subscription to buy add-ons." },
         { status: 403 }
       );
@@ -104,7 +104,7 @@ export async function POST(req: Request) {
 
     const priceNgn = Number(addon.priceNgn?.[cycle] || 0);
     if (!Number.isFinite(priceNgn) || priceNgn <= 0) {
-      return NextResponse.json({ ok: false, error: "Invalid add-on price" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid add-on price" }, { status: 400 });
     }
 
     // Determine email
@@ -115,7 +115,7 @@ export async function POST(req: Request) {
       email = String(u.email || u.emailLower || "").trim();
     }
     if (!email || !email.includes("@")) {
-      return NextResponse.json({ ok: false, error: "Missing account email for payment" }, { status: 400 });
+      return Response.json({ ok: false, error: "Missing account email for payment" }, { status: 400 });
     }
 
     const reference = genReference();
@@ -161,7 +161,7 @@ export async function POST(req: Request) {
         },
       });
 
-      return NextResponse.json({
+      return Response.json({
         ok: true,
         reference,
         authorization_url: link,
@@ -187,13 +187,13 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       reference,
       authorization_url: data?.authorization_url,
       access_code: data?.access_code,
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

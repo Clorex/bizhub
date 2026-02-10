@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { requireMe } from "@/lib/auth/server";
 
@@ -66,16 +66,16 @@ function sanitizePaymentPlanForCustomer(plan: any) {
 }
 
 // ✅ Next.js 16 route handler typing: params is a Promise
-export async function GET(req: NextRequest, ctx: { params: Promise<{ orderId: string }> }) {
+export async function GET(req: Request, ctx: { params: Promise<{ orderId: string }> }) {
   try {
     const me = await requireMe(req);
 
     const { orderId } = await ctx.params;
     const orderIdClean = String(orderId || "").trim();
-    if (!orderIdClean) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+    if (!orderIdClean) return Response.json({ ok: false, error: "Missing orderId" }, { status: 400 });
 
     const snap = await adminDb.collection("orders").doc(orderIdClean).get();
-    if (!snap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+    if (!snap.exists) return Response.json({ ok: false, error: "Order not found" }, { status: 404 });
 
     const o = { id: snap.id, ...(snap.data() as any) };
 
@@ -83,17 +83,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ orderId: st
       const myEmail = lowerEmail(me.email);
       const orderEmail = lowerEmail(o?.customer?.email);
       if (!myEmail || !orderEmail || myEmail !== orderEmail) {
-        return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+        return Response.json({ ok: false, error: "Not allowed" }, { status: 403 });
       }
     }
 
     if (me.role === "owner" || me.role === "staff") {
       if (!me.businessId || String(o.businessId || "") !== String(me.businessId || "")) {
-        return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+        return Response.json({ ok: false, error: "Not allowed" }, { status: 403 });
       }
     }
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       order: {
         id: o.id,
@@ -128,6 +128,6 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ orderId: st
       },
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 401 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 401 });
   }
 }

@@ -1,0 +1,3189 @@
+﻿mentSmartMessages: true, reengagementAiRemix: aiRemixUnlocked },
+            businessSlug: businessSlug || null,
+            businessName: businessName || null,
+            segment: seg,
+            baseText,
+            person: p,
+            rotationKey,
+          })
+        : baseText.trim();
+
+      await navigator.clipboard.writeText(text);
+      toast.success("Message copied to clipboard.");
+      if (aiRemixUnlocked && autoRemixAfterCopy) await requestRemix({ silent: true });
+    } catch {
+      toast.error("Couldn't copy the message. Please copy it manually.");
+    }
+  }
+
+  async function startSend() {
+    if (!baseText.trim()) return;
+    if (selectedPeople.length === 0) return;
+
+    setSending(true);
+    setMsg(null);
+
+    try {
+      const seg = currentSegment();
+      const recipients = selectedPeople.slice(0, 500);
+
+      const data = await authedFetch("/api/vendor/reengagement/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ segment: seg, baseText, rotationKey, people: recipients }),
+      });
+
+      const list: any[] = Array.isArray(data.recipients) ? data.recipients : [];
+      if (list.length === 0) {
+        const m = "No recipients available today (daily limit reached).";
+        setMsg(m);
+        toast.info(m);
+        setSending(false);
+        return;
+      }
+
+      sendQueueRef.current = list;
+      sendIdxRef.current = 0;
+
+      const tickSend = async () => {
+        const i = sendIdxRef.current;
+        const q2 = sendQueueRef.current;
+        if (i >= q2.length) {
+          setSending(false);
+          toast.success("Done sending messages.");
+          return;
+        }
+        const r = q2[i];
+        window.open(waLink(String(r.phone || ""), String(r.text || baseText)), "_blank");
+        sendIdxRef.current = i + 1;
+        setTimeout(tickSend, 650);
+      };
+
+      tickSend();
+    } catch (e: any) {
+      setSending(false);
+      const m = niceError(e, "Could not start sending. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    }
+  }
+
+  const seg = currentSegment();
+
+  const segmentButtons: Array<{ key: ReengagementSegment; show: boolean }> = [
+    { key: "buyers_all", show: true },
+    { key: "buyers_first", show: smartGroupsOn },
+    { key: "buyers_repeat", show: smartGroupsOn },
+    { key: "inactive_30", show: smartGroupsOn },
+    { key: "inactive_60", show: smartGroupsOn },
+    { key: "inactive_90", show: smartGroupsOn },
+    { key: "vip", show: vipAllowed },
+  ];
+
+  const selectedPreview = useMemo(() => {
+    if (!selectedPeople.length) return null;
+    const p = selectedPeople[0];
+    const text = smartMessagesOn
+      ? composeSmartMessage({
+          planKey,
+          features: { reengagementSmartMessages: true, reengagementAiRemix: aiRemixUnlocked },
+          businessSlug: businessSlug || null,
+          businessName: businessName || null,
+          segment: seg,
+          baseText,
+          person: p,
+          rotationKey,
+        })
+      : baseText.trim();
+    return { p, text };
+  }, [selectedPeople, smartMessagesOn, planKey, aiRemixUnlocked, businessSlug, businessName, seg, baseText, rotationKey]);
+
+  const capResetAtMs = Number(remixUsage?.resetAtMs || remixInfo?.resetAtMs || 0);
+  const countdownMs = capResetAtMs ? Math.max(0, capResetAtMs - Date.now()) : 0;
+  const capReached = String(remixInfo?.code || "") === "REMIX_CAP_REACHED";
+
+  const noPeople = !loading && people.length === 0;
+  const noMatches = !loading && q.trim().length > 0 && people.length === 0;
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Re-engagement" subtitle="Follow up with past buyers" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!reengagementUnlocked ? (
+          <Card className="p-4">
+            <p className="text-sm font-bold text-biz-ink">Upgrade required</p>
+            <p className="text-xs text-gray-500 mt-1">Re-engagement is available on Launch, Momentum, and Apex plans.</p>
+            <div className="mt-3">
+              <Button onClick={() => router.push("/vendor/subscription")}>Upgrade</Button>
+            </div>
+          </Card>
+        ) : null}
+
+        <SectionCard title="Audience" subtitle="Choose who to message">
+          <SegmentedControl<Mode>
+            value={mode}
+            onChange={(v) => {
+              setMode(v);
+              if (v === "abandoned") setSegment("buyers_all");
+            }}
+            options={[
+              { value: "buyers", label: "Past buyers" },
+              { value: "abandoned", label: "Abandoned" },
+            ]}
+          />
+
+          {mode === "abandoned" ? (
+            <div className="mt-3">
+              <Input
+                type="number"
+                placeholder="Last X days"
+                min={7}
+                max={365}
+                value={String(days)}
+                onChange={(e) => setDays(Number(e.target.value))}
+                disabled={sending}
+              />
+              <p className="text-[11px] text-biz-muted mt-2">Show orders that started but weren't paid in the last {days} days.</p>
+            </div>
+          ) : (
+            <div className="mt-3">
+              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
+                {segmentButtons
+                  .filter((x) => x.show)
+                  .map(({ key }) => {
+                    const active = segment === key;
+                    const c = Number((counts as any)?.[key] || 0);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setSegment(key)}
+                        className={
+                          active
+                            ? "px-3 py-2 rounded-2xl text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shrink-0"
+                            : "px-3 py-2 rounded-2xl text-xs font-extrabold border border-biz-line bg-white shrink-0"
+                        }
+                      >
+                        {segmentLabel(key)} {c ? `(${c})` : ""}
+                      </button>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+
+          <div className="mt-3 flex items-center gap-2">
+            <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center border border-transparent shrink-0">
+              <Search className="h-5 w-5 text-orange-700" />
+            </div>
+            <Input placeholder="Search by name or phoneâ€¦" value={q} onChange={(e) => setQ(e.target.value)} disabled={sending} />
+            <Button variant="secondary" onClick={loadAudience} disabled={loading || sending} leftIcon={<RefreshCw className="h-4 w-4" />}>
+              Refresh
+            </Button>
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <Button variant="secondary" onClick={() => toggleAll(true)} disabled={sending || people.length === 0}>
+              Select all
+            </Button>
+            <Button variant="secondary" onClick={() => toggleAll(false)} disabled={sending || people.length === 0}>
+              Clear
+            </Button>
+          </div>
+
+          {noPeople ? (
+            <Card variant="soft" className="p-4 mt-3">
+              {noMatches ? (
+                <>
+                  <p className="text-sm font-extrabold text-biz-ink">No matches</p>
+                  <p className="text-xs text-gray-500 mt-1">Try a different search term.</p>
+                  <div className="mt-3">
+                    <Button variant="secondary" onClick={() => setQ("")}>
+                      Clear search
+                    </Button>
+                  </div>
+                </>
+              ) : mode === "buyers" ? (
+                <>
+                  <p className="text-sm font-extrabold text-biz-ink">No buyers yet</p>
+                  <p className="text-xs text-gray-500 mt-1">After your first order, buyers will show here.</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                      Orders
+                    </Button>
+                    <Button variant="secondary" onClick={() => router.push("/vendor/products/new")}>
+                      Add product
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-sm font-extrabold text-biz-ink">No abandoned orders</p>
+                  <p className="text-xs text-gray-500 mt-1">Nothing to follow up right now.</p>
+                  <div className="mt-3">
+                    <Button variant="secondary" onClick={loadAudience}>
+                      Refresh
+                    </Button>
+                  </div>
+                </>
+              )}
+            </Card>
+          ) : null}
+        </SectionCard>
+
+        <SectionCard
+          title="Message"
+          subtitle={smartMessagesOn ? "Personalized per buyer" : "Same message for everyone"}
+          right={
+            aiRemixUnlocked ? (
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={() => requestRemix()}
+                disabled={sending || remixing || capReached}
+                leftIcon={<Sparkles className="h-4 w-4" />}
+              >
+                {capReached ? "Limit reached" : remixing ? "Remixingâ€¦" : "Remix"}
+              </Button>
+            ) : null
+          }
+        >
+          {capResetAtMs ? (
+            <p className="text-[11px] text-gray-500 mb-2 flex items-center gap-2">
+              <Clock className="h-4 w-4" /> Remix resets in: <b className="text-biz-ink">{fmtCountdown(countdownMs)}</b>
+            </p>
+          ) : null}
+
+          <textarea
+            className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40 disabled:opacity-50"
+            placeholder="Write your message hereâ€¦"
+            value={baseText}
+            onChange={(e) => setBaseText(e.target.value)}
+            rows={7}
+            disabled={sending}
+          />
+
+          {selectedPreview ? (
+            <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
+              <p className="text-xs font-bold text-biz-ink">Preview (first selected buyer)</p>
+              <pre className="mt-2 whitespace-pre-wrap text-[12px] text-gray-800">{selectedPreview.text}</pre>
+              <div className="mt-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => copyForPerson(selectedPreview.p)}
+                  leftIcon={<Copy className="h-4 w-4" />}
+                  disabled={sending}
+                >
+                  Copy
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          <div className="mt-2 rounded-2xl border border-biz-line bg-white p-3">
+            <div className="flex items-start gap-2">
+              <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center shrink-0">
+                <AlertTriangle className="h-5 w-5 text-orange-700" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-biz-ink">Safety policy</p>
+                <p className="text-[11px] text-gray-500 mt-1">Bullying, harassment, or offensive content is blocked and may result in account suspension.</p>
+              </div>
+            </div>
+          </div>
+        </SectionCard>
+
+        <div className="fixed bottom-0 left-0 right-0 z-40">
+          <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+            <Card className="p-4 space-y-2">
+              <Button
+                onClick={startSend}
+                disabled={!reengagementUnlocked || sending || !baseText.trim() || selectedPeople.length === 0}
+                leftIcon={<MessageCircle className="h-4 w-4" />}
+              >
+                {sending ? "Sendingâ€¦" : `Send to ${selectedPeople.length} buyer${selectedPeople.length !== 1 ? "s" : ""}`}
+              </Button>
+
+              <Button variant="secondary" onClick={() => router.back()} disabled={sending}>
+                Back
+              </Button>
+
+              {limits?.reengagementDaily ? (
+                <p className="text-[11px] text-gray-500 text-center">
+                  Daily limit: <b className="text-biz-ink">{limits.reengagementDaily}</b> â€¢ Selected: <b className="text-biz-ink">{selectedPeople.length}</b>
+                </p>
+              ) : null}
+            </Card>
+          </div>
+        </div>
+
+        <div className="h-28" />
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/security/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { auth } from "@/lib/firebase/client";
+import { onAuthStateChanged, sendPasswordResetEmail, signOut } from "firebase/auth";
+import { toast } from "@/lib/ui/toast";
+import { useRouter } from "next/navigation";
+
+type MeRes = {
+  ok: boolean;
+  me?: { email?: string | null; emailVerified?: boolean; role?: string };
+  error?: string;
+};
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  const clean = m.replace(/^Firebase:\s*/i, "").replace(/\(auth\/[^)]+\)\.?/gi, "").trim();
+  return clean.length > 0 && clean.length < 140 ? clean : fallback;
+}
+
+export default function VendorSecurityPage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [email, setEmail] = useState<string | null>(null);
+  const [emailVerified, setEmailVerified] = useState<boolean>(false);
+  const [role, setRole] = useState<string>("");
+
+  const [msg, setMsg] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        if (!u) {
+          setEmail(null);
+          setEmailVerified(false);
+          setRole("");
+          setLoading(false);
+          return;
+        }
+
+        setEmail(u.email || null);
+
+        try {
+          const token = await u.getIdToken();
+          const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+          const j = (await r.json().catch(() => ({}))) as MeRes;
+
+          if (r.ok && j?.ok && j?.me) {
+            setEmailVerified(!!j.me.emailVerified);
+            setRole(String(j.me.role || ""));
+          } else {
+            setEmailVerified(!!u.emailVerified);
+            setRole("");
+          }
+        } catch {
+          setEmailVerified(!!u.emailVerified);
+          setRole("");
+        }
+
+        setLoading(false);
+      } catch {
+        setLoading(false);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  const statusText = useMemo(() => {
+    if (!email) return "Not logged in";
+    return emailVerified ? "Verified" : "Not verified";
+  }, [email, emailVerified]);
+
+  async function resetPassword() {
+    try {
+      setBusy(true);
+      setMsg(null);
+
+      const e = auth.currentUser?.email;
+      if (!e) {
+        const m = "No email found on this account.";
+        setMsg(m);
+        toast.info(m);
+        return;
+      }
+
+      await sendPasswordResetEmail(auth, e);
+      const successMsg = "Password reset link sent to your email.";
+      setMsg(successMsg);
+      toast.success(successMsg);
+    } catch (e: any) {
+      const m = niceError(e, "Could not send reset link. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function logout() {
+    try {
+      setBusy(true);
+      setMsg(null);
+      await signOut(auth);
+      toast.info("Signed out successfully.");
+      router.push("/account/login");
+    } catch (e: any) {
+      const m = niceError(e, "Could not sign out. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Security" subtitle="Protect your account" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-biz-muted">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            <Card className="p-4">
+              <p className="text-sm font-extrabold text-biz-ink">Your account</p>
+              <p className="text-xs text-biz-muted mt-1">
+                Email: <b className="text-biz-ink">{email || "â€”"}</b>
+              </p>
+              <p className="text-xs text-biz-muted mt-1">
+                Status: <b className="text-biz-ink">{statusText}</b>
+              </p>
+              {role ? (
+                <p className="text-xs text-biz-muted mt-1">
+                  Role: <b className="text-biz-ink capitalize">{role}</b>
+                </p>
+              ) : null}
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button variant="secondary" onClick={resetPassword} disabled={busy || !email}>
+                  Reset password
+                </Button>
+
+                <Button variant="secondary" onClick={logout} disabled={busy}>
+                  Sign out
+                </Button>
+              </div>
+
+              {!emailVerified && email ? (
+                <p className="mt-3 text-[11px] text-orange-700">Please verify your email to keep your account secure.</p>
+              ) : null}
+            </Card>
+
+            <Card className="p-4">
+              <p className="text-sm font-extrabold text-biz-ink">Team access</p>
+              <p className="text-xs text-biz-muted mt-1">Only give access to people you trust.</p>
+
+              <div className="mt-3">
+                <Button variant="secondary" onClick={() => router.push("/vendor/staff")}>
+                  Manage staff
+                </Button>
+              </div>
+            </Card>
+
+            <Card className="p-4">
+              <p className="text-sm font-extrabold text-biz-ink">Safety tips</p>
+              <ul className="mt-2 text-sm text-gray-700 list-disc pl-5 space-y-1">
+                <li>Never share your login code (OTP) with anyone.</li>
+                <li>Don't share your password with staff or friends.</li>
+                <li>Only trust messages you see inside your myBizHub dashboard.</li>
+                <li>If something looks suspicious, use Help to report it.</li>
+              </ul>
+
+              <div className="mt-3">
+                <Button variant="secondary" onClick={() => router.push("/vendor/promote/faq")}>
+                  Go to Help
+                </Button>
+              </div>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/settings/payouts/page.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import { auth } from "@/lib/firebase/client";
+import { Card } from "@/components/Card";
+import { GradientHeader } from "@/components/GradientHeader";
+
+export default function VendorPayoutSettingsPage() {
+  const [bankName, setBankName] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [msg, setMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  async function api(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const data = await api("/api/vendor/payout-details");
+        const p = data?.payoutDetails || {};
+        setBankName(p.bankName || "");
+        setAccountNumber(p.accountNumber || "");
+        setAccountName(p.accountName || "");
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load");
+      }
+    })();
+  }, []);
+
+  async function save() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      await api("/api/vendor/payout-details", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bankName, accountNumber, accountName }),
+      });
+      setMsg("Saved.");
+    } catch (e: any) {
+      setMsg(e?.message || "Save failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-white">
+      <GradientHeader title="Payout Details" showBack={true} />
+      <div className="px-4 -mt-4 pb-24 space-y-3">
+        <Card className="p-4">
+          <p className="font-semibold text-gray-900">Bank details</p>
+
+          <div className="mt-4 space-y-2">
+            <input className="w-full border rounded-xl p-3" placeholder="Bank name" value={bankName} onChange={(e) => setBankName(e.target.value)} />
+            <input className="w-full border rounded-xl p-3" placeholder="Account number" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} />
+            <input className="w-full border rounded-xl p-3" placeholder="Account name" value={accountName} onChange={(e) => setAccountName(e.target.value)} />
+          </div>
+
+          <button className="mt-4 w-full rounded-2xl bg-black py-3 text-sm font-semibold text-white disabled:opacity-50" onClick={save} disabled={loading}>
+            {loading ? "Saving..." : "Save"}
+          </button>
+
+          {msg ? <p className="mt-3 text-sm text-gray-700">{msg}</p> : null}
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/shipping/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
+
+type ShipType = "delivery" | "pickup";
+
+function toNgnFromKobo(kobo: number) {
+  return Math.round(Number(kobo || 0) / 100);
+}
+function toKoboFromNgn(ngn: number) {
+  const n = Math.floor(Number(ngn || 0) * 100);
+  return Number.isFinite(n) ? Math.max(0, n) : 0;
+}
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
+export default function VendorShippingPage() {
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [options, setOptions] = useState<any[]>([]);
+
+  // form
+  const [editingId, setEditingId] = useState<string>("");
+  const [type, setType] = useState<ShipType>("delivery");
+  const [name, setName] = useState("Delivery");
+  const [feeNgn, setFeeNgn] = useState<number | "">("");
+  const [etaDays, setEtaDays] = useState<number | "">("");
+  const [areasText, setAreasText] = useState<string>("");
+  const [sortOrder, setSortOrder] = useState<number>(0);
+  const [active, setActive] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string>("");
+
+  const savingDisabled = useMemo(() => {
+    if (saving) return true;
+    if (!name.trim()) return true;
+    if (type === "delivery" && (feeNgn === "" || feeNgn < 0)) return true;
+    if (etaDays === "" || etaDays < 0) return true;
+    return false;
+  }, [name, type, feeNgn, etaDays, saving]);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "We couldnâ€™t complete that request.");
+    return data;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/vendor/shipping");
+      setOptions(Array.isArray(data.options) ? data.options : []);
+    } catch (e: any) {
+      const m = niceError(e, "Could not load shipping options. Please try again.");
+      setMsg(m);
+      setOptions([]);
+      toast.error(m);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  function resetForm() {
+    setEditingId("");
+    setType("delivery");
+    setName("");
+    setFeeNgn("");
+    setEtaDays("");
+    setAreasText("");
+    setSortOrder(0);
+    setActive(true);
+  }
+
+  function edit(o: any) {
+    setEditingId(String(o.id || ""));
+    setType(String(o.type || "delivery") === "pickup" ? "pickup" : "delivery");
+    setName(String(o.name || "Delivery"));
+    setFeeNgn(toNgnFromKobo(Number(o.feeKobo || 0)));
+    setEtaDays(Number(o.etaDays || 0));
+    setAreasText(String(o.areasText || ""));
+    setSortOrder(Number(o.sortOrder || 0));
+    setActive(o.active === false ? false : true);
+  }
+
+  async function save() {
+    setMsg(null);
+    setSaving(true);
+    try {
+      await authedFetch("/api/vendor/shipping", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: editingId || undefined,
+          type,
+          name: name.trim(),
+          feeKobo: type === "pickup" ? 0 : toKoboFromNgn(Number(feeNgn || 0)),
+          etaDays: Number(etaDays || 0),
+          areasText: areasText.trim(),
+          sortOrder,
+          active,
+        }),
+      });
+
+      toast.success(editingId ? "Shipping option updated." : "Shipping option added.");
+      resetForm();
+      await load();
+    } catch (e: any) {
+      const m = niceError(e, "Could not save. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function del(id: string) {
+    const ok = confirm("Delete this shipping option? This cannot be undone.");
+    if (!ok) return;
+
+    setDeletingId(id);
+    setMsg(null);
+    try {
+      await authedFetch(`/api/vendor/shipping?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      toast.success("Shipping option deleted.");
+      await load();
+    } catch (e: any) {
+      const m = niceError(e, "Could not delete. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setDeletingId("");
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Shipping" subtitle="Set delivery and pickup options for checkout" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        <SectionCard
+          title={editingId ? "Edit option" : "New option"}
+          subtitle="Customers will see these at checkout"
+          right={
+            editingId ? (
+              <Button variant="secondary" size="sm" onClick={resetForm} disabled={saving}>
+                Cancel
+              </Button>
+            ) : null
+          }
+        >
+          <div className="space-y-2">
+            <SegmentedControl<ShipType>
+              value={type}
+              onChange={setType}
+              options={[
+                { value: "delivery", label: "Delivery" },
+                { value: "pickup", label: "Pickup" },
+              ]}
+            />
+
+            <Input 
+              placeholder="Name (e.g. Lagos Mainland Delivery)" 
+              value={name} 
+              onChange={(e) => setName(e.target.value)} 
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                type="number"
+                placeholder="Fee (â‚¦) e.g. 2500"
+                value={type === "pickup" ? "0" : feeNgn}
+                onChange={(e) => setFeeNgn(e.target.value ? Number(e.target.value) : "")}
+                disabled={type === "pickup"}
+              />
+              <Input
+                type="number"
+                placeholder="ETA (Days) e.g. 2"
+                value={etaDays}
+                onChange={(e) => setEtaDays(e.target.value ? Number(e.target.value) : "")}
+                min={0}
+                max={30}
+              />
+            </div>
+
+            <Input
+              placeholder="Areas (optional) e.g. Ikeja, Yaba, Surulere"
+              value={areasText}
+              onChange={(e) => setAreasText(e.target.value)}
+            />
+
+            <div className="grid grid-cols-2 gap-2">
+              <Input
+                type="number"
+                placeholder="Sort order (0 for top)"
+                value={String(sortOrder)}
+                onChange={(e) => setSortOrder(Number(e.target.value))}
+              />
+
+              <button
+                type="button"
+                className={
+                  active
+                    ? "rounded-2xl px-4 py-3 text-sm font-bold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                    : "rounded-2xl px-4 py-3 text-sm font-bold bg-white border border-biz-line text-biz-ink shadow-soft"
+                }
+                onClick={() => setActive((v) => !v)}
+                disabled={saving}
+              >
+                {active ? "Active" : "Inactive"}
+              </button>
+            </div>
+
+            <Button onClick={save} disabled={savingDisabled} loading={saving}>
+              {editingId ? "Save changes" : "Add option"}
+            </Button>
+            <p className="text-[11px] text-biz-muted">Note: Pickup options always have a â‚¦0 fee.</p>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Current options" subtitle="Tap Edit to modify">
+          {options.length === 0 ? (
+            <p className="text-sm text-biz-muted">No shipping options yet. Add one above.</p>
+          ) : (
+            <div className="space-y-2">
+              {options.map((o) => {
+                const id = String(o.id);
+                const isPickup = String(o.type || "delivery") === "pickup";
+                const feeKobo = Number(o.feeKobo || 0);
+
+                return (
+                  <div key={id} className="rounded-2xl border border-biz-line bg-white p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-sm font-bold text-biz-ink">{o.name || (isPickup ? "Pickup" : "Delivery")}</p>
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          Type: <b className="text-biz-ink">{isPickup ? "Pickup" : "Delivery"}</b> â€¢ Fee:{" "}
+                          <b className="text-biz-ink">â‚¦{(feeKobo / 100).toLocaleString()}</b> â€¢ ETA:{" "}
+                          <b className="text-biz-ink">{Number(o.etaDays || 0)} day(s)</b>
+                        </p>
+                        {o.areasText ? <p className="text-[11px] text-gray-500 mt-1">{String(o.areasText)}</p> : null}
+                        <p className="text-[11px] text-gray-500 mt-1">
+                          Status: <b className="text-biz-ink">{o.active === false ? "Inactive" : "Active"}</b> â€¢ Sort:{" "}
+                          <b className="text-biz-ink">{Number(o.sortOrder || 0)}</b>
+                        </p>
+                      </div>
+                      <div className="shrink-0 space-y-2">
+                        <Button size="sm" variant="secondary" onClick={() => edit(o)} disabled={saving || deletingId === id}>Edit</Button>
+                        <Button size="sm" variant="danger" onClick={() => del(id)} disabled={saving || deletingId === id} loading={deletingId === id}>Delete</Button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          <div className="mt-3">
+            <Button variant="secondary" onClick={load} disabled={loading || saving}>Refresh</Button>
+          </div>
+        </SectionCard>
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/staff/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
+
+type Perms = {
+  productsView: boolean;
+  productsManage: boolean;
+  ordersView: boolean;
+  ordersManage: boolean;
+  analyticsView: boolean;
+  storeManage: boolean;
+  walletAccess: boolean;
+  payoutAccess: boolean;
+};
+
+const DEFAULT_PERMS: Perms = {
+  productsView: true,
+  productsManage: false,
+  ordersView: true,
+  ordersManage: false,
+  analyticsView: true,
+  storeManage: false,
+  walletAccess: false,
+  payoutAccess: false,
+};
+
+const JOB_SUGGESTIONS = [
+  "Sales",
+  "Customer Support",
+  "Social Media Manager",
+  "Marketing",
+  "Inventory Manager",
+  "Operations",
+  "Dispatch / Logistics",
+  "Finance",
+  "Analyst",
+  "Store Manager",
+];
+
+function Toggle({
+  label,
+  value,
+  onChange,
+  disabled,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={() => (!disabled ? onChange(!value) : undefined)}
+      className={[
+        "w-full rounded-2xl border p-3 flex items-center justify-between",
+        disabled ? "opacity-50 cursor-not-allowed" : "hover:bg-black/[0.02]",
+        "border-biz-line bg-white transition",
+      ].join(" ")}
+    >
+      <span className="text-sm font-bold text-biz-ink">{label}</span>
+      <span
+        className={
+          value
+            ? "px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100"
+            : "px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100"
+        }
+      >
+        {value ? "ON" : "OFF"}
+      </span>
+    </button>
+  );
+}
+
+type NotifSettingsRes = {
+  ok: boolean;
+  staffNudgesEnabled?: boolean;
+  staffPushEnabled?: boolean;
+  error?: string;
+};
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
+export default function VendorStaffPage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [me, setMe] = useState<any>(null);
+  const [staff, setStaff] = useState<any[]>([]);
+  const [invites, setInvites] = useState<any[]>([]);
+  const [seats, setSeats] = useState<any>(null);
+
+  const [staffNudgesEnabled, setStaffNudgesEnabled] = useState(false);
+  const [staffPushEnabled, setStaffPushEnabled] = useState(false);
+  const [notifBusy, setNotifBusy] = useState(false);
+
+  const [name, setName] = useState("");
+  const [jobTitle, setJobTitle] = useState("");
+  const [email, setEmail] = useState("");
+  const [perms, setPerms] = useState<Perms>(DEFAULT_PERMS);
+  const [creating, setCreating] = useState(false);
+
+  const [revokingId, setRevokingId] = useState<string>("");
+  const [removingId, setRemovingId] = useState<string>("");
+
+  const isOwner = useMemo(() => String(me?.role || "") === "owner", [me]);
+
+  const seatLimit = Number(seats?.seatLimit || 0);
+  const usedSeats = Number(seats?.used || 0);
+  const remainingSeats = Math.max(0, Number(seats?.remaining || 0));
+  const planKey = String(seats?.planKey || "").toUpperCase();
+
+  const canInvite = isOwner && seatLimit > 0 && remainingSeats > 0;
+  const showBuySeatAddon = isOwner && planKey === "LAUNCH" && seatLimit > 0 && remainingSeats <= 0;
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "We couldn't complete that request.");
+    return data;
+  }
+
+  async function loadNotifSettings() {
+    try {
+      const j = (await authedFetch("/api/vendor/settings/notifications")) as NotifSettingsRes;
+      setStaffNudgesEnabled(!!j.staffNudgesEnabled);
+      setStaffPushEnabled(!!j.staffPushEnabled);
+    } catch {
+      setStaffNudgesEnabled(false);
+      setStaffPushEnabled(false);
+    }
+  }
+
+  async function saveNotifSettings(next: { staffNudgesEnabled?: boolean; staffPushEnabled?: boolean }) {
+    try {
+      setNotifBusy(true);
+      setMsg(null);
+
+      await authedFetch("/api/vendor/settings/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(next),
+      });
+
+      toast.success("Settings saved.");
+    } catch (e: any) {
+      const m = niceError(e, "Could not save settings. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setNotifBusy(false);
+    }
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
+      const meData = await rMe.json().catch(() => ({}));
+      if (!rMe.ok) throw new Error(meData?.error || "Could not load your profile.");
+      setMe(meData.me);
+
+      const data = await authedFetch("/api/vendor/staff");
+      setStaff(Array.isArray(data.staff) ? data.staff : []);
+      setInvites(Array.isArray(data.invites) ? data.invites : []);
+      setSeats(data.seats || null);
+
+      await loadNotifSettings();
+    } catch (e: any) {
+      const m = niceError(e, "Could not load staff. Please try again.");
+      setMsg(m);
+      setStaff([]);
+      setInvites([]);
+      setSeats(null);
+      toast.error(m);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function createInvite() {
+    if (!canInvite) {
+      if (seatLimit <= 0) {
+        toast.info("Upgrade your plan to add staff members.");
+        setMsg("Upgrade your plan to add staff members.");
+      } else if (showBuySeatAddon) {
+        toast.info("You've reached your staff limit. Buy +1 seat to add one more staff member.");
+        setMsg("You've reached your staff limit. Buy +1 seat to add one more staff member.");
+      } else {
+        toast.info("You've reached your staff limit. Upgrade to add more.");
+        setMsg("You've reached your staff limit. Upgrade to add more.");
+      }
+      return;
+    }
+
+    setCreating(true);
+    setMsg(null);
+
+    try {
+      const data = await authedFetch("/api/vendor/staff", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, jobTitle, email, permissions: perms }),
+      });
+
+      const link = String(data.inviteLink || "");
+      if (link) {
+        try {
+          await navigator.clipboard.writeText(link);
+          toast.success("Invite created. Link copied to clipboard.");
+        } catch {
+          toast.info("Invite created. Copy the link manually.");
+          setMsg("Invite created. Copy link: " + link);
+        }
+      } else {
+        toast.success("Invite created.");
+      }
+
+      setName("");
+      setJobTitle("");
+      setEmail("");
+      setPerms(DEFAULT_PERMS);
+      await load();
+    } catch (e: any) {
+      const m = niceError(e, "Could not create invite. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  async function revokeInvite(inviteId: string) {
+    const ok = confirm("Revoke this invite? This cannot be undone.");
+    if (!ok) return;
+
+    setRevokingId(inviteId);
+    setMsg(null);
+
+    try {
+      await authedFetch(`/api/vendor/staff?inviteId=${encodeURIComponent(inviteId)}`, { method: "DELETE" });
+      toast.success("Invite revoked.");
+      await load();
+    } catch (e: any) {
+      const m = niceError(e, "Could not revoke invite. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setRevokingId("");
+    }
+  }
+
+  async function removeStaff(staffUid: string) {
+    const ok = confirm("Remove this staff member? This cannot be undone.");
+    if (!ok) return;
+
+    setRemovingId(staffUid);
+    setMsg(null);
+
+    try {
+      await authedFetch(`/api/vendor/staff?staffUid=${encodeURIComponent(staffUid)}`, { method: "DELETE" });
+      toast.success("Staff member removed.");
+      await load();
+    } catch (e: any) {
+      const m = niceError(e, "Could not remove staff member. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setRemovingId("");
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Staff"
+        subtitle="Invite and manage team access"
+        showBack={true}
+        right={
+          <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
+            Refresh
+          </Button>
+        }
+      />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading && !isOwner ? (
+          <Card className="p-4">
+            <p className="text-sm font-bold text-biz-ink">Owner only</p>
+            <p className="text-xs text-biz-muted mt-1">Staff management is available to the business owner only.</p>
+            <div className="mt-3">
+              <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                Back to dashboard
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        {!loading && isOwner ? (
+          <>
+            <Card className="p-4">
+              <p className="text-sm font-extrabold text-biz-ink">Team seats</p>
+              <p className="text-xs text-biz-muted mt-1">
+                Plan: <b className="text-biz-ink">{planKey || "â€”"}</b> â€¢ Used:{" "}
+                <b className="text-biz-ink">{Number.isFinite(usedSeats) ? usedSeats : 0}</b> /{" "}
+                <b className="text-biz-ink">{Number.isFinite(seatLimit) ? seatLimit : 0}</b>
+              </p>
+              <p className="text-[11px] text-gray-500 mt-1">Seats include active staff + pending invites.</p>
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                {showBuySeatAddon ? <Button onClick={() => router.push("/vendor/purchases")}>Buy +1 staff seat</Button> : null}
+
+                <Button variant="secondary" onClick={() => router.push("/vendor/subscription")}>
+                  Upgrade plan
+                </Button>
+              </div>
+            </Card>
+
+            <SectionCard title="Staff notifications" subtitle="Decide what staff can receive">
+              <div className="space-y-2">
+                <Toggle
+                  label="Allow staff nudges (inâ€‘app reminders)"
+                  value={staffNudgesEnabled}
+                  disabled={notifBusy}
+                  onChange={(v) => {
+                    setStaffNudgesEnabled(v);
+                    saveNotifSettings({ staffNudgesEnabled: v });
+                  }}
+                />
+
+                <Toggle
+                  label="Allow staff push notifications (outside the app)"
+                  value={staffPushEnabled}
+                  disabled={notifBusy}
+                  onChange={(v) => {
+                    setStaffPushEnabled(v);
+                    saveNotifSettings({ staffPushEnabled: v });
+                  }}
+                />
+
+                <p className="text-[11px] text-biz-muted">
+                  Note: Staff still need to enable notifications on their own device (tap the floating "Notify" button).
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Invite staff" subtitle="Create a personalized invite">
+              <div className="space-y-2">
+                <Input
+                  placeholder="Staff name (optional)"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  disabled={!canInvite || creating}
+                />
+
+                <Input
+                  placeholder="Job title / role (e.g. Sales, Social Media)"
+                  value={jobTitle}
+                  onChange={(e) => setJobTitle(e.target.value)}
+                  disabled={!canInvite || creating}
+                />
+                <div className="flex flex-wrap gap-2">
+                  {JOB_SUGGESTIONS.slice(0, 6).map((j) => (
+                    <button
+                      key={j}
+                      type="button"
+                      onClick={() => setJobTitle(j)}
+                      className="px-3 py-1 rounded-full text-[11px] font-bold border border-biz-line bg-white hover:bg-black/[0.02]"
+                      disabled={!canInvite || creating}
+                    >
+                      {j}
+                    </button>
+                  ))}
+                </div>
+
+                <Input
+                  placeholder="Staff email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={!canInvite || creating}
+                />
+
+                <div className="rounded-2xl border border-biz-line bg-white p-3">
+                  <p className="text-sm font-bold text-biz-ink">Permissions</p>
+                  <p className="text-[11px] text-biz-muted mt-1">Owner-only: store settings, wallet, payouts.</p>
+
+                  <div className="mt-3 space-y-2">
+                    <Toggle
+                      label="View products"
+                      value={perms.productsView}
+                      onChange={(v) => setPerms((p) => ({ ...p, productsView: v }))}
+                      disabled={!canInvite || creating}
+                    />
+                    <Toggle
+                      label="Manage products"
+                      value={perms.productsManage}
+                      onChange={(v) => setPerms((p) => ({ ...p, productsManage: v }))}
+                      disabled={!canInvite || creating}
+                    />
+                    <Toggle
+                      label="View orders"
+                      value={perms.ordersView}
+                      onChange={(v) => setPerms((p) => ({ ...p, ordersView: v }))}
+                      disabled={!canInvite || creating}
+                    />
+                    <Toggle
+                      label="Manage orders"
+                      value={perms.ordersManage}
+                      onChange={(v) => setPerms((p) => ({ ...p, ordersManage: v }))}
+                      disabled={!canInvite || creating}
+                    />
+                    <Toggle
+                      label="View analytics"
+                      value={perms.analyticsView}
+                      onChange={(v) => setPerms((p) => ({ ...p, analyticsView: v }))}
+                      disabled={!canInvite || creating}
+                    />
+                  </div>
+                </div>
+
+                <Button onClick={createInvite} loading={creating} disabled={creating || !email.trim() || !canInvite}>
+                  {seatLimit <= 0
+                    ? "Upgrade to invite staff"
+                    : remainingSeats <= 0
+                      ? planKey === "LAUNCH"
+                        ? "Limit reached (Buy +1 seat)"
+                        : "Limit reached (Upgrade)"
+                      : "Create invite"}
+                </Button>
+
+                {!canInvite && remainingSeats <= 0 && planKey === "LAUNCH" ? (
+                  <div className="mt-2">
+                    <Button variant="secondary" size="sm" onClick={() => router.push("/vendor/purchases")}>
+                      Buy +1 staff seat
+                    </Button>
+                  </div>
+                ) : null}
+
+                <p className="text-[11px] text-biz-muted">
+                  Staff must log in with the invited email, then open the invite link to join your business.
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Pending invites" subtitle="Revoke if needed">
+              {invites.length === 0 ? (
+                <p className="text-sm text-biz-muted">No invites yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {invites.map((inv) => (
+                    <div key={inv.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <p className="text-sm font-bold text-biz-ink">{inv.email || "â€”"}</p>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        {inv.jobTitle ? (
+                          <span>
+                            Role: <b className="text-biz-ink">{inv.jobTitle}</b> â€¢{" "}
+                          </span>
+                        ) : null}
+                        Status: <b className="text-biz-ink">{inv.status || "Pending"}</b>
+                      </p>
+
+                      <div className="mt-2 grid grid-cols-2 gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={async () => {
+                            const link = `${window.location.origin}/staff/register?code=${encodeURIComponent(inv.id)}`;
+                            try {
+                              await navigator.clipboard.writeText(link);
+                              toast.success("Invite link copied.");
+                            } catch {
+                              toast.error("Couldn't copy the link. Please copy it manually.");
+                            }
+                          }}
+                          disabled={revokingId === inv.id}
+                        >
+                          Copy link
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => revokeInvite(inv.id)}
+                          disabled={revokingId === inv.id}
+                          loading={revokingId === inv.id}
+                        >
+                          Revoke
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+
+            <SectionCard title="Staff members" subtitle="Active team access">
+              {staff.length === 0 ? (
+                <p className="text-sm text-biz-muted">No staff members yet.</p>
+              ) : (
+                <div className="space-y-2">
+                  {staff.map((s) => (
+                    <div key={s.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <p className="text-sm font-bold text-biz-ink">{s.email || s.id}</p>
+                      <p className="text-[11px] text-gray-500 mt-1">
+                        {s.jobTitle ? (
+                          <span>
+                            Role: <b className="text-biz-ink">{s.jobTitle}</b> â€¢{" "}
+                          </span>
+                        ) : null}
+                        Status: <b className="text-biz-ink">{s.status || "Active"}</b>
+                      </p>
+
+                      <div className="mt-2">
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => removeStaff(s.id)}
+                          disabled={removingId === s.id}
+                          loading={removingId === s.id}
+                        >
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/store/page.tsx
+// FILE: src/app/vendor/store/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { auth } from "@/lib/firebase/client";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+
+export default function VendorStoreSettingsPage() {
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [stateNg, setStateNg] = useState("");
+  const [city, setCity] = useState("");
+  const [whatsapp, setWhatsapp] = useState("");
+  const [instagram, setInstagram] = useState("");
+
+  const [logoUrl, setLogoUrl] = useState("");
+  const [bannerUrl, setBannerUrl] = useState("");
+
+  const [continueInChatEnabled, setContinueInChatEnabled] = useState(false);
+
+  const [hasActiveSubscription, setHasActiveSubscription] = useState(false);
+  const [planKey, setPlanKey] = useState<string>("FREE");
+  const [features, setFeatures] = useState<any>(null);
+
+  // âœ… NEW: store keywords
+  const [searchTagsCsv, setSearchTagsCsv] = useState("");
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const [storeData, accessData] = await Promise.all([authedFetch("/api/vendor/store"), authedFetch("/api/vendor/access")]);
+
+        const b = storeData?.business;
+        if (!mounted) return;
+
+        setName(String(b?.name || ""));
+        setDescription(String(b?.description || ""));
+        setStateNg(String(b?.state || ""));
+        setCity(String(b?.city || ""));
+        setWhatsapp(String(b?.whatsapp || ""));
+        setInstagram(String(b?.instagram || ""));
+        setLogoUrl(String(b?.logoUrl || ""));
+        setBannerUrl(String(b?.bannerUrl || ""));
+
+        setContinueInChatEnabled(b?.continueInChatEnabled === true);
+
+        setHasActiveSubscription(!!accessData?.hasActiveSubscription);
+        setPlanKey(String(accessData?.planKey || "FREE"));
+        setFeatures(accessData?.features || null);
+
+        const tags = Array.isArray(b?.searchTags) ? b.searchTags : [];
+        setSearchTagsCsv(tags.join(", "));
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load store settings");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const canEnableChat = useMemo(() => hasActiveSubscription && !!features?.continueInChat, [hasActiveSubscription, features]);
+  const canCustomize = useMemo(() => !!features?.storeCustomize, [features]);
+
+  async function save() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          description,
+          state: stateNg,
+          city,
+          whatsapp,
+          instagram,
+
+          logoUrl,
+          bannerUrl,
+
+          continueInChatEnabled,
+
+          // âœ… NEW
+          searchTagsCsv,
+        }),
+      });
+      setMsg("Saved successfully.");
+    } catch (e: any) {
+      setMsg(e?.message || "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Store settings" subtitle="Customize your website" showBack={false} />
+
+      <div className="px-4 pb-6 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className={msg.includes("Saved") ? "p-4 text-green-700" : "p-4 text-red-700"}>{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            {planKey === "FREE" ? (
+              <Card className="p-4">
+                <p className="text-sm font-bold text-biz-ink">Free plan</p>
+                <p className="text-xs text-biz-muted mt-1">
+                  You can use myBizHubâ€™s default store design. Upgrade to unlock full store customization and marketplace visibility.
+                </p>
+                <div className="mt-3">
+                  <Button onClick={() => (window.location.href = "/vendor/subscription")}>Upgrade</Button>
+                </div>
+              </Card>
+            ) : null}
+
+            <SectionCard title="Brand" subtitle="What customers see on your storefront">
+              <div className="space-y-2">
+                <Input placeholder="Business name" value={name} onChange={(e) => setName(e.target.value)} />
+
+                <textarea
+                  className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
+                  placeholder="About your business (what you sell / what service you offer)"
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  rows={4}
+                />
+
+                <Input
+                  placeholder="Search keywords (comma separated) e.g. slippers, bags, hair, perfumes"
+                  value={searchTagsCsv}
+                  onChange={(e) => setSearchTagsCsv(e.target.value)}
+                />
+
+                <p className="text-[11px] text-biz-muted">
+                  These keywords help customers find your store on Market search.
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Location (Nigeria)" subtitle="Improves trust and discovery">
+              <div className="grid grid-cols-2 gap-2">
+                <Input placeholder="State (e.g. Lagos)" value={stateNg} onChange={(e) => setStateNg(e.target.value)} />
+                <Input placeholder="City (e.g. Lekki)" value={city} onChange={(e) => setCity(e.target.value)} />
+              </div>
+              <p className="mt-2 text-xs text-biz-muted">This helps customers know where you operate.</p>
+            </SectionCard>
+
+            <SectionCard title="Contact" subtitle="Recommended for services (lash, nails, repairs)">
+              <div className="space-y-2">
+                <Input placeholder="WhatsApp number (e.g. 2348012345678)" value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)} />
+                <Input placeholder="Instagram handle (e.g. mybrand)" value={instagram} onChange={(e) => setInstagram(e.target.value)} />
+              </div>
+              <p className="mt-2 text-xs text-biz-muted">Tip: remove â€œ@â€ â€” myBizHub will format it automatically.</p>
+            </SectionCard>
+
+            <SectionCard title="Checkout & Chat" subtitle="Let customers continue in WhatsApp from cart">
+              <div className="rounded-2xl border border-biz-line bg-white p-3">
+                <p className="text-sm font-bold text-biz-ink">Continue in Chat</p>
+                <p className="text-[11px] text-biz-muted mt-1">
+                  When ON, customers can tap â€œContinue in Chatâ€ from their cart. myBizHub creates an order record and opens WhatsApp with the order details.
+                </p>
+
+                {!canEnableChat ? (
+                  <p className="mt-2 text-[11px] text-orange-700">Upgrade required: Continue in Chat is not available on your current plan.</p>
+                ) : null}
+
+                {!whatsapp.trim() ? (
+                  <p className="mt-2 text-[11px] text-orange-700">WhatsApp is not set. Add your WhatsApp number above before turning this ON.</p>
+                ) : null}
+
+                <div className="mt-3 flex items-center justify-between">
+                  <span className="text-xs text-biz-muted">
+                    Status: <b className="text-biz-ink">{continueInChatEnabled ? "ON" : "OFF"}</b>
+                  </span>
+
+                  <button
+                    type="button"
+                    className={
+                      continueInChatEnabled
+                        ? "px-3 py-2 rounded-2xl text-xs font-bold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent"
+                        : "px-3 py-2 rounded-2xl text-xs font-bold border border-biz-line bg-white"
+                    }
+                    onClick={() => {
+                      if (!canEnableChat && !continueInChatEnabled) {
+                        setMsg("Upgrade to enable Continue in Chat.");
+                        return;
+                      }
+                      if (!whatsapp.trim() && !continueInChatEnabled) {
+                        setMsg("Add your WhatsApp number before enabling Continue in Chat.");
+                        return;
+                      }
+                      setContinueInChatEnabled((v) => !v);
+                    }}
+                  >
+                    {continueInChatEnabled ? "ON" : "OFF"}
+                  </button>
+                </div>
+              </div>
+
+              <p className="mt-2 text-[11px] text-biz-muted">Note: Checkout remains available.</p>
+            </SectionCard>
+
+            <SectionCard title="Media" subtitle={canCustomize ? "Logo + banner make your store look premium" : "Upgrade to customize logo and banner"}>
+              {!canCustomize ? (
+                <div className="rounded-2xl border border-biz-line bg-white p-3">
+                  <p className="text-xs text-biz-muted">Youâ€™re using myBizHub default design. Upgrade to upload logo and banner.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-sm font-extrabold text-biz-ink">Logo</p>
+                    <p className="text-xs text-biz-muted mt-1">Square image recommended.</p>
+                    <div className="mt-3">
+                      <ImageUploader label="Upload logo" multiple={false} onUploaded={(urls) => setLogoUrl(urls[0] || "")} />
+                    </div>
+                    {logoUrl ? (
+                      <div className="mt-3 h-20 w-20 rounded-2xl overflow-hidden border border-biz-line bg-biz-cream">
+                        <img src={logoUrl} alt="Logo" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-biz-muted">No logo yet.</p>
+                    )}
+                  </div>
+
+                  <div className="rounded-2xl border border-biz-line bg-white p-3">
+                    <p className="text-sm font-extrabold text-biz-ink">Banner</p>
+                    <p className="text-xs text-biz-muted mt-1">Wide image recommended.</p>
+                    <div className="mt-3">
+                      <ImageUploader label="Upload banner" multiple={false} onUploaded={(urls) => setBannerUrl(urls[0] || "")} />
+                    </div>
+                    {bannerUrl ? (
+                      <div className="mt-3 h-24 w-full rounded-2xl overflow-hidden border border-biz-line bg-biz-cream">
+                        <img src={bannerUrl} alt="Banner" className="h-full w-full object-cover" />
+                      </div>
+                    ) : (
+                      <p className="mt-3 text-xs text-biz-muted">No banner yet.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </SectionCard>
+
+            <Card className="p-4">
+              <Button onClick={save} loading={saving}>
+                Save changes
+              </Button>
+              <p className="mt-2 text-xs text-biz-muted">After saving, your public store page will update.</p>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/subscription/page.tsx
+import { Suspense } from "react";
+import ClientPage from "./page-client";
+
+export const dynamic = "force-dynamic";
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <ClientPage />
+    </Suspense>
+  );
+}
+
+
+
+// FILE: src/app/vendor/subscription/page-client.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { auth } from "@/lib/firebase/client";
+import { CheckCircle2 } from "lucide-react";
+
+type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
+type BizhubBillingCycle = "monthly" | "quarterly" | "biannually" | "yearly";
+type InfoTab = "benefits" | "purchases";
+
+const SUMMARY_PATH = "/vendor/subscription/summary";
+const NAIRA = "\u20A6"; // ₦
+const EM_DASH = "\u2014"; // —
+
+function fmtNaira(n: number) {
+  const amount = Number(n || 0);
+  try {
+    return `${NAIRA}${new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(amount)}`;
+  } catch {
+    return `${NAIRA}${amount}`;
+  }
+}
+
+function cycleLabel(cycle: BizhubBillingCycle) {
+  if (cycle === "monthly") return "Monthly";
+  if (cycle === "quarterly") return "Quarterly";
+  if (cycle === "biannually") return "Biannual";
+  return "Yearly";
+}
+
+function cycleSuffix(cycle: BizhubBillingCycle) {
+  if (cycle === "monthly") return "/monthly";
+  if (cycle === "quarterly") return "/quarterly";
+  if (cycle === "biannually") return "/biannually";
+  return "/annually";
+}
+
+function flattenGroups(groups: Record<string, string[]>) {
+  const out: string[] = [];
+  for (const [, items] of Object.entries(groups || {})) {
+    for (const t of items || []) {
+      const s = String(t || "").trim();
+      if (s) out.push(s);
+    }
+  }
+  const seen = new Set<string>();
+  return out.filter((x) => (seen.has(x) ? false : (seen.add(x), true)));
+}
+
+function RadioRow(props: {
+  selected: boolean;
+  title: string;
+  subtitle: string;
+  right?: React.ReactNode;
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      disabled={props.disabled}
+      className={[
+        "w-full text-left rounded-2xl border bg-white p-4 transition",
+        props.selected ? "border-emerald-300 ring-2 ring-emerald-100" : "border-biz-line hover:bg-black/[0.02]",
+        props.disabled ? "opacity-60 cursor-not-allowed" : "",
+      ].join(" ")}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex items-start gap-3">
+          <div
+            className={[
+              "mt-1 h-5 w-5 rounded-full border flex items-center justify-center",
+              props.selected ? "border-emerald-600" : "border-gray-300",
+            ].join(" ")}
+          >
+            {props.selected ? <div className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}
+          </div>
+
+          <div className="min-w-0">
+            <p className="text-sm font-extrabold text-biz-ink">{props.title}</p>
+            <p className="text-[11px] text-gray-500 mt-1">{props.subtitle}</p>
+          </div>
+        </div>
+
+        {props.right ? <div className="shrink-0">{props.right}</div> : null}
+      </div>
+    </button>
+  );
+}
+
+type PlansResponse = {
+  ok: boolean;
+  plans: Record<
+    BizhubPlanKey,
+    {
+      key: BizhubPlanKey;
+      name: string;
+      tagline: string;
+      recommendedFor?: string;
+      priceNgn: Record<BizhubBillingCycle, number>;
+      benefits: Record<string, string[]>;
+      purchases: Record<string, string[]>;
+      features: any;
+      limits: any;
+    }
+  >;
+};
+
+export default function VendorSubscriptionPageClient() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const planFromUrl = String(sp.get("plan") || "LAUNCH").toUpperCase();
+  const cycleFromUrl = String(sp.get("cycle") || "yearly").toLowerCase();
+
+  const initialPlan: BizhubPlanKey = (["LAUNCH", "MOMENTUM", "APEX"] as BizhubPlanKey[]).includes(planFromUrl as any)
+    ? (planFromUrl as BizhubPlanKey)
+    : "LAUNCH";
+
+  const initialCycle: BizhubBillingCycle = (["monthly", "quarterly", "biannually", "yearly"] as BizhubBillingCycle[]).includes(
+    cycleFromUrl as any
+  )
+    ? (cycleFromUrl as BizhubBillingCycle)
+    : "yearly";
+
+  const [planKey, setPlanKey] = useState<BizhubPlanKey>(initialPlan);
+  const [cycle, setCycle] = useState<BizhubBillingCycle>(initialCycle);
+  const [tab, setTab] = useState<InfoTab>("benefits");
+
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [plans, setPlans] = useState<PlansResponse["plans"] | null>(null);
+  const [entitlement, setEntitlement] = useState<any>(null);
+  const [showAll, setShowAll] = useState(false);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      setLoading(true);
+      setMsg(null);
+      try {
+        const [plansData, subData] = await Promise.all([
+          authedFetch("/api/vendor/plans") as Promise<PlansResponse>,
+          authedFetch("/api/subscriptions/my"),
+        ]);
+
+        if (!mounted) return;
+
+        if (!plansData?.ok || !plansData?.plans) throw new Error("Failed to load plan config");
+        setPlans(plansData.plans);
+        setEntitlement(subData.entitlement || null);
+      } catch (e: any) {
+        if (!mounted) return;
+        setMsg(e?.message || "Failed to load");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const plan = plans?.[planKey] || null;
+  const price = Number(plan?.priceNgn?.[cycle] ?? 0);
+
+  const entPlanKey = String(entitlement?.planKey || "FREE") as BizhubPlanKey;
+  const entExpiry = Number(entitlement?.expiresAtMs || 0);
+
+  const entName =
+    plans?.[entPlanKey]?.name || (entPlanKey === "FREE" ? "Free access" : String(entPlanKey || "Free access"));
+
+  const benefitsFlat = useMemo(() => flattenGroups(plan?.benefits || {}), [plan]);
+  const purchasesFlat = useMemo(() => flattenGroups(plan?.purchases || {}), [plan]);
+
+  const activeList = tab === "benefits" ? benefitsFlat : purchasesFlat;
+  const visibleCount = showAll ? activeList.length : Math.min(activeList.length, 8);
+  const visibleList = activeList.slice(0, visibleCount);
+
+  function continueToSummary() {
+    router.push(`${SUMMARY_PATH}?plan=${encodeURIComponent(planKey)}&cycle=${encodeURIComponent(cycle)}`);
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Subscription" subtitle="Pick a plan and continue" showBack={true} />
+
+      <div className="px-4 pb-28 space-y-3">
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        <Card className="p-4">
+          <p className="text-xs text-biz-muted">Current access</p>
+          <p className="text-sm font-extrabold text-biz-ink mt-1">{loading ? "Loading..." : entName}</p>
+          <p className="text-[11px] text-gray-500 mt-1">
+            {loading
+              ? EM_DASH
+              : entPlanKey === "FREE"
+                ? "Upgrade anytime to unlock more tools."
+                : entExpiry
+                  ? `Active until: ${new Date(entExpiry).toLocaleString()}`
+                  : EM_DASH}
+          </p>
+        </Card>
+
+        <Card className="p-3">
+          <p className="text-sm font-extrabold text-biz-ink mb-2">Choose a plan</p>
+
+          <SegmentedControl<BizhubPlanKey>
+            value={planKey}
+            onChange={(v) => {
+              setPlanKey(v);
+              setShowAll(false);
+            }}
+            options={[
+              { value: "LAUNCH", label: "Launch" },
+              { value: "MOMENTUM", label: "Momentum" },
+              { value: "APEX", label: "Apex" },
+            ]}
+          />
+
+          <p className="text-[11px] text-biz-muted mt-2">Pay with Paystack. Instant activation after payment.</p>
+        </Card>
+
+        {plan ? (
+          <div className="space-y-2">
+            <RadioRow
+              selected={cycle === "monthly"}
+              title={`${fmtNaira(plan.priceNgn.monthly)} ${cycleSuffix("monthly")}`}
+              subtitle={plan.tagline}
+              onClick={() => {
+                setCycle("monthly");
+                setShowAll(false);
+              }}
+              right={<span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("monthly")}</span>}
+            />
+
+            <RadioRow
+              selected={cycle === "quarterly"}
+              title={`${fmtNaira(plan.priceNgn.quarterly)} ${cycleSuffix("quarterly")}`}
+              subtitle={plan.tagline}
+              onClick={() => {
+                setCycle("quarterly");
+                setShowAll(false);
+              }}
+              right={<span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("quarterly")}</span>}
+            />
+
+            <RadioRow
+              selected={cycle === "biannually"}
+              title={`${fmtNaira(plan.priceNgn.biannually)} ${cycleSuffix("biannually")}`}
+              subtitle={plan.tagline}
+              onClick={() => {
+                setCycle("biannually");
+                setShowAll(false);
+              }}
+              right={<span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("biannually")}</span>}
+            />
+
+            <RadioRow
+              selected={cycle === "yearly"}
+              title={`${fmtNaira(plan.priceNgn.yearly)} ${cycleSuffix("yearly")}`}
+              subtitle={plan.tagline}
+              onClick={() => {
+                setCycle("yearly");
+                setShowAll(false);
+              }}
+              right={
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("yearly")}</span>
+                  <span className="px-2 py-1 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-100">
+                    Popular
+                  </span>
+                </div>
+              }
+            />
+          </div>
+        ) : (
+          <Card className="p-4">{loading ? "Loading plans…" : "Plans not available"}</Card>
+        )}
+
+        <Card className="p-3">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setTab("benefits");
+                setShowAll(false);
+              }}
+              className={
+                tab === "benefits"
+                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+              }
+            >
+              Plan benefits
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setTab("purchases");
+                setShowAll(false);
+              }}
+              className={
+                tab === "purchases"
+                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+              }
+            >
+              Plan purchases
+            </button>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {visibleList.length === 0 ? (
+              <p className="text-sm text-biz-muted">Nothing listed for this section.</p>
+            ) : (
+              visibleList.map((t) => (
+                <div key={t} className="flex items-start gap-2 rounded-2xl border border-biz-line bg-white p-3">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+                  <span className="text-sm text-gray-700">{t}</span>
+                </div>
+              ))
+            )}
+          </div>
+
+          {activeList.length > 8 ? (
+            <button type="button" onClick={() => setShowAll((v) => !v)} className="mt-3 text-sm font-extrabold text-emerald-700">
+              {showAll ? "Show less" : "Show more"}
+            </button>
+          ) : null}
+        </Card>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+          <Card className="p-4">
+            <Button onClick={continueToSummary} disabled={!plan || loading}>
+              Continue ({fmtNaira(price)})
+            </Button>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/subscription/summary/page.tsx
+import { Suspense } from "react";
+import ClientPage from "./page-client";
+
+export const dynamic = "force-dynamic";
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <ClientPage />
+    </Suspense>
+  );
+}
+
+
+
+// FILE: src/app/vendor/subscription/summary/page-client.tsx
+// FILE: src/app/vendor/subscription/summary/page-client.tsx
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
+import { CheckCircle2 } from "lucide-react";
+
+type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
+type BizhubBillingCycle = "monthly" | "quarterly" | "biannually" | "yearly";
+type TabKey = "benefits" | "purchases" | "history";
+
+const NAIRA = "\u20A6"; // ₦
+const BULLET = "\u2022"; // •
+const EM_DASH = "\u2014"; // —
+
+function fmtNaira(n: number) {
+  const amount = Number(n || 0);
+  try {
+    return `${NAIRA}${new Intl.NumberFormat("en-NG", { maximumFractionDigits: 0 }).format(amount)}`;
+  } catch {
+    return `${NAIRA}${amount}`;
+  }
+}
+
+function fmtDateTime(ms?: number) {
+  if (!ms) return EM_DASH;
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
+  }
+}
+
+function flattenGroups(groups: Record<string, string[]>) {
+  const out: string[] = [];
+  for (const [, items] of Object.entries(groups || {})) {
+    for (const t of items || []) {
+      const s = String(t || "").trim();
+      if (s) out.push(s);
+    }
+  }
+  const seen = new Set<string>();
+  return out.filter((x) => (seen.has(x) ? false : (seen.add(x), true)));
+}
+
+function DetailsList({ groups }: { groups: Record<string, string[]> }) {
+  return (
+    <div className="space-y-2">
+      {Object.entries(groups || {}).map(([k, items]) => (
+        <details key={k} className="rounded-2xl border border-biz-line bg-white p-3">
+          <summary className="cursor-pointer text-sm font-extrabold text-biz-ink">{k}</summary>
+          <div className="mt-2 space-y-2">
+            {(items || []).map((t) => (
+              <div key={t} className="flex items-start gap-2 text-sm text-gray-700">
+                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                <span>{t}</span>
+              </div>
+            ))}
+          </div>
+        </details>
+      ))}
+    </div>
+  );
+}
+
+type PlansResponse = {
+  ok: boolean;
+  plans: Record<
+    BizhubPlanKey,
+    {
+      key: BizhubPlanKey;
+      name: string;
+      tagline: string;
+      recommendedFor?: string;
+      priceNgn: Record<BizhubBillingCycle, number>;
+      benefits: Record<string, string[]>;
+      purchases: Record<string, string[]>;
+    }
+  >;
+};
+
+function niceError(e: any, fallback: string) {
+  const m = String(e?.message || "").trim();
+  if (!m) return fallback;
+  return m.length > 140 ? fallback : m;
+}
+
+export default function SubscriptionSummaryPageClient() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const planFromUrl = String(sp.get("plan") || "LAUNCH").toUpperCase();
+  const cycleFromUrl = String(sp.get("cycle") || "yearly").toLowerCase();
+
+  const planKey: BizhubPlanKey = (["FREE", "LAUNCH", "MOMENTUM", "APEX"] as BizhubPlanKey[]).includes(planFromUrl as any)
+    ? (planFromUrl as BizhubPlanKey)
+    : "LAUNCH";
+
+  const initialCycle: BizhubBillingCycle = (["monthly", "quarterly", "biannually", "yearly"] as BizhubBillingCycle[]).includes(
+    cycleFromUrl as any
+  )
+    ? (cycleFromUrl as BizhubBillingCycle)
+    : "yearly";
+
+  const [tab, setTab] = useState<TabKey>("benefits");
+  const [cycle, setCycle] = useState<BizhubBillingCycle>(initialCycle);
+
+  const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [history, setHistory] = useState<any[]>([]);
+  const [entitlement, setEntitlement] = useState<any>(null);
+  const [plans, setPlans] = useState<PlansResponse["plans"] | null>(null);
+
+  const mountedRef = useRef(true);
+
+  const plan = plans?.[planKey] || null;
+  const price = Number(plan?.priceNgn?.[cycle] ?? 0);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    if (!token) throw new Error("Please log in again to continue.");
+
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "We couldn't complete that request.");
+    return data;
+  }
+
+  useEffect(() => {
+    mountedRef.current = true;
+
+    async function load() {
+      setLoading(true);
+      setMsg(null);
+      try {
+        const [plansData, subData] = await Promise.all([
+          authedFetch("/api/vendor/plans") as Promise<PlansResponse>,
+          authedFetch("/api/subscriptions/my"),
+        ]);
+
+        if (!mountedRef.current) return;
+
+        if (!plansData?.ok || !plansData?.plans) throw new Error("Could not load plans. Please try again.");
+
+        setPlans(plansData.plans);
+        setHistory(Array.isArray(subData.purchases) ? subData.purchases : []);
+        setEntitlement(subData.entitlement || null);
+      } catch (e: any) {
+        if (!mountedRef.current) return;
+        const m = niceError(e, "Could not load subscription details. Please try again.");
+        setMsg(m);
+        toast.error(m);
+      } finally {
+        if (mountedRef.current) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mountedRef.current = false;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const canPay = planKey !== "FREE" && price > 0;
+
+  async function payNow() {
+    if (!canPay) return;
+
+    setPaying(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/subscriptions/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planKey, cycle }),
+      });
+
+      if (!data?.authorization_url) throw new Error("Could not start payment. Please try again.");
+
+      window.location.href = String(data.authorization_url);
+    } catch (e: any) {
+      const m = niceError(e, "Could not start payment. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  const entPlanKey = String(entitlement?.planKey || "FREE") as BizhubPlanKey;
+  const entExpiry = Number(entitlement?.expiresAtMs || 0);
+  const entName = plans?.[entPlanKey]?.name || (entPlanKey === "FREE" ? "Free access" : entPlanKey);
+
+  const headline = useMemo(() => {
+    return planKey === "FREE" ? "Free access" : `${plan?.name || planKey}`;
+  }, [planKey, plan?.name]);
+
+  const highlights = useMemo(() => {
+    const flat = flattenGroups(plan?.benefits || {});
+    return flat.slice(0, 4);
+  }, [plan]);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Summary"
+        subtitle="Review and pay"
+        showBack={true}
+        right={
+          <button
+            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft"
+            onClick={() => router.push("/vendor/subscription")}
+          >
+            Change
+          </button>
+        }
+      />
+
+      <div className="px-4 pb-24 space-y-3">
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        <Card className="p-4">
+          <p className="text-xs text-biz-muted">Current access</p>
+          <p className="text-sm font-extrabold text-biz-ink mt-1">{loading ? "Loading..." : entName}</p>
+          <p className="text-[11px] text-gray-500 mt-1">
+            {loading
+              ? EM_DASH
+              : entPlanKey === "FREE"
+                ? "Upgrade anytime to unlock more tools."
+                : `Active until: ${fmtDateTime(entExpiry)}`}
+          </p>
+        </Card>
+
+        <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs opacity-95">Selected plan</p>
+              <p className="text-xl font-extrabold mt-1">{headline}</p>
+              <p className="text-[11px] opacity-95 mt-1">{plan?.tagline || ""}</p>
+              {plan?.recommendedFor ? (
+                <p className="text-[11px] opacity-95 mt-2">
+                  Recommended for: <b>{plan.recommendedFor}</b>
+                </p>
+              ) : null}
+            </div>
+
+            <div className="text-right">
+              <p className="text-sm font-extrabold">{price === 0 ? "Free" : fmtNaira(price)}</p>
+              <p className="text-[11px] opacity-95 mt-1">{cycle}</p>
+            </div>
+          </div>
+
+          <div className="mt-3 space-y-2">
+            {highlights.map((t) => (
+              <div key={t} className="flex items-start gap-2 text-sm">
+                <span className="mt-1 h-2 w-2 rounded-full bg-white/90 shrink-0" />
+                <span className="opacity-95">{t}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <SegmentedControl<BizhubBillingCycle>
+          value={cycle}
+          onChange={setCycle}
+          options={[
+            { value: "monthly", label: "Monthly" },
+            { value: "quarterly", label: "Quarterly" },
+            { value: "biannually", label: "Biannual" },
+            { value: "yearly", label: "Yearly" },
+          ]}
+        />
+
+        <Card className="p-2">
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              className={
+                tab === "benefits"
+                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+              }
+              onClick={() => setTab("benefits")}
+              type="button"
+            >
+              Benefits
+            </button>
+
+            <button
+              className={
+                tab === "purchases"
+                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+              }
+              onClick={() => setTab("purchases")}
+              type="button"
+            >
+              Add-ons
+            </button>
+
+            <button
+              className={
+                tab === "history"
+                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
+                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+              }
+              onClick={() => setTab("history")}
+              type="button"
+            >
+              History
+            </button>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          {tab === "benefits" ? (
+            <>
+              <p className="font-extrabold text-biz-ink">What's included</p>
+              <p className="text-xs text-biz-muted mt-1">Everything you get on this plan</p>
+              <div className="mt-3">
+                <DetailsList groups={plan?.benefits || {}} />
+              </div>
+            </>
+          ) : null}
+
+          {tab === "purchases" ? (
+            <>
+              <p className="font-extrabold text-biz-ink">Optional add-ons</p>
+              <p className="text-xs text-biz-muted mt-1">Extra tools you can buy later</p>
+              <div className="mt-3">
+                {Object.keys(plan?.purchases || {}).length === 0 ? (
+                  <p className="text-sm text-biz-muted">No add-ons available for this plan.</p>
+                ) : (
+                  <DetailsList groups={plan?.purchases || {}} />
+                )}
+              </div>
+            </>
+          ) : null}
+
+          {tab === "history" ? (
+            <>
+              <p className="font-extrabold text-biz-ink">Payment history</p>
+              <p className="text-xs text-biz-muted mt-1">Your recent subscription payments</p>
+
+              {loading ? (
+                <div className="mt-3 text-sm text-biz-muted">Loading…</div>
+              ) : history.length === 0 ? (
+                <div className="mt-3 text-sm text-biz-muted">No payments yet.</div>
+              ) : (
+                <div className="mt-3 space-y-2">
+                  {history
+                    .slice(0, 20)
+                    .sort((a: any, b: any) => Number(b.startedAtMs || 0) - Number(a.startedAtMs || 0))
+                    .map((h: any) => (
+                      <div key={h.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="text-sm font-extrabold text-biz-ink">
+                              {String(h.planKey || EM_DASH)} {BULLET} {String(h.cycle || EM_DASH)}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-1 break-all">ID: {String(h.reference || h.id)}</p>
+                            <p className="text-[11px] text-gray-500 mt-1">Date: {fmtDateTime(Number(h.startedAtMs || 0))}</p>
+                          </div>
+
+                          <div className="text-right shrink-0">
+                            <p className="text-sm font-extrabold text-biz-ink">
+                              {fmtNaira(Number(h.amount || (h.amountKobo ? h.amountKobo / 100 : 0) || 0))}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-1 capitalize">{String(h.status || EM_DASH)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              )}
+            </>
+          ) : null}
+        </Card>
+
+        <div className="fixed bottom-0 left-0 right-0 z-40">
+          <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+            <Card className="p-4 space-y-2">
+              {planKey === "FREE" ? (
+                <Button variant="secondary" onClick={() => router.push("/vendor/subscription")}>
+                  Back to plans
+                </Button>
+              ) : (
+                <Button onClick={payNow} loading={paying} disabled={!canPay || !plan}>
+                  Pay {fmtNaira(price)}
+                </Button>
+              )}
+
+              <Button variant="secondary" onClick={() => router.push("/vendor")}>
+                Return to dashboard
+              </Button>
+            </Card>
+          </div>
+        </div>
+
+        <div className="h-28" />
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/verification/page.tsx
+// FILE: src/app/vendor/verification/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { auth } from "@/lib/firebase/client";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+
+type IdType = "nin" | "drivers_licence" | "voters_card" | "passport";
+
+function TierPill({ tier }: { tier: number }) {
+  const t = Number(tier || 0);
+  const cls =
+    t >= 3
+      ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+      : t === 2
+        ? "bg-blue-50 text-blue-700 border-blue-100"
+        : t === 1
+          ? "bg-orange-50 text-orange-700 border-orange-100"
+          : "bg-white text-gray-700 border-biz-line";
+
+  return (
+    <span className={`inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border ${cls}`}>
+      Tier {t || 0}
+    </span>
+  );
+}
+
+export default function VendorVerificationPage() {
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [tier, setTier] = useState<number>(0);
+  const [verification, setVerification] = useState<any>(null);
+  const [trust, setTrust] = useState<any>(null);
+
+  // Tier 1
+  const [selfieUrls, setSelfieUrls] = useState<string[]>([]);
+
+  // Tier 2
+  const [idType, setIdType] = useState<IdType>("nin");
+  const [idNumber, setIdNumber] = useState<string>("");
+
+  // Tier 3
+  const [proofUrls, setProofUrls] = useState<string[]>([]);
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || data?.code || "Request failed");
+    return data;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/vendor/verification");
+      setTier(Number(data.verificationTier || 0));
+      setVerification(data.verification || null);
+      setTrust(data.trust || null);
+
+      const t1 = data?.verification?.tier1;
+      if (t1?.selfieUrls?.length) setSelfieUrls(t1.selfieUrls);
+
+      const t2 = data?.verification?.tier2;
+      if (t2?.idType) setIdType(String(t2.idType) as any);
+      if (t2?.idNumber) setIdNumber(String(t2.idNumber));
+
+      const t3 = data?.verification?.tier3;
+      if (t3?.proofUrls?.length) setProofUrls(t3.proofUrls);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to load");
+      setVerification(null);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const t1Status = String(verification?.tier1?.status || "not_started");
+  const t2Status = String(verification?.tier2?.status || "not_started");
+  const t3Status = String(verification?.tier3?.status || "not_started");
+
+  const openDisputes = Number(trust?.openDisputes || 0);
+
+  async function submitTier1() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: "tier1", selfieUrls }),
+      });
+      setMsg("Tier 1 updated.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitTier2() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: "tier2", idType, idNumber }),
+      });
+      setMsg("Tier 2 submitted. Admin review can take up to 8 hours.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function submitTier3() {
+    setSaving(true);
+    setMsg(null);
+    try {
+      await authedFetch("/api/vendor/verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ tier: "tier3", proofUrls }),
+      });
+      setMsg("Tier 3 submitted. Admin review can take up to 8 hours.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const showVisibilityNote = useMemo(() => {
+    return "Important: vendors with higher tiers appear more in the marketplace. Tier 0 is reduced visibility.";
+  }, []);
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Verification" subtitle="Tier system for trust + visibility" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Your verification</p>
+              <div className="mt-2 flex items-center gap-2">
+                <TierPill tier={tier} />
+                {openDisputes > 0 ? (
+                  <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-bold border bg-red-50 text-red-700 border-red-100">
+                    Open disputes: {openDisputes}
+                  </span>
+                ) : null}
+              </div>
+              <p className="text-[11px] opacity-95 mt-3">{showVisibilityNote}</p>
+            </div>
+
+            <SectionCard title="Tier 1 â€” Face check" subtitle="Upload clear selfies (bright light)">
+              <p className="text-[11px] text-biz-muted">
+                Guidance: take a clear photo of your face (front), and if you can, add extra angles.
+              </p>
+
+              <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
+                <ImageUploader
+                  label="Upload selfie photos"
+                  multiple={true}
+                  onUploaded={(urls) => setSelfieUrls((prev) => [...prev, ...urls].slice(0, 6))}
+                />
+
+                {selfieUrls.length ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {selfieUrls.map((u) => (
+                      <div key={u} className="rounded-2xl border border-biz-line overflow-hidden bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="Selfie" className="h-24 w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-biz-muted">
+                  Status: <b className="text-biz-ink">{t1Status}</b>
+                </span>
+                <Button onClick={submitTier1} loading={saving} disabled={saving || selfieUrls.length < 1}>
+                  Save Tier 1
+                </Button>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Tier 2 â€” ID number" subtitle="Enter your verification number (no photo)">
+              <SegmentedControl<IdType>
+                value={idType}
+                onChange={setIdType}
+                options={[
+                  { value: "nin", label: "NIN" },
+                  { value: "drivers_licence", label: "Driverâ€™s" },
+                  { value: "voters_card", label: "Voterâ€™s" },
+                  { value: "passport", label: "Passport" },
+                ]}
+              />
+
+              <div className="mt-2">
+                <Input
+                  placeholder="Enter your ID number"
+                  value={idNumber}
+                  onChange={(e) => setIdNumber(e.target.value)}
+                />
+              </div>
+
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-biz-muted">
+                  Status: <b className="text-biz-ink">{t2Status}</b>
+                </span>
+                <Button onClick={submitTier2} loading={saving} disabled={saving || idNumber.trim().length < 5}>
+                  Submit Tier 2
+                </Button>
+              </div>
+
+              {verification?.tier2?.adminNote ? (
+                <p className="mt-2 text-[11px] text-red-700">Admin note: {String(verification.tier2.adminNote)}</p>
+              ) : null}
+            </SectionCard>
+
+            <SectionCard title="Tier 3 â€” Proof of address" subtitle="Upload a document showing your address">
+              <div className="rounded-2xl border border-biz-line bg-white p-3">
+                <ImageUploader
+                  label="Upload proof of address"
+                  multiple={true}
+                  onUploaded={(urls) => setProofUrls((prev) => [...prev, ...urls].slice(0, 6))}
+                />
+
+                {proofUrls.length ? (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {proofUrls.map((u) => (
+                      <div key={u} className="rounded-2xl border border-biz-line overflow-hidden bg-white">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={u} alt="Proof" className="h-24 w-full object-cover" />
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <div className="mt-3 flex items-center justify-between">
+                <span className="text-xs text-biz-muted">
+                  Status: <b className="text-biz-ink">{t3Status}</b>
+                </span>
+                <Button onClick={submitTier3} loading={saving} disabled={saving || proofUrls.length < 1}>
+                  Submit Tier 3
+                </Button>
+              </div>
+
+              {verification?.tier3?.adminNote ? (
+                <p className="mt-2 text-[11px] text-red-700">Admin note: {String(verification.tier3.adminNote)}</p>
+              ) : null}
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/wallet/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { auth } from "@/lib/firebase/client";
+import { Button } from "@/components/ui/Button";
+import { useRouter } from "next/navigation";
+
+function fmtNairaFromKobo(kobo: number) {
+  const n = Number(kobo || 0) / 100;
+  try {
+    return `â‚¦${n.toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+export default function VendorBalancePage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [wallet, setWallet] = useState<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("Not logged in");
+
+        const r = await fetch("/api/vendor/wallet", { headers: { Authorization: `Bearer ${token}` } });
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Failed to load balance");
+
+        if (!mounted) return;
+        setWallet(data?.wallet || data);
+      } catch (e: any) {
+        setMsg(e?.message || "Failed");
+        setWallet(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    run();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const pending = useMemo(() => Number(wallet?.pendingBalanceKobo || 0), [wallet]);
+  const available = useMemo(() => Number(wallet?.availableBalanceKobo || 0), [wallet]);
+  const hold = useMemo(() => Number(wallet?.withdrawHoldKobo || 0), [wallet]);
+  const total = useMemo(() => Number(wallet?.totalEarnedKobo || 0), [wallet]);
+
+  const allZero = !loading && !msg && pending === 0 && available === 0 && hold === 0 && total === 0;
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="myBizHub Balance" subtitle="Earnings & withdrawals" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {/* âœ… Minimal empty state */}
+        {allZero ? (
+          <Card variant="soft" className="p-5">
+            <p className="text-sm font-extrabold text-biz-ink">No earnings yet</p>
+            <p className="text-xs text-gray-500 mt-1">Your balance will show here after paid orders.</p>
+
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button variant="secondary" onClick={() => router.push("/vendor/products/new")}>
+                Add product
+              </Button>
+              <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
+                View orders
+              </Button>
+            </div>
+          </Card>
+        ) : null}
+
+        {!loading && !msg && !allZero ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Available balance</p>
+              <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(available)}</p>
+
+              <div className="mt-3 grid grid-cols-2 gap-2">
+                <Button onClick={() => router.push("/vendor/withdrawals")} disabled={available <= 0}>
+                  Withdraw
+                </Button>
+                <Button variant="secondary" onClick={() => window.location.reload()}>
+                  Refresh
+                </Button>
+              </div>
+
+              <p className="mt-3 text-[11px] opacity-90">
+                Pending withdrawals (hold): <b>{fmtNairaFromKobo(hold)}</b>
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Pending settlement</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(pending)}</p>
+              </Card>
+              <Card className="p-4">
+                <p className="text-xs text-biz-muted">Total earned</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(total)}</p>
+              </Card>
+            </div>
+
+            <Card className="p-4">
+              <p className="font-bold text-biz-ink">Tip</p>
+              <p className="text-sm text-gray-700 mt-2">
+                Escrow orders move from Pending to Available after the hold time if thereâ€™s no dispute.
+              </p>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+
+// FILE: src/app/vendor/withdrawals/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+
+function fmtNairaFromKobo(kobo: number) {
+  const n = Number(kobo || 0) / 100;
+  try {
+    return `â‚¦${n.toLocaleString()}`;
+  } catch {
+    return `â‚¦${n}`;
+  }
+}
+
+function fmtDate(ms?: number) {
+  if (!ms) return "â€”";
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
+  }
+}
+
+export default function VendorWithdrawalsPage() {
+  const [loading, setLoading] = useState(true);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [wallet, setWallet] = useState<any>(null);
+  const [withdrawals, setWithdrawals] = useState<any[]>([]);
+
+  const [amountNgn, setAmountNgn] = useState<number>(1000);
+  const [sending, setSending] = useState(false);
+
+  async function api(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.error || "Request failed");
+    return j;
+  }
+
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const j = await api("/api/vendor/withdrawals");
+      setWallet(j.wallet || null);
+      setWithdrawals(Array.isArray(j.withdrawals) ? j.withdrawals : []);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to load");
+      setWallet(null);
+      setWithdrawals([]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    load();
+  }, []);
+
+  const availableKobo = useMemo(() => Number(wallet?.availableBalanceKobo || 0), [wallet]);
+  const holdKobo = useMemo(() => Number(wallet?.withdrawHoldKobo || 0), [wallet]);
+
+  async function requestWithdrawal() {
+    setSending(true);
+    setMsg(null);
+    try {
+      const amountKobo = Math.floor(Number(amountNgn || 0) * 100);
+      await api("/api/vendor/withdrawals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amountKobo }),
+      });
+
+      setMsg("Withdrawal request submitted.");
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Failed");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Withdrawals" subtitle="Request payout from myBizHub Balance" showBack={true} />
+
+      <div className="px-4 pb-24 space-y-3">
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {msg ? <Card className="p-4">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+              <p className="text-xs opacity-95">Available</p>
+              <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(availableKobo)}</p>
+              <p className="text-[11px] opacity-95 mt-2">
+                On hold: <b>{fmtNairaFromKobo(holdKobo)}</b>
+              </p>
+            </div>
+
+            <SectionCard title="Request withdrawal" subtitle="Minimum â‚¦1,000">
+              <div className="space-y-2">
+                <Input
+                  type="number"
+                  min={1000}
+                  step={500}
+                  value={String(amountNgn)}
+                  onChange={(e) => setAmountNgn(Number(e.target.value))}
+                  placeholder="1000"
+                />
+
+                <Button onClick={requestWithdrawal} loading={sending} disabled={sending}>
+                  Request payout
+                </Button>
+
+                <p className="text-[11px] text-biz-muted">
+                  Your requested amount will move to â€œholdâ€ until admin processes it.
+                </p>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="History" subtitle="Your recent withdrawal requests">
+              {withdrawals.length === 0 ? (
+                <div className="text-sm text-biz-muted">No withdrawal requests yet.</div>
+              ) : (
+                <div className="space-y-2">
+                  {withdrawals.map((w) => (
+                    <div key={w.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-biz-ink">
+                            {w.status || "pending"}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1">
+                            {fmtDate(Number(w.createdAtMs || 0))}
+                          </p>
+                          <p className="text-[11px] text-gray-500 mt-1 break-all">
+                            Bank: {w?.payoutDetails?.bankName || "â€”"} â€¢ {w?.payoutDetails?.accountNumber || "â€”"}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-sm font-bold text-biz-ink">
+                            {fmtNairaFromKobo(Number(w.amountKobo || 0))}
+                          </p>
+                        </div>
+                      </div>
+                      {w.adminNote ? (
+                        <p className="text-[11px] text-gray-600 mt-2">
+                          Note: {String(w.adminNote)}
+                        </p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3">
+                <Button variant="secondary" onClick={load}>
+                  Refresh
+                </Button>
+              </div>
+            </SectionCard>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { requireMe } from "@/lib/auth/server";
 import { cloudinary } from "@/lib/cloudinary/server";
@@ -54,7 +54,7 @@ function recomputePlan(plan: any) {
   };
 }
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: string; idx: string }> }) {
+export async function POST(req: Request, ctx: { params: Promise<{ orderId: string; idx: string }> }) {
   try {
     const me = await requireMe(req);
 
@@ -62,16 +62,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     const orderIdClean = String(orderId || "").trim();
     const i = Math.floor(Number(idx));
 
-    if (!orderIdClean) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
-    if (!Number.isFinite(i) || i < 0) return NextResponse.json({ ok: false, error: "Invalid installment index" }, { status: 400 });
+    if (!orderIdClean) return Response.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+    if (!Number.isFinite(i) || i < 0) return Response.json({ ok: false, error: "Invalid installment index" }, { status: 400 });
 
     const form = await req.formData();
     const f = form.get("file") as File | null;
-    if (!f) return NextResponse.json({ ok: false, error: "Missing file" }, { status: 400 });
+    if (!f) return Response.json({ ok: false, error: "Missing file" }, { status: 400 });
 
     const maxBytes = 5 * 1024 * 1024;
     if (typeof (f as any)?.size === "number" && (f as any).size > maxBytes) {
-      return NextResponse.json({ ok: false, error: "File too large. Max 5MB." }, { status: 400 });
+      return Response.json({ ok: false, error: "File too large. Max 5MB." }, { status: 400 });
     }
 
     const buf = Buffer.from(await f.arrayBuffer());
@@ -161,9 +161,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
       return { ok: true, proofUrl: secureUrl };
     });
 
-    return NextResponse.json(res);
+    return Response.json(res);
   } catch (e: any) {
     const status = Number(e?.status || 500);
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status });
   }
 }

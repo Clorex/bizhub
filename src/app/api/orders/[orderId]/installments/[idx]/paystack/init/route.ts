@@ -1,5 +1,5 @@
 // FILE: src/app/api/orders/[orderId]/installments/[idx]/paystack/init/route.ts
-import { NextResponse, type NextRequest } from "next/server";
+
 import crypto from "node:crypto";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireMe } from "@/lib/auth/server";
@@ -13,7 +13,7 @@ function lowerEmail(v: any) {
   return String(v || "").trim().toLowerCase();
 }
 
-function getBaseUrl(req: NextRequest) {
+function getBaseUrl(req: Request) {
   const proto = req.headers.get("x-forwarded-proto") || "http";
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || "localhost:3000";
   return `${proto}://${host}`;
@@ -23,7 +23,7 @@ function genReference(orderId: string, idx: number) {
   return `inst_${orderId}_${idx}_${Date.now()}_${crypto.randomBytes(6).toString("hex")}`;
 }
 
-export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: string; idx: string }> }) {
+export async function POST(req: Request, ctx: { params: Promise<{ orderId: string; idx: string }> }) {
   try {
     const me = await requireMe(req);
 
@@ -31,13 +31,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     const orderIdClean = String(orderId || "").trim();
     const i = Math.floor(Number(idx));
 
-    if (!orderIdClean) return NextResponse.json({ ok: false, error: "Missing orderId" }, { status: 400 });
+    if (!orderIdClean) return Response.json({ ok: false, error: "Missing orderId" }, { status: 400 });
     if (!Number.isFinite(i) || i < 0) {
-      return NextResponse.json({ ok: false, error: "Invalid installment index" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid installment index" }, { status: 400 });
     }
 
     const snap = await adminDb.collection("orders").doc(orderIdClean).get();
-    if (!snap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+    if (!snap.exists) return Response.json({ ok: false, error: "Order not found" }, { status: 404 });
 
     const o = snap.data() as any;
 
@@ -46,35 +46,35 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
       const myEmail = lowerEmail(me.email);
       const orderEmail = lowerEmail(o?.customer?.email);
       if (!myEmail || !orderEmail || myEmail !== orderEmail) {
-        return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+        return Response.json({ ok: false, error: "Not allowed" }, { status: 403 });
       }
     }
 
     // This is your existing card-escrow order type (kept for compatibility)
     if (String(o?.paymentType || "") !== "paystack_escrow") {
-      return NextResponse.json({ ok: false, error: "This is not a card/escrow order." }, { status: 400 });
+      return Response.json({ ok: false, error: "This is not a card/escrow order." }, { status: 400 });
     }
 
     const plan = o?.paymentPlan;
     const list = Array.isArray(plan?.installments) ? plan.installments : [];
     if (!plan?.enabled || list.length === 0) {
-      return NextResponse.json({ ok: false, error: "No installment plan found on this order." }, { status: 400 });
+      return Response.json({ ok: false, error: "No installment plan found on this order." }, { status: 400 });
     }
-    if (!list[i]) return NextResponse.json({ ok: false, error: "Installment not found." }, { status: 404 });
+    if (!list[i]) return Response.json({ ok: false, error: "Installment not found." }, { status: 404 });
 
     const inst = list[i];
     const status = String(inst?.status || "pending");
     if (status === "paid" || status === "accepted") {
-      return NextResponse.json({ ok: false, error: "Installment already paid." }, { status: 400 });
+      return Response.json({ ok: false, error: "Installment already paid." }, { status: 400 });
     }
 
     const amountKobo = Number(inst?.amountKobo || 0);
     if (!Number.isFinite(amountKobo) || amountKobo <= 0) {
-      return NextResponse.json({ ok: false, error: "Invalid installment amount." }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid installment amount." }, { status: 400 });
     }
 
     const email = lowerEmail(o?.customer?.email || me.email || "");
-    if (!email) return NextResponse.json({ ok: false, error: "Missing customer email." }, { status: 400 });
+    if (!email) return Response.json({ ok: false, error: "Missing customer email." }, { status: 400 });
 
     const baseUrl = getBaseUrl(req);
     const redirect_url = `${baseUrl}/orders/${encodeURIComponent(orderIdClean)}?installmentIdx=${i}`;
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
         },
       });
 
-      return NextResponse.json({
+      return Response.json({
         ok: true,
         authorization_url: link,
         reference,
@@ -116,7 +116,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
     // Paystack (kept, hidden)
     // -------------------------
     const secret = process.env.PAYSTACK_SECRET_KEY;
-    if (!secret) return NextResponse.json({ ok: false, error: "Missing PAYSTACK_SECRET_KEY" }, { status: 500 });
+    if (!secret) return Response.json({ ok: false, error: "Missing PAYSTACK_SECRET_KEY" }, { status: 500 });
 
     const body = {
       email,
@@ -141,16 +141,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ orderId: s
 
     const data = await r.json().catch(() => ({} as any));
     if (!r.ok || data?.status !== true) {
-      return NextResponse.json({ ok: false, error: data?.message || "Failed to start payment" }, { status: 400 });
+      return Response.json({ ok: false, error: data?.message || "Failed to start payment" }, { status: 400 });
     }
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       authorization_url: data?.data?.authorization_url || null,
       reference: data?.data?.reference || null,
       provider: "paystack",
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 
 export const runtime = "nodejs";
@@ -49,9 +49,9 @@ export async function POST(req: Request) {
     const codeUpper = cleanCode(body.code);
     const subtotalKobo = clampKobo(body.subtotalKobo);
 
-    if (!storeSlug) return NextResponse.json({ ok: false, error: "storeSlug required" }, { status: 400 });
-    if (!codeUpper) return NextResponse.json({ ok: false, error: "Invalid code format" }, { status: 400 });
-    if (subtotalKobo <= 0) return NextResponse.json({ ok: false, error: "Invalid subtotal" }, { status: 400 });
+    if (!storeSlug) return Response.json({ ok: false, error: "storeSlug required" }, { status: 400 });
+    if (!codeUpper) return Response.json({ ok: false, error: "Invalid code format" }, { status: 400 });
+    if (subtotalKobo <= 0) return Response.json({ ok: false, error: "Invalid subtotal" }, { status: 400 });
 
     // Find business by slug
     const bizSnap = await adminDb
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       .get();
 
     if (bizSnap.empty) {
-      return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
+      return Response.json({ ok: false, error: "Store not found" }, { status: 404 });
     }
 
     const bizDoc = bizSnap.docs[0];
@@ -75,29 +75,29 @@ export async function POST(req: Request) {
       .get();
 
     if (!cSnap.exists) {
-      return NextResponse.json({ ok: false, code: "NOT_FOUND", error: "Invalid code" }, { status: 404 });
+      return Response.json({ ok: false, code: "NOT_FOUND", error: "Invalid code" }, { status: 404 });
     }
 
     const c = cSnap.data() as any;
     const now = Date.now();
 
     if (c.active === false) {
-      return NextResponse.json({ ok: false, code: "INACTIVE", error: "Code is inactive" }, { status: 400 });
+      return Response.json({ ok: false, code: "INACTIVE", error: "Code is inactive" }, { status: 400 });
     }
 
     const startsAtMs = c.startsAtMs ? Number(c.startsAtMs) : null;
     const endsAtMs = c.endsAtMs ? Number(c.endsAtMs) : null;
 
     if (startsAtMs && now < startsAtMs) {
-      return NextResponse.json({ ok: false, code: "NOT_STARTED", error: "Code not active yet" }, { status: 400 });
+      return Response.json({ ok: false, code: "NOT_STARTED", error: "Code not active yet" }, { status: 400 });
     }
     if (endsAtMs && now > endsAtMs) {
-      return NextResponse.json({ ok: false, code: "EXPIRED", error: "Code expired" }, { status: 400 });
+      return Response.json({ ok: false, code: "EXPIRED", error: "Code expired" }, { status: 400 });
     }
 
     const minOrderKobo = clampKobo(c.minOrderKobo);
     if (minOrderKobo && subtotalKobo < minOrderKobo) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "MIN_ORDER", error: "Order total is too low for this code", minOrderKobo },
         { status: 400 }
       );
@@ -107,7 +107,7 @@ export async function POST(req: Request) {
     const usedCount = Number(c.usedCount || 0);
 
     if (usageLimitTotal != null && usedCount >= usageLimitTotal) {
-      return NextResponse.json({ ok: false, code: "LIMIT_REACHED", error: "Code usage limit reached" }, { status: 400 });
+      return Response.json({ ok: false, code: "LIMIT_REACHED", error: "Code usage limit reached" }, { status: 400 });
     }
 
     const type = String(c.type || "percent") === "fixed" ? "fixed" : "percent";
@@ -122,7 +122,7 @@ export async function POST(req: Request) {
 
     const totalKobo = Math.max(0, subtotalKobo - discountKobo);
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       coupon: {
         code: codeUpper,
@@ -137,6 +137,6 @@ export async function POST(req: Request) {
       totalKobo,
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

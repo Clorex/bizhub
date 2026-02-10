@@ -1,48 +1,127 @@
 // FILE: src/app/api/orders/direct/create/route.ts
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import crypto from "node:crypto";
 
+export const runtime = "nodejs";
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
-    const { storeSlug, customerName, customerPhone, items, totalAmountKobo } = body;
+
+    const {
+      storeSlug,
+      customerName,
+      customerPhone,
+      customerEmail,
+      items,
+      totalAmountKobo,
+    } = body;
 
     // 1. Basic Validation
-    if (!storeSlug || !items || !items.length) {
-      return NextResponse.json({ error: "Missing required order details." }, { status: 400 });
+    if (!storeSlug) {
+      return Response.json(
+        { error: "Missing store slug" },
+        { status: 400 }
+      );
     }
 
-    // 2. Generate a unique Order ID for the Receipt
-    const orderId = `ord_dir_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+    if (!customerName || !customerPhone) {
+      return Response.json(
+        { error: "Customer name and phone are required" },
+        { status: 400 }
+      );
+    }
 
-    // 3. Prepare the Order Data
+    // 2. Look up the business to get businessId
+    const bizSnap = await adminDb
+      .collection("businesses")
+      .where("slug", "==", storeSlug)
+      .limit(1)
+      .get();
+
+    if (bizSnap.empty) {
+      return Response.json(
+        { error: "Store not found" },
+        { status: 404 }
+      );
+    }
+
+    const bizDoc = bizSnap.docs[0];
+    const businessId = bizDoc.id;
+    const bizData = bizDoc.data();
+
+    // 3. Generate unique Order ID
+    const orderId = `dir_${Date.now()}_${crypto.randomBytes(4).toString("hex")}`;
+
+    // 4. Calculate amount
+    const amountKobo = Number(totalAmountKobo) || 0;
+    const amountNgn = amountKobo / 100;
+
+    // 5. Prepare order data
     const orderData = {
+      // IDs
       orderId,
+      businessId,
+      businessSlug: storeSlug,
       storeSlug,
-      status: "awaiting_confirmation", // Crucial: Vendor has to manually confirm they got the alert!
+
+      // Status
+      status: "awaiting_confirmation",
+      orderStatus: "awaiting_confirmation",
+      escrowStatus: "awaiting_transfer_confirmation",
+      paymentType: "direct_transfer",
       paymentProvider: "direct_transfer",
+
+      // Customer
+      customer: {
+        fullName: String(customerName || "").trim().slice(0, 100),
+        phone: String(customerPhone || "").trim().slice(0, 30),
+        email: String(customerEmail || "").trim().slice(0, 120),
+      },
+      buyerName: String(customerName || "").trim(),
+      buyerPhone: String(customerPhone || "").trim(),
+      buyerEmail: String(customerEmail || "").trim(),
+
+      // Items
+      items: Array.isArray(items) ? items : [],
+
+      // Amount
+      amount: amountNgn,
+      amountKobo,
+      amountPaidKobo: 0, // Not confirmed yet
+      currency: "NGN",
+
+      // Timestamps
       createdAt: FieldValue.serverTimestamp(),
       createdAtMs: Date.now(),
-      customer: {
-        fullName: customerName || "Guest",
-        phone: customerPhone || "",
-      },
-      items,
-      total: (totalAmountKobo || 0) / 100, // Converts Kobo back to Naira
-      amountPaidKobo: totalAmountKobo || 0,
-      currency: "NGN",
+      updatedAt: FieldValue.serverTimestamp(),
+      updatedAtMs: Date.now(),
+
+      // Transfer proof
+      transferProof: null,
+      transferProofUploadedAt: null,
+
+      // Vendor info for reference
+      vendorName: bizData.name || storeSlug,
     };
 
-    // 4. Save to Firestore safely using Admin DB
+    // 6. Save to Firestore
     await adminDb.collection("orders").doc(orderId).set(orderData);
 
-    // 5. Tell the frontend it was successful so it redirects to the Receipt page!
-    return NextResponse.json({ success: true, orderId });
-    
+    // 7. Return success
+    return Response.json({
+      success: true,
+      ok: true,
+      orderId,
+      message: "Order created. Awaiting payment confirmation.",
+    });
   } catch (error: any) {
     console.error("Direct transfer order error:", error);
-    return NextResponse.json({ error: "Failed to create order. Please try again." }, { status: 500 });
+    return Response.json(
+      { error: error?.message || "Failed to create order" },
+      { status: 500 }
+    );
   }
 }

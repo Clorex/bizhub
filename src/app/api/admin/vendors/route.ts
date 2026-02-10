@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { getEntitlement } from "@/lib/bizhubPlans";
@@ -64,8 +64,8 @@ export async function GET(req: Request) {
     // sort newest first
     out.sort((a, b) => Number(b.createdAtMs || 0) - Number(a.createdAtMs || 0));
 
-    return NextResponse.json({ ok: true, vendors: out });
+    return Response.json({ ok: true, vendors: out });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

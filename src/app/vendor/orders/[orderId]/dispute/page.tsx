@@ -1,345 +1,312 @@
+// FILE: src/app/vendor/orders/[orderId]/dispute/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
-import { auth } from "@/lib/firebase/client";
-import { Button } from "@/components/ui/Button";
 import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { DisputeStatusBadge } from "@/components/vendor/DisputeStatusBadge";
+import { DisputeCommentBubble } from "@/components/vendor/DisputeCommentBubble";
+import { VendorEmptyState } from "@/components/vendor/EmptyState";
+import { DetailSkeleton } from "@/components/vendor/PageSkeleton";
 import { ImageUploader } from "@/components/vendor/ImageUploader";
-import { Input } from "@/components/ui/Input";
-import { Shield, BadgeCheck } from "lucide-react";
+import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
+import {
+  AlertTriangle,
+  RefreshCw,
+  Upload,
+  MessageSquare,
+  CheckCircle2,
+  XCircle,
+  Package,
+} from "lucide-react";
+
+function fmtNaira(n: number): string {
+  if (typeof n !== "number" || isNaN(n)) return "₦0";
+  return `₦${n.toLocaleString("en-NG")}`;
+}
+
+function fmtDate(v: any): string {
+  try {
+    if (!v) return "—";
+    if (typeof v === "number") return new Date(v).toLocaleString("en-NG", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    if (typeof v?.toDate === "function") return v.toDate().toLocaleString("en-NG", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    if (typeof v === "string") { const d = new Date(v); if (!isNaN(d.getTime())) return d.toLocaleString("en-NG", { month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit" }); }
+    return String(v);
+  } catch { return "—"; }
+}
 
 export default function VendorDisputePage() {
-  const router = useRouter();
   const params = useParams();
-  const orderId = String((params as any)?.orderId ?? "");
+  const router = useRouter();
+  const orderId = String(params?.orderId || "");
 
   const [loading, setLoading] = useState(true);
-  const [o, setO] = useState<any>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  const [reason, setReason] = useState("Buyer not responding");
-  const [details, setDetails] = useState("");
-  const [sending, setSending] = useState(false);
-
-  // Evidence photos (general)
+  const [order, setOrder] = useState<any>(null);
+  const [disputes, setDisputes] = useState<any[]>([]);
+  const [selectedDispute, setSelectedDispute] = useState<any>(null);
+  const [commentText, setCommentText] = useState("");
   const [evidenceUrls, setEvidenceUrls] = useState<string[]>([]);
 
-  // Apex-only enhanced evidence
-  const [apexPriorityEnabled, setApexPriorityEnabled] = useState(false);
-  const [timelineText, setTimelineText] = useState("");
-  const [voiceNoteUrl, setVoiceNoteUrl] = useState("");
-  const [screenshotUrls, setScreenshotUrls] = useState<string[]>([]);
-  const [requestFreezeCustomer, setRequestFreezeCustomer] = useState(false);
-
-  // Momentum add-on: priority dispute review (queue boost only)
-  const [priorityReviewEnabled, setPriorityReviewEnabled] = useState(false);
-  const [planKey, setPlanKey] = useState<string>("FREE");
-
-  function addonActive(addonEntitlements: any, sku: string) {
-    try {
-      const e = addonEntitlements?.[sku];
-      if (!e) return false;
-      if (String(e.status || "") !== "active") return false;
-      const exp = Number(e.expiresAtMs || 0);
-      return !!(exp && exp > Date.now());
-    } catch {
-      return false;
-    }
-  }
-
-  async function authedFetch(path: string, init?: RequestInit) {
-    const token = await auth.currentUser?.getIdToken();
-    const r = await fetch(path, {
-      ...init,
-      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
-    });
-    const data = await r.json().catch(() => ({}));
-    if (!r.ok) throw new Error(data?.error || "Request failed");
-    return data;
-  }
-
-  useEffect(() => {
-    let mounted = true;
-
-    async function load() {
-      try {
-        setLoading(true);
-        setMsg(null);
-
-        const [orderData, accessData] = await Promise.all([
-          authedFetch(`/api/vendor/orders/${encodeURIComponent(orderId)}`),
-          authedFetch(`/api/vendor/access`),
-        ]);
-
-        if (!mounted) return;
-
-        setO(orderData.order);
-
-        const pk = String(accessData?.planKey || "FREE").toUpperCase();
-        setPlanKey(pk);
-
-        const feat = accessData?.features || {};
-        const isApex = pk === "APEX";
-        const enabled = isApex && feat?.apexPriorityDisputeOverride === true;
-        setApexPriorityEnabled(!!enabled);
-
-        const ent = accessData?.addonEntitlements || {};
-        const pr = pk === "MOMENTUM" && addonActive(ent, "addon_priority_dispute_review");
-        setPriorityReviewEnabled(!!pr);
-
-        // If Apex override is not enabled, reset apex-only fields
-        if (!enabled) {
-          setTimelineText("");
-          setVoiceNoteUrl("");
-          setScreenshotUrls([]);
-          setRequestFreezeCustomer(false);
-        }
-      } catch (e: any) {
-        setMsg(e?.message || "Failed to load order");
-        setO(null);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    }
-
-    if (orderId) load();
-    return () => {
-      mounted = false;
-    };
-  }, [orderId]);
-
-  const canSubmit = useMemo(() => details.trim().length >= 5, [details]);
-
-  async function submit() {
-    setSending(true);
+  async function load() {
+    setLoading(true);
     setMsg(null);
     try {
       const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
+      if (!token) throw new Error("Please log in again.");
 
-      const payload: any = {
-        orderId,
-        reason,
-        details,
-        evidenceUrls,
-      };
+      // Single token, parallel fetches
+      const [orderRes, disputesRes] = await Promise.all([
+        fetch(`/api/vendor/orders/${encodeURIComponent(orderId)}`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/disputes`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
 
-      // ✅ Apex-only enhanced evidence (server also enforces)
-      if (apexPriorityEnabled) {
-        payload.timelineText = timelineText;
-        payload.voiceNoteUrl = voiceNoteUrl;
-        payload.screenshotUrls = screenshotUrls;
-        payload.requestFreezeCustomer = requestFreezeCustomer;
+      const [orderData, disputesData] = await Promise.all([
+        orderRes.json().catch(() => ({})),
+        disputesRes.json().catch(() => ({})),
+      ]);
+
+      setOrder(orderRes.ok ? orderData.order || null : null);
+      const list = Array.isArray(disputesData.disputes) ? disputesData.disputes : [];
+      setDisputes(list);
+
+      if (list.length > 0 && !selectedDispute) {
+        setSelectedDispute(list.find((d: any) => String(d.status).toLowerCase() === "open") || list[0]);
       }
-
-      const r = await fetch("/api/disputes/create", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data?.error || "Failed to submit dispute");
-
-      router.push(`/vendor/orders/${orderId}`);
     } catch (e: any) {
-      setMsg(e?.message || "Failed");
+      setMsg(e?.message || "Could not load dispute info.");
+      toast.error(e?.message || "Could not load dispute info.");
     } finally {
-      setSending(false);
+      setLoading(false);
     }
   }
 
-  const showBuyPriorityReview = planKey === "MOMENTUM" && !priorityReviewEnabled;
+  useEffect(() => {
+    if (orderId) load();
+    else { setMsg("Invalid order ID"); setLoading(false); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
+
+  async function submitComment() {
+    if (!commentText.trim() && evidenceUrls.length === 0) return toast.error("Add a comment or evidence.");
+    if (!selectedDispute) return toast.error("No dispute selected.");
+
+    setSubmitting(true);
+    setMsg(null);
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Please log in again.");
+
+      const r = await fetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/disputes/${selectedDispute.id}/comment`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ text: commentText.trim(), attachments: evidenceUrls }),
+      });
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Could not submit.");
+
+      toast.success("Comment added.");
+      setCommentText("");
+      setEvidenceUrls([]);
+      await load();
+    } catch (e: any) {
+      setMsg(e?.message || "Could not submit.");
+      toast.error(e?.message || "Could not submit.");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const amount = useMemo(() => {
+    if (!order) return 0;
+    return Number(order.amount || (order.amountKobo ? order.amountKobo / 100 : 0) || 0);
+  }, [order]);
+
+  const comments = useMemo(() => {
+    if (!selectedDispute) return [];
+    return Array.isArray(selectedDispute.comments) ? selectedDispute.comments : [];
+  }, [selectedDispute]);
+
+  const isResolved = selectedDispute?.status === "resolved" || selectedDispute?.status === "closed";
 
   return (
-    <div className="min-h-screen">
-      <GradientHeader title="Report an issue" subtitle="Vendor dispute report" showBack={true} />
+    <div className="min-h-screen bg-gray-50 pb-36">
+      <GradientHeader
+        title="Dispute Management"
+        subtitle={`Order #${orderId.slice(0, 8)}`}
+        showBack={true}
+        right={
+          <button onClick={load} disabled={loading} className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50">
+            <RefreshCw className={`w-5 h-5 text-white ${loading ? "animate-spin" : ""}`} />
+          </button>
+        }
+      />
 
-      <div className="px-4 pb-24 space-y-3">
-        {loading ? <Card className="p-4">Loading…</Card> : null}
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+      {/* Skeleton */}
+      {loading && <DetailSkeleton />}
 
-        {!loading && o ? (
-          <>
-            <SectionCard title="Order" subtitle="This report is tied to a specific order">
-              <div className="text-sm text-gray-700 space-y-1">
-                <div>
-                  Order: <b className="text-biz-ink">#{String(orderId).slice(0, 8)}</b>
-                </div>
-                <div>
-                  Payment: <b className="text-biz-ink">{String(o.paymentType || "—")}</b>
-                </div>
-                <div className="text-[11px] text-gray-500 break-all">
-                  Full ID: <b className="text-biz-ink">{orderId}</b>
-                </div>
+      {/* No disputes */}
+      {!loading && disputes.length === 0 && (
+        <div className="px-4 pt-4">
+          {msg && <Card className="p-4 text-red-700 mb-3">{msg}</Card>}
+          <Card className="p-6">
+            <VendorEmptyState
+              icon={CheckCircle2}
+              title="No disputes"
+              description="This order has no active or past disputes."
+              actions={[
+                { label: "View Order", onClick: () => router.push(`/vendor/orders/${orderId}`), variant: "secondary", icon: Package },
+                { label: "All Orders", onClick: () => router.push("/vendor/orders"), variant: "secondary" },
+              ]}
+            />
+          </Card>
+        </div>
+      )}
+
+      {/* Disputes content */}
+      {!loading && disputes.length > 0 && (
+        <div className="px-4 pt-4 space-y-4">
+          {msg && <Card className="p-4 text-red-700">{msg}</Card>}
+
+          {/* Hero */}
+          <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+            <div className="relative z-10">
+              <div className="flex items-center gap-2 text-red-100 mb-2">
+                <AlertTriangle className="w-4 h-4" />
+                <span className="text-xs font-bold uppercase tracking-wider">Disputed Order</span>
               </div>
-            </SectionCard>
+              <p className="text-3xl font-black tracking-tight">{fmtNaira(amount)}</p>
+              <p className="text-sm text-red-100 mt-2">{disputes.length} dispute{disputes.length !== 1 ? "s" : ""}</p>
+            </div>
+          </div>
 
-            {apexPriorityEnabled ? (
-              <Card className="p-4 border border-emerald-200 bg-emerald-50/40">
-                <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-2xl bg-white border border-emerald-100 flex items-center justify-center">
-                    <BadgeCheck className="h-5 w-5 text-emerald-700" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-extrabold text-biz-ink">Apex priority dispute override</p>
-                    <p className="text-[11px] text-biz-muted mt-1">
-                      Your case jumps the queue and you can submit extra evidence (timeline, voice-note link, screenshots).
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ) : null}
-
-            {priorityReviewEnabled ? (
-              <Card className="p-4 border border-orange-200 bg-orange-50/40">
-                <div className="flex items-start gap-3">
-                  <div className="h-10 w-10 rounded-2xl bg-white border border-orange-100 flex items-center justify-center">
-                    <BadgeCheck className="h-5 w-5 text-orange-700" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-extrabold text-biz-ink">Priority dispute review</p>
-                    <p className="text-[11px] text-biz-muted mt-1">
-                      Your disputes get a queue boost. This does not grant override powers.
-                    </p>
-                  </div>
-                </div>
-              </Card>
-            ) : showBuyPriorityReview ? (
-              <Card className="p-4 border border-biz-line bg-white">
-                <p className="text-sm font-extrabold text-biz-ink">Want faster dispute review?</p>
-                <p className="text-[11px] text-biz-muted mt-1">
-                  Buy <b className="text-biz-ink">Priority dispute review</b> to boost your dispute queue (Momentum add-on).
-                </p>
-                <div className="mt-3">
-                  <Button size="sm" onClick={() => router.push("/vendor/purchases")}>
-                    Buy Priority dispute review
-                  </Button>
-                </div>
-              </Card>
-            ) : null}
-
-            <SectionCard title="Issue details" subtitle="Add screenshots if available">
-              <select
-                className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-                value={reason}
-                onChange={(e) => setReason(e.target.value)}
-              >
-                <option>Buyer not responding</option>
-                <option>Buyer unreachable</option>
-                <option>Buyer cancelled</option>
-                <option>Delivery failed</option>
-                <option>Other</option>
-              </select>
-
-              <textarea
-                className="mt-2 w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-                placeholder="Explain what happened… (timeline, chats, delivery attempt, proof)"
-                value={details}
-                onChange={(e) => setDetails(e.target.value)}
-                rows={6}
-              />
-
-              <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
-                <ImageUploader
-                  label="Evidence photos (optional)"
-                  value={evidenceUrls}
-                  onChange={setEvidenceUrls}
-                  max={10}
-                  folderBase="bizhub/uploads/disputes/evidence"
-                  disabled={sending}
-                />
-                <p className="mt-2 text-[11px] text-biz-muted">Tip: Add clear screenshots/photos. Up to 10.</p>
-              </div>
-
-              {apexPriorityEnabled ? (
-                <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Shield className="h-4 w-4 text-emerald-700" />
-                    <p className="text-sm font-extrabold text-biz-ink">Apex evidence pack</p>
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-bold text-biz-ink">Timeline (optional)</p>
-                    <textarea
-                      className="mt-2 w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40"
-                      placeholder={`Example:\n- 10 Jan: Customer paid\n- 11 Jan: Shipped\n- 12 Jan: Delivery attempt\n- 13 Jan: Customer stopped replying`}
-                      value={timelineText}
-                      onChange={(e) => setTimelineText(e.target.value)}
-                      rows={5}
-                      disabled={sending}
-                    />
-                  </div>
-
-                  <div>
-                    <p className="text-xs font-bold text-biz-ink">Voice note link (optional)</p>
-                    <Input
-                      placeholder="Paste a public https:// link (Drive/Dropbox/etc)"
-                      value={voiceNoteUrl}
-                      onChange={(e) => setVoiceNoteUrl(e.target.value)}
-                      disabled={sending}
-                    />
-                    <p className="mt-1 text-[11px] text-biz-muted">
-                      Upload voice note anywhere (Drive/Dropbox) and paste a public link.
-                    </p>
-                  </div>
-
-                  <div>
-                    <ImageUploader
-                      label="Screenshots (optional)"
-                      value={screenshotUrls}
-                      onChange={setScreenshotUrls}
-                      max={10}
-                      folderBase="bizhub/uploads/disputes/screenshots"
-                      disabled={sending}
-                    />
-                  </div>
-
+          {/* Selector */}
+          {disputes.length > 1 && (
+            <SectionCard title="Select Dispute" subtitle="Choose which to view">
+              <div className="space-y-2">
+                {disputes.map((d: any) => (
                   <button
-                    type="button"
-                    onClick={() => setRequestFreezeCustomer((v) => !v)}
-                    disabled={sending}
-                    className="w-full rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between"
+                    key={d.id}
+                    onClick={() => setSelectedDispute(d)}
+                    className={`w-full flex items-center gap-4 p-4 rounded-2xl border transition text-left ${selectedDispute?.id === d.id ? "border-orange-300 bg-orange-50" : "border-gray-100 bg-white hover:border-orange-200"}`}
                   >
-                    <div className="text-left">
-                      <p className="text-sm font-bold text-biz-ink">Request customer freeze (during investigation)</p>
-                      <p className="text-[11px] text-biz-muted mt-1">
-                        Admin can temporarily freeze the customer while reviewing this case.
-                      </p>
+                    <div className="w-11 h-11 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
+                      <AlertTriangle className="w-5 h-5 text-red-600" />
                     </div>
-
-                    <span
-                      className={
-                        requestFreezeCustomer
-                          ? "px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-100"
-                          : "px-3 py-1 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-100"
-                      }
-                    >
-                      {requestFreezeCustomer ? "ON" : "OFF"}
-                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-gray-900">{d.reason || "Dispute"}</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Created: {fmtDate(d.createdAt)}</p>
+                    </div>
+                    <DisputeStatusBadge status={d.status || "open"} />
                   </button>
-                </div>
-              ) : null}
-
-              <div className="mt-3 grid grid-cols-2 gap-2">
-                <Button onClick={submit} loading={sending} disabled={!canSubmit || sending}>
-                  Submit report
-                </Button>
-                <Button variant="secondary" onClick={() => router.push(`/vendor/orders/${orderId}`)} disabled={sending}>
-                  Back
-                </Button>
+                ))}
               </div>
-
-              <p className="mt-2 text-[11px] text-biz-muted">
-                Note: Disputes don’t automatically freeze customers. Apex vendors can request a temporary freeze; admin decides.
-              </p>
             </SectionCard>
-          </>
-        ) : null}
-      </div>
+          )}
+
+          {/* Details */}
+          {selectedDispute && (
+            <>
+              <SectionCard title="Dispute Details" subtitle={`ID: ${selectedDispute.id?.slice(0, 8) || "—"}`} right={<DisputeStatusBadge status={selectedDispute.status || "open"} />}>
+                <div className="space-y-3">
+                  <div className="p-4 rounded-2xl border border-gray-100 bg-white">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Reason</p>
+                    <p className="text-sm text-gray-900 mt-1">{selectedDispute.reason || "—"}</p>
+                  </div>
+                  <div className="p-4 rounded-2xl border border-gray-100 bg-white">
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">Description</p>
+                    <p className="text-sm text-gray-900 mt-1 whitespace-pre-wrap">{selectedDispute.description || "—"}</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="p-4 rounded-2xl border border-gray-100 bg-white">
+                      <p className="text-xs font-bold text-gray-500 uppercase">Filed By</p>
+                      <p className="text-sm text-gray-900 mt-1">{selectedDispute.filedBy === "customer" ? "Customer" : "Vendor"}</p>
+                    </div>
+                    <div className="p-4 rounded-2xl border border-gray-100 bg-white">
+                      <p className="text-xs font-bold text-gray-500 uppercase">Created</p>
+                      <p className="text-sm text-gray-900 mt-1">{fmtDate(selectedDispute.createdAt)}</p>
+                    </div>
+                  </div>
+                  {selectedDispute.resolution && (
+                    <div className="p-4 rounded-2xl border border-green-200 bg-green-50">
+                      <div className="flex items-center gap-2 mb-2">
+                        <CheckCircle2 className="w-4 h-4 text-green-600" />
+                        <p className="text-xs font-bold text-green-900 uppercase">Resolution</p>
+                      </div>
+                      <p className="text-sm text-green-900 whitespace-pre-wrap">{selectedDispute.resolution}</p>
+                    </div>
+                  )}
+                </div>
+              </SectionCard>
+
+              {/* Comments */}
+              <SectionCard title="Discussion" subtitle={`${comments.length} comment${comments.length !== 1 ? "s" : ""}`}>
+                {comments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-3">
+                      <MessageSquare className="w-7 h-7 text-gray-300" />
+                    </div>
+                    <p className="text-sm text-gray-500">No comments yet.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {comments.map((c: any, i: number) => <DisputeCommentBubble key={i} comment={c} />)}
+                  </div>
+                )}
+              </SectionCard>
+
+              {/* Add Response */}
+              {!isResolved && (
+                <SectionCard title="Add Response" subtitle="Provide evidence or explanation">
+                  <div className="space-y-3">
+                    <textarea
+                      className="w-full rounded-2xl border border-gray-200 bg-white p-4 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-500/40 disabled:opacity-50"
+                      placeholder="Explain your side…"
+                      value={commentText}
+                      onChange={(e) => setCommentText(e.target.value)}
+                      rows={4}
+                      disabled={submitting}
+                    />
+                    <ImageUploader label="Upload Evidence" value={evidenceUrls} onChange={setEvidenceUrls} max={5} folderBase="bizhub/uploads/disputes" disabled={submitting} />
+                    {evidenceUrls.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {evidenceUrls.map((url, i) => (
+                          <div key={i} className="w-20 h-20 rounded-xl overflow-hidden border border-gray-200">
+                            <img src={url} alt={`Evidence ${i + 1}`} className="w-full h-full object-cover" />
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <Button onClick={submitComment} loading={submitting} disabled={submitting || (!commentText.trim() && evidenceUrls.length === 0)} leftIcon={<Upload className="w-4 h-4" />}>
+                      Submit Response
+                    </Button>
+                    <p className="text-xs text-gray-500">Tip: Clear evidence helps resolve disputes faster.</p>
+                  </div>
+                </SectionCard>
+              )}
+
+              {isResolved && (
+                <div className="flex items-center gap-4 p-4 rounded-2xl border border-gray-100 bg-white">
+                  <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+                    <XCircle className="w-5 h-5 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">This dispute is {selectedDispute.status}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">No more comments allowed.</p>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

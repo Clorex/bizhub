@@ -1,5 +1,5 @@
 // FILE: src/app/api/paystack/verify/route.ts
-import { NextResponse } from "next/server";
+
 import { paymentsProvider } from "@/lib/payments/provider";
 import { flwVerifyTransaction } from "@/lib/payments/flutterwaveServer";
 
@@ -44,21 +44,21 @@ export async function POST(req: Request) {
     // -------------------------
     if (provider === "flutterwave") {
       if (!transactionId) {
-        return NextResponse.json({ error: "transactionId is required for Flutterwave verify" }, { status: 400 });
+        return Response.json({ error: "transactionId is required for Flutterwave verify" }, { status: 400 });
       }
 
       const flwTx = await flwVerifyTransaction(transactionId);
 
       // If reference was provided, ensure it matches tx_ref
       if (reference && String((flwTx as any)?.tx_ref || "") !== reference) {
-        return NextResponse.json({ error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
+        return Response.json({ error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
       }
 
       const currency = String((flwTx as any)?.currency || "NGN").toUpperCase();
       const amountMajor = Number((flwTx as any)?.amount || 0);
       const amountMinor = Math.round(amountMajor * 100);
 
-      return NextResponse.json({
+      return Response.json({
         provider: "flutterwave",
         status: String((flwTx as any)?.status || ""), // "successful"
         reference: String((flwTx as any)?.tx_ref || reference || ""),
@@ -81,12 +81,12 @@ export async function POST(req: Request) {
     // Paystack (kept, hidden)
     // -------------------------
     if (!reference) {
-      return NextResponse.json({ error: "reference is required" }, { status: 400 });
+      return Response.json({ error: "reference is required" }, { status: 400 });
     }
 
     const ps = await verifyPaystack(reference);
 
-    return NextResponse.json({
+    return Response.json({
       provider: "paystack",
       status: ps.status,
       reference: ps.reference,
@@ -100,6 +100,6 @@ export async function POST(req: Request) {
       raw: ps,
     });
   } catch (e: any) {
-    return NextResponse.json({ error: e?.message || "Verify failed" }, { status: 500 });
+    return Response.json({ error: e?.message || "Verify failed" }, { status: 500 });
   }
 }

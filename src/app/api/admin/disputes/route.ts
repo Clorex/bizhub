@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -27,9 +27,9 @@ export async function GET(req: Request) {
       return Number(b.createdAtMs || 0) - Number(a.createdAtMs || 0);
     });
 
-    return NextResponse.json({ ok: true, disputes: disputes.slice(0, 150) });
+    return Response.json({ ok: true, disputes: disputes.slice(0, 150) });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
+    return Response.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
   }
 }
 
@@ -38,11 +38,11 @@ export async function POST(req: Request) {
     const me = await requireRole(req, "admin");
 
     const { disputeId, decision } = await req.json();
-    if (!disputeId || !decision) return NextResponse.json({ error: "disputeId and decision required" }, { status: 400 });
+    if (!disputeId || !decision) return Response.json({ error: "disputeId and decision required" }, { status: 400 });
 
     const disputeRef = adminDb.collection("disputes").doc(disputeId);
     const disputeSnap = await disputeRef.get();
-    if (!disputeSnap.exists) return NextResponse.json({ error: "Dispute not found" }, { status: 404 });
+    if (!disputeSnap.exists) return Response.json({ error: "Dispute not found" }, { status: 404 });
 
     const dispute = disputeSnap.data() as any;
 
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
 
     const orderRef = adminDb.collection("orders").doc(dispute.orderId);
     const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    if (!orderSnap.exists) return Response.json({ error: "Order not found" }, { status: 404 });
 
     const order = orderSnap.data() as any;
 
@@ -130,8 +130,8 @@ export async function POST(req: Request) {
       await syncBusinessSignalsToProducts({ businessId });
     }
 
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

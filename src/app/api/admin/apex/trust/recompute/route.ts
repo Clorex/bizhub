@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
@@ -242,8 +242,8 @@ export async function POST(req: Request) {
       results.push({ businessId: bid, ok: true, badgeActive, reason, riskScore, flags, productsUpdated: denorm.updated });
     }
 
-    return NextResponse.json({ ok: true, count: results.length, results });
+    return Response.json({ ok: true, count: results.length, results });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

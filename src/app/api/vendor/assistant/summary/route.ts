@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -49,13 +49,13 @@ function addonIsActive(ent: any, nowMs: number) {
 export async function GET(req: Request) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     const access = await getAssistantLimitsResolved(me.businessId);
     if (!access.limits.canUseAssistant) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Upgrade to unlock the sales assistant." },
         { status: 403 }
       );
@@ -168,7 +168,7 @@ export async function GET(req: Request) {
       if (disputeLevel === "none") riskNotes.push("No dispute risk signals right now.");
     }
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       meta: {
         planKey: access.planKey,
@@ -196,8 +196,8 @@ export async function GET(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

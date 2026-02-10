@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import crypto from "node:crypto";
 import { requireMe } from "@/lib/auth/server";
 
@@ -31,7 +31,7 @@ export async function POST(req: Request) {
     const apiSecret = process.env.CLOUDINARY_API_SECRET;
 
     if (!cloudName || !apiKey || !apiSecret) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: "Missing Cloudinary env vars (CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET)" },
         { status: 500 }
       );
@@ -47,7 +47,7 @@ export async function POST(req: Request) {
     const paramsToSign = { folder, timestamp };
     const signature = cloudinarySign(paramsToSign, apiSecret);
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       cloudName,
       apiKey,
@@ -56,6 +56,6 @@ export async function POST(req: Request) {
       signature,
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

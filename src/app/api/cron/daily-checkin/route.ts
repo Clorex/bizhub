@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { buildBusinessDailySnapshot } from "@/lib/checkin/buildBusinessDailySnapshot";
@@ -33,7 +33,7 @@ export async function GET(req: Request) {
     const isCron = req.headers.get("x-vercel-cron") === "1";
 
     if (!isCron) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: "Unauthorized" },
         { status: 401 }
       );
@@ -191,7 +191,7 @@ export async function GET(req: Request) {
       ? businessDocs[businessDocs.length - 1].id
       : null;
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       dayKey: dk,
       processed: businessDocs.length,
@@ -202,7 +202,7 @@ export async function GET(req: Request) {
       errors: errors.slice(0, 20),
     });
   } catch (e: any) {
-    return NextResponse.json(
+    return Response.json(
       { ok: false, error: e?.message || "Failed" },
       { status: 500 }
     );

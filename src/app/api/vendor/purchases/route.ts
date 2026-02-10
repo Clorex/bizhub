@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
@@ -40,7 +40,7 @@ function computeAddonStatus(ent: any, nowMs = Date.now()) {
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     const plan = await getBusinessPlanResolved(me.businessId);
     const planKey = cleanPlanKey(plan.planKey);
@@ -65,7 +65,7 @@ export async function GET(req: Request) {
       };
     });
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       planKey,
       subscriptionActive,
@@ -73,6 +73,6 @@ export async function GET(req: Request) {
       items,
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

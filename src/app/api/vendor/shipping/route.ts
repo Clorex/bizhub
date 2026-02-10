@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/shipping/route.ts
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -34,7 +34,7 @@ function cleanText(v: any, max = 80) {
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -42,19 +42,19 @@ export async function GET(req: Request) {
 
     const options = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })).sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
 
-    return NextResponse.json({ ok: true, options });
+    return Response.json({ ok: true, options });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
     const type = cleanType(body.type);
 
     const name = cleanText(body.name, 60);
-    if (!name) return NextResponse.json({ ok: false, error: "Name is required" }, { status: 400 });
+    if (!name) return Response.json({ ok: false, error: "Name is required" }, { status: 400 });
 
     // ✅ plan-config driven shipping options max (no hardcoded limits)
     if (!id) {
@@ -72,7 +72,7 @@ export async function POST(req: Request) {
       const max = Number(plan?.limits?.shippingOptionsMax || 0);
 
       if (!Number.isFinite(max) || max <= 0) {
-        return NextResponse.json(
+        return Response.json(
           { ok: false, code: "PLAN_LIMIT_SHIPPING_OPTIONS", error: "Your plan does not allow shipping options." },
           { status: 403 }
         );
@@ -82,7 +82,7 @@ export async function POST(req: Request) {
       const cur = Number((agg.data() as any)?.count || 0);
 
       if (cur >= max) {
-        return NextResponse.json(
+        return Response.json(
           {
             ok: false,
             code: "PLAN_LIMIT_SHIPPING_OPTIONS",
@@ -135,33 +135,33 @@ export async function POST(req: Request) {
       await ref.set({ createdAtMs: Date.now(), createdAt: FieldValue.serverTimestamp() }, { merge: true });
     }
 
-    return NextResponse.json({ ok: true, id: ref.id });
+    return Response.json({ ok: true, id: ref.id });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     const url = new URL(req.url);
     const id = String(url.searchParams.get("id") || "").trim();
-    if (!id) return NextResponse.json({ ok: false, error: "id required" }, { status: 400 });
+    if (!id) return Response.json({ ok: false, error: "id required" }, { status: 400 });
 
     await adminDb.collection("businesses").doc(me.businessId).collection("shippingOptions").doc(id).delete();
 
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

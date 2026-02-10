@@ -1,280 +1,451 @@
 // FILE: src/app/account/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { onAuthStateChanged, signOut } from "firebase/auth";
-import { auth } from "@/lib/firebase/client";
+import {
+  User,
+  Mail,
+  ShoppingBag,
+  Package,
+  Settings,
+  LogOut,
+  ChevronRight,
+  Store,
+  BarChart3,
+  Plus,
+  Shield,
+  Bell,
+  HelpCircle,
+  Heart,
+  Loader2,
+} from "lucide-react";
+
+import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
-import { loadOptOutPrefs, saveOptOutPrefs } from "@/lib/marketing/optOut";
+import { Button } from "@/components/ui/Button";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
+import { cn } from "@/lib/cn";
 
-export default function AccountPage() {
-  const router = useRouter();
-  const [email, setEmail] = useState<string | null>(null);
-  const [role, setRole] = useState<string | null>(null);
+type AppRole = "customer" | "owner" | "staff" | "admin";
 
-  const [optOutSlugs, setOptOutSlugs] = useState<string[]>([]);
-  const [optOutInput, setOptOutInput] = useState("");
-  const [optMsg, setOptMsg] = useState<string | null>(null);
-  const [savingOpt, setSavingOpt] = useState(false);
+interface MenuItem {
+  icon: any;
+  label: string;
+  description?: string;
+  href?: string;
+  onClick?: () => void;
+  badge?: string;
+  destructive?: boolean;
+}
 
-  const isOwner = role === "owner";
-  const isAdmin = role === "admin";
-  const isStaff = role === "staff";
-
-  const continuePath = useMemo(() => {
-    if (isAdmin) return "/admin";
-    if (isOwner || isStaff) return "/vendor";
-    return "/orders";
-  }, [isAdmin, isOwner, isStaff]);
-
-  useEffect(() => {
-    return onAuthStateChanged(auth, async (u) => {
-      setEmail(u?.email ?? null);
-      if (!u) {
-        setRole(null);
-        return;
-      }
-      try {
-        const token = await u.getIdToken();
-        const r = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
-        const data = await r.json().catch(() => ({}));
-        setRole(data?.me?.role ?? null);
-
-        // load local prefs for quick UI, then sync from server best-effort
-        const local = loadOptOutPrefs();
-        setOptOutSlugs(local.storeOptOutSlugs || []);
-
-        try {
-          const rr = await fetch("/api/marketing/optout", { headers: { Authorization: `Bearer ${token}` } });
-          const jj = await rr.json().catch(() => ({}));
-          if (rr.ok) {
-            const slugs: string[] = Array.isArray(jj.storeOptOutSlugs) ? jj.storeOptOutSlugs : [];
-            setOptOutSlugs(slugs);
-            saveOptOutPrefs({ globalOptOut: false, storeOptOutSlugs: slugs, updatedAtMs: Date.now() });
-          }
-        } catch {
-          // ignore
-        }
-      } catch {
-        setRole(null);
-      }
-    });
-  }, []);
-
-  async function logout() {
-    await signOut(auth);
-    router.push("/market");
-  }
-
-  const initials = (email || "B").slice(0, 1).toUpperCase();
-
-  async function updateOptOut(storeSlug: string, optOut: boolean) {
-    const slug = String(storeSlug || "").trim().toLowerCase();
-    if (!slug) return;
-
-    setSavingOpt(true);
-    setOptMsg(null);
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
-
-      const r = await fetch("/api/marketing/optout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ storeSlug: slug, optOut }),
-      });
-
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data?.error || "Failed");
-
-      const next = optOut ? Array.from(new Set([...optOutSlugs, slug])) : optOutSlugs.filter((x) => x !== slug);
-
-      setOptOutSlugs(next);
-      saveOptOutPrefs({ globalOptOut: false, storeOptOutSlugs: next, updatedAtMs: Date.now() });
-
-      setOptMsg(optOut ? `Opted out from ${slug}` : `Opt-in restored for ${slug}`);
-    } catch (e: any) {
-      setOptMsg(e?.message || "Failed");
-    } finally {
-      setSavingOpt(false);
-    }
-  }
+function MenuCard({ item }: { item: MenuItem }) {
+  const Icon = item.icon;
+  const Component = item.href ? Link : "button";
+  const props = item.href
+    ? { href: item.href }
+    : { onClick: item.onClick, type: "button" as const };
 
   return (
-    <div className="min-h-screen">
-      <div className="relative">
-        <div className="h-2 w-full bg-gradient-to-r from-[#FF6A00] to-[#FF8A00]" />
-        <div className="px-4 pt-6 pb-12 bg-gradient-to-b from-[#FFE2B8] to-[#F6F7FB]">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-lg font-extrabold text-[#111827]">
-                Profile<span className="text-[#FF8A00]">.</span>
-              </p>
-              <p className="text-xs text-gray-600 mt-1">Your myBizHub account</p>
-            </div>
-
-            <button
-              className="rounded-2xl border border-[#E7E7EE] bg-white px-4 py-2 text-xs font-extrabold"
-              onClick={() => router.push("/market")}
-            >
-              Market
-            </button>
-          </div>
-        </div>
-
-        <div className="px-4 -mt-8">
-          <div className="rounded-3xl p-4 text-white shadow-[0_12px_30px_rgba(17,24,39,0.10)] bg-gradient-to-br from-[#FF6A00] to-[#FF8A00]">
-            <div className="flex items-center gap-3">
-              <div className="h-12 w-12 rounded-2xl bg-white/20 flex items-center justify-center font-extrabold">
-                {initials}
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-extrabold">{email ? "Welcome back" : "Welcome"}</p>
-                <p className="text-xs opacity-95 mt-1 break-all">
-                  {email || "Login when you want to checkout and track orders."}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-3 gap-2">
-              <Stat label="Orders" value="View" onClick={() => router.push("/orders")} />
-              <Stat label="Cart" value="Open" onClick={() => router.push("/cart")} />
-              <Stat
-                label={isOwner ? "Products" : "Market"}
-                value="Go"
-                onClick={() => router.push(isOwner ? "/vendor/products" : "/market")}
-              />
-            </div>
-          </div>
-        </div>
+    <Component
+      {...(props as any)}
+      className={cn(
+        "w-full flex items-center gap-4 p-4 rounded-2xl border border-gray-100 bg-white hover:border-orange-200 hover:shadow-sm transition text-left",
+        item.destructive && "hover:border-red-200"
+      )}
+    >
+      <div
+        className={cn(
+          "w-11 h-11 rounded-xl flex items-center justify-center shrink-0",
+          item.destructive ? "bg-red-50 text-red-600" : "bg-orange-50 text-orange-600"
+        )}
+      >
+        <Icon className="w-5 h-5" />
       </div>
-
-      <div className="px-4 pb-24 space-y-3 mt-3">
-        <Card className="p-4">
-          {!email ? (
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                className="rounded-2xl border border-[#E7E7EE] py-3 text-sm font-extrabold"
-                onClick={() => router.push("/account/login")}
-              >
-                Login
-              </button>
-              <button
-                className="rounded-2xl py-3 text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00]"
-                onClick={() => router.push("/account/register")}
-              >
-                Register
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <button
-                className="w-full rounded-2xl py-3 text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00]"
-                onClick={() => router.push(continuePath)}
-              >
-                Continue
-              </button>
-
-              {isOwner ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    className="rounded-2xl border border-[#E7E7EE] py-3 text-sm font-extrabold"
-                    onClick={() => router.push("/vendor/products")}
-                  >
-                    My Products
-                  </button>
-                  <button
-                    className="rounded-2xl border border-[#E7E7EE] py-3 text-sm font-extrabold"
-                    onClick={() => router.push("/vendor/products/new")}
-                  >
-                    New Product
-                  </button>
-                  <button
-                    className="col-span-2 rounded-2xl border border-[#E7E7EE] py-3 text-sm font-extrabold"
-                    onClick={() => router.push("/vendor/analytics")}
-                  >
-                    Business Analysis
-                  </button>
-                </div>
-              ) : null}
-
-              <button
-                className="w-full rounded-2xl border border-[#E7E7EE] py-3 text-sm font-extrabold"
-                onClick={logout}
-              >
-                Logout
-              </button>
-            </div>
-          )}
-        </Card>
-
-        {email ? (
-          <Card className="p-4">
-            <p className="text-sm font-extrabold text-biz-ink">Message preferences</p>
-            <p className="text-xs text-biz-muted mt-1">Stop messages from specific stores (per-store opt-out).</p>
-
-            <div className="mt-3 flex gap-2">
-              <input
-                className="flex-1 border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
-                placeholder="Enter store slug (e.g. miracle-store)"
-                value={optOutInput}
-                onChange={(e) => setOptOutInput(e.target.value)}
-                disabled={savingOpt}
-              />
-              <button
-                className="px-4 rounded-2xl text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00] disabled:opacity-50"
-                onClick={() => updateOptOut(optOutInput, true)}
-                disabled={savingOpt || !optOutInput.trim()}
-              >
-                Block
-              </button>
-            </div>
-
-            {optMsg ? <p className="mt-2 text-[11px] text-gray-700">{optMsg}</p> : null}
-
-            <div className="mt-3">
-              {optOutSlugs.length === 0 ? (
-                <p className="text-sm text-biz-muted">No blocked stores.</p>
-              ) : (
-                <div className="space-y-2">
-                  {optOutSlugs.slice(0, 50).map((s) => (
-                    <div
-                      key={s}
-                      className="rounded-2xl border border-biz-line bg-white p-3 flex items-center justify-between"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-sm font-bold text-biz-ink">{s}</p>
-                        <p className="text-[11px] text-gray-500 mt-1">You opted out from this store.</p>
-                      </div>
-                      <button
-                        className="text-xs font-extrabold text-biz-accent"
-                        onClick={() => updateOptOut(s, false)}
-                        disabled={savingOpt}
-                      >
-                        Unblock
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <p className="mt-3 text-[11px] text-biz-muted">
-              Note: WhatsApp messages are initiated by the vendor using your phone number from checkout.
-            </p>
-          </Card>
-        ) : null}
+      <div className="flex-1 min-w-0">
+        <p className={cn(
+          "text-sm font-semibold",
+          item.destructive ? "text-red-600" : "text-gray-900"
+        )}>
+          {item.label}
+        </p>
+        {item.description && (
+          <p className="text-xs text-gray-500 mt-0.5">{item.description}</p>
+        )}
       </div>
-    </div>
+      {item.badge && (
+        <span className="px-2 py-1 rounded-full bg-orange-100 text-orange-700 text-xs font-bold">
+          {item.badge}
+        </span>
+      )}
+      <ChevronRight className={cn(
+        "w-5 h-5 shrink-0",
+        item.destructive ? "text-red-300" : "text-gray-300"
+      )} />
+    </Component>
   );
 }
 
-function Stat({ label, value, onClick }: { label: string; value: string; onClick: () => void }) {
+function QuickStat({
+  icon: Icon,
+  label,
+  value,
+  onClick,
+}: {
+  icon: any;
+  label: string;
+  value: string;
+  onClick: () => void;
+}) {
   return (
-    <button onClick={onClick} className="rounded-2xl bg-white/15 p-3 text-left">
-      <p className="text-[11px] opacity-95">{label}</p>
-      <p className="text-sm font-extrabold mt-1">{value}</p>
+    <button
+      onClick={onClick}
+      className="flex-1 bg-white/20 hover:bg-white/30 rounded-xl p-3 text-left transition"
+    >
+      <Icon className="w-5 h-5 text-white/80 mb-2" />
+      <p className="text-xs text-white/80">{label}</p>
+      <p className="text-sm font-bold text-white mt-0.5">{value}</p>
     </button>
+  );
+}
+
+export default function AccountPage() {
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [role, setRole] = useState<AppRole>("customer");
+  const [businessSlug, setBusinessSlug] = useState<string | null>(null);
+
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      setLoading(false);
+
+      if (!u) {
+        setRole("customer");
+        setBusinessSlug(null);
+        return;
+      }
+
+      try {
+        const token = await u.getIdToken();
+        const r = await fetch("/api/me", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await r.json().catch(() => ({}));
+
+        setRole((data?.me?.role as AppRole) || "customer");
+        setBusinessSlug(data?.me?.businessSlug || null);
+      } catch {
+        setRole("customer");
+        setBusinessSlug(null);
+      }
+    });
+
+    return () => unsub();
+  }, []);
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      toast.success("Logged out successfully");
+      router.push("/market");
+    } catch (e: any) {
+      toast.error("Failed to logout");
+    }
+  };
+
+  const isVendor = role === "owner" || role === "staff";
+  const isAdmin = role === "admin";
+  const email = user?.email || "";
+  const displayName = user?.displayName || email.split("@")[0] || "User";
+  const initials = displayName.slice(0, 2).toUpperCase();
+
+  // Menu items based on role
+  const customerItems: MenuItem[] = [
+    {
+      icon: Package,
+      label: "My Orders",
+      description: "Track your purchases",
+      href: "/orders",
+    },
+    {
+      icon: ShoppingBag,
+      label: "Shopping Cart",
+      description: "View items in cart",
+      href: "/cart",
+    },
+    {
+      icon: Heart,
+      label: "Favorites",
+      description: "Saved products",
+      href: "/favorites",
+    },
+  ];
+
+  const vendorItems: MenuItem[] = [
+    {
+      icon: Store,
+      label: "My Store",
+      description: "Manage your storefront",
+      href: `/b/${businessSlug}`,
+    },
+    {
+      icon: Package,
+      label: "Products",
+      description: "Manage your listings",
+      href: "/vendor/products",
+    },
+    {
+      icon: Plus,
+      label: "Add Product",
+      description: "Create new listing",
+      href: "/vendor/products/new",
+    },
+    {
+      icon: BarChart3,
+      label: "Analytics",
+      description: "View business insights",
+      href: "/vendor/analytics",
+    },
+    {
+      icon: Settings,
+      label: "Store Settings",
+      description: "Configure your store",
+      href: "/vendor/store",
+    },
+  ];
+
+  const settingsItems: MenuItem[] = [
+    {
+      icon: Bell,
+      label: "Notifications",
+      description: "Manage message preferences",
+      href: "/account/notifications",
+    },
+    {
+      icon: Shield,
+      label: "Security",
+      description: "Password & account security",
+      href: "/account/security",
+    },
+    {
+      icon: HelpCircle,
+      label: "Help & Support",
+      description: "Get assistance",
+      href: "/help",
+    },
+  ];
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <GradientHeader title="Profile" subtitle="Loading..." showBack={false} />
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 text-orange-500 animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  // Not logged in state
+  if (!user) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <GradientHeader title="Profile" subtitle="Your account" showBack={false} />
+
+        <div className="px-4 pt-4 pb-24">
+          {/* Welcome Card */}
+          <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-3xl p-6 text-white shadow-lg mb-4">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center">
+                <User className="w-8 h-8 text-white" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold">Welcome to myBizHub</h2>
+                <p className="text-sm text-orange-100 mt-1">
+                  Login to track orders and access more features
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Auth Actions */}
+          <Card className="p-4 space-y-3">
+            <Button
+              className="w-full"
+              onClick={() => router.push("/account/login")}
+            >
+              Login
+            </Button>
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => router.push("/account/register")}
+            >
+              Create Account
+            </Button>
+          </Card>
+
+          {/* Quick Links */}
+          <div className="mt-4 space-y-2">
+            <MenuCard
+              item={{
+                icon: ShoppingBag,
+                label: "Browse Marketplace",
+                description: "Discover products and vendors",
+                href: "/market",
+              }}
+            />
+            <MenuCard
+              item={{
+                icon: HelpCircle,
+                label: "Help & Support",
+                description: "Get assistance",
+                href: "/help",
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Logged in state
+  return (
+    <div className="min-h-screen bg-gray-50 pb-24">
+      <GradientHeader title="Profile" subtitle="Your account" showBack={false} />
+
+      <div className="px-4 pt-4 space-y-4">
+        {/* Profile Header */}
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
+          
+          <div className="relative z-10">
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-xl font-bold">
+                {initials}
+              </div>
+              <div className="flex-1 min-w-0">
+                <h2 className="text-lg font-bold truncate">{displayName}</h2>
+                <p className="text-sm text-orange-100 truncate">{email}</p>
+                {isVendor && (
+                  <span className="inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-full bg-white/20 text-xs font-medium">
+                    <Store className="w-3 h-3" />
+                    Vendor Account
+                  </span>
+                )}
+                {isAdmin && (
+                  <span className="inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-full bg-white/20 text-xs font-medium">
+                    <Shield className="w-3 h-3" />
+                    Admin
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Quick Stats */}
+            <div className="mt-6 flex gap-3">
+              <QuickStat
+                icon={Package}
+                label="Orders"
+                value="View"
+                onClick={() => router.push("/orders")}
+              />
+              <QuickStat
+                icon={ShoppingBag}
+                label="Cart"
+                value="Open"
+                onClick={() => router.push("/cart")}
+              />
+              <QuickStat
+                icon={isVendor ? BarChart3 : Heart}
+                label={isVendor ? "Analytics" : "Saved"}
+                value="View"
+                onClick={() => router.push(isVendor ? "/vendor/analytics" : "/favorites")}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Vendor Dashboard Link */}
+        {isVendor && (
+          <Card className="p-4">
+            <Button
+              className="w-full"
+              onClick={() => router.push("/vendor")}
+              leftIcon={<BarChart3 className="w-4 h-4" />}
+            >
+              Go to Vendor Dashboard
+            </Button>
+          </Card>
+        )}
+
+        {/* Admin Dashboard Link */}
+        {isAdmin && (
+          <Card className="p-4">
+            <Button
+              className="w-full"
+              onClick={() => router.push("/admin")}
+              leftIcon={<Shield className="w-4 h-4" />}
+            >
+              Go to Admin Dashboard
+            </Button>
+          </Card>
+        )}
+
+        {/* Customer Menu */}
+        <SectionCard title="Shopping" subtitle="Your activity">
+          <div className="space-y-2">
+            {customerItems.map((item) => (
+              <MenuCard key={item.label} item={item} />
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* Vendor Menu */}
+        {isVendor && (
+          <SectionCard title="Vendor Tools" subtitle="Manage your business">
+            <div className="space-y-2">
+              {vendorItems.map((item) => (
+                <MenuCard key={item.label} item={item} />
+              ))}
+            </div>
+          </SectionCard>
+        )}
+
+        {/* Settings */}
+        <SectionCard title="Settings" subtitle="Account preferences">
+          <div className="space-y-2">
+            {settingsItems.map((item) => (
+              <MenuCard key={item.label} item={item} />
+            ))}
+          </div>
+        </SectionCard>
+
+        {/* Logout */}
+        <div className="pt-2">
+          <MenuCard
+            item={{
+              icon: LogOut,
+              label: "Logout",
+              description: "Sign out of your account",
+              onClick: handleLogout,
+              destructive: true,
+            }}
+          />
+        </div>
+
+        {/* App Version */}
+        <p className="text-center text-xs text-gray-400 pt-4">
+          myBizHub v1.0.0
+        </p>
+      </div>
+    </div>
   );
 }

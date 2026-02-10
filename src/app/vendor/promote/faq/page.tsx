@@ -287,7 +287,7 @@ export default function VendorHelpCenterPage() {
               </p>
 
               <div className="mt-3">
-                <Button variant="soft" disabled className="opacity-60">
+                <Button variant="ghost" disabled className="opacity-60">
                   <Sparkles className="h-4 w-4" />
                   Ask AI Assistant
                 </Button>

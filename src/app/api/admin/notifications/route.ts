@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -37,7 +37,7 @@ export async function GET(req: Request) {
 
     if (mode === "count") {
       const unreadCount = await unreadCountFast();
-      return NextResponse.json({ ok: true, unreadCount });
+      return Response.json({ ok: true, unreadCount });
     }
 
     const snap = await adminDb
@@ -49,9 +49,9 @@ export async function GET(req: Request) {
     const rows = snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
     const unreadCount = rows.reduce((s, r) => s + (!r.read ? 1 : 0), 0);
 
-    return NextResponse.json({ ok: true, unreadCount, notifications: rows });
+    return Response.json({ ok: true, unreadCount, notifications: rows });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
@@ -64,7 +64,7 @@ export async function POST(req: Request) {
 
     if (action === "mark_read") {
       const id = String(body?.id || "").trim();
-      if (!id) return NextResponse.json({ ok: false, error: "Missing id" }, { status: 400 });
+      if (!id) return Response.json({ ok: false, error: "Missing id" }, { status: 400 });
 
       await adminDb.collection("adminNotifications").doc(id).set(
         {
@@ -75,7 +75,7 @@ export async function POST(req: Request) {
         { merge: true }
       );
 
-      return NextResponse.json({ ok: true });
+      return Response.json({ ok: true });
     }
 
     if (action === "mark_all_read") {
@@ -101,11 +101,11 @@ export async function POST(req: Request) {
       }
 
       await b.commit();
-      return NextResponse.json({ ok: true, updated: snap.size });
+      return Response.json({ ok: true, updated: snap.size });
     }
 
-    return NextResponse.json({ ok: false, error: "Invalid action" }, { status: 400 });
+    return Response.json({ ok: false, error: "Invalid action" }, { status: 400 });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { adminAuth, adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { buyerKeyFrom } from "@/lib/buyers/key";
@@ -77,11 +77,11 @@ export async function POST(req: Request) {
     const body = await req.json().catch(() => ({}));
     const orderId = String(body.orderId || "").trim();
 
-    if (!orderId) return NextResponse.json({ ok: false, error: "orderId is required" }, { status: 400 });
+    if (!orderId) return Response.json({ ok: false, error: "orderId is required" }, { status: 400 });
 
     const orderRef = adminDb.collection("orders").doc(orderId);
     const orderSnap = await orderRef.get();
-    if (!orderSnap.exists) return NextResponse.json({ ok: false, error: "Order not found" }, { status: 404 });
+    if (!orderSnap.exists) return Response.json({ ok: false, error: "Order not found" }, { status: 404 });
 
     const order = orderSnap.data() as any;
     const businessId = String(order.businessId || "");
@@ -92,13 +92,13 @@ export async function POST(req: Request) {
 
     if (isVendor) {
       if (!meProfile.businessId || String(meProfile.businessId) !== String(businessId)) {
-        return NextResponse.json({ ok: false, error: "Not allowed" }, { status: 403 });
+        return Response.json({ ok: false, error: "Not allowed" }, { status: 403 });
       }
     } else {
       const orderEmail = String(customer?.email || "").trim().toLowerCase();
       const myEmail = String(me.email || "").trim().toLowerCase();
       if (orderEmail && myEmail && orderEmail !== myEmail) {
-        return NextResponse.json({ ok: false, error: "Not allowed to dispute this order" }, { status: 403 });
+        return Response.json({ ok: false, error: "Not allowed to dispute this order" }, { status: 403 });
       }
     }
 
@@ -242,8 +242,8 @@ export async function POST(req: Request) {
       );
     }
 
-    return NextResponse.json({ ok: true, disputeId: disputeRef.id });
+    return Response.json({ ok: true, disputeId: disputeRef.id });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed to create dispute" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed to create dispute" }, { status: 500 });
   }
 }

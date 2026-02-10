@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import crypto from "node:crypto";
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
@@ -22,20 +22,20 @@ function cleanToken(v: any) {
 export async function POST(req: Request) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     const body = await req.json().catch(() => ({} as any));
     const token = cleanToken(body?.token);
-    if (!token) return NextResponse.json({ ok: false, error: "Missing token" }, { status: 400 });
+    if (!token) return Response.json({ ok: false, error: "Missing token" }, { status: 400 });
 
     const id = shaId(token);
 
     await adminDb.collection("businesses").doc(me.businessId).collection("pushTokens").doc(id).delete();
 
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

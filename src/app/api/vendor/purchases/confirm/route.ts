@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/purchases/confirm/route.ts
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -50,19 +50,19 @@ function mergeEntitlement(existing: any, addMs: number, nowMs: number) {
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     const body = await req.json().catch(() => ({} as any));
     const reference = String(body.reference || "").trim();
     const transactionId = body.transactionId != null ? String(body.transactionId).trim() : "";
 
-    if (!reference) return NextResponse.json({ ok: false, error: "reference is required" }, { status: 400 });
+    if (!reference) return Response.json({ ok: false, error: "reference is required" }, { status: 400 });
 
     // Idempotency
     const purchaseRef = adminDb.collection("addonPurchases").doc(reference);
     const purchaseSnap = await purchaseRef.get();
     if (purchaseSnap.exists) {
-      return NextResponse.json({ ok: true, alreadyConfirmed: true, purchase: purchaseSnap.data() });
+      return Response.json({ ok: true, alreadyConfirmed: true, purchase: purchaseSnap.data() });
     }
 
     // Load intent (guard)
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
     const intent = intentSnap.exists ? (intentSnap.data() as any) : null;
 
     if (!intent || String(intent.businessId || "") !== me.businessId) {
-      return NextResponse.json({ ok: false, error: "Purchase intent not found" }, { status: 404 });
+      return Response.json({ ok: false, error: "Purchase intent not found" }, { status: 404 });
     }
 
     const provider = paymentsProvider();
@@ -81,39 +81,39 @@ export async function POST(req: Request) {
     // -------------------------
     if (provider === "flutterwave") {
       if (!transactionId) {
-        return NextResponse.json({ ok: false, error: "transactionId is required for Flutterwave confirmation" }, { status: 400 });
+        return Response.json({ ok: false, error: "transactionId is required for Flutterwave confirmation" }, { status: 400 });
       }
 
       const flwTx = await flwVerifyTransaction(transactionId);
 
       const st = String(flwTx?.status || "").toLowerCase();
       if (st !== "successful") {
-        return NextResponse.json({ ok: false, error: `Payment not successful: ${flwTx?.status || "unknown"}` }, { status: 400 });
+        return Response.json({ ok: false, error: `Payment not successful: ${flwTx?.status || "unknown"}` }, { status: 400 });
       }
 
       if (String(flwTx?.tx_ref || "") !== reference) {
-        return NextResponse.json({ ok: false, error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
+        return Response.json({ ok: false, error: "Reference mismatch (tx_ref does not match reference)" }, { status: 400 });
       }
 
       const md = ((flwTx as any)?.meta || {}) as any;
       if (String(md?.type || "") !== "addon") {
-        return NextResponse.json({ ok: false, error: "Invalid purchase type" }, { status: 400 });
+        return Response.json({ ok: false, error: "Invalid purchase type" }, { status: 400 });
       }
 
       const sku = String(md?.sku || intent.sku || "").trim();
       const cycle = String(md?.cycle || intent.cycle || "yearly").toLowerCase() === "monthly" ? "monthly" : "yearly";
 
       const addon = findAddonBySku(sku);
-      if (!addon) return NextResponse.json({ ok: false, error: "Unknown add-on sku" }, { status: 400 });
+      if (!addon) return Response.json({ ok: false, error: "Unknown add-on sku" }, { status: 400 });
 
       const currency = String(flwTx?.currency || "NGN").toUpperCase();
-      if (currency !== "NGN") return NextResponse.json({ ok: false, error: "Invalid currency" }, { status: 400 });
+      if (currency !== "NGN") return Response.json({ ok: false, error: "Invalid currency" }, { status: 400 });
 
       const paidKobo = Math.round(Number((flwTx as any)?.amount || 0) * 100);
       const expectedKobo = Math.round(Number(addon.priceNgn?.[cycle] || 0) * 100);
 
       if (!expectedKobo || paidKobo !== expectedKobo) {
-        return NextResponse.json({ ok: false, error: "Amount mismatch" }, { status: 400 });
+        return Response.json({ ok: false, error: "Amount mismatch" }, { status: 400 });
       }
 
       const nowMs = Date.now();
@@ -218,7 +218,7 @@ export async function POST(req: Request) {
         // ignore
       }
 
-      return NextResponse.json({ ok: true, reference });
+      return Response.json({ ok: true, reference });
     }
 
     // -------------------------
@@ -226,24 +226,24 @@ export async function POST(req: Request) {
     // -------------------------
     const tx = await paystackVerify(reference);
     if (String(tx?.status || "") !== "success") {
-      return NextResponse.json({ ok: false, error: `Payment not successful: ${tx?.status || "unknown"}` }, { status: 400 });
+      return Response.json({ ok: false, error: `Payment not successful: ${tx?.status || "unknown"}` }, { status: 400 });
     }
 
     const md = (tx?.metadata || {}) as any;
     if (String(md?.type || "") !== "addon") {
-      return NextResponse.json({ ok: false, error: "Invalid purchase type" }, { status: 400 });
+      return Response.json({ ok: false, error: "Invalid purchase type" }, { status: 400 });
     }
 
     const sku = String(md?.sku || intent.sku || "").trim();
     const cycle = String(md?.cycle || intent.cycle || "yearly").toLowerCase() === "monthly" ? "monthly" : "yearly";
 
     const addon = findAddonBySku(sku);
-    if (!addon) return NextResponse.json({ ok: false, error: "Unknown add-on sku" }, { status: 400 });
+    if (!addon) return Response.json({ ok: false, error: "Unknown add-on sku" }, { status: 400 });
 
     const paidKobo = Number(tx?.amount || 0);
     const expectedKobo = Math.round(Number(addon.priceNgn?.[cycle] || 0) * 100);
     if (!expectedKobo || paidKobo !== expectedKobo) {
-      return NextResponse.json({ ok: false, error: "Amount mismatch" }, { status: 400 });
+      return Response.json({ ok: false, error: "Amount mismatch" }, { status: 400 });
     }
 
     const nowMs = Date.now();
@@ -346,8 +346,8 @@ export async function POST(req: Request) {
       // ignore
     }
 
-    return NextResponse.json({ ok: true, reference });
+    return Response.json({ ok: true, reference });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

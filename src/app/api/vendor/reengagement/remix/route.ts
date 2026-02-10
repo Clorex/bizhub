@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import crypto from "node:crypto";
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
@@ -73,7 +73,7 @@ function newRotationKey() {
 export async function POST(req: Request) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
     const remixEnabled = !!plan?.features?.reengagementAiRemix;
 
     if (!remixEnabled) {
-      return NextResponse.json({
+      return Response.json({
         ok: false,
         code: "FEATURE_LOCKED",
         error: "Re‑engagement AI remix is not available on your account. Buy the add‑on to unlock it.",
@@ -96,11 +96,11 @@ export async function POST(req: Request) {
     const cap = capForPlan(planKey);
     if (!Number.isFinite(cap) || cap <= 0) {
       // If somehow enabled but cap invalid, treat as unlimited
-      return NextResponse.json({ ok: true, rotationKey: newRotationKey(), usage: null });
+      return Response.json({ ok: true, rotationKey: newRotationKey(), usage: null });
     }
 
     if (cap === Infinity) {
-      return NextResponse.json({ ok: true, rotationKey: newRotationKey(), usage: null });
+      return Response.json({ ok: true, rotationKey: newRotationKey(), usage: null });
     }
 
     const usageRef = adminDb.collection("vendorUsage").doc(String(me.businessId));
@@ -154,7 +154,7 @@ export async function POST(req: Request) {
     });
 
     if (!allowed.ok) {
-      return NextResponse.json({
+      return Response.json({
         ok: false,
         code: "REMIX_CAP_REACHED",
         error: "AI remix cap reached. Please wait for the timer to reset.",
@@ -164,15 +164,15 @@ export async function POST(req: Request) {
       });
     }
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       rotationKey: newRotationKey(),
       usage: { cap, used: usedOut, windowStartMs: windowStartOut, resetAtMs: resetAtOut },
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

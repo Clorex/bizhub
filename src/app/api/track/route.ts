@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -29,7 +29,7 @@ export async function POST(req: Request) {
     const count = clampCount(body.count);
 
     if (!businessId || !type) {
-      return NextResponse.json({ ok: false, error: "businessId and type required" }, { status: 400 });
+      return Response.json({ ok: false, error: "businessId and type required" }, { status: 400 });
     }
 
     const dk = dayKey();
@@ -65,7 +65,7 @@ export async function POST(req: Request) {
       inc.views = FieldValue.increment(count);
       inc.marketImpressions = FieldValue.increment(count);
     } else {
-      return NextResponse.json({ ok: false, error: "Unknown type" }, { status: 400 });
+      return Response.json({ ok: false, error: "Unknown type" }, { status: 400 });
     }
 
     await bizRef.set(inc, { merge: true });
@@ -118,8 +118,8 @@ export async function POST(req: Request) {
 
     await platRef.set(plinc, { merge: true });
 
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

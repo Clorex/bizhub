@@ -1,5 +1,5 @@
 // FILE: src/app/api/staff/accept/route.ts
-import { NextResponse } from "next/server";
+
 import { requireMe } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -31,11 +31,11 @@ function addonSeatPlus1ActiveEffective(biz: any, nowMs: number) {
 export async function POST(req: Request) {
   try {
     const me = await requireMe(req);
-    if (!me.email) return NextResponse.json({ ok: false, error: "Missing email on account" }, { status: 400 });
+    if (!me.email) return Response.json({ ok: false, error: "Missing email on account" }, { status: 400 });
 
     const body = await req.json().catch(() => ({}));
     const code = String(body.code || "").trim();
-    if (!code) return NextResponse.json({ ok: false, error: "Invite code required" }, { status: 400 });
+    if (!code) return Response.json({ ok: false, error: "Invite code required" }, { status: 400 });
 
     const inviteRef = adminDb.collection("staffInvites").doc(code);
 
@@ -160,11 +160,11 @@ export async function POST(req: Request) {
 
     if ((result as any).ok === false) {
       const r: any = result;
-      return NextResponse.json({ ok: false, code: r.code, error: r.error }, { status: r.status || 400 });
+      return Response.json({ ok: false, code: r.code, error: r.error }, { status: r.status || 400 });
     }
 
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

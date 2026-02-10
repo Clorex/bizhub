@@ -1,115 +1,144 @@
-// FILE: src/app/vendor/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import Image from "next/image";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
-import { auth } from "@/lib/firebase/client";
-import { useRouter } from "next/navigation";
-
-import { Button } from "@/components/ui/Button";
-import { IconButton } from "@/components/ui/IconButton";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { StatCard } from "@/components/ui/StatCard";
+import { Button } from "@/components/ui/Button";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
-
+import { AnalyticsChart } from "@/components/charts/AnalyticsChart";
+import { StatCard } from "@/components/vendor/StatCard";
+import { MenuCard } from "@/components/vendor/MenuCard";
+import { OrderRow } from "@/components/vendor/OrderRow";
+import { QuickStat } from "@/components/vendor/QuickStat";
+import { VendorEmptyState } from "@/components/vendor/EmptyState";
+import { PageSkeleton } from "@/components/vendor/PageSkeleton";
+import { auth } from "@/lib/firebase/client";
 import { toast } from "@/lib/ui/toast";
+import { cn } from "@/lib/cn";
 
 import {
   RefreshCw,
   Link2,
-  Store as StoreIcon,
+  Store,
   Plus,
   BarChart3,
-  AlertTriangle,
-  MessageCircle,
+  ShoppingCart,
+  Package,
+  Users,
+  Eye,
   Gem,
-  BadgePercent,
+  AlertCircle,
+  ChevronRight,
+  TrendingUp,
+  Clock,
+  ClipboardList,
+  Settings,
+  Megaphone,
+  Loader2,
+  Copy,
+  ExternalLink,
+  Zap,
+  Tag,
+  Wallet,
+  Bell,
   Shield,
 } from "lucide-react";
 
+/* ——————————————————————————— types ——————————————————————————— */
+
 type Range = "today" | "week" | "month";
-type Mood = "great" | "okay" | "slow";
 
-const MOOD_KEY = "mybizhub_mood_daily_v1";
-
-function lagosDayKey(now = new Date()) {
-  return now.toLocaleDateString("en-CA", { timeZone: "Africa/Lagos" }); 
+interface OverviewData {
+  totalRevenue: number;
+  orders: number;
+  visits: number;
+  customers: number;
+  productsSold: number;
 }
 
-function fmtNaira(n: number) {
+interface TodoData {
+  outOfStockCount: number;
+  lowStockCount: number;
+  awaitingConfirmCount: number;
+  disputedCount: number;
+}
+
+interface ChartDayData {
+  dayKey: string;
+  label: string;
+  revenue: number;
+  views: number;
+  orders: number;
+}
+
+/* ——————————————————————————— helpers ——————————————————————————— */
+
+function fmtNaira(n: number): string {
+  if (typeof n !== "number" || isNaN(n)) return "₦0";
+  return `₦${n.toLocaleString("en-NG")}`;
+}
+
+function fmtNairaCompact(n: number): string {
+  if (typeof n !== "number" || isNaN(n) || n <= 0) return "₦0";
+  if (n >= 1_000_000) return `₦${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `₦${(n / 1_000).toFixed(0)}k`;
+  return `₦${n.toFixed(0)}`;
+}
+
+function fmtNumber(n: number): string {
+  if (typeof n !== "number" || isNaN(n)) return "0";
+  return n.toLocaleString("en-NG");
+}
+
+function getShortDayLabel(dateStr: string): string {
+  if (!dateStr) return "";
+  if (dateStr.startsWith("Wk")) return dateStr;
   try {
-    return `₦${Number(n || 0).toLocaleString()}`;
+    const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      const parts = dateStr.split("-");
+      if (parts.length === 3) return parts[2];
+      return dateStr.slice(-2);
+    }
+    return date.toLocaleDateString("en-US", { weekday: "short" });
   } catch {
-    return `₦${n}`;
+    return dateStr.slice(-2);
   }
 }
 
-// Formats big numbers for the Chart Axis smoothly (e.g., 50000 -> ₦50k)
-function compactNaira(n: number) {
-  if (!n || n <= 0) return "0";
-  if (n >= 1000000) return `₦${Number((n / 1000000).toFixed(1))}M`;
-  if (n >= 1000) return `₦${Number((n / 1000).toFixed(1))}k`;
-  return `₦${n}`;
-}
+function processChartData(rawData: any[], range: Range): ChartDayData[] {
+  if (!Array.isArray(rawData) || rawData.length === 0) return [];
 
-// "Smart Scale" Algorithm: Automatically rounds your chart axis to beautiful numbers (1k, 2k, 10k, 50k, etc.)
-function getNiceYScale(maxValue: number) {
-  if (maxValue <= 0) return [4000, 3000, 2000, 1000, 0]; 
-  const roughStep = maxValue / 4;
-  const mag = Math.pow(10, Math.floor(Math.log10(roughStep || 1)));
-  const norm = roughStep / mag;
-  
-  let niceNorm;
-  if (norm < 1.5) niceNorm = 1;
-  else if (norm < 3) niceNorm = 2;
-  else if (norm < 7) niceNorm = 5;
-  else niceNorm = 10;
-  
-  const step = niceNorm * mag;
-  return [step * 4, step * 3, step * 2, step, 0];
-}
+  const processed = rawData.map((d) => ({
+    dayKey: String(d.dayKey || d.label || Math.random()),
+    label: String(d.label || d.dayKey || ""),
+    revenue: Math.max(0, Number(d.revenue) || 0),
+    views: Math.max(0, Number(d.visits || d.views) || 0),
+    orders: Math.max(0, Number(d.orders || d.leads) || 0),
+  }));
 
-function getDayName(dateStr: string) {
-  try {
-    const d = new Date(dateStr);
-    if (isNaN(d.getTime())) return dateStr.slice(8, 10);
-    return d.toLocaleDateString("en-US", { weekday: "short" });
-  } catch {
-    return dateStr.slice(8, 10);
+  if (range === "month" && processed.length > 7) {
+    const weeks: ChartDayData[] = [];
+    processed.forEach((d, i) => {
+      const wi = Math.floor(i / 7);
+      if (!weeks[wi]) {
+        weeks[wi] = { dayKey: `week-${wi + 1}`, label: `Wk ${wi + 1}`, revenue: 0, views: 0, orders: 0 };
+      }
+      weeks[wi].revenue += d.revenue;
+      weeks[wi].views += d.views;
+      weeks[wi].orders += d.orders;
+    });
+    return weeks;
   }
+
+  return processed;
 }
 
-function fmtDate(v: any) {
-  try {
-    if (!v) return "—";
-    if (typeof v?.toDate === "function") return v.toDate().toLocaleString();
-    return String(v);
-  } catch {
-    return "—";
-  }
-}
-
-function waShareLink(text: string) {
-  return `https://wa.me/?text=${encodeURIComponent(text)}`;
-}
-
-function loadMood(): any | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(MOOD_KEY);
-    if (!raw) return null;
-    const j = JSON.parse(raw);
-    return j && typeof j === "object" ? j : null;
-  } catch {
-    return null;
-  }
-}
-
-function saveMood(v: any) {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(MOOD_KEY, JSON.stringify(v));
-}
+/* ——————————————————————————— main ——————————————————————————— */
 
 export default function VendorDashboardPage() {
   const router = useRouter();
@@ -118,196 +147,195 @@ export default function VendorDashboardPage() {
   const [me, setMe] = useState<any>(null);
   const [data, setData] = useState<any>(null);
   const [access, setAccess] = useState<any>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-
-  const [assistant, setAssistant] = useState<any>(null);
-  const [assistantMsg, setAssistantMsg] = useState<string | null>(null);
-
-  const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [verificationTier, setVerificationTier] = useState<number>(0);
+  const [verificationDismissed, setVerificationDismissed] = useState(false);
 
-  const [moodState, setMoodState] = useState<any>(() => loadMood());
-  const [moodBusy, setMoodBusy] = useState(false);
-
-  useEffect(() => {
-    const dk = lagosDayKey();
-    if (moodState?.dayKey && moodState.dayKey !== dk) {
-      setMoodState(null);
-      saveMood(null);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
+  /* derived */
   const storeUrl = useMemo(() => {
-    if (!me?.businessSlug) return "";
-    if (typeof window === "undefined") return "";
+    if (!me?.businessSlug || typeof window === "undefined") return "";
     return `${window.location.origin}/b/${me.businessSlug}`;
   }, [me]);
 
-  async function load() {
-    try {
+  /* fetch */
+  const loadData = useCallback(async (isRefresh = false) => {
+    if (isRefresh) {
+      setRefreshing(true);
+    } else {
       setLoading(true);
-      setMsg(null);
-      setNotice(null);
-      setAssistantMsg(null);
+    }
+    setError(null);
+    setNotice(null);
 
+    try {
       const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Please log in again to continue.");
+      if (!token) throw new Error("Please log in to view your dashboard.");
 
-      const rMe = await fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } });
-      const meData = await rMe.json().catch(() => ({}));
-      if (!rMe.ok) throw new Error(meData?.error || "Could not load your profile.");
-      setMe(meData.me);
+      const [meRes, analyticsRes] = await Promise.all([
+        fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`/api/vendor/analytics?range=${range}`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
 
-      const r = await fetch(`/api/vendor/analytics?range=${range}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const a = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(a?.error || "Could not load your analytics.");
+      const [meJson, analyticsJson] = await Promise.all([
+        meRes.json().catch(() => ({})),
+        analyticsRes.json().catch(() => ({})),
+      ]);
 
-      setData(a);
-      setAccess(a?.meta?.access || null);
+      if (!meRes.ok) throw new Error(meJson?.error || "Could not load profile.");
+      if (!analyticsRes.ok) throw new Error(analyticsJson?.error || "Could not load analytics.");
 
-      const n = String(a?.meta?.notice || "");
-      if (n) setNotice(n);
+      setMe(meJson.me);
+      setData(analyticsJson);
+      setAccess(analyticsJson?.meta?.access || null);
 
-      const used = String(a?.meta?.usedRange || range) as Range;
-      if (used !== range) setRange(used);
+      if (analyticsJson?.meta?.notice) setNotice(String(analyticsJson.meta.notice));
 
+      const usedRange = String(analyticsJson?.meta?.usedRange || range) as Range;
+      if (usedRange !== range) setRange(usedRange);
+
+      // Fetch verification tier
       try {
-        const ra = await fetch("/api/vendor/assistant/summary", { headers: { Authorization: `Bearer ${token}` } });
-        const aj = await ra.json().catch(() => ({}));
-        if (!ra.ok) throw new Error(aj?.error || aj?.code || "Assistant locked");
-        setAssistant(aj);
-      } catch (e: any) {
-        setAssistant(null);
-        const m = String(e?.message || "");
-        if (m && !m.toLowerCase().includes("locked")) setAssistantMsg(m);
+        const vRes = await fetch("/api/vendor/verification", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const vData = await vRes.json().catch(() => ({}));
+        if (vData.ok) {
+          setVerificationTier(Number(vData.verificationTier || 0));
+        }
+      } catch {
+        // Non-fatal
+      }
+
+      if (isRefresh) {
+        toast.success("Dashboard refreshed!");
       }
     } catch (e: any) {
-      setMsg(e?.message || "Something went wrong. Please try again.");
+      setError(e?.message || "Something went wrong.");
       setData(null);
       setAccess(null);
-      setAssistant(null);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
-  }
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [range]);
 
-  async function copyLink() {
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  const copyStoreLink = useCallback(async () => {
+    if (!storeUrl) return;
     try {
-      if (!storeUrl) return;
       await navigator.clipboard.writeText(storeUrl);
-      toast.success("Link copied. Share it with customers.");
+      setCopied(true);
+      toast.success("Store link copied!");
+      setTimeout(() => setCopied(false), 2000);
     } catch {
-      toast.error("Couldn’t copy the link. Please copy it manually.");
+      toast.error("Couldn't copy link.");
     }
+  }, [storeUrl]);
+
+  /* data */
+  const overview: OverviewData = useMemo(() => {
+    const ov = data?.overview || {};
+    return {
+      totalRevenue: Number(ov.totalRevenue) || 0,
+      orders: Number(ov.orders) || 0,
+      visits: Number(ov.visits) || 0,
+      customers: Number(ov.customers) || 0,
+      productsSold: Number(ov.productsSold) || 0,
+    };
+  }, [data]);
+
+  const todo: TodoData = useMemo(() => {
+    const t = data?.todo || {};
+    return {
+      outOfStockCount: Number(t.outOfStockCount) || 0,
+      lowStockCount: Number(t.lowStockCount) || 0,
+      awaitingConfirmCount: Number(t.awaitingConfirmCount) || 0,
+      disputedCount: Number(t.disputedCount) || 0,
+    };
+  }, [data]);
+
+  const recentOrders: any[] = useMemo(
+    () => (Array.isArray(data?.recentOrders) ? data.recentOrders : []),
+    [data]
+  );
+
+  const chartData = useMemo(() => processChartData(data?.chartDays || [], range), [data?.chartDays, range]);
+
+  const revenueChartData = useMemo(
+    () => chartData.map((d) => ({ label: getShortDayLabel(d.label), value: d.revenue })),
+    [chartData]
+  );
+
+  const monthUnlocked = useMemo(() => {
+    if (!access) return false;
+    if (access.monthAnalyticsUnlocked !== undefined) return !!access.monthAnalyticsUnlocked;
+    return !!access?.features?.canUseMonthRange;
+  }, [access]);
+
+  const isSubscribed = useMemo(() => {
+    const source = String(access?.source || "free");
+    const pk = String(access?.planKey || "FREE").toUpperCase();
+    return source === "subscription" && pk !== "FREE";
+  }, [access]);
+
+  const totalTodoCount =
+    todo.outOfStockCount + todo.lowStockCount + todo.awaitingConfirmCount + todo.disputedCount;
+
+  const periodLabel = range === "today" ? "Today" : range === "week" ? "This Week" : "This Month";
+  const storeName = me?.businessName || me?.businessSlug || "Your Store";
+
+  const showVerificationReminder = verificationTier < 2 && !verificationDismissed && !loading;
+
+  /* ——————— render ——————— */
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <GradientHeader title="Dashboard" subtitle="Loading your business..." showBack={false} />
+        <PageSkeleton />
+      </div>
+    );
   }
-
-  async function submitMood(mood: Mood) {
-    try {
-      setMoodBusy(true);
-
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Please log in again to continue.");
-
-      const snapshot = {
-        range,
-        overview: data?.overview || {},
-        todo: data?.todo || {},
-        traffic: {
-          visits: Number(data?.overview?.visits || 0),
-          leads: Number(data?.overview?.leads || 0),
-          views: Number(data?.overview?.views || 0),
-        },
-      };
-
-      const r = await fetch("/api/vendor/mood/tip", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ mood, storeSlug: me?.businessSlug || null, snapshot }),
-      });
-
-      const j = await r.json().catch(() => ({} as any));
-      if (!r.ok || !j?.ok) throw new Error(j?.error || "Could not load a tip.");
-
-      const next = {
-        dayKey: lagosDayKey(),
-        mood,
-        tip: String(j.tip || ""),
-        actions: Array.isArray(j.actions) ? j.actions : [],
-      };
-
-      setMoodState(next);
-      saveMood(next);
-    } catch (e: any) {
-      setMsg(e?.message || "Could not get a tip right now.");
-    } finally {
-      setMoodBusy(false);
-    }
-  }
-
-  const ov = data?.overview || {};
-  const todo = data?.todo || {};
-  const chartDays: any[] = Array.isArray(data?.chartDays) ? data.chartDays : [];
-  const recentOrders: any[] = Array.isArray(data?.recentOrders) ? data.recentOrders : [];
-
-  // SMART CHART SCALING
-  const maxRevRaw = Math.max(0, ...chartDays.map((d) => Number(d.revenue || 0)));
-  const ySteps = getNiceYScale(maxRevRaw);
-  const chartMax = ySteps[0];
-
-  const monthUnlocked =
-    access?.monthAnalyticsUnlocked !== undefined
-      ? !!access.monthAnalyticsUnlocked
-      : !!access?.features?.canUseMonthRange;
-
-  const accessSource = String(access?.source || "free");
-  const accessPlanKey = String(access?.planKey || "FREE").toUpperCase();
-  const subscribed = accessSource === "subscription" && accessPlanKey !== "FREE";
-
-  const disputeLevel = String(assistant?.dispute?.level || "none");
-  const openDisputes = Number(assistant?.dispute?.openDisputes || 0);
-
-  const riskShieldEnabled = assistant?.riskShield?.enabled === true;
-  const riskShieldMode = String(assistant?.riskShield?.mode || "off");
-  const riskNotes: string[] = Array.isArray(assistant?.riskShield?.notes) ? assistant.riskShield.notes : [];
-
-  const momentumPlan = accessPlanKey === "MOMENTUM";
 
   return (
-    <div className="min-h-screen pb-24 bg-gray-50">
+    <div className="min-h-screen pb-28 bg-gray-50">
+      {/* Header */}
       <GradientHeader
         title="Dashboard"
-        subtitle="Your business overview"
+        subtitle={storeName}
         showBack={false}
         right={
           <div className="flex items-center gap-2">
-            {!subscribed ? (
+            {!isSubscribed && (
               <button
-                type="button"
                 onClick={() => router.push("/vendor/subscription")}
-                className="h-10 w-10 rounded-2xl shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent flex items-center justify-center"
+                className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition"
                 aria-label="Upgrade"
-                title="Upgrade"
               >
-                <Gem className="h-5 w-5 text-white" />
+                <Gem className="w-5 h-5 text-white" />
               </button>
-            ) : null}
-
-            <IconButton aria-label="Refresh" onClick={load} disabled={loading}>
-              <RefreshCw className="h-5 w-5 text-gray-700" />
-            </IconButton>
+            )}
+            <button
+              onClick={() => loadData(true)}
+              disabled={refreshing}
+              className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
+              aria-label="Refresh"
+            >
+              <RefreshCw className={cn("w-5 h-5 text-white", refreshing && "animate-spin")} />
+            </button>
           </div>
         }
       />
 
-      <div className="px-4 space-y-4">
+      <div className="px-4 space-y-4 pt-4">
+        {/* Period Selector */}
         <SegmentedControl<Range>
           value={range}
           onChange={setRange}
@@ -318,250 +346,422 @@ export default function VendorDashboardPage() {
           ]}
         />
 
-        {notice ? <Card className="p-4 text-orange-700 font-medium">{notice}</Card> : null}
-        {msg ? <Card className="p-4 text-red-700 font-medium">{msg}</Card> : null}
-        {loading ? <Card className="p-4 text-center font-bold text-gray-500">Loading your data...</Card> : null}
+        {/* Notices */}
+        {notice && (
+          <Card className="p-4 bg-orange-50 border-orange-200">
+            <div className="flex items-start gap-3">
+              <Bell className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-orange-800">{notice}</p>
+            </div>
+          </Card>
+        )}
 
-        {!loading && data ? (
-          <>
-            <div className="rounded-[24px] p-5 text-white shadow-lg bg-gradient-to-br from-biz-accent2 to-biz-accent relative overflow-hidden">
-              <div className="relative z-10">
-                <p className="text-xs font-bold uppercase tracking-widest opacity-80">Total Sales</p>
-                <p className="text-3xl font-black mt-1 tracking-tight">{fmtNaira(ov.totalRevenue || 0)}</p>
-                <p className="text-xs font-medium opacity-90 mt-1 flex items-center gap-1">
-                  Store: <span className="bg-white/20 px-2 py-0.5 rounded-md">{me?.businessSlug || "—"}</span>
-                </p>
-
-                <div className="mt-5 grid grid-cols-2 gap-3">
-                  <Button
-                    variant="soft"
-                    className="bg-white/20 hover:bg-white/30 text-white border-none shadow-none font-bold"
-                    leftIcon={<Link2 className="h-4 w-4" />}
-                    onClick={copyLink}
-                    disabled={!storeUrl}
-                  >
-                    Copy Link
-                  </Button>
-                  <Button
-                    variant="soft"
-                    className="bg-white text-biz-accent hover:bg-gray-50 border-none shadow-none font-bold"
-                    leftIcon={<StoreIcon className="h-4 w-4" />}
-                    onClick={() => router.push(`/b/${me?.businessSlug || ""}`)}
-                    disabled={!me?.businessSlug}
-                  >
-                    View Store
-                  </Button>
-                </div>
+        {error && (
+          <Card className="p-4 bg-red-50 border-red-200">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-800">{error}</p>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  className="mt-2"
+                  onClick={() => loadData()}
+                >
+                  Try Again
+                </Button>
               </div>
             </div>
+          </Card>
+        )}
 
-            <Card className="p-4">
-              <p className="text-sm font-extrabold text-biz-ink">How’s business today?</p>
+        {/* ── Verification Reminder (Tier 0/1 only) ── */}
+        {showVerificationReminder && (
+          <Card className="p-4 bg-blue-50 border-blue-200 relative">
+            <button
+              onClick={() => setVerificationDismissed(true)}
+              className="absolute top-3 right-3 text-blue-400 hover:text-blue-600 text-xs font-bold"
+              aria-label="Dismiss"
+            >
+              ✕
+            </button>
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                <Shield className="w-5 h-5 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-blue-800">
+                  {verificationTier === 0
+                    ? "Get verified to start selling"
+                    : "Increase your trust level"}
+                </p>
+                <p className="text-xs text-blue-600 mt-1 leading-relaxed">
+                  Verified vendors receive more customer engagement and visibility.
+                  {verificationTier === 0
+                    ? " Complete basic verification to unlock the marketplace."
+                    : " Submit your ID to reach full marketplace access."}
+                </p>
+                <Button
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => router.push("/vendor/verification")}
+                  rightIcon={<ChevronRight className="w-4 h-4" />}
+                >
+                  {verificationTier === 0 ? "Start Verification" : "Continue Verification"}
+                </Button>
+              </div>
+            </div>
+          </Card>
+        )}
 
-              {!moodState ? (
-                <>
-                  <p className="text-xs text-biz-muted mt-1">Pick one. I’ll give you a quick tip.</p>
-                  <div className="mt-3 grid grid-cols-3 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => submitMood("great")}
-                      disabled={moodBusy}
-                      className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink disabled:opacity-50"
-                    >
-                      Great
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => submitMood("okay")}
-                      disabled={moodBusy}
-                      className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink disabled:opacity-50"
-                    >
-                      Okay
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => submitMood("slow")}
-                      disabled={moodBusy}
-                      className="rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink disabled:opacity-50"
-                    >
-                      Slow
-                    </button>
+        {data && (
+          <>
+            {/* Revenue Hero Card */}
+            <div className="bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
+              {/* Decorative circles */}
+              <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
+              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+
+              <div className="relative z-10">
+                {/* Revenue */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-orange-100">
+                      {periodLabel} Revenue
+                    </p>
+                    <p className="text-4xl font-black mt-2 tracking-tight">
+                      {fmtNaira(overview.totalRevenue)}
+                    </p>
+                    {overview.totalRevenue > 0 && (
+                      <p className="text-sm text-orange-100 mt-1 flex items-center gap-1">
+                        <TrendingUp className="w-4 h-4" />
+                        From {overview.orders} order{overview.orders !== 1 ? "s" : ""}
+                      </p>
+                    )}
                   </div>
-                </>
-              ) : (
-                <>
-                  <p className="text-xs text-biz-muted mt-1">
-                    Mood: <b className="text-biz-ink">{String(moodState.mood).toUpperCase()}</b>
-                  </p>
-                  {moodState.tip ? <p className="text-sm text-gray-800 mt-2">{moodState.tip}</p> : null}
-
-                  {Array.isArray(moodState.actions) && moodState.actions.length ? (
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      {moodState.actions.slice(0, 2).map((a: any) => (
-                        <Button key={a.url} variant="secondary" onClick={() => router.push(a.url)}>
-                          {a.label || "Open"}
-                        </Button>
-                      ))}
-                    </div>
-                  ) : (
-                    <div className="mt-3 grid grid-cols-2 gap-2">
-                      <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
-                        Orders
-                      </Button>
-                      <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
-                        Products
-                      </Button>
+                  {overview.totalRevenue > 0 && (
+                    <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center">
+                      <TrendingUp className="w-7 h-7 text-white" />
                     </div>
                   )}
-                </>
-              )}
-            </Card>
-
-            {/* RESTORED BRAND STAT CARDS */}
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard label="Orders" value={ov.orders || 0} onClick={() => router.push("/vendor/orders")} />
-              <StatCard label="Products sold" value={ov.productsSold || 0} onClick={() => router.push("/vendor/orders")} />
-              <StatCard label="Customers" value={ov.customers || 0} hint="Buyers (phone/email)" />
-              <StatCard label="Website visits" value={ov.visits || 0} hint="Store + product views" />
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <StatCard label="Leads (clicks)" value={ov.leads || 0} />
-              <StatCard label="Views (impressions)" value={ov.views || 0} />
-            </div>
-
-            {/* SMART BRAND CHART */}
-            <Card className="p-4 border border-biz-line shadow-sm bg-white">
-              <p className="text-sm font-extrabold text-biz-ink">Revenue Analysis</p>
-              <p className="text-xs text-gray-500 font-medium mt-0.5 mb-6">Performance for the selected period</p>
-
-              {chartDays.length === 0 ? (
-                <div className="h-40 flex items-center justify-center text-gray-400 font-bold text-sm bg-gray-50 rounded-xl">
-                  No sales data yet
                 </div>
-              ) : (
-                <div className="relative h-56 w-full">
-                  {/* Y-Axis Grid Lines & Labels */}
-                  <div className="absolute inset-0 flex flex-col justify-between pb-6">
-                    {ySteps.map((val, i) => (
-                      <div key={i} className="flex items-center w-full">
-                        <span className="text-[10px] font-bold text-gray-400 w-10 text-right pr-2 shrink-0">
-                          {compactNaira(val)}
-                        </span>
-                        <div className="flex-1 border-b border-gray-100" />
-                      </div>
-                    ))}
-                  </div>
 
-                  {/* X-Axis & Actual Bars */}
-                  <div className="absolute inset-0 left-10 flex items-end justify-around pb-6 px-2">
-                    {chartDays.map((d) => {
-                      const rev = Number(d.revenue || 0);
-                      const heightPct = chartMax > 0 ? (rev / chartMax) * 100 : 0;
-                      const h = Math.max(0, heightPct); 
-                      const isZero = rev === 0;
-
-                      return (
-                        <div key={d.dayKey} className="flex flex-col items-center justify-end h-full w-full relative group cursor-pointer">
-                          {/* Tooltip on Tap/Hover */}
-                          <div className="opacity-0 group-hover:opacity-100 absolute -top-8 bg-gray-900 text-white text-[10px] font-bold py-1 px-2 rounded-md whitespace-nowrap transition-opacity z-20 pointer-events-none shadow-lg">
-                            {fmtNaira(rev)}
-                          </div>
-
-                          {/* The Bar */}
-                          <div
-                            className={`w-full max-w-[24px] rounded-t-sm transition-all duration-700 relative z-10 ${
-                              isZero ? "bg-gray-200" : "bg-gradient-to-t from-biz-accent to-biz-accent2 hover:opacity-80"
-                            }`}
-                            style={{ height: `${h}%`, minHeight: isZero ? "2px" : "4px" }}
-                          />
-
-                          {/* Date Label at Bottom */}
-                          <div className="absolute -bottom-6 w-full text-center text-[10px] font-bold text-gray-400 uppercase tracking-wider">
-                            {getDayName(String(d.label))}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
+                {/* Quick Stats Row */}
+                <div className="mt-5 grid grid-cols-3 gap-3">
+                  <QuickStat
+                    icon={ShoppingCart}
+                    label="Orders"
+                    value={fmtNumber(overview.orders)}
+                    onClick={() => router.push("/vendor/orders")}
+                  />
+                  <QuickStat
+                    icon={Eye}
+                    label="Store Views"
+                    value={fmtNumber(overview.visits)}
+                    onClick={() => router.push("/vendor/analytics")}
+                  />
+                  <QuickStat
+                    icon={Users}
+                    label="Customers"
+                    value={fmtNumber(overview.customers)}
+                    onClick={() => router.push("/vendor/customers")}
+                  />
                 </div>
-              )}
-            </Card>
 
-            <SectionCard title="Todo" subtitle="Quick fixes that improve sales">
-              <div className="space-y-2 text-sm">
-                <TodoRow label="Out of stock products" value={todo.outOfStockCount || 0} onClick={() => router.push("/vendor/products")} />
-                <TodoRow label="Low stock products" value={todo.lowStockCount || 0} onClick={() => router.push("/vendor/products")} />
-                <TodoRow label="Direct transfers awaiting confirmation" value={todo.awaitingConfirmCount || 0} onClick={() => router.push("/vendor/orders")} />
-                <TodoRow label="Disputed orders" value={todo.disputedCount || 0} onClick={() => router.push("/vendor/orders")} />
+                {/* Store Link Actions */}
+                <div className="mt-5 grid grid-cols-2 gap-3">
+                  <button
+                    onClick={copyStoreLink}
+                    disabled={!storeUrl}
+                    className={cn(
+                      "flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition",
+                      copied
+                        ? "bg-green-500 text-white"
+                        : "bg-white/20 hover:bg-white/30 text-white"
+                    )}
+                  >
+                    {copied ? (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Link2 className="w-4 h-4" />
+                        Copy Link
+                      </>
+                    )}
+                  </button>
+                  <button
+                    onClick={() => router.push(`/b/${me?.businessSlug || ""}`)}
+                    disabled={!me?.businessSlug}
+                    className="flex items-center justify-center gap-2 bg-white text-orange-600 hover:bg-orange-50 rounded-xl py-3 text-sm font-bold transition disabled:opacity-50"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    View Store
+                  </button>
+                </div>
               </div>
-            </SectionCard>
+            </div>
 
-            <SectionCard title="Quick actions" subtitle="Create, manage, and grow">
+            {/* Action Required Section */}
+            {totalTodoCount > 0 && (
+              <SectionCard
+                title="Action Required"
+                subtitle={`${totalTodoCount} item${totalTodoCount !== 1 ? "s" : ""} need your attention`}
+                right={
+                  <span className="w-6 h-6 rounded-full bg-red-500 text-white text-xs font-bold flex items-center justify-center">
+                    {totalTodoCount}
+                  </span>
+                }
+              >
+                <div className="space-y-2">
+                  {todo.disputedCount > 0 && (
+                    <MenuCard
+                      icon={AlertCircle}
+                      label="Disputed Orders"
+                      description="Resolve customer disputes"
+                      badge={todo.disputedCount}
+                      href="/vendor/orders?filter=disputed"
+                      urgent
+                    />
+                  )}
+                  {todo.awaitingConfirmCount > 0 && (
+                    <MenuCard
+                      icon={Clock}
+                      label="Awaiting Confirmation"
+                      description="Confirm pending payments"
+                      badge={todo.awaitingConfirmCount}
+                      href="/vendor/orders?filter=pending"
+                      urgent
+                    />
+                  )}
+                  {todo.outOfStockCount > 0 && (
+                    <MenuCard
+                      icon={Package}
+                      label="Out of Stock"
+                      description="Restock or hide products"
+                      badge={todo.outOfStockCount}
+                      href="/vendor/products?filter=outofstock"
+                    />
+                  )}
+                  {todo.lowStockCount > 0 && (
+                    <MenuCard
+                      icon={Package}
+                      label="Low Stock Warning"
+                      description="Products running low"
+                      badge={todo.lowStockCount}
+                      href="/vendor/products?filter=lowstock"
+                    />
+                  )}
+                </div>
+              </SectionCard>
+            )}
+
+            {/* Stats Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              <StatCard
+                label="Products Sold"
+                value={fmtNumber(overview.productsSold)}
+                icon={Package}
+                color="green"
+                onClick={() => router.push("/vendor/products")}
+              />
+              <StatCard
+                label="Total Orders"
+                value={fmtNumber(overview.orders)}
+                icon={ShoppingCart}
+                color="blue"
+                onClick={() => router.push("/vendor/orders")}
+              />
+            </div>
+
+            {/* Revenue Chart */}
+            {revenueChartData.length > 0 && (
+              <SectionCard
+                title="Revenue Trend"
+                subtitle={periodLabel}
+                right={
+                  <button
+                    onClick={() => router.push("/vendor/analytics")}
+                    className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                  >
+                    Details
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                }
+              >
+                <AnalyticsChart
+                  data={revenueChartData}
+                  color="bg-orange-500"
+                  height={140}
+                  formatValue={fmtNairaCompact}
+                  formatTooltip={(d) => `${d.label}: ${fmtNaira(d.value)}`}
+                />
+              </SectionCard>
+            )}
+
+            {/* Quick Actions */}
+            <SectionCard title="Quick Actions" subtitle="Manage your business">
               <div className="grid grid-cols-2 gap-2">
-                <Button leftIcon={<Plus className="h-4 w-4" />} onClick={() => router.push("/vendor/products/new")}>
-                  New listing
-                </Button>
-                <Button variant="secondary" leftIcon={<BarChart3 className="h-4 w-4" />} onClick={() => router.push("/vendor/analytics")}>
-                  Analysis
-                </Button>
-                <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
-                  Orders
-                </Button>
-                <Button variant="secondary" onClick={() => router.push("/vendor/store")}>
-                  Store settings
-                </Button>
+                <QuickActionCard
+                  icon={Plus}
+                  label="Add Product"
+                  href="/vendor/products/new"
+                  color="orange"
+                />
+                <QuickActionCard
+                  icon={ClipboardList}
+                  label="View Orders"
+                  href="/vendor/orders"
+                  color="blue"
+                />
+                <QuickActionCard
+                  icon={BarChart3}
+                  label="Analytics"
+                  href="/vendor/analytics"
+                  color="purple"
+                />
+                <QuickActionCard
+                  icon={Settings}
+                  label="Store Settings"
+                  href="/vendor/store"
+                  color="gray"
+                />
+              </div>
+
+              <div className="mt-3 space-y-2">
+                <MenuCard
+                  icon={Tag}
+                  label="Coupons"
+                  description="Create discount codes"
+                  href="/vendor/coupons"
+                />
+                <MenuCard
+                  icon={Megaphone}
+                  label="Promotions"
+                  description="Boost products in marketplace"
+                  href="/vendor/promotions"
+                />
+                <MenuCard
+                  icon={Wallet}
+                  label="Payouts"
+                  description="View earnings and withdrawals"
+                  href="/vendor/payouts"
+                />
               </div>
             </SectionCard>
 
-            <SectionCard title="Recent orders" subtitle="Latest activity">
+            {/* Recent Orders */}
+            <SectionCard
+              title="Recent Orders"
+              subtitle="Latest activity"
+              right={
+                recentOrders.length > 0 && (
+                  <button
+                    onClick={() => router.push("/vendor/orders")}
+                    className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1"
+                  >
+                    View All
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                )
+              }
+            >
               {recentOrders.length === 0 ? (
-                <div className="text-sm text-biz-muted font-medium bg-gray-50 p-4 rounded-xl text-center">No orders yet.</div>
+                <VendorEmptyState
+                  icon={ShoppingCart}
+                  title="No orders yet"
+                  description="Share your store link to start receiving orders from customers."
+                  actions={[
+                    {
+                      label: "Copy Link",
+                      onClick: copyStoreLink,
+                      icon: Link2,
+                      variant: "primary",
+                    },
+                    {
+                      label: "Add Product",
+                      onClick: () => router.push("/vendor/products/new"),
+                      icon: Plus,
+                      variant: "secondary",
+                    },
+                  ]}
+                />
               ) : (
                 <div className="space-y-2">
-                  {recentOrders.slice(0, 6).map((o) => (
-                    <button
-                      key={o.id}
-                      className="w-full text-left rounded-2xl border border-gray-200 bg-white p-4 hover:border-biz-accent transition shadow-sm"
-                      onClick={() => router.push(`/vendor/orders/${o.id}`)}
-                    >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
-                          <p className="text-sm font-bold text-gray-900">Order #{String(o.id).slice(0, 8)}</p>
-                          <div className="flex items-center gap-2 mt-1">
-                            <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-gray-100 text-gray-600">
-                              {o.paymentType || "Card"}
-                            </span>
-                            <span className="text-xs text-biz-muted font-medium">
-                              {o.orderStatus || o.escrowStatus || "Pending"}
-                            </span>
-                          </div>
-                          <p className="text-[11px] text-gray-400 mt-2 font-medium">{fmtDate(o.createdAt)}</p>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="text-sm font-black text-gray-900">{fmtNaira(o.amount || (o.amountKobo ? o.amountKobo / 100 : 0))}</p>
-                        </div>
-                      </div>
-                    </button>
+                  {recentOrders.slice(0, 5).map((order) => (
+                    <OrderRow
+                      key={order.id}
+                      order={order}
+                      onClick={() => router.push(`/vendor/orders/${order.id}`)}
+                    />
                   ))}
                 </div>
               )}
             </SectionCard>
+
+            {/* Upgrade CTA for free users */}
+            {!isSubscribed && (
+              <Card className="p-5 bg-gradient-to-br from-purple-50 to-orange-50 border-purple-100">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-orange-500 flex items-center justify-center shrink-0">
+                    <Zap className="w-6 h-6 text-white" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="text-sm font-bold text-gray-900">Unlock More Features</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      Get monthly analytics, priority support, coupons, and more with Pro.
+                    </p>
+                    <Button
+                      size="sm"
+                      className="mt-3"
+                      onClick={() => router.push("/vendor/subscription")}
+                      rightIcon={<ChevronRight className="w-4 h-4" />}
+                    >
+                      View Plans
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            )}
           </>
-        ) : null}
+        )}
       </div>
     </div>
   );
 }
 
-function TodoRow({ label, value, onClick }: { label: string; value: number; onClick: () => void }) {
+/* ——————————————————————————— Quick Action Card ——————————————————————————— */
+
+function QuickActionCard({
+  icon: Icon,
+  label,
+  href,
+  color = "orange",
+}: {
+  icon: any;
+  label: string;
+  href: string;
+  color?: "orange" | "blue" | "purple" | "gray" | "green";
+}) {
+  const colorStyles = {
+    orange: "bg-orange-50 text-orange-600 group-hover:bg-orange-100",
+    blue: "bg-blue-50 text-blue-600 group-hover:bg-blue-100",
+    purple: "bg-purple-50 text-purple-600 group-hover:bg-purple-100",
+    gray: "bg-gray-100 text-gray-600 group-hover:bg-gray-200",
+    green: "bg-green-50 text-green-600 group-hover:bg-green-100",
+  };
+
   return (
-    <button
-      className="w-full rounded-2xl border border-gray-200 bg-white p-4 flex items-center justify-between hover:border-biz-accent transition shadow-sm"
-      onClick={onClick}
+    <Link
+      href={href}
+      className="group flex flex-col items-center justify-center p-4 rounded-2xl border border-gray-100 bg-white hover:border-orange-200 hover:shadow-sm transition"
     >
-      <span className="text-sm font-bold text-gray-700">{label}</span>
-      <span className="text-sm font-black text-gray-900 bg-gray-100 px-3 py-1 rounded-lg">{value}</span>
-    </button>
+      <div className={cn("w-11 h-11 rounded-xl flex items-center justify-center transition", colorStyles[color])}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <p className="text-xs font-semibold text-gray-900 mt-2 text-center">{label}</p>
+    </Link>
   );
 }

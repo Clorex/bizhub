@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 
 export const runtime = "nodejs";
@@ -14,14 +14,14 @@ export async function GET(req: Request) {
   try {
     const url = new URL(req.url);
     const code = String(url.searchParams.get("code") || "").trim();
-    if (!code) return NextResponse.json({ ok: false, error: "code required" }, { status: 400 });
+    if (!code) return Response.json({ ok: false, error: "code required" }, { status: 400 });
 
     const snap = await adminDb.collection("staffInvites").doc(code).get();
-    if (!snap.exists) return NextResponse.json({ ok: false, error: "Invite not found" }, { status: 404 });
+    if (!snap.exists) return Response.json({ ok: false, error: "Invite not found" }, { status: 404 });
 
     const inv = snap.data() as any;
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       invite: {
         code,
@@ -37,6 +37,6 @@ export async function GET(req: Request) {
       },
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

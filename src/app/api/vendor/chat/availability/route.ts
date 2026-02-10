@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { adminDb } from "@/lib/firebase/admin";
 
 export const runtime = "nodejs";
@@ -15,7 +15,7 @@ export async function GET(req: Request) {
     const storeSlug = String(url.searchParams.get("storeSlug") || "").trim();
 
     if (!storeSlug) {
-      return NextResponse.json({ ok: false, error: "storeSlug required" }, { status: 400 });
+      return Response.json({ ok: false, error: "storeSlug required" }, { status: 400 });
     }
 
     const bizSnap = await adminDb
@@ -25,7 +25,7 @@ export async function GET(req: Request) {
       .get();
 
     if (bizSnap.empty) {
-      return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
+      return Response.json({ ok: false, error: "Store not found" }, { status: 404 });
     }
 
     const bizDoc = bizSnap.docs[0];
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
     // Strict rule: NOT available for free users => subscription required.
     const enabled = !!(enabledToggle && subscribed && whatsapp);
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       storeSlug,
       storeName: biz?.name ?? null,
@@ -51,6 +51,6 @@ export async function GET(req: Request) {
       whatsapp: enabled ? whatsapp : null,
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

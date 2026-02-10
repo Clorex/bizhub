@@ -1,23 +1,31 @@
-﻿// FILE: src/app/vendor/subscription/summary/page-client.tsx
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
+import { SectionCard } from "@/components/ui/SectionCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { auth } from "@/lib/firebase/client";
 import { toast } from "@/lib/ui/toast";
-import { CheckCircle2 } from "lucide-react";
+import {
+  CheckCircle2,
+  Crown,
+  AlertCircle,
+  RefreshCw,
+  Clock,
+  CreditCard,
+  ArrowLeft,
+} from "lucide-react";
 
 type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
 type BizhubBillingCycle = "monthly" | "quarterly" | "biannually" | "yearly";
 type TabKey = "benefits" | "purchases" | "history";
 
-const NAIRA = "\u20A6"; // ₦
-const BULLET = "\u2022"; // •
-const EM_DASH = "\u2014"; // —
+const NAIRA = "\u20A6";
+const BULLET = "\u2022";
+const EM_DASH = "\u2014";
 
 function fmtNaira(n: number) {
   const amount = Number(n || 0);
@@ -53,12 +61,15 @@ function DetailsList({ groups }: { groups: Record<string, string[]> }) {
   return (
     <div className="space-y-2">
       {Object.entries(groups || {}).map(([k, items]) => (
-        <details key={k} className="rounded-2xl border border-biz-line bg-white p-3">
-          <summary className="cursor-pointer text-sm font-extrabold text-biz-ink">{k}</summary>
+        <details key={k} className="rounded-2xl border border-gray-100 bg-white p-3 group">
+          <summary className="cursor-pointer text-sm font-bold text-gray-900 flex items-center justify-between">
+            <span>{k}</span>
+            <span className="text-gray-400 text-xs group-open:rotate-90 transition-transform">›</span>
+          </summary>
           <div className="mt-2 space-y-2">
             {(items || []).map((t) => (
               <div key={t} className="flex items-start gap-2 text-sm text-gray-700">
-                <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" />
+                <CheckCircle2 className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
                 <span>{t}</span>
               </div>
             ))}
@@ -66,6 +77,25 @@ function DetailsList({ groups }: { groups: Record<string, string[]> }) {
         </details>
       ))}
     </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const s = String(status || "").toLowerCase();
+  const map: Record<string, string> = {
+    active: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    paid: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    success: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    pending: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    failed: "bg-red-50 text-red-700 border-red-200",
+    expired: "bg-gray-50 text-gray-600 border-gray-200",
+  };
+  const cls = map[s] || "bg-gray-50 text-gray-600 border-gray-200";
+
+  return (
+    <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold border capitalize ${cls}`}>
+      {status || EM_DASH}
+    </span>
   );
 }
 
@@ -98,13 +128,15 @@ export default function SubscriptionSummaryPageClient() {
   const planFromUrl = String(sp.get("plan") || "LAUNCH").toUpperCase();
   const cycleFromUrl = String(sp.get("cycle") || "yearly").toLowerCase();
 
-  const planKey: BizhubPlanKey = (["FREE", "LAUNCH", "MOMENTUM", "APEX"] as BizhubPlanKey[]).includes(planFromUrl as any)
+  const planKey: BizhubPlanKey = (["FREE", "LAUNCH", "MOMENTUM", "APEX"] as BizhubPlanKey[]).includes(
+    planFromUrl as any
+  )
     ? (planFromUrl as BizhubPlanKey)
     : "LAUNCH";
 
-  const initialCycle: BizhubBillingCycle = (["monthly", "quarterly", "biannually", "yearly"] as BizhubBillingCycle[]).includes(
-    cycleFromUrl as any
-  )
+  const initialCycle: BizhubBillingCycle = (
+    ["monthly", "quarterly", "biannually", "yearly"] as BizhubBillingCycle[]
+  ).includes(cycleFromUrl as any)
     ? (cycleFromUrl as BizhubBillingCycle)
     : "yearly";
 
@@ -137,40 +169,38 @@ export default function SubscriptionSummaryPageClient() {
     return data;
   }
 
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const [plansData, subData] = await Promise.all([
+        authedFetch("/api/vendor/plans") as Promise<PlansResponse>,
+        authedFetch("/api/subscriptions/my"),
+      ]);
+
+      if (!mountedRef.current) return;
+
+      if (!plansData?.ok || !plansData?.plans) throw new Error("Could not load plans. Please try again.");
+
+      setPlans(plansData.plans);
+      setHistory(Array.isArray(subData.purchases) ? subData.purchases : []);
+      setEntitlement(subData.entitlement || null);
+    } catch (e: any) {
+      if (!mountedRef.current) return;
+      const m = niceError(e, "Could not load subscription details. Please try again.");
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      if (mountedRef.current) setLoading(false);
+    }
+  }
+
   useEffect(() => {
     mountedRef.current = true;
-
-    async function load() {
-      setLoading(true);
-      setMsg(null);
-      try {
-        const [plansData, subData] = await Promise.all([
-          authedFetch("/api/vendor/plans") as Promise<PlansResponse>,
-          authedFetch("/api/subscriptions/my"),
-        ]);
-
-        if (!mountedRef.current) return;
-
-        if (!plansData?.ok || !plansData?.plans) throw new Error("Could not load plans. Please try again.");
-
-        setPlans(plansData.plans);
-        setHistory(Array.isArray(subData.purchases) ? subData.purchases : []);
-        setEntitlement(subData.entitlement || null);
-      } catch (e: any) {
-        if (!mountedRef.current) return;
-        const m = niceError(e, "Could not load subscription details. Please try again.");
-        setMsg(m);
-        toast.error(m);
-      } finally {
-        if (mountedRef.current) setLoading(false);
-      }
-    }
-
     load();
     return () => {
       mountedRef.current = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const canPay = planKey !== "FREE" && price > 0;
@@ -213,83 +243,122 @@ export default function SubscriptionSummaryPageClient() {
   }, [plan]);
 
   return (
-    <div className="min-h-screen">
+    <div className="min-h-screen bg-gray-50/30">
       <GradientHeader
         title="Summary"
         subtitle="Review and pay"
         showBack={true}
         right={
           <button
-            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft"
+            className="flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm"
             onClick={() => router.push("/vendor/subscription")}
           >
+            <ArrowLeft className="h-3.5 w-3.5" />
             Change
           </button>
         }
       />
 
-      <div className="px-4 pb-24 space-y-3">
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+      <div className="px-4 pb-32 space-y-4">
+        {/* Error */}
+        {msg ? (
+          <Card className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-red-700">Something went wrong</p>
+                <p className="text-xs text-gray-500 mt-0.5">{msg}</p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
 
+        {/* Current access */}
         <Card className="p-4">
-          <p className="text-xs text-biz-muted">Current access</p>
-          <p className="text-sm font-extrabold text-biz-ink mt-1">{loading ? "Loading..." : entName}</p>
-          <p className="text-[11px] text-gray-500 mt-1">
-            {loading
-              ? EM_DASH
-              : entPlanKey === "FREE"
-                ? "Upgrade anytime to unlock more tools."
-                : `Active until: ${fmtDateTime(entExpiry)}`}
-          </p>
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50">
+              <Crown className="h-5 w-5 text-orange-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500">Current access</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">
+                {loading ? (
+                  <span className="inline-block h-4 w-32 rounded bg-gray-100 animate-pulse" />
+                ) : (
+                  entName
+                )}
+              </p>
+              <p className="text-[11px] text-gray-500 mt-1">
+                {loading
+                  ? EM_DASH
+                  : entPlanKey === "FREE"
+                    ? "Upgrade anytime to unlock more tools."
+                    : `Active until: ${fmtDateTime(entExpiry)}`}
+              </p>
+            </div>
+          </div>
         </Card>
 
-        <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <p className="text-xs opacity-95">Selected plan</p>
-              <p className="text-xl font-extrabold mt-1">{headline}</p>
-              <p className="text-[11px] opacity-95 mt-1">{plan?.tagline || ""}</p>
-              {plan?.recommendedFor ? (
-                <p className="text-[11px] opacity-95 mt-2">
-                  Recommended for: <b>{plan.recommendedFor}</b>
-                </p>
-              ) : null}
-            </div>
-
-            <div className="text-right">
-              <p className="text-sm font-extrabold">{price === 0 ? "Free" : fmtNaira(price)}</p>
-              <p className="text-[11px] opacity-95 mt-1">{cycle}</p>
-            </div>
-          </div>
-
-          <div className="mt-3 space-y-2">
-            {highlights.map((t) => (
-              <div key={t} className="flex items-start gap-2 text-sm">
-                <span className="mt-1 h-2 w-2 rounded-full bg-white/90 shrink-0" />
-                <span className="opacity-95">{t}</span>
+        {/* Selected plan hero card */}
+        {loading ? (
+          <div className="rounded-3xl p-5 bg-gray-100 animate-pulse h-48" />
+        ) : (
+          <div className="rounded-3xl p-5 text-white shadow-sm bg-gradient-to-br from-orange-500 to-orange-600">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-xs opacity-90">Selected plan</p>
+                <p className="text-xl font-black mt-1">{headline}</p>
+                <p className="text-[11px] opacity-90 mt-1">{plan?.tagline || ""}</p>
+                {plan?.recommendedFor ? (
+                  <p className="text-[11px] opacity-90 mt-2">
+                    Recommended for: <span className="font-semibold">{plan.recommendedFor}</span>
+                  </p>
+                ) : null}
               </div>
-            ))}
+
+              <div className="text-right shrink-0">
+                <p className="text-lg font-black">{price === 0 ? "Free" : fmtNaira(price)}</p>
+                <p className="text-[11px] opacity-90 mt-1 capitalize">{cycle}</p>
+              </div>
+            </div>
+
+            {highlights.length > 0 ? (
+              <div className="mt-4 space-y-2">
+                {highlights.map((t) => (
+                  <div key={t} className="flex items-start gap-2 text-sm">
+                    <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-white/80 shrink-0" />
+                    <span className="opacity-90">{t}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
           </div>
-        </div>
+        )}
 
-        <SegmentedControl<BizhubBillingCycle>
-          value={cycle}
-          onChange={setCycle}
-          options={[
-            { value: "monthly", label: "Monthly" },
-            { value: "quarterly", label: "Quarterly" },
-            { value: "biannually", label: "Biannual" },
-            { value: "yearly", label: "Yearly" },
-          ]}
-        />
+        {/* Billing cycle selector */}
+        <SectionCard title="Billing cycle" subtitle="Choose how often you want to pay">
+          <SegmentedControl<BizhubBillingCycle>
+            value={cycle}
+            onChange={setCycle}
+            options={[
+              { value: "monthly", label: "Monthly" },
+              { value: "quarterly", label: "Quarterly" },
+              { value: "biannually", label: "Biannual" },
+              { value: "yearly", label: "Yearly" },
+            ]}
+          />
+        </SectionCard>
 
+        {/* Tab switcher */}
         <Card className="p-2">
           <div className="grid grid-cols-3 gap-2">
             <button
               className={
                 tab === "benefits"
-                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
-                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+                  ? "rounded-2xl py-2.5 text-xs font-bold text-white bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm"
+                  : "rounded-2xl py-2.5 text-xs font-bold bg-white border border-gray-100 text-gray-700"
               }
               onClick={() => setTab("benefits")}
               type="button"
@@ -300,8 +369,8 @@ export default function SubscriptionSummaryPageClient() {
             <button
               className={
                 tab === "purchases"
-                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
-                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+                  ? "rounded-2xl py-2.5 text-xs font-bold text-white bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm"
+                  : "rounded-2xl py-2.5 text-xs font-bold bg-white border border-gray-100 text-gray-700"
               }
               onClick={() => setTab("purchases")}
               type="button"
@@ -312,8 +381,8 @@ export default function SubscriptionSummaryPageClient() {
             <button
               className={
                 tab === "history"
-                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
-                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+                  ? "rounded-2xl py-2.5 text-xs font-bold text-white bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm"
+                  : "rounded-2xl py-2.5 text-xs font-bold bg-white border border-gray-100 text-gray-700"
               }
               onClick={() => setTab("history")}
               type="button"
@@ -323,61 +392,115 @@ export default function SubscriptionSummaryPageClient() {
           </div>
         </Card>
 
+        {/* Tab content */}
         <Card className="p-4">
           {tab === "benefits" ? (
             <>
-              <p className="font-extrabold text-biz-ink">What's included</p>
-              <p className="text-xs text-biz-muted mt-1">Everything you get on this plan</p>
-              <div className="mt-3">
-                <DetailsList groups={plan?.benefits || {}} />
+              <div className="flex items-start gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">What's included</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Everything you get on this plan</p>
+                </div>
               </div>
+
+              {loading ? (
+                <div className="space-y-2">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-12 rounded-2xl bg-gray-100 animate-pulse" />
+                  ))}
+                </div>
+              ) : (
+                <DetailsList groups={plan?.benefits || {}} />
+              )}
             </>
           ) : null}
 
           {tab === "purchases" ? (
             <>
-              <p className="font-extrabold text-biz-ink">Optional add-ons</p>
-              <p className="text-xs text-biz-muted mt-1">Extra tools you can buy later</p>
-              <div className="mt-3">
-                {Object.keys(plan?.purchases || {}).length === 0 ? (
-                  <p className="text-sm text-biz-muted">No add-ons available for this plan.</p>
-                ) : (
-                  <DetailsList groups={plan?.purchases || {}} />
-                )}
+              <div className="flex items-start gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50">
+                  <CreditCard className="h-5 w-5 text-orange-600" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Optional add-ons</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Extra tools you can buy later</p>
+                </div>
               </div>
+
+              {loading ? (
+                <div className="space-y-2">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-12 rounded-2xl bg-gray-100 animate-pulse" />
+                  ))}
+                </div>
+              ) : Object.keys(plan?.purchases || {}).length === 0 ? (
+                <div className="text-center py-6">
+                  <p className="text-sm text-gray-500">No add-ons available for this plan.</p>
+                </div>
+              ) : (
+                <DetailsList groups={plan?.purchases || {}} />
+              )}
             </>
           ) : null}
 
           {tab === "history" ? (
             <>
-              <p className="font-extrabold text-biz-ink">Payment history</p>
-              <p className="text-xs text-biz-muted mt-1">Your recent subscription payments</p>
+              <div className="flex items-start gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-50">
+                  <Clock className="h-5 w-5 text-blue-500" />
+                </div>
+                <div>
+                  <p className="font-bold text-gray-900">Payment history</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Your recent subscription payments</p>
+                </div>
+              </div>
 
               {loading ? (
-                <div className="mt-3 text-sm text-biz-muted">Loading…</div>
+                <div className="space-y-2">
+                  {[1, 2].map((i) => (
+                    <div key={i} className="h-20 rounded-2xl bg-gray-100 animate-pulse" />
+                  ))}
+                </div>
               ) : history.length === 0 ? (
-                <div className="mt-3 text-sm text-biz-muted">No payments yet.</div>
+                <div className="text-center py-6">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 mx-auto mb-3">
+                    <Clock className="h-6 w-6 text-gray-400" />
+                  </div>
+                  <p className="text-sm font-semibold text-gray-700">No payments yet</p>
+                  <p className="text-xs text-gray-500 mt-1">Your payment history will appear here.</p>
+                </div>
               ) : (
-                <div className="mt-3 space-y-2">
+                <div className="space-y-2">
                   {history
                     .slice(0, 20)
                     .sort((a: any, b: any) => Number(b.startedAtMs || 0) - Number(a.startedAtMs || 0))
                     .map((h: any) => (
-                      <div key={h.id} className="rounded-2xl border border-biz-line bg-white p-3">
+                      <div key={h.id} className="rounded-2xl border border-gray-100 bg-white p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <p className="text-sm font-extrabold text-biz-ink">
+                            <p className="text-sm font-bold text-gray-900">
                               {String(h.planKey || EM_DASH)} {BULLET} {String(h.cycle || EM_DASH)}
                             </p>
-                            <p className="text-[11px] text-gray-500 mt-1 break-all">ID: {String(h.reference || h.id)}</p>
-                            <p className="text-[11px] text-gray-500 mt-1">Date: {fmtDateTime(Number(h.startedAtMs || 0))}</p>
+                            <p className="text-[11px] text-gray-400 mt-1 break-all font-mono">
+                              {String(h.reference || h.id)}
+                            </p>
+                            <p className="text-[11px] text-gray-500 mt-1">
+                              {fmtDateTime(Number(h.startedAtMs || 0))}
+                            </p>
                           </div>
 
                           <div className="text-right shrink-0">
-                            <p className="text-sm font-extrabold text-biz-ink">
-                              {fmtNaira(Number(h.amount || (h.amountKobo ? h.amountKobo / 100 : 0) || 0))}
+                            <p className="text-sm font-bold text-gray-900">
+                              {fmtNaira(
+                                Number(h.amount || (h.amountKobo ? h.amountKobo / 100 : 0) || 0)
+                              )}
                             </p>
-                            <p className="text-[11px] text-gray-500 mt-1 capitalize">{String(h.status || EM_DASH)}</p>
+                            <div className="mt-1">
+                              <StatusBadge status={String(h.status || "")} />
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -388,27 +511,29 @@ export default function SubscriptionSummaryPageClient() {
           ) : null}
         </Card>
 
-        <div className="fixed bottom-0 left-0 right-0 z-40">
-          <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
-            <Card className="p-4 space-y-2">
-              {planKey === "FREE" ? (
-                <Button variant="secondary" onClick={() => router.push("/vendor/subscription")}>
-                  Back to plans
-                </Button>
-              ) : (
-                <Button onClick={payNow} loading={paying} disabled={!canPay || !plan}>
-                  Pay {fmtNaira(price)}
-                </Button>
-              )}
+        {/* Spacer for fixed bottom */}
+        <div className="h-32" />
+      </div>
 
-              <Button variant="secondary" onClick={() => router.push("/vendor")}>
-                Return to dashboard
+      {/* Fixed bottom CTA */}
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+          <Card className="p-4 space-y-2">
+            {planKey === "FREE" ? (
+              <Button variant="secondary" onClick={() => router.push("/vendor/subscription")}>
+                Back to plans
               </Button>
-            </Card>
-          </div>
-        </div>
+            ) : (
+              <Button onClick={payNow} loading={paying} disabled={!canPay || !plan}>
+                Pay {fmtNaira(price)}
+              </Button>
+            )}
 
-        <div className="h-28" />
+            <Button variant="secondary" onClick={() => router.push("/vendor")}>
+              Return to dashboard
+            </Button>
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 // FILE: src/app/api/admin/platform/pin/route.ts
-import { NextResponse } from "next/server";
+
 import { requireAdminSessionVerified } from "@/lib/admin/securityServer";
 import { getAdminWithdrawPinState, setAdminWithdrawPin } from "@/lib/admin/withdrawPinServer";
 
@@ -10,9 +10,9 @@ export async function GET(req: Request) {
   try {
     const me = await requireAdminSessionVerified(req);
     const st = await getAdminWithdrawPinState(me.uid);
-    return NextResponse.json({ ok: true, pinSet: st.set, pinSetAtMs: st.setAtMs });
+    return Response.json({ ok: true, pinSet: st.set, pinSetAtMs: st.setAtMs });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, code: e?.code || null, error: e?.message || "Failed" }, { status: 401 });
+    return Response.json({ ok: false, code: e?.code || null, error: e?.message || "Failed" }, { status: 401 });
   }
 }
 
@@ -25,8 +25,8 @@ export async function POST(req: Request) {
 
     await setAdminWithdrawPin({ uid: me.uid, email: String(me.email || ""), pin });
 
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, code: e?.code || null, error: e?.message || "Failed" }, { status: 400 });
+    return Response.json({ ok: false, code: e?.code || null, error: e?.message || "Failed" }, { status: 400 });
   }
 }

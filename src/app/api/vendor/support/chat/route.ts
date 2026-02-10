@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireAnyRole } from "@/lib/auth/server";
 
 export const runtime = "nodejs";
@@ -139,7 +139,7 @@ export async function POST(req: Request) {
   try {
     const me = await requireAnyRole(req, ["owner", "staff"]);
     if (!me.businessId) {
-      return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+      return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
     }
 
     const body = await req.json().catch(() => ({} as any));
@@ -154,7 +154,7 @@ export async function POST(req: Request) {
       .filter((x) => !!x.text);
 
     if (!message) {
-      return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
+      return Response.json({ ok: false, error: "Message is required" }, { status: 400 });
     }
 
     const apiKey = String(process.env.GROQ_API_KEY || "").trim();
@@ -163,7 +163,7 @@ export async function POST(req: Request) {
     const system = buildSystemPrompt();
 
     if (!apiKey) {
-      return NextResponse.json({
+      return Response.json({
         ok: true,
         reply: fallbackSupportReply(message),
         meta: { mode: "fallback_no_key" },
@@ -190,7 +190,7 @@ export async function POST(req: Request) {
       }
 
       if (res.ok) {
-        return NextResponse.json({ ok: true, reply: res.text, meta: { mode: "groq", model } });
+        return Response.json({ ok: true, reply: res.text, meta: { mode: "groq", model } });
       }
 
       last = { status: res.status, error: res.error, model };
@@ -198,12 +198,12 @@ export async function POST(req: Request) {
 
     console.error("GROQ_SUPPORT_CHAT_FAILED", last);
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       reply: fallbackSupportReply(message),
       meta: { mode: "fallback_after_error", lastStatus: last?.status || 0, lastModel: last?.model || null },
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

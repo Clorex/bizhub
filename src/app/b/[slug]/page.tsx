@@ -1,9 +1,7 @@
-﻿// FILE: src/app/b/[slug]/page.tsx
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { db } from "@/lib/firebase/client";
 import { collection, getDocs, limit, query, where, orderBy } from "firebase/firestore";
@@ -11,16 +9,39 @@ import { track } from "@/lib/track/client";
 import { Button } from "@/components/ui/Button";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { Store, Phone, Package, ShoppingCart, Plus, BadgeCheck } from "lucide-react";
+import { 
+  Store, 
+  Phone, 
+  Package, 
+  ShoppingCart, 
+  Plus, 
+  BadgeCheck, 
+  MapPin, 
+  Instagram, 
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+  ExternalLink,
+  Share2,
+  Heart,
+} from "lucide-react";
 import { useCart } from "@/lib/cart/CartContext";
 import { CloudImage } from "@/components/CloudImage";
 import { toast } from "@/lib/ui/toast";
+import { cn } from "@/lib/cn";
 import {
   normalizeCoverAspect,
   coverAspectToTailwindClass,
   coverAspectToWH,
   type CoverAspectKey,
 } from "@/lib/products/coverAspect";
+import {
+  getThemeById,
+  getDefaultTheme,
+  type StoreTheme,
+} from "@/lib/themes/storeThemes";
+
+/* ─────────────────────── Helpers ─────────────────────── */
 
 function fmtNaira(n: number) {
   try {
@@ -36,16 +57,12 @@ function waLink(wa: string, text: string) {
   return `https://wa.me/${digits}?text=${t}`;
 }
 
-/** --- Sale helpers --- */
 function saleIsActive(p: any, now = Date.now()) {
   if (p?.saleActive !== true) return false;
-
   const start = Number(p?.saleStartsAtMs || 0);
   const end = Number(p?.saleEndsAtMs || 0);
-
   if (start && now < start) return false;
   if (end && now > end) return false;
-
   const t = String(p?.saleType || "");
   return t === "percent" || t === "fixed";
 }
@@ -54,13 +71,11 @@ function computeSalePriceNgn(p: any) {
   const base = Number(p?.price || 0);
   if (!Number.isFinite(base) || base <= 0) return 0;
   if (!saleIsActive(p)) return Math.floor(base);
-
   const t = String(p?.saleType || "");
   if (t === "fixed") {
     const off = Number(p?.saleAmountOffNgn || 0);
     return Math.max(0, Math.floor(base - Math.max(0, off)));
   }
-
   const pct = Math.max(0, Math.min(90, Number(p?.salePercent || 0)));
   const off = Math.floor((base * pct) / 100);
   return Math.max(0, Math.floor(base - off));
@@ -76,92 +91,6 @@ function saleBadgeText(p: any) {
   return pct > 0 ? `${pct}% OFF` : "Sale";
 }
 
-function ProductTileWithAdd({
-  title,
-  subtitle,
-  image,
-  coverAspect,
-  badges,
-  onOpen,
-  onQuickAdd,
-  canQuickAdd,
-}: {
-  title: string;
-  subtitle?: React.ReactNode;
-  image?: string;
-  coverAspect?: CoverAspectKey;
-  badges?: string[];
-  onOpen: () => void;
-  onQuickAdd: () => void;
-  canQuickAdd: boolean;
-}) {
-  const aspect: CoverAspectKey = coverAspect ?? "1:1";
-  const aspectClass = coverAspectToTailwindClass(aspect);
-  const { w, h } = coverAspectToWH(aspect, 520);
-
-  return (
-    <div className="w-full">
-      <Card className="p-3 hover:bg-black/[0.02] transition cursor-pointer" onClick={onOpen}>
-        <div className={`${aspectClass} w-full rounded-2xl bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden relative`}>
-          {image ? (
-            <CloudImage
-              src={image}
-              alt={title}
-              w={w}
-              h={h}
-              sizes="(max-width: 430px) 45vw, 200px"
-              className="h-full w-full object-cover"
-            />
-          ) : (
-            <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No image</div>
-          )}
-
-          {badges?.length ? (
-            <div className="absolute top-2 left-2 flex flex-wrap gap-1">
-              {badges.slice(0, 2).map((b) => (
-                <div
-                  key={b}
-                  className={
-                    b.toLowerCase().includes("off") || b.toLowerCase().includes("sale")
-                      ? "px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100"
-                      : "px-2 py-1 rounded-full text-[10px] font-extrabold bg-white/90 border border-black/5"
-                  }
-                >
-                  {b}
-                </div>
-              ))}
-            </div>
-          ) : null}
-
-          <button
-            type="button"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (!canQuickAdd) return;
-              onQuickAdd();
-            }}
-            disabled={!canQuickAdd}
-            className={[
-              "absolute bottom-2 right-2 h-9 w-9 rounded-2xl flex items-center justify-center",
-              canQuickAdd
-                ? "bg-gradient-to-br from-biz-accent2 to-biz-accent text-white shadow-float"
-                : "bg-white/80 text-gray-400 border border-black/10",
-            ].join(" ")}
-            aria-label={canQuickAdd ? "Add to cart" : "View product"}
-            title={canQuickAdd ? "Add to cart" : "View product"}
-          >
-            {canQuickAdd ? <Plus className="h-5 w-5" /> : <ShoppingCart className="h-5 w-5" />}
-          </button>
-        </div>
-
-        <p className="mt-2 text-sm font-extrabold text-biz-ink line-clamp-2">{title}</p>
-        {subtitle ? <div className="mt-1 text-xs text-biz-muted">{subtitle}</div> : null}
-      </Card>
-    </div>
-  );
-}
-
 type TrustBadgeType = "earned_apex" | "temporary_apex" | null;
 
 function trustBadgeTypeFromTrust(j: any): TrustBadgeType {
@@ -175,6 +104,259 @@ function trustBadgeTypeFromTrust(j: any): TrustBadgeType {
   return null;
 }
 
+/* ─────────────────────── Themed Header Component ─────────────────────── */
+
+function ThemedStoreHeader({
+  theme,
+  name,
+  location,
+  onBack,
+  onCart,
+  cartCount,
+}: {
+  theme: StoreTheme;
+  name: string;
+  location: string;
+  onBack: () => void;
+  onCart: () => void;
+  cartCount: number;
+}) {
+  return (
+    <div
+      className="relative overflow-hidden"
+      style={{ background: theme.headerGradient }}
+    >
+      {/* Overlay */}
+      {theme.headerOverlay && (
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{ background: theme.headerOverlay }}
+        />
+      )}
+
+      {/* Animated effects for special themes */}
+      {theme.hasAnimation && theme.animationType === "shimmer" && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+        </div>
+      )}
+
+      {theme.hasAnimation && theme.animationType === "gradient" && (
+        <div
+          className="absolute inset-0 pointer-events-none animate-gradient"
+          style={{
+            background: theme.headerGradient,
+            backgroundSize: "200% 200%",
+          }}
+        />
+      )}
+
+      {/* Decorative circles */}
+      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
+      <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+
+      {/* Content */}
+      <div className="relative z-10 safe-pt">
+        <div className="px-4 py-4">
+          <div className="flex items-center justify-between">
+            {/* Back button */}
+            <button
+              onClick={onBack}
+              className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition"
+            >
+              <ChevronLeft className="w-5 h-5" style={{ color: theme.headerTextColor }} />
+            </button>
+
+            {/* Store name */}
+            <div className="flex-1 mx-4 text-center">
+              <h1
+                className="text-lg font-bold truncate"
+                style={{ color: theme.headerTextColor }}
+              >
+                {name}
+              </h1>
+              {location && (
+                <p
+                  className="text-xs opacity-80 flex items-center justify-center gap-1 mt-0.5"
+                  style={{ color: theme.headerTextColor }}
+                >
+                  <MapPin className="w-3 h-3" />
+                  {location}
+                </p>
+              )}
+            </div>
+
+            {/* Cart button */}
+            <button
+              onClick={onCart}
+              className="relative w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition"
+            >
+              <ShoppingCart className="w-5 h-5" style={{ color: theme.headerTextColor }} />
+              {cartCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
+                  style={{ 
+                    background: theme.primaryColor, 
+                    color: theme.buttonText 
+                  }}
+                >
+                  {cartCount > 9 ? "9+" : cartCount}
+                </span>
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────── Themed Product Card ─────────────────────── */
+
+function ThemedProductCard({
+  theme,
+  product,
+  onOpen,
+  onQuickAdd,
+  canQuickAdd,
+}: {
+  theme: StoreTheme;
+  product: any;
+  onOpen: () => void;
+  onQuickAdd: () => void;
+  canQuickAdd: boolean;
+}) {
+  const img = Array.isArray(product?.images) ? product.images[0] : "";
+  const boosted = Number(product?.boostUntilMs || 0) > Date.now();
+  const onSale = saleIsActive(product);
+  const base = Number(product?.price || 0);
+  const final = onSale ? computeSalePriceNgn(product) : base;
+
+  const aspect: CoverAspectKey = normalizeCoverAspect(product?.coverAspect) ?? "1:1";
+  const aspectClass = coverAspectToTailwindClass(aspect);
+  const { w, h } = coverAspectToWH(aspect, 520);
+
+  const badges: string[] = [];
+  if (boosted) badges.push("Promoted");
+  if (onSale) badges.push(saleBadgeText(product));
+
+  return (
+    <div className="w-full">
+      <div
+        className="rounded-2xl overflow-hidden transition-all hover:shadow-lg cursor-pointer"
+        style={{ 
+          backgroundColor: theme.cardBg,
+          borderColor: theme.cardBorder,
+          borderWidth: 1,
+        }}
+        onClick={onOpen}
+      >
+        {/* Image */}
+        <div className={cn(aspectClass, "w-full overflow-hidden relative bg-gray-100")}>
+          {img ? (
+            <CloudImage
+              src={img}
+              alt={product?.name || "Product"}
+              w={w}
+              h={h}
+              sizes="(max-width: 430px) 45vw, 200px"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div 
+              className="h-full w-full flex items-center justify-center"
+              style={{ backgroundColor: theme.primaryLight }}
+            >
+              <Package className="w-8 h-8" style={{ color: theme.textMuted }} />
+            </div>
+          )}
+
+          {/* Badges */}
+          {badges.length > 0 && (
+            <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+              {badges.map((badge) => (
+                <span
+                  key={badge}
+                  className="px-2 py-1 rounded-full text-[10px] font-bold"
+                  style={{
+                    backgroundColor: badge.includes("OFF") || badge === "Sale" 
+                      ? theme.saleBadgeBg 
+                      : theme.badgeBg,
+                    color: badge.includes("OFF") || badge === "Sale"
+                      ? theme.saleBadgeText
+                      : theme.badgeText,
+                  }}
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Quick Add Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canQuickAdd) onQuickAdd();
+            }}
+            disabled={!canQuickAdd}
+            className={cn(
+              "absolute bottom-2 right-2 w-9 h-9 rounded-xl flex items-center justify-center transition-all",
+              canQuickAdd ? "shadow-lg hover:scale-105" : "opacity-60"
+            )}
+            style={{
+              background: canQuickAdd ? theme.buttonGradient : theme.cardBg,
+              color: canQuickAdd ? theme.buttonText : theme.textMuted,
+              borderWidth: canQuickAdd ? 0 : 1,
+              borderColor: theme.cardBorder,
+            }}
+          >
+            {canQuickAdd ? <Plus className="w-5 h-5" /> : <ShoppingCart className="w-4 h-4" />}
+          </button>
+        </div>
+
+        {/* Info */}
+        <div className="p-3">
+          <p 
+            className="text-sm font-bold line-clamp-2"
+            style={{ color: theme.textPrimary }}
+          >
+            {product?.name || "Product"}
+          </p>
+          
+          <div className="mt-1.5">
+            {onSale ? (
+              <div className="flex items-center gap-2">
+                <span 
+                  className="text-xs line-through"
+                  style={{ color: theme.textMuted }}
+                >
+                  {fmtNaira(base)}
+                </span>
+                <span 
+                  className="text-sm font-bold"
+                  style={{ color: theme.saleBadgeText }}
+                >
+                  {fmtNaira(final)}
+                </span>
+              </div>
+            ) : (
+              <span 
+                className="text-sm font-bold"
+                style={{ color: theme.primaryColor }}
+              >
+                {fmtNaira(base)}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ─────────────────────── Main Component ─────────────────────── */
+
 export default function StorefrontPage() {
   const router = useRouter();
   const params = useParams();
@@ -186,10 +368,18 @@ export default function StorefrontPage() {
   const [items, setItems] = useState<any[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-
   const [trustBadge, setTrustBadge] = useState<TrustBadgeType>(null);
 
-  const products = useMemo(() => items.filter((x) => String(x.listingType || "product") !== "service"), [items]);
+  // Get theme from business data
+  const theme = useMemo(() => {
+    const themeId = biz?.themeId || "classic";
+    return getThemeById(themeId) || getDefaultTheme();
+  }, [biz]);
+
+  const products = useMemo(
+    () => items.filter((x) => String(x.listingType || "product") !== "service"),
+    [items]
+  );
 
   const cartCount = useMemo(() => {
     const list = Array.isArray(cart?.items) ? cart.items : [];
@@ -206,7 +396,7 @@ export default function StorefrontPage() {
 
         const qBiz = query(collection(db, "businesses"), where("slug", "==", slug), limit(1));
         const snapBiz = await getDocs(qBiz);
-        if (snapBiz.empty) throw new Error("Vendor not found");
+        if (snapBiz.empty) throw new Error("Store not found");
         const b = { id: snapBiz.docs[0].id, ...snapBiz.docs[0].data() };
 
         const qP = query(
@@ -232,7 +422,7 @@ export default function StorefrontPage() {
           })
           .catch(() => {});
       } catch (e: any) {
-        setMsg(e?.message || "Could not load this vendor.");
+        setMsg(e?.message || "Could not load this store.");
       } finally {
         if (mounted) setLoading(false);
       }
@@ -249,7 +439,7 @@ export default function StorefrontPage() {
 
     const existingStore = String(cart?.storeSlug || "");
     if (existingStore && existingStore !== slug) {
-      const ok = confirm("Your cart has items from another vendor. Clear cart and add this item?");
+      const ok = confirm("Your cart has items from another store. Clear cart and add this item?");
       if (!ok) return;
       clearCart();
     }
@@ -271,7 +461,7 @@ export default function StorefrontPage() {
       1
     );
 
-    toast.success("Added to cart.");
+    toast.success("Added to cart!");
   }
 
   const banner = String(biz?.bannerUrl || "");
@@ -282,175 +472,394 @@ export default function StorefrontPage() {
   const whatsapp = String(biz?.whatsapp || "");
   const instagram = String(biz?.instagram || "");
 
-  return (
-    <div className="min-h-screen">
-      <GradientHeader
-        title={name}
-        subtitle={location || `Vendor: ${slug}`}
-        showBack={true}
-        right={
-          <button
-            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-extrabold shadow-soft"
-            onClick={() => router.push("/market")}
+  // Loading state
+  if (loading) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: theme.pageBg }}>
+        <div 
+          className="h-32 animate-pulse"
+          style={{ background: theme.headerGradient }}
+        />
+        <div className="px-4 py-4 space-y-4">
+          <div 
+            className="h-40 rounded-2xl animate-pulse"
+            style={{ backgroundColor: theme.cardBorder }}
+          />
+          <div 
+            className="h-8 w-32 rounded-xl animate-pulse"
+            style={{ backgroundColor: theme.cardBorder }}
+          />
+          <div className="grid grid-cols-2 gap-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div 
+                key={i}
+                className="h-48 rounded-2xl animate-pulse"
+                style={{ backgroundColor: theme.cardBorder }}
+              />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (msg) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: theme.pageBg }}>
+        <ThemedStoreHeader
+          theme={theme}
+          name="Store"
+          location=""
+          onBack={() => router.push("/market")}
+          onCart={() => router.push("/cart")}
+          cartCount={0}
+        />
+        <div className="px-4 py-8">
+          <div 
+            className="rounded-2xl p-6 text-center"
+            style={{ backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 }}
           >
-            Market
-          </button>
-        }
+            <div 
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ backgroundColor: theme.primaryLight }}
+            >
+              <Store className="w-8 h-8" style={{ color: theme.primaryColor }} />
+            </div>
+            <p className="text-lg font-bold" style={{ color: theme.textPrimary }}>
+              Store Not Found
+            </p>
+            <p className="text-sm mt-2" style={{ color: theme.textSecondary }}>
+              {msg}
+            </p>
+            <Button className="mt-6" onClick={() => router.push("/market")}>
+              Browse Marketplace
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen pb-8" style={{ backgroundColor: theme.pageBg }}>
+      {/* Header */}
+      <ThemedStoreHeader
+        theme={theme}
+        name={name}
+        location={location}
+        onBack={() => router.back()}
+        onCart={() => router.push("/cart")}
+        cartCount={cartCount}
       />
 
-      <div className="px-4 pb-6 space-y-3">
-        {loading ? <Card className="p-4">Loading…</Card> : null}
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+      <div className="px-4 space-y-4 pt-4">
+        {/* Store Info Card */}
+        <div
+          className="rounded-3xl overflow-hidden"
+          style={{ 
+            backgroundColor: theme.cardBg, 
+            borderColor: theme.cardBorder, 
+            borderWidth: 1 
+          }}
+        >
+          {/* Banner */}
+          {banner && (
+            <div className="h-32 w-full overflow-hidden">
+              <CloudImage
+                src={banner}
+                alt="Banner"
+                w={980}
+                h={360}
+                sizes="(max-width: 430px) 100vw, 430px"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
 
-        {!loading && biz ? (
-          <>
-            <Card className="p-0 overflow-hidden">
-              <div className="h-36 w-full bg-gradient-to-br from-biz-sand to-biz-cream overflow-hidden">
-                {banner ? (
+          {/* Store Info */}
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              {/* Logo */}
+              <div 
+                className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center"
+                style={{ 
+                  backgroundColor: theme.primaryLight,
+                  borderColor: theme.cardBorder,
+                  borderWidth: 1,
+                }}
+              >
+                {logo ? (
                   <CloudImage
-                    src={banner}
-                    alt="Banner"
-                    w={980}
-                    h={360}
-                    sizes="(max-width: 430px) 100vw, 430px"
-                    className="h-full w-full object-cover"
+                    src={logo}
+                    alt="Logo"
+                    w={160}
+                    h={160}
+                    sizes="64px"
+                    className="w-full h-full object-cover"
                   />
-                ) : null}
+                ) : (
+                  <Store className="w-7 h-7" style={{ color: theme.primaryColor }} />
+                )}
               </div>
 
-              <div className="p-4">
-                <div className="flex items-start gap-3">
-                  <div className="h-14 w-14 rounded-2xl bg-biz-cream overflow-hidden border border-biz-line shrink-0">
-                    {logo ? (
-                      <CloudImage src={logo} alt="Logo" w={160} h={160} sizes="56px" className="h-full w-full object-cover" />
-                    ) : (
-                      <div className="h-full w-full flex items-center justify-center">
-                        <Store className="h-6 w-6 text-orange-700" />
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <p className="text-base font-extrabold text-biz-ink">{name}</p>
-
-                      {trustBadge === "earned_apex" ? (
-                        <span
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100"
-                          title="Verified Apex badge (earned + maintained)"
-                        >
-                          <BadgeCheck className="h-4 w-4" />
-                          Verified Apex
-                        </span>
-                      ) : null}
-
-                      {trustBadge === "temporary_apex" ? (
-                        <span
-                          className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[11px] font-extrabold bg-white text-orange-700 border border-orange-200"
-                          title="Temporary / probation Apex badge"
-                        >
-                          <BadgeCheck className="h-4 w-4" />
-                          Apex (Temporary)
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <p className="text-xs text-biz-muted mt-1">{location || "Nigeria"}</p>
-                    {instagram ? <p className="text-xs text-biz-muted mt-1">@{instagram.replace(/^@/, "")}</p> : null}
-                  </div>
-                </div>
-
-                {about ? <p className="mt-3 text-sm text-gray-700 whitespace-pre-wrap">{about}</p> : null}
-
-                <div className="mt-4 grid grid-cols-2 gap-2">
-                  <Button
-                    leftIcon={<Phone className="h-4 w-4" />}
-                    onClick={() => {
-                      if (!whatsapp) {
-                        toast.info("This vendor has not added WhatsApp yet.");
-                        return;
-                      }
-                      window.open(waLink(whatsapp, `Hello ${name}. I came from your myBizHub store (${slug}).`), "_blank");
-                    }}
-                    disabled={!whatsapp}
+              {/* Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 
+                    className="text-lg font-bold"
+                    style={{ color: theme.textPrimary }}
                   >
-                    WhatsApp
-                  </Button>
+                    {name}
+                  </h2>
 
-                  <Button variant="secondary" leftIcon={<Package className="h-4 w-4" />} onClick={() => router.push("/cart")}>
-                    <span className="inline-flex items-center gap-2">
-                      Cart
-                      {cartCount > 0 ? (
-                        <span className="px-2 py-0.5 rounded-full bg-biz-accent text-white text-[11px] font-extrabold">
-                          {cartCount > 99 ? "99+" : cartCount}
-                        </span>
-                      ) : null}
+                  {trustBadge === "earned_apex" && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                      style={{ backgroundColor: theme.saleBadgeBg, color: theme.saleBadgeText }}
+                    >
+                      <BadgeCheck className="w-3 h-3" />
+                      Verified
                     </span>
-                  </Button>
+                  )}
+
+                  {trustBadge === "temporary_apex" && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                      style={{ backgroundColor: theme.badgeBg, color: theme.badgeText }}
+                    >
+                      <BadgeCheck className="w-3 h-3" />
+                      Apex
+                    </span>
+                  )}
                 </div>
+
+                {location && (
+                  <p 
+                    className="text-sm mt-1 flex items-center gap-1"
+                    style={{ color: theme.textSecondary }}
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    {location}
+                  </p>
+                )}
+
+                {instagram && (
+                  <p 
+                    className="text-sm mt-1 flex items-center gap-1"
+                    style={{ color: theme.textMuted }}
+                  >
+                    <Instagram className="w-3.5 h-3.5" />
+                    @{instagram.replace(/^@/, "")}
+                  </p>
+                )}
               </div>
-            </Card>
+            </div>
 
-            <SectionCard title="Products" subtitle="Shop items from this vendor">
-              {products.length === 0 ? (
-                <EmptyState
-                  title="No products yet"
-                  description="This vendor hasn’t added products yet."
-                  ctaLabel="Back to market"
-                  onCta={() => router.push("/market")}
-                />
-              ) : (
-                <div className="grid grid-cols-2 gap-3 items-start">
-                  {products.map((p: any) => {
-                    const img = Array.isArray(p?.images) ? p.images[0] : "";
-                    const boosted = Number(p?.boostUntilMs || 0) > Date.now();
+            {/* Description */}
+            {about && (
+              <p 
+                className="mt-3 text-sm leading-relaxed"
+                style={{ color: theme.textSecondary }}
+              >
+                {about}
+              </p>
+            )}
 
-                    const onSale = saleIsActive(p);
-                    const base = Number(p?.price || 0);
-                    const final = onSale ? computeSalePriceNgn(p) : base;
+            {/* Action Buttons */}
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <button
+                onClick={() => {
+                  if (!whatsapp) {
+                    toast.info("This store hasn't added WhatsApp yet.");
+                    return;
+                  }
+                  window.open(
+                    waLink(whatsapp, `Hello ${name}! I'm browsing your myBizHub store.`),
+                    "_blank"
+                  );
+                }}
+                disabled={!whatsapp}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-50"
+                style={{
+                  background: theme.buttonGradient,
+                  color: theme.buttonText,
+                }}
+              >
+                <Phone className="w-4 h-4" />
+                WhatsApp
+              </button>
 
-                    const subtitle = onSale ? (
-                      <>
-                        <span className="line-through text-gray-400 mr-1">{fmtNaira(base)}</span>
-                        <span className="text-emerald-700 font-extrabold">{fmtNaira(final)}</span>
-                      </>
-                    ) : (
-                      fmtNaira(base)
-                    );
+              <button
+                onClick={() => router.push("/cart")}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all"
+                style={{
+                  backgroundColor: theme.buttonSecondaryBg,
+                  color: theme.buttonSecondaryText,
+                  borderColor: theme.buttonSecondaryBorder,
+                  borderWidth: 1,
+                }}
+              >
+                <Package className="w-4 h-4" />
+                Cart
+                {cartCount > 0 && (
+                  <span
+                    className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                    style={{ backgroundColor: theme.primaryColor, color: theme.buttonText }}
+                  >
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
 
-                    const badges: string[] = [];
-                    if (boosted) badges.push("Promoted");
-                    if (onSale) badges.push(saleBadgeText(p));
+        {/* Products Section */}
+        <div>
+          {/* Section Header */}
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 
+                className="text-base font-bold"
+                style={{ color: theme.textPrimary }}
+              >
+                Products
+              </h3>
+              <p 
+                className="text-xs mt-0.5"
+                style={{ color: theme.textMuted }}
+              >
+                {products.length} item{products.length !== 1 ? "s" : ""} available
+              </p>
+            </div>
 
-                    const hasOptions = Array.isArray(p?.optionGroups) && p.optionGroups.length > 0;
-                    const outOfStock = Number(p?.stock ?? 0) <= 0;
-                    const canQuickAdd = !hasOptions && !outOfStock;
+            {/* Theme indicator for special themes */}
+            {theme.hasAnimation && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold"
+                style={{ backgroundColor: theme.primaryLight, color: theme.primaryColor }}
+              >
+                <Sparkles className="w-3 h-3" />
+                {theme.name}
+              </span>
+            )}
+          </div>
 
-                    const coverAspect: CoverAspectKey = normalizeCoverAspect(p?.coverAspect) ?? "1:1";
+          {/* Products Grid or Empty State */}
+          {products.length === 0 ? (
+            <div
+              className="rounded-2xl p-8 text-center"
+              style={{ backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 }}
+            >
+              <div
+                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+                style={{ backgroundColor: theme.primaryLight }}
+              >
+                <Package className="w-8 h-8" style={{ color: theme.textMuted }} />
+              </div>
+              <p 
+                className="text-sm font-semibold"
+                style={{ color: theme.textPrimary }}
+              >
+                No products yet
+              </p>
+              <p 
+                className="text-xs mt-1"
+                style={{ color: theme.textSecondary }}
+              >
+                This store hasn't added any products.
+              </p>
+              <button
+                onClick={() => router.push("/market")}
+                className="mt-4 px-4 py-2 rounded-xl text-sm font-bold transition-all"
+                style={{
+                  backgroundColor: theme.buttonSecondaryBg,
+                  color: theme.buttonSecondaryText,
+                  borderColor: theme.buttonSecondaryBorder,
+                  borderWidth: 1,
+                }}
+              >
+                Browse Marketplace
+              </button>
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {products.map((p: any) => {
+                const hasOptions = Array.isArray(p?.optionGroups) && p.optionGroups.length > 0;
+                const outOfStock = Number(p?.stock ?? 0) <= 0;
+                const canQuickAdd = !hasOptions && !outOfStock;
 
-                    return (
-                      <ProductTileWithAdd
-                        key={p.id}
-                        title={p?.name || "Product"}
-                        subtitle={subtitle}
-                        image={img}
-                        coverAspect={coverAspect}
-                        badges={badges.length ? badges : undefined}
-                        canQuickAdd={canQuickAdd}
-                        onOpen={() => {
-                          track({ type: "store_product_click", businessId: biz.id, businessSlug: slug, productId: p.id });
-                          router.push(`/b/${slug}/p/${p.id}`);
-                        }}
-                        onQuickAdd={() => quickAdd(p)}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </SectionCard>
-          </>
-        ) : null}
+                return (
+                  <ThemedProductCard
+                    key={p.id}
+                    theme={theme}
+                    product={p}
+                    canQuickAdd={canQuickAdd}
+                    onOpen={() => {
+                      track({ 
+                        type: "store_product_click", 
+                        businessId: biz.id, 
+                        businessSlug: slug, 
+                        productId: p.id 
+                      });
+                      router.push(`/b/${slug}/p/${p.id}`);
+                    }}
+                    onQuickAdd={() => quickAdd(p)}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="pt-4 text-center">
+          <p 
+            className="text-xs"
+            style={{ color: theme.textMuted }}
+          >
+            Powered by{" "}
+            <button
+              onClick={() => router.push("/market")}
+              className="font-bold hover:underline"
+              style={{ color: theme.primaryColor }}
+            >
+              myBizHub
+            </button>
+          </p>
+        </div>
       </div>
+
+      {/* Floating Cart Button (shows when cart has items) */}
+      {cartCount > 0 && (
+        <div className="fixed bottom-6 left-4 right-4 z-40 max-w-[430px] mx-auto">
+          <button
+            onClick={() => router.push("/cart")}
+            className="w-full flex items-center justify-between py-4 px-5 rounded-2xl shadow-lg transition-all hover:scale-[1.02]"
+            style={{
+              background: theme.buttonGradient,
+              color: theme.buttonText,
+            }}
+          >
+            <div className="flex items-center gap-3">
+              <div 
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+              >
+                <ShoppingCart className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-bold">
+                  {cartCount} item{cartCount !== 1 ? "s" : ""} in cart
+                </p>
+                <p className="text-xs opacity-80">Tap to view</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

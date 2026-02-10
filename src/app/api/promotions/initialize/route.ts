@@ -1,5 +1,5 @@
 // FILE: src/app/api/promotions/initialize/route.ts
-import { NextResponse } from "next/server";
+
 import crypto from "node:crypto";
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
@@ -58,8 +58,8 @@ function genReference(prefix: string) {
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
-    if (!me.email) return NextResponse.json({ ok: false, error: "Missing email" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.email) return Response.json({ ok: false, error: "Missing email" }, { status: 400 });
 
     // HARD LOCK
     await requireVendorUnlocked(me.businessId);
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
     const productIdsRaw = Array.isArray(body.productIds) ? body.productIds : [];
     const productIds = productIdsRaw.map(String).filter(Boolean).slice(0, 5);
     if (productIds.length < 1) {
-      return NextResponse.json({ ok: false, error: "Select at least 1 product" }, { status: 400 });
+      return Response.json({ ok: false, error: "Select at least 1 product" }, { status: 400 });
     }
 
     const days = clampInt(body.days, 2, 60);
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     const owned = new Set(pSnap.docs.map((d) => d.id));
     for (const id of productIds) {
       if (!owned.has(id)) {
-        return NextResponse.json({ ok: false, error: "One or more products not owned by you" }, { status: 403 });
+        return Response.json({ ok: false, error: "One or more products not owned by you" }, { status: 403 });
       }
     }
 
@@ -120,7 +120,7 @@ export async function POST(req: Request) {
         },
       });
 
-      return NextResponse.json({ ok: true, authorization_url: link, reference });
+      return Response.json({ ok: true, authorization_url: link, reference });
     }
 
     // -------------------------
@@ -142,14 +142,14 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({ ok: true, authorization_url, reference });
+    return Response.json({ ok: true, authorization_url, reference });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
         { status: 403 }
       );
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

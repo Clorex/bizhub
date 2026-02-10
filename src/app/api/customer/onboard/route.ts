@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireMe } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -22,9 +22,9 @@ export async function POST(req: Request) {
       { merge: true }
     );
 
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json(
+    return Response.json(
       { ok: false, error: e?.message || "Failed" },
       { status: 500 }
     );

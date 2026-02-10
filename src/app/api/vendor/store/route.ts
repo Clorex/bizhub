@@ -1,11 +1,12 @@
 // FILE: src/app/api/vendor/store/route.ts
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
 import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
 import { cleanListCsv, keywordsForBusiness } from "@/lib/search/keywords";
+import { isThemeAvailable } from "@/lib/themes/storeThemes";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,23 +19,23 @@ function hasActiveSubscription(biz: any) {
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     const snap = await adminDb.collection("businesses").doc(me.businessId).get();
-    if (!snap.exists) return NextResponse.json({ error: "Business not found" }, { status: 404 });
+    if (!snap.exists) return Response.json({ error: "Business not found" }, { status: 404 });
 
-    return NextResponse.json({ ok: true, business: { id: snap.id, ...snap.data() } });
+    return Response.json({ ok: true, business: { id: snap.id, ...snap.data() } });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -44,12 +45,22 @@ export async function POST(req: Request) {
     const biz = bizSnap.exists ? (bizSnap.data() as any) : {};
 
     const plan = await getBusinessPlanResolved(me.businessId);
+    const planKey = String(plan.planKey || "FREE").toUpperCase();
     const canCustomize = !!(plan.features as any)?.storeCustomize;
 
     const wantsContinueInChatEnabled = body.continueInChatEnabled === true;
     if (wantsContinueInChatEnabled && !hasActiveSubscription(biz)) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "SUBSCRIPTION_REQUIRED", error: "Subscribe to enable Continue in Chat." },
+        { status: 403 }
+      );
+    }
+
+    // Validate theme
+    const themeId = typeof body.themeId === "string" ? body.themeId.trim() : undefined;
+    if (themeId && !isThemeAvailable(themeId, planKey)) {
+      return Response.json(
+        { ok: false, code: "THEME_LOCKED", error: "This theme is not available on your current plan. Please upgrade to use it." },
         { status: 403 }
       );
     }
@@ -67,10 +78,14 @@ export async function POST(req: Request) {
       logoUrl: canCustomize && typeof body.logoUrl === "string" ? body.logoUrl : undefined,
       bannerUrl: canCustomize && typeof body.bannerUrl === "string" ? body.bannerUrl : undefined,
 
+      // Theme ID
+      themeId: themeId || undefined,
+
       continueInChatEnabled: body.continueInChatEnabled === true ? true : false,
 
-      // ✅ NEW: vendor keywords + search index
+      // Search keywords
       searchTags,
+      searchTagsCsv: typeof body.searchTagsCsv === "string" ? body.searchTagsCsv : undefined,
       searchKeywords: keywordsForBusiness({
         slug: String(biz?.slug || ""),
         name: typeof body.name === "string" ? body.name.trim() : String(biz?.name || ""),
@@ -88,8 +103,8 @@ export async function POST(req: Request) {
 
     await adminDb.collection("businesses").doc(me.businessId).set(patch, { merge: true });
 
-    return NextResponse.json({ ok: true, planKey: plan.planKey, canCustomize });
+    return Response.json({ ok: true, planKey, canCustomize });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

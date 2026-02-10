@@ -1,5 +1,5 @@
 // FILE: src/app/api/admin/verification/route.ts
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -53,9 +53,9 @@ export async function GET(req: Request) {
       business: bizMap.get(String(x.businessId || "")) || null,
     }));
 
-    return NextResponse.json({ ok: true, items: enriched });
+    return Response.json({ ok: true, items: enriched });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
@@ -69,15 +69,15 @@ export async function POST(req: Request) {
     const tier = cleanTier(body.tier);
     const note = cleanNote(body.note);
 
-    if (!submissionId) return NextResponse.json({ ok: false, error: "submissionId required" }, { status: 400 });
+    if (!submissionId) return Response.json({ ok: false, error: "submissionId required" }, { status: 400 });
 
     const subRef = adminDb.collection("verificationSubmissions").doc(submissionId);
     const subSnap = await subRef.get();
-    if (!subSnap.exists) return NextResponse.json({ ok: false, error: "Submission not found" }, { status: 404 });
+    if (!subSnap.exists) return Response.json({ ok: false, error: "Submission not found" }, { status: 404 });
 
     const sub = subSnap.data() as any;
     const businessId = String(sub.businessId || "");
-    if (!businessId) return NextResponse.json({ ok: false, error: "Submission missing businessId" }, { status: 400 });
+    if (!businessId) return Response.json({ ok: false, error: "Submission missing businessId" }, { status: 400 });
 
     const bizRef = adminDb.collection("businesses").doc(businessId);
 
@@ -118,8 +118,8 @@ export async function POST(req: Request) {
 
     await syncBusinessSignalsToProducts({ businessId });
 
-    return NextResponse.json({ ok: true });
+    return Response.json({ ok: true });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

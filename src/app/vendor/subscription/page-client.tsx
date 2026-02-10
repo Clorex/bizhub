@@ -5,17 +5,18 @@ import { useRouter, useSearchParams } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
+import { SectionCard } from "@/components/ui/SectionCard";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { auth } from "@/lib/firebase/client";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Crown, AlertCircle, RefreshCw } from "lucide-react";
 
 type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
 type BizhubBillingCycle = "monthly" | "quarterly" | "biannually" | "yearly";
 type InfoTab = "benefits" | "purchases";
 
 const SUMMARY_PATH = "/vendor/subscription/summary";
-const NAIRA = "\u20A6"; // ₦
-const EM_DASH = "\u2014"; // —
+const NAIRA = "\u20A6";
+const EM_DASH = "\u2014";
 
 function fmtNaira(n: number) {
   const amount = Number(n || 0);
@@ -34,10 +35,10 @@ function cycleLabel(cycle: BizhubBillingCycle) {
 }
 
 function cycleSuffix(cycle: BizhubBillingCycle) {
-  if (cycle === "monthly") return "/monthly";
-  if (cycle === "quarterly") return "/quarterly";
-  if (cycle === "biannually") return "/biannually";
-  return "/annually";
+  if (cycle === "monthly") return "/month";
+  if (cycle === "quarterly") return "/quarter";
+  if (cycle === "biannually") return "/6 months";
+  return "/year";
 }
 
 function flattenGroups(groups: Record<string, string[]>) {
@@ -67,7 +68,7 @@ function RadioRow(props: {
       disabled={props.disabled}
       className={[
         "w-full text-left rounded-2xl border bg-white p-4 transition",
-        props.selected ? "border-emerald-300 ring-2 ring-emerald-100" : "border-biz-line hover:bg-black/[0.02]",
+        props.selected ? "border-orange-300 ring-2 ring-orange-100" : "border-gray-100 hover:bg-gray-50/50",
         props.disabled ? "opacity-60 cursor-not-allowed" : "",
       ].join(" ")}
     >
@@ -75,15 +76,15 @@ function RadioRow(props: {
         <div className="flex items-start gap-3">
           <div
             className={[
-              "mt-1 h-5 w-5 rounded-full border flex items-center justify-center",
-              props.selected ? "border-emerald-600" : "border-gray-300",
+              "mt-1 h-5 w-5 rounded-full border-2 flex items-center justify-center",
+              props.selected ? "border-orange-500" : "border-gray-300",
             ].join(" ")}
           >
-            {props.selected ? <div className="h-2.5 w-2.5 rounded-full bg-emerald-600" /> : null}
+            {props.selected ? <div className="h-2.5 w-2.5 rounded-full bg-orange-500" /> : null}
           </div>
 
           <div className="min-w-0">
-            <p className="text-sm font-extrabold text-biz-ink">{props.title}</p>
+            <p className="text-sm font-bold text-gray-900">{props.title}</p>
             <p className="text-[11px] text-gray-500 mt-1">{props.subtitle}</p>
           </div>
         </div>
@@ -151,35 +152,27 @@ export default function VendorSubscriptionPageClient() {
     return data;
   }
 
-  useEffect(() => {
-    let mounted = true;
+  async function load() {
+    setLoading(true);
+    setMsg(null);
+    try {
+      const [plansData, subData] = await Promise.all([
+        authedFetch("/api/vendor/plans") as Promise<PlansResponse>,
+        authedFetch("/api/subscriptions/my"),
+      ]);
 
-    async function load() {
-      setLoading(true);
-      setMsg(null);
-      try {
-        const [plansData, subData] = await Promise.all([
-          authedFetch("/api/vendor/plans") as Promise<PlansResponse>,
-          authedFetch("/api/subscriptions/my"),
-        ]);
-
-        if (!mounted) return;
-
-        if (!plansData?.ok || !plansData?.plans) throw new Error("Failed to load plan config");
-        setPlans(plansData.plans);
-        setEntitlement(subData.entitlement || null);
-      } catch (e: any) {
-        if (!mounted) return;
-        setMsg(e?.message || "Failed to load");
-      } finally {
-        if (mounted) setLoading(false);
-      }
+      if (!plansData?.ok || !plansData?.plans) throw new Error("Failed to load plan config");
+      setPlans(plansData.plans);
+      setEntitlement(subData.entitlement || null);
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to load");
+    } finally {
+      setLoading(false);
     }
+  }
 
+  useEffect(() => {
     load();
-    return () => {
-      mounted = false;
-    };
   }, []);
 
   const plan = plans?.[planKey] || null;
@@ -203,29 +196,68 @@ export default function VendorSubscriptionPageClient() {
   }
 
   return (
-    <div className="min-h-screen">
-      <GradientHeader title="Subscription" subtitle="Pick a plan and continue" showBack={true} />
+    <div className="min-h-screen bg-gray-50/30">
+      <GradientHeader
+        title="Subscription"
+        subtitle="Pick a plan and continue"
+        showBack={true}
+        right={
+          <button
+            onClick={load}
+            className="flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm"
+          >
+            <RefreshCw className="h-3.5 w-3.5" />
+            Refresh
+          </button>
+        }
+      />
 
-      <div className="px-4 pb-28 space-y-3">
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+      <div className="px-4 pb-32 space-y-4">
+        {/* Error */}
+        {msg ? (
+          <Card className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-red-700">Something went wrong</p>
+                <p className="text-xs text-gray-500 mt-0.5">{msg}</p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
 
+        {/* Current access */}
         <Card className="p-4">
-          <p className="text-xs text-biz-muted">Current access</p>
-          <p className="text-sm font-extrabold text-biz-ink mt-1">{loading ? "Loading..." : entName}</p>
-          <p className="text-[11px] text-gray-500 mt-1">
-            {loading
-              ? EM_DASH
-              : entPlanKey === "FREE"
-                ? "Upgrade anytime to unlock more tools."
-                : entExpiry
-                  ? `Active until: ${new Date(entExpiry).toLocaleString()}`
-                  : EM_DASH}
-          </p>
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50">
+              <Crown className="h-5 w-5 text-orange-600" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-xs text-gray-500">Current access</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">
+                {loading ? (
+                  <span className="inline-block h-4 w-32 rounded bg-gray-100 animate-pulse" />
+                ) : (
+                  entName
+                )}
+              </p>
+              <p className="text-[11px] text-gray-500 mt-1">
+                {loading
+                  ? EM_DASH
+                  : entPlanKey === "FREE"
+                    ? "Upgrade anytime to unlock more tools."
+                    : entExpiry
+                      ? `Active until: ${new Date(entExpiry).toLocaleString()}`
+                      : EM_DASH}
+              </p>
+            </div>
+          </div>
         </Card>
 
-        <Card className="p-3">
-          <p className="text-sm font-extrabold text-biz-ink mb-2">Choose a plan</p>
-
+        {/* Plan selector */}
+        <SectionCard title="Choose a plan" subtitle="Pay with Paystack. Instant activation after payment.">
           <SegmentedControl<BizhubPlanKey>
             value={planKey}
             onChange={(v) => {
@@ -238,57 +270,50 @@ export default function VendorSubscriptionPageClient() {
               { value: "APEX", label: "Apex" },
             ]}
           />
+        </SectionCard>
 
-          <p className="text-[11px] text-biz-muted mt-2">Pay with Paystack. Instant activation after payment.</p>
-        </Card>
-
-        {plan ? (
+        {/* Billing cycle options */}
+        {loading ? (
+          <Card className="p-4 space-y-3">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-16 rounded-2xl bg-gray-100 animate-pulse" />
+            ))}
+          </Card>
+        ) : plan ? (
           <div className="space-y-2">
             <RadioRow
               selected={cycle === "monthly"}
               title={`${fmtNaira(plan.priceNgn.monthly)} ${cycleSuffix("monthly")}`}
               subtitle={plan.tagline}
-              onClick={() => {
-                setCycle("monthly");
-                setShowAll(false);
-              }}
-              right={<span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("monthly")}</span>}
+              onClick={() => { setCycle("monthly"); setShowAll(false); }}
+              right={<span className="text-[11px] font-semibold text-gray-500">{cycleLabel("monthly")}</span>}
             />
 
             <RadioRow
               selected={cycle === "quarterly"}
               title={`${fmtNaira(plan.priceNgn.quarterly)} ${cycleSuffix("quarterly")}`}
               subtitle={plan.tagline}
-              onClick={() => {
-                setCycle("quarterly");
-                setShowAll(false);
-              }}
-              right={<span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("quarterly")}</span>}
+              onClick={() => { setCycle("quarterly"); setShowAll(false); }}
+              right={<span className="text-[11px] font-semibold text-gray-500">{cycleLabel("quarterly")}</span>}
             />
 
             <RadioRow
               selected={cycle === "biannually"}
               title={`${fmtNaira(plan.priceNgn.biannually)} ${cycleSuffix("biannually")}`}
               subtitle={plan.tagline}
-              onClick={() => {
-                setCycle("biannually");
-                setShowAll(false);
-              }}
-              right={<span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("biannually")}</span>}
+              onClick={() => { setCycle("biannually"); setShowAll(false); }}
+              right={<span className="text-[11px] font-semibold text-gray-500">{cycleLabel("biannually")}</span>}
             />
 
             <RadioRow
               selected={cycle === "yearly"}
               title={`${fmtNaira(plan.priceNgn.yearly)} ${cycleSuffix("yearly")}`}
               subtitle={plan.tagline}
-              onClick={() => {
-                setCycle("yearly");
-                setShowAll(false);
-              }}
+              onClick={() => { setCycle("yearly"); setShowAll(false); }}
               right={
                 <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-extrabold text-gray-500">{cycleLabel("yearly")}</span>
-                  <span className="px-2 py-1 rounded-full text-[10px] font-extrabold bg-rose-50 text-rose-700 border border-rose-100">
+                  <span className="text-[11px] font-semibold text-gray-500">{cycleLabel("yearly")}</span>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
                     Popular
                   </span>
                 </div>
@@ -296,21 +321,29 @@ export default function VendorSubscriptionPageClient() {
             />
           </div>
         ) : (
-          <Card className="p-4">{loading ? "Loading plans…" : "Plans not available"}</Card>
+          <Card className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gray-100">
+                <AlertCircle className="h-5 w-5 text-gray-400" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-700">Plans not available</p>
+                <p className="text-xs text-gray-500 mt-0.5">Please try refreshing the page.</p>
+              </div>
+            </div>
+          </Card>
         )}
 
+        {/* Benefits / Purchases tabs */}
         <Card className="p-3">
           <div className="grid grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => {
-                setTab("benefits");
-                setShowAll(false);
-              }}
+              onClick={() => { setTab("benefits"); setShowAll(false); }}
               className={
                 tab === "benefits"
-                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
-                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+                  ? "rounded-2xl py-2.5 text-xs font-bold text-white bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm"
+                  : "rounded-2xl py-2.5 text-xs font-bold bg-white border border-gray-100 text-gray-700"
               }
             >
               Plan benefits
@@ -318,14 +351,11 @@ export default function VendorSubscriptionPageClient() {
 
             <button
               type="button"
-              onClick={() => {
-                setTab("purchases");
-                setShowAll(false);
-              }}
+              onClick={() => { setTab("purchases"); setShowAll(false); }}
               className={
                 tab === "purchases"
-                  ? "rounded-2xl py-2 text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
-                  : "rounded-2xl py-2 text-xs font-extrabold bg-white border border-biz-line text-biz-ink"
+                  ? "rounded-2xl py-2.5 text-xs font-bold text-white bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm"
+                  : "rounded-2xl py-2.5 text-xs font-bold bg-white border border-gray-100 text-gray-700"
               }
             >
               Plan purchases
@@ -334,11 +364,11 @@ export default function VendorSubscriptionPageClient() {
 
           <div className="mt-3 space-y-2">
             {visibleList.length === 0 ? (
-              <p className="text-sm text-biz-muted">Nothing listed for this section.</p>
+              <p className="text-sm text-gray-500 py-2">Nothing listed for this section.</p>
             ) : (
               visibleList.map((t) => (
-                <div key={t} className="flex items-start gap-2 rounded-2xl border border-biz-line bg-white p-3">
-                  <CheckCircle2 className="h-5 w-5 text-emerald-600 mt-0.5" />
+                <div key={t} className="flex items-start gap-2 rounded-2xl border border-gray-100 bg-white p-3">
+                  <CheckCircle2 className="h-5 w-5 text-emerald-500 mt-0.5 shrink-0" />
                   <span className="text-sm text-gray-700">{t}</span>
                 </div>
               ))
@@ -346,13 +376,18 @@ export default function VendorSubscriptionPageClient() {
           </div>
 
           {activeList.length > 8 ? (
-            <button type="button" onClick={() => setShowAll((v) => !v)} className="mt-3 text-sm font-extrabold text-emerald-700">
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="mt-3 text-sm font-bold text-orange-600"
+            >
               {showAll ? "Show less" : "Show more"}
             </button>
           ) : null}
         </Card>
       </div>
 
+      {/* Fixed bottom CTA */}
       <div className="fixed bottom-0 left-0 right-0 z-40">
         <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
           <Card className="p-4">

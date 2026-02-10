@@ -3,8 +3,10 @@ import type { MarketCategoryKey } from "@/lib/search/marketTaxonomy";
 
 export type PriceQuickRange = "UNDER_5K" | "5K_20K" | "20K_100K" | "ABOVE_100K";
 
+// ✅ ADDED: "best_match" sort key
 export type MarketSortKey =
   | "recommended"
+  | "best_match"
   | "latest"
   | "price_asc"
   | "price_desc"
@@ -28,21 +30,20 @@ export type MarketFilterState = {
   };
 
   categorySpecific: {
-    // V1: Fashion only (because only attrs.colors/sizes exist today)
     color: string | null;
     size: string | null;
   };
 
   trust: {
     verification: TrustVerificationLevel;
-    trustedBadgeOnly: boolean; // apexBadgeActive
+    trustedBadgeOnly: boolean;
   };
 
   status: {
     onSale: boolean;
-    newArrivals: boolean; // last N days (we'll use 7 in V1)
-    availableNow: boolean; // in stock (products) / available (services)
-    limitedStock: boolean; // stock <= 3
+    newArrivals: boolean;
+    availableNow: boolean;
+    limitedStock: boolean;
   };
 };
 

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -33,7 +33,7 @@ function clampKobo(n: any) {
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -48,25 +48,25 @@ export async function GET(req: Request) {
       .map((d) => ({ id: d.id, ...(d.data() as any) }))
       .sort((a, b) => String(a.codeUpper || a.id).localeCompare(String(b.codeUpper || b.id)));
 
-    return NextResponse.json({ ok: true, coupons });
+    return Response.json({ ok: true, coupons });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     const { business } = await requireVendorUnlocked(me.businessId);
 
     // Coupons are an advanced feature: require active subscription
     if (!hasActiveSubscription(business)) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "SUBSCRIPTION_REQUIRED", error: "Subscribe to create discount codes." },
         { status: 403 }
       );
@@ -76,7 +76,7 @@ export async function POST(req: Request) {
 
     const codeUpper = cleanCode(body.code);
     if (!codeUpper) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, error: "Code must be 3–20 characters (A–Z, 0–9) with no spaces." },
         { status: 400 }
       );
@@ -132,11 +132,11 @@ export async function POST(req: Request) {
       { merge: true }
     );
 
-    return NextResponse.json({ ok: true, code: codeUpper });
+    return Response.json({ ok: true, code: codeUpper });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

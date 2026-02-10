@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -63,7 +63,7 @@ export async function POST(req: Request) {
     const businessId = me.businessId;
 
     if (!businessId) {
-      return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+      return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
     }
 
     await requireVendorUnlocked(businessId);
@@ -73,7 +73,7 @@ export async function POST(req: Request) {
 
     const reengagementEnabled = !!plan?.features?.reengagement;
     if (!reengagementEnabled) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Upgrade to message customers." },
         { status: 403 }
       );
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
 
     const dailyLimit = Number(plan?.limits?.reengagementDaily || 0);
     if (!Number.isFinite(dailyLimit) || dailyLimit <= 0) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Upgrade to message customers." },
         { status: 403 }
       );
@@ -90,12 +90,7 @@ export async function POST(req: Request) {
     const allowSmartGroups = !!plan?.features?.reengagementSmartGroups;
     const allowSmartMessages = !!plan?.features?.reengagementSmartMessages;
 
-    // ✅ AI Remix is:
-    // - Apex core (enabled)
-    // - Launch/Momentum ONLY if purchased add-on (planConfigServer applies this)
     const allowAiRemix = !!plan?.features?.reengagementAiRemix;
-
-    // VIP is Apex-only, and requires AI Remix ON
     const allowVip = String(planKey || "").toUpperCase() === "APEX" && allowAiRemix;
 
     const body = await req.json().catch(() => ({}));
@@ -104,7 +99,6 @@ export async function POST(req: Request) {
     const baseText = clampText(String(body.baseText ?? body.text ?? ""), 1200);
     const rotationKey = safeRotationKey(body.rotationKey);
 
-    // Enforce toggles:
     if (!allowSmartGroups && segment !== "abandoned") segment = "buyers_all";
     if (segment === "vip" && !allowVip) segment = "buyers_all";
 
@@ -121,27 +115,28 @@ export async function POST(req: Request) {
         lastOrderMs: Number(x?.lastOrderMs || 0) || 0,
         lastOrderId: x?.lastOrderId ? String(x.lastOrderId) : null,
       }))
-      // ✅ build fix: explicitly type callback param so noImplicitAny doesn't fail
       .filter((x: any) => !!x.key && !!x.phone)
       .slice(0, 500);
 
-    if (!baseText) return NextResponse.json({ ok: false, error: "Message is required" }, { status: 400 });
-    if (people.length < 1) return NextResponse.json({ ok: false, error: "No recipients" }, { status: 400 });
+    if (!baseText) return Response.json({ ok: false, error: "Message is required" }, { status: 400 });
+    if (people.length < 1) return Response.json({ ok: false, error: "No recipients" }, { status: 400 });
 
     const mod = moderateOutboundText(baseText);
-    if (!mod.ok) {
+
+    // ✅ Corrected: use only 'safe' and 'flagged' properties
+    if (!mod.safe) {
       await adminDb.collection("vendorPolicyViolations").doc().set({
         businessId,
         businessSlug: me.businessSlug ?? null,
         type: "message_blocked",
-        reason: mod.reason,
-        hit: mod.hit ?? null,
+        flagged: mod.flagged,
+        cleaned: mod.cleaned,
         segment,
         createdAtMs: Date.now(),
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "BLOCKED_BY_POLICY", error: "Message blocked by safety policy." },
         { status: 400 }
       );
@@ -229,7 +224,7 @@ export async function POST(req: Request) {
       },
     });
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       campaignId: campaignRef.id,
       segment,
@@ -240,11 +235,11 @@ export async function POST(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." },
         { status: 403 }
       );
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

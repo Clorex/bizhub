@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -16,7 +16,7 @@ function clampKobo(v: any) {
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -35,19 +35,19 @@ export async function GET(req: Request) {
     const wSnap = await adminDb.collection("wallets").doc(me.businessId).get();
     const wallet = wSnap.exists ? (wSnap.data() as any) : null;
 
-    return NextResponse.json({ ok: true, withdrawals: list, wallet });
+    return Response.json({ ok: true, withdrawals: list, wallet });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     // hard lock enforcement
     await requireVendorUnlocked(me.businessId);
@@ -57,11 +57,11 @@ export async function POST(req: Request) {
 
     // Minimum ₦1000
     if (amountKobo < 1000 * 100) {
-      return NextResponse.json({ ok: false, error: "Minimum withdrawal is ₦1,000" }, { status: 400 });
+      return Response.json({ ok: false, error: "Minimum withdrawal is ₦1,000" }, { status: 400 });
     }
 
     const bizSnap = await adminDb.collection("businesses").doc(me.businessId).get();
-    if (!bizSnap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+    if (!bizSnap.exists) return Response.json({ ok: false, error: "Business not found" }, { status: 404 });
     const biz = bizSnap.data() as any;
 
     const payout = biz?.payoutDetails || null;
@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     const accountName = String(payout?.accountName || "").trim();
 
     if (!bankName || !accountNumber || !accountName) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "MISSING_PAYOUT_DETAILS", error: "Add payout details before requesting withdrawal." },
         { status: 400 }
       );
@@ -135,14 +135,14 @@ export async function POST(req: Request) {
 
     if ((result as any).ok === false) {
       const r: any = result;
-      return NextResponse.json({ ok: false, error: r.error }, { status: r.status || 400 });
+      return Response.json({ ok: false, error: r.error }, { status: r.status || 400 });
     }
 
-    return NextResponse.json(result);
+    return Response.json(result);
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

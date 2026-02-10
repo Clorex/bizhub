@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { Resend } from "resend";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -16,7 +16,7 @@ export async function POST(req: Request) {
     console.warn("Flutterwave webhook: Invalid signature hash.");
     // We return 200 OK even for failed verification to prevent Flutterwave from retrying.
     // The important part is we don't process the data.
-    return NextResponse.json({ status: "invalid signature" });
+    return Response.json({ status: "invalid signature" });
   }
 
   const event = await req.json();
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
 
       if (orderDoc.exists) {
         console.log(`Order ${reference} already processed. Acknowledging webhook.`);
-        return NextResponse.json({ status: "success", message: "Already processed" });
+        return Response.json({ status: "success", message: "Already processed" });
       }
 
       // 4. Get the rich metadata we saved in the "paymentSessions" collection
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
       if (!sessionDoc.exists) {
         console.error(`FATAL: Payment session not found for reference: ${reference}`);
         // Can't proceed without metadata, so we stop.
-        return NextResponse.json({ error: "Session not found" }, { status: 404 });
+        return Response.json({ error: "Session not found" }, { status: 404 });
       }
       
       const metadata = sessionDoc.data()?.payload || {};
@@ -93,10 +93,10 @@ export async function POST(req: Request) {
     } catch (error: any) {
       console.error("Error processing Flutterwave webhook:", error.message);
       // Return 500 so Flutterwave might retry
-      return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+      return Response.json({ error: "Internal server error" }, { status: 500 });
     }
   }
 
   // 7. Acknowledge receipt of the event to Flutterwave
-  return NextResponse.json({ status: "success" });
+  return Response.json({ status: "success" });
 }

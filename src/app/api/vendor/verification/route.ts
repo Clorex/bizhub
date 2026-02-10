@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/verification/route.ts
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -39,16 +39,16 @@ function cleanIdNumber(v: any) {
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     const snap = await adminDb.collection("businesses").doc(me.businessId).get();
-    if (!snap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+    if (!snap.exists) return Response.json({ ok: false, error: "Business not found" }, { status: 404 });
 
     const biz = snap.data() as any;
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       business: {
         id: me.businessId,
@@ -63,16 +63,16 @@ export async function GET(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -81,7 +81,7 @@ export async function POST(req: Request) {
 
     const bizRef = adminDb.collection("businesses").doc(me.businessId);
     const bizSnap = await bizRef.get();
-    if (!bizSnap.exists) return NextResponse.json({ ok: false, error: "Business not found" }, { status: 404 });
+    if (!bizSnap.exists) return Response.json({ ok: false, error: "Business not found" }, { status: 404 });
 
     const nowMs = Date.now();
 
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
       // Tier 1: face check (guided photos) - auto-pass (your instruction)
       const selfieUrls = cleanUrls(body.selfieUrls);
       if (selfieUrls.length < 1) {
-        return NextResponse.json({ ok: false, error: "Upload at least 1 clear selfie photo" }, { status: 400 });
+        return Response.json({ ok: false, error: "Upload at least 1 clear selfie photo" }, { status: 400 });
       }
 
       verification.tier1 = {
@@ -124,7 +124,7 @@ export async function POST(req: Request) {
 
       await syncBusinessSignalsToProducts({ businessId: me.businessId });
 
-      return NextResponse.json({ ok: true, tier: "tier1", status: "verified" });
+      return Response.json({ ok: true, tier: "tier1", status: "verified" });
     }
 
     if (tier === "tier2") {
@@ -133,7 +133,7 @@ export async function POST(req: Request) {
       const idNumber = cleanIdNumber(body.idNumber);
 
       if (!idNumber) {
-        return NextResponse.json({ ok: false, error: "Enter a valid ID number" }, { status: 400 });
+        return Response.json({ ok: false, error: "Enter a valid ID number" }, { status: 400 });
       }
 
       verification.tier2 = {
@@ -162,14 +162,14 @@ export async function POST(req: Request) {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      return NextResponse.json({ ok: true, tier: "tier2", status: "pending" });
+      return Response.json({ ok: true, tier: "tier2", status: "pending" });
     }
 
     if (tier === "tier3") {
       // Tier 3: proof of address (upload) -> pending admin review
       const proofUrls = cleanUrls(body.proofUrls);
       if (proofUrls.length < 1) {
-        return NextResponse.json({ ok: false, error: "Upload proof of address" }, { status: 400 });
+        return Response.json({ ok: false, error: "Upload proof of address" }, { status: 400 });
       }
 
       verification.tier3 = {
@@ -197,14 +197,14 @@ export async function POST(req: Request) {
         createdAt: FieldValue.serverTimestamp(),
       });
 
-      return NextResponse.json({ ok: true, tier: "tier3", status: "pending" });
+      return Response.json({ ok: true, tier: "tier3", status: "pending" });
     }
 
-    return NextResponse.json({ ok: false, error: "Unknown tier" }, { status: 400 });
+    return Response.json({ ok: false, error: "Unknown tier" }, { status: 400 });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
+      return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

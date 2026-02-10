@@ -1,96 +1,87 @@
-import { NextResponse } from "next/server";
+// FILE: src/app/api/public/store/[slug]/trust/route.ts
+//
+// GET — Public: fetch trust signals for a store.
+// Returns verification tier, review summary, labels.
+// No internal formulas or scores exposed.
+
+
 import { adminDb } from "@/lib/firebase/admin";
-import { getPlanConfig, fallbackPlanConfig } from "@/lib/vendor/planConfigServer";
+import { ratingToLabel } from "@/lib/reviews/config";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-function cleanSlug(v: any) {
-  return String(v || "").trim().toLowerCase().slice(0, 80);
+function tierLabel(tier: number): string {
+  switch (tier) {
+    case 3: return "Trusted Vendor";
+    case 2: return "Verified Information Submitted";
+    case 1: return "Basic Verified";
+    default: return "Unverified";
+  }
 }
 
-function hasActiveSubscription(biz: any) {
-  const exp = Number(biz?.subscription?.expiresAtMs || 0);
-  return !!(biz?.subscription?.planKey && exp && exp > Date.now());
+function tierColor(tier: number): { bg: string; text: string; border: string } {
+  switch (tier) {
+    case 3: return { bg: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-200" };
+    case 2: return { bg: "bg-blue-50", text: "text-blue-700", border: "border-blue-200" };
+    case 1: return { bg: "bg-orange-50", text: "text-orange-700", border: "border-orange-200" };
+    default: return { bg: "bg-gray-50", text: "text-gray-500", border: "border-gray-200" };
+  }
 }
 
-/**
- * Public pages don't necessarily call /api/vendor/access (which does pause/resume sync).
- * So here we treat:
- * - active + expiresAtMs>now => active
- * - paused + remainingMs>0 => active *only if subscriptionActive* (effective resume)
- */
-function addonIsActiveEffective(ent: any, nowMs: number, subscriptionActive: boolean) {
-  if (!ent || typeof ent !== "object") return false;
-
-  const status = String(ent.status || "");
-  const expiresAtMs = Number(ent.expiresAtMs || 0) || 0;
-  const remainingMs = Number(ent.remainingMs || 0) || 0;
-
-  if (status === "active") return !!(expiresAtMs && expiresAtMs > nowMs);
-  if (status === "paused") return subscriptionActive && remainingMs > 0;
-
-  return false;
-}
-
-export async function GET(_req: Request, ctx: { params: Promise<{ slug: string }> }) {
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ slug: string }> }
+) {
   try {
-    const { slug } = await ctx.params;
-    const s = cleanSlug(slug);
-    if (!s) return NextResponse.json({ ok: false, error: "Missing slug" }, { status: 400 });
+    const { slug } = await params;
+    if (!slug) {
+      return Response.json({ ok: false, error: "Missing slug" }, { status: 400 });
+    }
 
-    const snap = await adminDb.collection("businesses").where("slug", "==", s).limit(1).get();
-    if (snap.empty) return NextResponse.json({ ok: false, error: "Store not found" }, { status: 404 });
+    const bizSnap = await adminDb
+      .collection("businesses")
+      .where("slug", "==", slug)
+      .limit(1)
+      .get();
 
-    const bizDoc = snap.docs[0];
-    const biz = { id: bizDoc.id, ...(bizDoc.data() as any) };
+    if (bizSnap.empty) {
+      return Response.json({ ok: false, error: "Store not found" }, { status: 404 });
+    }
 
-    const planKey = String(biz?.subscription?.planKey || "FREE").toUpperCase();
-    const subscriptionActive = hasActiveSubscription(biz);
-    const nowMs = Date.now();
+    const biz = bizSnap.docs[0].data() as any;
+    const tier = Number(biz?.verificationTier || 0);
+    const reviewSummary = biz?.reviewSummary || null;
 
-    const cfg = await getPlanConfig().catch(() => fallbackPlanConfig());
-    const plan = (cfg as any)?.plans?.[planKey] || (fallbackPlanConfig() as any).plans.FREE;
+    const avgRating = Number(reviewSummary?.averageRating || 0);
+    const totalReviews = Number(reviewSummary?.totalReviews || 0);
 
-    const apexVerifiedFeatureOn = !!plan?.features?.apexVerifiedBadge;
-
-    const badgeEarned = biz?.apexTrust?.badgeActive === true;
-    const riskScore = Number(biz?.apexTrust?.riskScore || 0) || 0;
-
-    // Earned/maintained Apex badge (APEX only)
-    const apexBadgeActive = planKey === "APEX" && subscriptionActive && apexVerifiedFeatureOn && badgeEarned;
-
-    // ✅ Temporary Apex badge (Momentum add-on)
-    const entMap =
-      biz?.addonEntitlements && typeof biz.addonEntitlements === "object" ? biz.addonEntitlements : {};
-    const tempEnt = entMap["addon_probation_apex_badge"];
-
-    const temporaryApexBadgeActive =
-      planKey === "MOMENTUM" && addonIsActiveEffective(tempEnt, nowMs, subscriptionActive);
-
-    const badge =
-      apexBadgeActive
-        ? { active: true, type: "earned_apex" as const }
-        : temporaryApexBadgeActive
-        ? { active: true, type: "temporary_apex" as const }
-        : { active: false, type: null as any };
-
-    return NextResponse.json({
+    return Response.json({
       ok: true,
-      businessId: biz.id,
-      slug: s,
-      planKey,
-      hasActiveSubscription: subscriptionActive,
+      trust: {
+        verificationTier: tier,
+        verificationLabel: tierLabel(tier),
+        verificationColor: tierColor(tier),
 
-      apexBadgeActive,
-      temporaryApexBadgeActive,
-      badge,
+        averageRating: avgRating,
+        totalReviews,
+        ratingLabel: avgRating > 0 ? ratingToLabel(avgRating) : "No ratings yet",
 
-      riskScore,
-      reason: String(biz?.apexTrust?.reason || ""),
-      updatedAtMs: Number(biz?.apexTrust?.updatedAtMs || 0) || 0,
+        // Buyer-facing trust signals (no formula exposed)
+        signals: [
+          tier >= 1 && "Identity presence confirmed",
+          tier >= 2 && "Government ID information submitted",
+          tier >= 3 && "Address documentation provided",
+          totalReviews >= 5 && `${totalReviews} verified buyer reviews`,
+          avgRating >= 4.0 && `${avgRating.toFixed(1)}★ average rating`,
+        ].filter(Boolean),
+      },
     });
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    console.error("[GET /api/public/store/[slug]/trust]", e);
+    return Response.json(
+      { ok: false, error: e?.message || "Failed" },
+      { status: 500 }
+    );
   }
 }

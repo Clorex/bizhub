@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server";
+﻿
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -61,7 +61,7 @@ export async function GET(req: Request) {
     // ✅ capture as guaranteed string for TS + callbacks
     const businessId = me.businessId;
     if (!businessId) {
-      return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+      return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
     }
 
     await requireVendorUnlocked(businessId);
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
     const planKey = String(access.planKey || "FREE").toUpperCase();
 
     if (!exportUnlocked(planKey)) {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "FEATURE_LOCKED", error: "Upgrade your plan to export customers." },
         { status: 403 }
       );
@@ -217,7 +217,7 @@ export async function GET(req: Request) {
     const day = new Date().toISOString().slice(0, 10);
     const filename = `customers_${me.businessSlug || "store"}_${day}.csv`;
 
-    return new NextResponse(csv, {
+    return new Response(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",
         "Content-Disposition": `attachment; filename="${filename}"`,
@@ -226,11 +226,11 @@ export async function GET(req: Request) {
     });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." },
         { status: 403 }
       );
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Export failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Export failed" }, { status: 500 });
   }
 }

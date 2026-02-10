@@ -1,5 +1,5 @@
 // FILE: src/app/api/vendor/staff/route.ts
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -62,7 +62,7 @@ function suggestionForStaffLimit(planKey: string) {
 export async function GET(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -77,28 +77,28 @@ export async function GET(req: Request) {
 
     const seats = await getStaffSeatState(me.businessId);
 
-    return NextResponse.json({ ok: true, staff, invites, seats });
+    return Response.json({ ok: true, staff, invites, seats });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
         { status: 403 }
       );
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
     const seats = await getStaffSeatState(me.businessId);
     if (seats.seatLimit <= 0) {
-      return NextResponse.json(
+      return Response.json(
         {
           ok: false,
           code: "FEATURE_LOCKED",
@@ -111,7 +111,7 @@ export async function POST(req: Request) {
     }
     if (seats.used >= seats.seatLimit) {
       const sug = suggestionForStaffLimit(String(seats.planKey || ""));
-      return NextResponse.json(
+      return Response.json(
         {
           ok: false,
           code: "STAFF_LIMIT_REACHED",
@@ -132,7 +132,7 @@ export async function POST(req: Request) {
     const jobTitle = cleanJobTitle(body.jobTitle);
     const perms = cleanPerms(body.permissions);
 
-    if (!email) return NextResponse.json({ ok: false, error: "Valid staff email is required" }, { status: 400 });
+    if (!email) return Response.json({ ok: false, error: "Valid staff email is required" }, { status: 400 });
 
     const inviteRef = adminDb.collection("staffInvites").doc();
     const inviteId = inviteRef.id;
@@ -163,22 +163,22 @@ export async function POST(req: Request) {
     // ✅ NEW: invite points to staff register page
     const inviteLink = `${appUrlFrom(req)}/staff/register?code=${encodeURIComponent(inviteId)}`;
 
-    return NextResponse.json({ ok: true, inviteId, inviteLink });
+    return Response.json({ ok: true, inviteId, inviteLink });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
         { status: 403 }
       );
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
 
 export async function DELETE(req: Request) {
   try {
     const me = await requireRole(req, "owner");
-    if (!me.businessId) return NextResponse.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 
     await requireVendorUnlocked(me.businessId);
 
@@ -187,7 +187,7 @@ export async function DELETE(req: Request) {
     const staffUid = String(url.searchParams.get("staffUid") || "");
 
     if (!inviteId && !staffUid) {
-      return NextResponse.json({ ok: false, error: "inviteId or staffUid required" }, { status: 400 });
+      return Response.json({ ok: false, error: "inviteId or staffUid required" }, { status: 400 });
     }
 
     if (inviteId) {
@@ -196,7 +196,7 @@ export async function DELETE(req: Request) {
         { status: "revoked", updatedAtMs: Date.now(), updatedAt: FieldValue.serverTimestamp() },
         { merge: true }
       );
-      return NextResponse.json({ ok: true });
+      return Response.json({ ok: true });
     }
 
     if (staffUid) {
@@ -218,17 +218,17 @@ export async function DELETE(req: Request) {
           { merge: true }
         );
 
-      return NextResponse.json({ ok: true });
+      return Response.json({ ok: true });
     }
 
-    return NextResponse.json({ ok: false, error: "No action" }, { status: 400 });
+    return Response.json({ ok: false, error: "No action" }, { status: 400 });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") {
-      return NextResponse.json(
+      return Response.json(
         { ok: false, code: "VENDOR_LOCKED", error: "Your free access has ended. Subscribe to continue." },
         { status: 403 }
       );
     }
-    return NextResponse.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }

@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
     const ledger = ledgerSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
 
-    return NextResponse.json({
+    return Response.json({
       ok: true,
       finance: finance
         ? {
@@ -38,7 +38,7 @@ export async function GET(req: Request) {
       ledger,
     });
   } catch (e: any) {
-    return NextResponse.json(
+    return Response.json(
       { ok: false, error: e?.message || "Unauthorized" },
       { status: 401 }
     );

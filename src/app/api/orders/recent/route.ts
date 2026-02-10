@@ -1,5 +1,4 @@
-﻿import { NextResponse } from "next/server";
-import { adminDb } from "@/lib/firebase/admin";
+﻿import { adminDb } from "@/lib/firebase/admin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -19,7 +18,7 @@ export async function POST(req: Request) {
     const ids = toIdList((body as any)?.ids);
 
     if (ids.length === 0) {
-      return NextResponse.json({ ok: true, orders: [] });
+      return Response.json({ ok: true, orders: [] });
     }
 
     const refs = ids.map((id) => adminDb.collection("orders").doc(id));
@@ -32,9 +31,9 @@ export async function POST(req: Request) {
       .filter((s) => s && s.exists)
       .map((s) => ({ id: s.id, ...s.data() }));
 
-    return NextResponse.json({ ok: true, orders });
+    return Response.json({ ok: true, orders });
   } catch (e: any) {
-    return NextResponse.json(
+    return Response.json(
       { ok: false, error: e?.message || "Failed" },
       { status: 500 }
     );
