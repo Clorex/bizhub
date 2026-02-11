@@ -55,3 +55,4 @@ describe('E2E: Edge Cases', () => {
     expect([400, 401]).toContain(res.status);
   });
 });
+export {}

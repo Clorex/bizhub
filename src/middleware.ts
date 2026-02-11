@@ -1,5 +1,6 @@
 // FILE: src/middleware.ts
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from 'next/server'
+import type { NextRequest } from 'next/server'
 
 /**
  * IMPORTANT:
@@ -10,7 +11,7 @@ import { NextRequest, NextResponse } from "next/server";
  * We disable middleware logic here.
  */
 export function middleware(_req: NextRequest) {
-  return NextResponse.next();
+    return NextResponse.next();
 }
 
 export const config = {

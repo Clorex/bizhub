@@ -22,3 +22,4 @@ describe('Revenue Breakdown Insights', () => {
     expect(insight).toContain('34%');
   });
 });
+export {}

@@ -34,3 +34,4 @@ describe('LockedAnalyticsOverlay', () => {
     expect(screen.getByText('Actionable Insights')).toBeTruthy();
   });
 });
+export {}

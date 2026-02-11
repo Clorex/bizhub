@@ -96,3 +96,4 @@ describe('isSubscriptionExpiringSoon', () => {
     expect(isSubscriptionExpiringSoon(vendor)).toBe(false);
   });
 });
+export {}

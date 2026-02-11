@@ -25,11 +25,9 @@ import { getTierDisplayName } from '@/lib/analytics/adapter';
 import {
   RefreshCw,
   AlertCircle,
-  ChevronLeft,
   Gem,
   Lock,
   BarChart3,
-  TrendingUp,
   Bell,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -44,7 +42,6 @@ export default function VendorAnalyticsPage() {
 
   const {
     raw,
-    summary,
     salesGrowth,
     revenueBreakdown,
     conversion,
@@ -80,49 +77,30 @@ export default function VendorAnalyticsPage() {
   const periodLabel =
     usedRange === 'today' ? 'Today' : usedRange === 'month' ? 'This Month' : 'This Week';
 
-  // Loading
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <GradientHeader
-          title="Analytics"
-          subtitle="Loading your data..."
-          showBack
-          onBack={() => router.push('/vendor')}
-        />
+        <GradientHeader title="Analytics" subtitle="Loading your data..." showBack />
         <PageSkeleton />
       </div>
     );
   }
 
-  // Error
   if (error) {
     const isLocked = error.includes('Subscribe') || error.includes('locked');
 
     if (isLocked) {
       return (
         <div className="min-h-screen bg-gray-50">
-          <GradientHeader
-            title="Analytics"
-            subtitle="Premium Feature"
-            showBack
-            onBack={() => router.push('/vendor')}
-          />
-          <LockedAnalyticsOverlay
-            reason={error}
-          />
+          <GradientHeader title="Analytics" subtitle="Premium Feature" showBack />
+          <LockedAnalyticsOverlay reason={error} />
         </div>
       );
     }
 
     return (
       <div className="min-h-screen bg-gray-50">
-        <GradientHeader
-          title="Analytics"
-          subtitle="Something went wrong"
-          showBack
-          onBack={() => router.push('/vendor')}
-        />
+        <GradientHeader title="Analytics" subtitle="Something went wrong" showBack />
         <div className="px-4 pt-6">
           <Card className="p-6 bg-red-50 border-red-200">
             <div className="flex items-start gap-3">
@@ -142,12 +120,10 @@ export default function VendorAnalyticsPage() {
 
   return (
     <div className="min-h-screen pb-28 bg-gray-50">
-      {/* Header */}
       <GradientHeader
         title="Analytics"
         subtitle={`${tierName} Plan · ${periodLabel}`}
         showBack
-        onBack={() => router.push('/vendor')}
         right={
           <div className="flex items-center gap-2">
             {tier < 2 && (
@@ -172,7 +148,6 @@ export default function VendorAnalyticsPage() {
       />
 
       <div className="px-4 space-y-4 pt-4">
-        {/* Period Selector */}
         <SegmentedControl<Range>
           value={usedRange}
           onChange={handleRangeChange}
@@ -183,7 +158,6 @@ export default function VendorAnalyticsPage() {
           ]}
         />
 
-        {/* Notice */}
         {notice && (
           <Card className="p-4 bg-orange-50 border-orange-200">
             <div className="flex items-start gap-3">
@@ -193,16 +167,8 @@ export default function VendorAnalyticsPage() {
           </Card>
         )}
 
-        {/* ===========================
-            SECTION 1: Sales Growth
-            Available to ALL tiers
-            =========================== */}
         <SalesGrowthSection data={salesGrowth} />
 
-        {/* ===========================
-            SECTION 2: Revenue Breakdown
-            Requires Momentum+ (tier >= 2)
-            =========================== */}
         {canSeeInsights ? (
           <RevenueBreakdownSection data={revenueBreakdown} />
         ) : (
@@ -214,10 +180,6 @@ export default function VendorAnalyticsPage() {
           />
         )}
 
-        {/* ===========================
-            SECTION 3: Conversion Performance
-            Requires Momentum+ (tier >= 2)
-            =========================== */}
         {canSeeInsights ? (
           <ConversionSection data={conversion} />
         ) : (
@@ -229,10 +191,6 @@ export default function VendorAnalyticsPage() {
           />
         )}
 
-        {/* ===========================
-            SECTION 4: Top Products
-            Requires Momentum+ (tier >= 2)
-            =========================== */}
         {canSeeInsights ? (
           <TopProductsSection data={topProducts} />
         ) : (
@@ -244,10 +202,6 @@ export default function VendorAnalyticsPage() {
           />
         )}
 
-        {/* ===========================
-            SECTION 5: Customer Engagement
-            Requires Momentum+ (tier >= 2)
-            =========================== */}
         {canSeeInsights ? (
           <CustomerEngagementSection data={engagement} />
         ) : (
@@ -259,9 +213,6 @@ export default function VendorAnalyticsPage() {
           />
         )}
 
-        {/* ===========================
-            COMPARISONS (Apex only)
-            =========================== */}
         {canSeeComparisons && raw?.comparisons && (
           <SectionCard title="Period Comparison" subtitle="Current vs Previous">
             <div className="grid grid-cols-2 gap-4">
@@ -280,12 +231,13 @@ export default function VendorAnalyticsPage() {
           </SectionCard>
         )}
 
-        {/* AI Checkin */}
         {raw?.checkin && (
           <SectionCard title={raw.checkin.title || 'Daily Check-in'}>
             <div className="space-y-2">
               {(raw.checkin.lines || []).map((line: string, i: number) => (
-                <p key={i} className="text-sm text-gray-600">{line}</p>
+                <p key={i} className="text-sm text-gray-600">
+                  {line}
+                </p>
               ))}
               {raw.checkin.suggestion && (
                 <div className="mt-3 flex items-start gap-2 text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
@@ -297,7 +249,6 @@ export default function VendorAnalyticsPage() {
           </SectionCard>
         )}
 
-        {/* Nudges */}
         {raw?.nudges && raw.nudges.length > 0 && (
           <SectionCard title="Notifications" subtitle="Things to act on">
             <div className="space-y-3">
@@ -309,16 +260,20 @@ export default function VendorAnalyticsPage() {
                     nudge.tone === 'warn' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'
                   )}
                 >
-                  <p className={cn(
-                    'text-sm font-bold',
-                    nudge.tone === 'warn' ? 'text-red-800' : 'text-blue-800'
-                  )}>
+                  <p
+                    className={cn(
+                      'text-sm font-bold',
+                      nudge.tone === 'warn' ? 'text-red-800' : 'text-blue-800'
+                    )}
+                  >
                     {nudge.title}
                   </p>
-                  <p className={cn(
-                    'text-xs mt-1',
-                    nudge.tone === 'warn' ? 'text-red-600' : 'text-blue-600'
-                  )}>
+                  <p
+                    className={cn(
+                      'text-xs mt-1',
+                      nudge.tone === 'warn' ? 'text-red-600' : 'text-blue-600'
+                    )}
+                  >
                     {nudge.body}
                   </p>
                   {nudge.cta && (
@@ -338,7 +293,6 @@ export default function VendorAnalyticsPage() {
           </SectionCard>
         )}
 
-        {/* Upgrade CTA for free/launch */}
         {tier < 2 && (
           <Card className="p-5 bg-gradient-to-br from-purple-50 to-orange-50 border-purple-100">
             <div className="flex items-start gap-4">
@@ -348,13 +302,10 @@ export default function VendorAnalyticsPage() {
               <div className="flex-1">
                 <p className="text-sm font-bold text-gray-900">Unlock Deep Analytics</p>
                 <p className="text-xs text-gray-600 mt-1">
-                  Get revenue breakdown, conversion tracking, top products, and AI insights with Momentum or Apex.
+                  Get revenue breakdown, conversion tracking, top products, and AI insights with
+                  Momentum or Apex.
                 </p>
-                <Button
-                  size="sm"
-                  className="mt-3"
-                  onClick={() => router.push('/vendor/subscription')}
-                >
+                <Button size="sm" className="mt-3" onClick={() => router.push('/vendor/subscription')}>
                   View Plans →
                 </Button>
               </div>
@@ -418,11 +369,7 @@ function ComparisonStat({
 }) {
   const isPositive = value > 0;
   const isNegative = value < 0;
-  const colorClass = isPositive
-    ? 'text-green-600'
-    : isNegative
-    ? 'text-red-600'
-    : 'text-gray-500';
+  const colorClass = isPositive ? 'text-green-600' : isNegative ? 'text-red-600' : 'text-gray-500';
 
   const sign = isPositive ? '+' : '';
   const displayValue = isCurrency
@@ -435,7 +382,8 @@ function ComparisonStat({
       <p className={cn('text-lg font-bold', colorClass)}>{displayValue}</p>
       {percentage !== null && percentage !== undefined && (
         <p className={cn('text-xs font-semibold mt-0.5', colorClass)}>
-          {sign}{Math.round(percentage)}%
+          {sign}
+          {Math.round(percentage)}%
         </p>
       )}
     </div>

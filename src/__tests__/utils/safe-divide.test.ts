@@ -36,3 +36,4 @@ describe('safePercentage', () => {
     expect(safePercentage(150, 100)).toBe(150);
   });
 });
+export {}

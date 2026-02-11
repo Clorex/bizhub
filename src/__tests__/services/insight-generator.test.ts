@@ -66,3 +66,4 @@ describe('Peak Day Insights', () => {
     expect(insight).toBe('');
   });
 });
+export {}

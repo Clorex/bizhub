@@ -32,3 +32,4 @@ describe('Conversion Insights', () => {
     expect(insight).toBe('Improve product photos or descriptions.');
   });
 });
+export {}

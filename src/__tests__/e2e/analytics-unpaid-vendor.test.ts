@@ -39,3 +39,4 @@ describe('E2E: Unpaid Vendor Analytics', () => {
     expect([200, 401]).toContain(res.status);
   });
 });
+export {}

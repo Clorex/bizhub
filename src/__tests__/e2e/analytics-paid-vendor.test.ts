@@ -64,3 +64,4 @@ describe('E2E: Paid Vendor Analytics', () => {
     expect(typeof data.data.saves).toBe('number');
   });
 });
+export {}

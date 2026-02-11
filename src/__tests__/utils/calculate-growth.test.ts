@@ -69,3 +69,4 @@ describe('calculateProductGrowth', () => {
     expect(result.trend).toBe('neutral');
   });
 });
+export {}

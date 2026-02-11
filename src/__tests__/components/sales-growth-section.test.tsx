@@ -42,3 +42,4 @@ describe('SalesGrowthSection', () => {
     expect(screen.getByText('Sales Growth')).toBeTruthy();
   });
 });
+export {}

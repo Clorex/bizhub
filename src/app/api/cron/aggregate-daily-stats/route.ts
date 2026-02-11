@@ -1,5 +1,6 @@
 // src/app/api/cron/aggregate-daily-stats/route.ts
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import { AggregatorService } from "@/services/analytics/aggregator.service";
 
 /**
@@ -14,7 +15,7 @@ import { AggregatorService } from "@/services/analytics/aggregator.service";
  *   ?date=YYYY-MM-DD  (optional, defaults to yesterday)
  *   ?backfill=true&vendor_id=xxx&days=60  (optional backfill mode)
  */
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
     // Verify cron secret
     const authHeader = request.headers.get("authorization");

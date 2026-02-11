@@ -63,3 +63,4 @@ describe('AnalyticsSummaryCard', () => {
     expect(screen.getByText('+0%')).toBeTruthy();
   });
 });
+export {}

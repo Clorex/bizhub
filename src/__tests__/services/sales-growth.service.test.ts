@@ -32,3 +32,4 @@ describe('Sales Growth Insights', () => {
     expect(insight).toBe('Your sales are growing strongly.');
   });
 });
+export {}

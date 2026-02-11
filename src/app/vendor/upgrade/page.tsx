@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import React, { useEffect, useState } from 'react';
 import UpgradePrompt from '@/components/analytics/upgrade-prompt';
 import { Button } from "@/components/ui/Button";
@@ -12,10 +13,9 @@ import '@/styles/analytics.css';
  * Shows subscription tier options.
  */
 export default function UpgradePage() {
-  const [currentTier, setCurrentTier] = useState('basic');
+  const [currentTier, setCurrentTier] = useState<number>(0);
 
   useEffect(() => {
-    // Get current tier from subscription status
     const fetchTier = async () => {
       try {
         const cookieMatch = document.cookie.match(/vendor_id=([^;]+)/);
@@ -30,7 +30,7 @@ export default function UpgradePage() {
         const result = await response.json();
 
         if (result.success) {
-          setCurrentTier(result.data.status.tier);
+          setCurrentTier(Number(result.data.status.tier));
         }
       } catch (err) {
         console.error('Failed to fetch tier:', err);
@@ -45,9 +45,12 @@ export default function UpgradePage() {
       <div className="max-w-5xl mx-auto px-4 py-8 md:px-6 md:py-12">
         {/* Back button */}
         <div className="mb-6">
-          <Button href="/vendor/dashboard" variant="ghost" size="sm">
-            ← Back to Dashboard
-          </Button>
+          {/* Fixed: Wrapped Button inside Link (removed invalid asChild prop) */}
+          <Link href="/vendor/dashboard">
+            <Button variant="ghost" size="sm">
+              ← Back to Dashboard
+            </Button>
+          </Link>
         </div>
 
         {/* Header */}
