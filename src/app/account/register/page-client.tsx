@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
@@ -26,6 +26,16 @@ export default function RegisterPage({ storeName }: { storeName?: string | null 
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
+  const [origin, setOrigin] = useState<string>("");
+
+  useEffect(() => {
+    try {
+      setOrigin(window.location.origin);
+    } catch {
+      setOrigin("");
+    }
+  }, []);
+
   const canCustomer = email.trim().length > 3 && password.length >= 6;
   const canVendor = canCustomer && businessName.trim().length > 1;
 
@@ -50,7 +60,7 @@ export default function RegisterPage({ storeName }: { storeName?: string | null 
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
           body: JSON.stringify({
             businessName: businessName.trim(),
-            businessSlug: businessSlug.trim(),
+            businessSlug: businessSlug.trim(), // kept as-is for backend compatibility
           }),
         });
 
@@ -81,6 +91,12 @@ export default function RegisterPage({ storeName }: { storeName?: string | null 
   }
 
   const headerTitle = storeName ? `Create Account for ${storeName}` : "Create Account";
+
+  const storeLinkExample = useMemo(() => {
+    const s = businessSlug.trim() ? businessSlug.trim() : "your-store";
+    const base = origin || "https://your-website.com";
+    return `${base}/store/${s}`;
+  }, [origin, businessSlug]);
 
   return (
     <div className="min-h-screen">
@@ -138,18 +154,18 @@ export default function RegisterPage({ storeName }: { storeName?: string | null 
                 <div className="h-px bg-[#E7E7EE] my-2" />
                 <input
                   className="w-full border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
-                  placeholder="Business name"
+                  placeholder="Store name"
                   value={businessName}
                   onChange={(e) => setBusinessName(e.target.value)}
                 />
                 <input
                   className="w-full border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
-                  placeholder="Business slug (optional)"
+                  placeholder="Store link name (optional) e.g. sarahs-boutique"
                   value={businessSlug}
                   onChange={(e) => setBusinessSlug(e.target.value)}
                 />
                 <p className="text-xs text-gray-600 mt-1">
-                  Your store link will look like: <b>/b/your-store</b>
+                  Your store website link will be: <b>{storeLinkExample}</b>
                 </p>
               </>
             ) : (
