@@ -57,7 +57,13 @@ import {
 
 /* ─────────────────────── Types ─────────────────────── */
 
-type OpsStatus = "new" | "contacted" | "paid" | "in_transit" | "delivered" | "cancelled";
+type OpsStatus =
+  | "new"
+  | "contacted"
+  | "paid"
+  | "in_transit"
+  | "delivered"
+  | "cancelled";
 
 interface OrderItem {
   id?: string;
@@ -93,78 +99,112 @@ function fmtNaira(n: number): string {
   return `₦${n.toLocaleString("en-NG")}`;
 }
 
-function fmtDate(v: any, options?: { includeTime?: boolean }): string {
+/**
+ * Converts multiple possible "timestamp" shapes to a JS Date.
+ * Fixes the `[object Object]` issue when Firestore timestamps are serialized as:
+ *   { seconds: number, nanoseconds: number }  (or _seconds/_nanoseconds)
+ */
+function toDateSafe(v: any): Date | null {
   try {
-    if (!v) return "—";
-    
-    let date: Date;
+    if (!v) return null;
+
+    // Already a Date
+    if (v instanceof Date) {
+      return isNaN(v.getTime()) ? null : v;
+    }
+
+    // Firestore Timestamp instance (client SDK) usually has .toDate()
     if (typeof v?.toDate === "function") {
-      date = v.toDate();
-    } else if (typeof v === "string" || typeof v === "number") {
-      date = new Date(v);
-    } else {
-      return String(v);
+      const d = v.toDate();
+      return d instanceof Date && !isNaN(d.getTime()) ? d : null;
     }
 
-    if (isNaN(date.getTime())) return "—";
-
-    if (options?.includeTime) {
-      return date.toLocaleString("en-NG", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+    // ISO string or ms epoch
+    if (typeof v === "string" || typeof v === "number") {
+      const d = new Date(v);
+      return isNaN(d.getTime()) ? null : d;
     }
 
-    return date.toLocaleDateString("en-NG", {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+    // Firestore Timestamp JSON-like object
+    if (typeof v === "object") {
+      const seconds = v?.seconds ?? v?._seconds;
+      const nanoseconds = v?.nanoseconds ?? v?._nanoseconds;
+
+      if (typeof seconds === "number") {
+        const ms =
+          seconds * 1000 +
+          (typeof nanoseconds === "number" ? Math.floor(nanoseconds / 1e6) : 0);
+        const d = new Date(ms);
+        return isNaN(d.getTime()) ? null : d;
+      }
+
+      // Sometimes APIs return { ms: number } or { millis: number }
+      const ms = v?.ms ?? v?.millis;
+      if (typeof ms === "number") {
+        const d = new Date(ms);
+        return isNaN(d.getTime()) ? null : d;
+      }
+    }
+
+    return null;
   } catch {
-    return "—";
+    return null;
   }
 }
 
-function fmtRelativeTime(v: any): string {
-  try {
-    if (!v) return "";
-    
-    let date: Date;
-    if (typeof v?.toDate === "function") {
-      date = v.toDate();
-    } else {
-      date = new Date(v);
-    }
+function fmtDate(v: any, options?: { includeTime?: boolean }): string {
+  const date = toDateSafe(v);
+  if (!date) return "—";
 
-    if (isNaN(date.getTime())) return "";
-
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-    const diffDays = Math.floor(diffMs / 86400000);
-
-    if (diffMins < 1) return "Just now";
-    if (diffMins < 60) return `${diffMins}m ago`;
-    if (diffHours < 24) return `${diffHours}h ago`;
-    if (diffDays < 7) return `${diffDays}d ago`;
-    
-    return fmtDate(date);
-  } catch {
-    return "";
+  if (options?.includeTime) {
+    return date.toLocaleString("en-NG", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   }
+
+  return date.toLocaleDateString("en-NG", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+function fmtRelativeTime(v: any): string {
+  const date = toDateSafe(v);
+  if (!date) return "";
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 1) return "Just now";
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+
+  return fmtDate(date);
 }
 
 function getPhoneDigits(phone: string): string {
   return String(phone || "").replace(/[^\d]/g, "");
 }
 
-function getStatusColor(status: string): { bg: string; text: string; border: string } {
+function getStatusColor(status: string): {
+  bg: string;
+  text: string;
+  border: string;
+} {
   const s = status.toLowerCase();
-  const colors: Record<string, { bg: string; text: string; border: string }> = {
+  const colors: Record<
+    string,
+    { bg: string; text: string; border: string }
+  > = {
     new: { bg: "bg-orange-500", text: "text-white", border: "border-orange-500" },
     contacted: { bg: "bg-blue-500", text: "text-white", border: "border-blue-500" },
     paid: { bg: "bg-green-500", text: "text-white", border: "border-green-500" },
@@ -210,38 +250,41 @@ export default function VendorOrderDetailPage() {
   const [copied, setCopied] = useState<string | null>(null);
 
   /* ─────── Load Order ─────── */
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
-
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Please log in to view this order.");
-
-      const r = await fetch(`/api/vendor/orders/${encodeURIComponent(orderId)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const data = await r.json().catch(() => ({}));
-
-      if (!r.ok) throw new Error(data?.error || "Could not load order.");
-
-      setOrder(data.order || null);
-
+  const load = useCallback(
+    async (isRefresh = false) => {
       if (isRefresh) {
-        toast.success("Order refreshed!");
+        setRefreshing(true);
+      } else {
+        setLoading(true);
       }
-    } catch (e: any) {
-      setError(e?.message || "Could not load order.");
-      setOrder(null);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [orderId]);
+      setError(null);
+
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("Please log in to view this order.");
+
+        const r = await fetch(`/api/vendor/orders/${encodeURIComponent(orderId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = await r.json().catch(() => ({}));
+
+        if (!r.ok) throw new Error(data?.error || "Could not load order.");
+
+        setOrder(data.order || null);
+
+        if (isRefresh) {
+          toast.success("Order refreshed!");
+        }
+      } catch (e: any) {
+        setError(e?.message || "Could not load order.");
+        setOrder(null);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [orderId]
+  );
 
   useEffect(() => {
     if (orderId) {
@@ -253,35 +296,41 @@ export default function VendorOrderDetailPage() {
   }, [orderId, load]);
 
   /* ─────── Update Status ─────── */
-  const updateStatus = useCallback(async (newStatus: OpsStatus) => {
-    setUpdating(true);
+  const updateStatus = useCallback(
+    async (newStatus: OpsStatus) => {
+      setUpdating(true);
 
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Please log in again.");
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("Please log in again.");
 
-      const r = await fetch(`/api/vendor/orders/${encodeURIComponent(orderId)}/status`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ opsStatus: newStatus }),
-      });
+        const r = await fetch(
+          `/api/vendor/orders/${encodeURIComponent(orderId)}/status`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ opsStatus: newStatus }),
+          }
+        );
 
-      const data = await r.json().catch(() => ({}));
+        const data = await r.json().catch(() => ({}));
 
-      if (!r.ok) throw new Error(data?.error || "Could not update status.");
+        if (!r.ok) throw new Error(data?.error || "Could not update status.");
 
-      toast.success(`Status updated to "${newStatus}"`);
-      setShowStatusSheet(false);
-      await load(true);
-    } catch (e: any) {
-      toast.error(e?.message || "Could not update status.");
-    } finally {
-      setUpdating(false);
-    }
-  }, [orderId, load]);
+        toast.success(`Status updated to "${newStatus}"`);
+        setShowStatusSheet(false);
+        await load(true);
+      } catch (e: any) {
+        toast.error(e?.message || "Could not update status.");
+      } finally {
+        setUpdating(false);
+      }
+    },
+    [orderId, load]
+  );
 
   /* ─────── Copy to Clipboard ─────── */
   const copyToClipboard = useCallback(async (text: string, label: string) => {
@@ -328,7 +377,10 @@ export default function VendorOrderDetailPage() {
   const whatsappLink = useMemo(() => {
     const phone = getPhoneDigits(customer.phone || "");
     if (!phone) return null;
-    const message = `Hi ${customer.fullName || customer.name || "there"}! Regarding your order #${orderId.slice(0, 8)} for ${fmtNaira(amount)}...`;
+    const message = `Hi ${customer.fullName || customer.name || "there"}! Regarding your order #${orderId.slice(
+      0,
+      8
+    )} for ${fmtNaira(amount)}...`;
     return `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
   }, [customer, orderId, amount]);
 
@@ -351,11 +403,7 @@ export default function VendorOrderDetailPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <GradientHeader
-          title="Order Details"
-          subtitle="Loading..."
-          showBack={true}
-        />
+        <GradientHeader title="Order Details" subtitle="Loading..." showBack={true} />
         <DetailSkeleton />
       </div>
     );
@@ -365,11 +413,7 @@ export default function VendorOrderDetailPage() {
   if (error || !order) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <GradientHeader
-          title="Order Details"
-          subtitle="Error"
-          showBack={true}
-        />
+        <GradientHeader title="Order Details" subtitle="Error" showBack={true} />
         <div className="px-4 pt-4 space-y-4">
           <Card className="p-6 text-center">
             <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
@@ -380,9 +424,7 @@ export default function VendorOrderDetailPage() {
               {error || "This order doesn't exist or you don't have access."}
             </p>
             <div className="mt-6 flex justify-center gap-3">
-              <Button onClick={() => load()}>
-                Try Again
-              </Button>
+              <Button onClick={() => load()}>Try Again</Button>
               <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
                 All Orders
               </Button>
@@ -399,7 +441,8 @@ export default function VendorOrderDetailPage() {
       {/* Header */}
       <GradientHeader
         title={`#${orderId.slice(0, 8).toUpperCase()}`}
-        subtitle={fmtRelativeTime(order.createdAt)}
+        // If relative time can't be computed (e.g. bad timestamp), fall back to full date+time
+        subtitle={fmtRelativeTime(order.createdAt) || fmtDate(order.createdAt, { includeTime: true })}
         showBack={true}
         right={
           <div className="flex items-center gap-2">
@@ -479,6 +522,7 @@ export default function VendorOrderDetailPage() {
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-orange-200" />
                 <span className="text-sm text-orange-100">
+                  {/* This is the line that was showing [object Object] before */}
                   {fmtDate(order.createdAt, { includeTime: true })}
                 </span>
               </div>
@@ -523,11 +567,14 @@ export default function VendorOrderDetailPage() {
           <div className="relative">
             {/* Progress Line */}
             <div className="absolute left-5 top-5 bottom-5 w-0.5 bg-gray-200" />
-            
+
             {/* Progress Fill */}
             {(() => {
-              const currentIndex = STATUS_FLOW.findIndex(s => s.key === currentStatus);
-              const fillHeight = currentIndex >= 0 ? `${(currentIndex / (STATUS_FLOW.length - 1)) * 100}%` : "0%";
+              const currentIndex = STATUS_FLOW.findIndex((s) => s.key === currentStatus);
+              const fillHeight =
+                currentIndex >= 0
+                  ? `${(currentIndex / (STATUS_FLOW.length - 1)) * 100}%`
+                  : "0%";
               return (
                 <div
                   className="absolute left-5 top-5 w-0.5 bg-orange-500 transition-all duration-500"
@@ -539,7 +586,7 @@ export default function VendorOrderDetailPage() {
             {/* Status Steps */}
             <div className="relative space-y-1">
               {STATUS_FLOW.map((step, idx) => {
-                const currentIndex = STATUS_FLOW.findIndex(s => s.key === currentStatus);
+                const currentIndex = STATUS_FLOW.findIndex((s) => s.key === currentStatus);
                 const isPast = idx < currentIndex;
                 const isCurrent = step.key === currentStatus;
                 const isFuture = idx > currentIndex;
@@ -562,11 +609,7 @@ export default function VendorOrderDetailPage() {
                         isFuture && "bg-gray-100 text-gray-400"
                       )}
                     >
-                      {isPast ? (
-                        <CheckCircle2 className="w-5 h-5" />
-                      ) : (
-                        <Icon className="w-5 h-5" />
-                      )}
+                      {isPast ? <CheckCircle2 className="w-5 h-5" /> : <Icon className="w-5 h-5" />}
                     </div>
                     <div className="flex-1">
                       <p
@@ -577,12 +620,7 @@ export default function VendorOrderDetailPage() {
                       >
                         {step.label}
                       </p>
-                      <p
-                        className={cn(
-                          "text-xs mt-0.5",
-                          isCurrent ? "text-orange-600" : "text-gray-500"
-                        )}
-                      >
+                      <p className={cn("text-xs mt-0.5", isCurrent ? "text-orange-600" : "text-gray-500")}>
                         {step.description}
                       </p>
                     </div>
@@ -687,28 +725,20 @@ export default function VendorOrderDetailPage() {
         </SectionCard>
 
         {/* Order Items */}
-        <SectionCard
-          title="Order Items"
-          subtitle={`${items.length} item${items.length !== 1 ? "s" : ""}`}
-        >
+        <SectionCard title="Order Items" subtitle={`${items.length} item${items.length !== 1 ? "s" : ""}`}>
           <div className="space-y-3">
             {items.map((item, idx) => {
-              const itemImg = item.image ? cloudinaryOptimizedUrl(item.image, { w: 120, h: 120 }) : "";
+              const itemImg = item.image
+                ? cloudinaryOptimizedUrl(item.image, { w: 120, h: 120 })
+                : "";
               const itemTotal = (item.price || 0) * (item.quantity || 1);
 
               return (
-                <div
-                  key={idx}
-                  className="flex items-start gap-4 p-4 rounded-2xl bg-white border border-gray-100"
-                >
+                <div key={idx} className="flex items-start gap-4 p-4 rounded-2xl bg-white border border-gray-100">
                   {/* Image */}
                   <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden shrink-0">
                     {itemImg ? (
-                      <img
-                        src={itemImg}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={itemImg} alt={item.name} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Package className="w-6 h-6 text-gray-300" />
@@ -721,18 +751,12 @@ export default function VendorOrderDetailPage() {
                     <p className="text-sm font-semibold text-gray-900 line-clamp-2">
                       {item.name || "Product"}
                     </p>
-                    {item.variant && (
-                      <p className="text-xs text-gray-500 mt-1">
-                        Variant: {item.variant}
-                      </p>
-                    )}
+                    {item.variant && <p className="text-xs text-gray-500 mt-1">Variant: {item.variant}</p>}
                     <div className="flex items-center justify-between mt-2">
                       <p className="text-xs text-gray-500">
                         {fmtNaira(item.price || 0)} × {item.quantity || 1}
                       </p>
-                      <p className="text-sm font-bold text-gray-900">
-                        {fmtNaira(itemTotal)}
-                      </p>
+                      <p className="text-sm font-bold text-gray-900">{fmtNaira(itemTotal)}</p>
                     </div>
                   </div>
                 </div>
@@ -812,9 +836,7 @@ export default function VendorOrderDetailPage() {
                     <p className="text-sm font-mono font-semibold text-gray-900 mt-0.5">
                       {shipping.trackingNumber}
                     </p>
-                    {shipping.carrier && (
-                      <p className="text-xs text-gray-500 mt-0.5">{shipping.carrier}</p>
-                    )}
+                    {shipping.carrier && <p className="text-xs text-gray-500 mt-0.5">{shipping.carrier}</p>}
                   </div>
                 </div>
               )}
@@ -897,9 +919,7 @@ export default function VendorOrderDetailPage() {
               <div className="p-4 border-b border-gray-100 flex items-center justify-between">
                 <div>
                   <p className="text-base font-bold text-gray-900">Update Status</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Change order progress
-                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">Change order progress</p>
                 </div>
                 <button
                   onClick={() => setShowStatusSheet(false)}
@@ -936,22 +956,13 @@ export default function VendorOrderDetailPage() {
                         <Icon className="w-6 h-6" />
                       </div>
                       <div className="flex-1 text-left">
-                        <p
-                          className={cn(
-                            "text-sm font-semibold",
-                            isActive ? "text-orange-700" : "text-gray-900"
-                          )}
-                        >
+                        <p className={cn("text-sm font-semibold", isActive ? "text-orange-700" : "text-gray-900")}>
                           {status.label}
                         </p>
                         <p className="text-xs text-gray-500 mt-0.5">{status.description}</p>
                       </div>
-                      {isActive && (
-                        <CheckCircle2 className="w-6 h-6 text-orange-500 shrink-0" />
-                      )}
-                      {updating && !isActive && (
-                        <Loader2 className="w-5 h-5 text-gray-400 animate-spin shrink-0" />
-                      )}
+                      {isActive && <CheckCircle2 className="w-6 h-6 text-orange-500 shrink-0" />}
+                      {updating && !isActive && <Loader2 className="w-5 h-5 text-gray-400 animate-spin shrink-0" />}
                     </button>
                   );
                 })}
@@ -970,25 +981,20 @@ export default function VendorOrderDetailPage() {
                   <div
                     className={cn(
                       "w-12 h-12 rounded-xl flex items-center justify-center shrink-0",
-                      currentStatus === "cancelled" ? "bg-gray-500 text-white" : "bg-red-100 text-red-600"
+                      currentStatus === "cancelled"
+                        ? "bg-gray-500 text-white"
+                        : "bg-red-100 text-red-600"
                     )}
                   >
                     <XCircle className="w-6 h-6" />
                   </div>
                   <div className="flex-1 text-left">
-                    <p
-                      className={cn(
-                        "text-sm font-semibold",
-                        currentStatus === "cancelled" ? "text-gray-700" : "text-red-700"
-                      )}
-                    >
+                    <p className={cn("text-sm font-semibold", currentStatus === "cancelled" ? "text-gray-700" : "text-red-700")}>
                       Cancel Order
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">Mark as cancelled</p>
                   </div>
-                  {currentStatus === "cancelled" && (
-                    <CheckCircle2 className="w-6 h-6 text-gray-500 shrink-0" />
-                  )}
+                  {currentStatus === "cancelled" && <CheckCircle2 className="w-6 h-6 text-gray-500 shrink-0" />}
                 </button>
               </div>
             </div>
@@ -1056,11 +1062,7 @@ export default function VendorOrderDetailPage() {
               </div>
 
               <div className="p-4 border-t border-gray-100">
-                <Button
-                  variant="secondary"
-                  onClick={() => setShowActionSheet(false)}
-                  className="w-full"
-                >
+                <Button variant="secondary" onClick={() => setShowActionSheet(false)} className="w-full">
                   Cancel
                 </Button>
               </div>

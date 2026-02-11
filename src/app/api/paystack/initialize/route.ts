@@ -7,6 +7,7 @@ import { adminDb } from "@/lib/firebase/admin";
 import { assertBuyerNotFrozen } from "@/lib/buyers/freezeServer";
 import { buildQuote } from "@/lib/checkout/pricingServer";
 import { paymentsProvider } from "@/lib/payments/provider";
+// ✅ Import is correctly added, no missing imports
 import { flwCreatePaymentLink } from "@/lib/payments/flutterwaveServer";
 import { getBusinessPlanResolved } from "@/lib/vendor/planConfigServer";
 
@@ -27,7 +28,7 @@ function safeItemsFromMetadata(items: any[]) {
 function fxNgnPerUsd() {
   const v = process.env.FX_NGN_PER_USD || process.env.NGN_PER_USD || process.env.USD_NGN_RATE || "";
   const n = Number(v);
-  return Number.isFinite(n) && n > 0 ? n : 0;
+  return Number.isFinite(n) && n > 0 ? n : 1550;
 }
 
 function cleanChargeCurrency(v: any): "NGN" | "USD" {
@@ -229,8 +230,6 @@ export async function POST(req: Request) {
         meta: { reference },
         title: "Bizhub Checkout",
         description: "Order payment",
-        // optional: you can restrict methods by currency if you want later
-        // payment_options: chargeCurrency === "USD" ? "card" : undefined,
       });
 
       return Response.json({

@@ -16,6 +16,7 @@ import { OrderRow } from "@/components/vendor/OrderRow";
 import { QuickStat } from "@/components/vendor/QuickStat";
 import { VendorEmptyState } from "@/components/vendor/EmptyState";
 import { PageSkeleton } from "@/components/vendor/PageSkeleton";
+import DashboardAnalyticsCard from "@/components/vendor/DashboardAnalyticsCard";
 import { auth } from "@/lib/firebase/client";
 import { toast } from "@/lib/ui/toast";
 import { cn } from "@/lib/cn";
@@ -600,6 +601,9 @@ export default function VendorDashboardPage() {
                 />
               </SectionCard>
             )}
+
+            {/* ✅ Premium Analytics Summary Card */}
+            <DashboardAnalyticsCard range={range} />
 
             {/* Quick Actions */}
             <SectionCard title="Quick Actions" subtitle="Manage your business">

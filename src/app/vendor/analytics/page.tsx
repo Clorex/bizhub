@@ -1,468 +1,443 @@
-// FILE: src/app/vendor/analytics/page.tsx
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState, useCallback } from "react";
-import { useRouter } from "next/navigation";
-import GradientHeader from "@/components/GradientHeader";
-import { Card } from "@/components/Card";
-import { SectionCard } from "@/components/ui/SectionCard";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { AnalyticsChart } from "@/components/charts/AnalyticsChart";
-import { PageSkeleton } from "@/components/vendor/PageSkeleton";
-import { auth } from "@/lib/firebase/client";
-import { toast } from "@/lib/ui/toast";
-import { cn } from "@/lib/cn";
+import React from 'react';
+import { useRouter } from 'next/navigation';
+import GradientHeader from '@/components/GradientHeader';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { Card } from '@/components/Card';
+import { Button } from '@/components/ui/Button';
+import { SectionCard } from '@/components/ui/SectionCard';
+import { PageSkeleton } from '@/components/vendor/PageSkeleton';
 
+// Analytics components
+import SalesGrowthSection from '@/components/analytics/sales-growth-section';
+import RevenueBreakdownSection from '@/components/analytics/revenue-breakdown-section';
+import ConversionSection from '@/components/analytics/conversion-section';
+import TopProductsSection from '@/components/analytics/top-products-section';
+import CustomerEngagementSection from '@/components/analytics/customer-engagement-section';
+import LockedAnalyticsOverlay from '@/components/analytics/locked-analytics-overlay';
+
+// Hook
+import { useVendorAnalytics } from '@/hooks/use-vendor-analytics';
+import { getTierDisplayName } from '@/lib/analytics/adapter';
+
+// Icons
 import {
-  TrendingUp,
-  TrendingDown,
-  Eye,
-  ShoppingCart,
-  Users,
-  DollarSign,
   RefreshCw,
-  Calendar,
-  Percent,
-  Package,
   AlertCircle,
-  Lightbulb,
-  Target,
-  Zap,
-  ChevronRight,
-} from "lucide-react";
+  ChevronLeft,
+  Gem,
+  Lock,
+  BarChart3,
+  TrendingUp,
+  Bell,
+} from 'lucide-react';
+import { cn } from '@/lib/cn';
 
-/* ─────────────────────── Types ─────────────────────── */
+import '@/styles/analytics.css';
+import '@/styles/charts.css';
 
-type Range = "week" | "month";
-
-interface DayData {
-  dayKey: string;
-  label: string;
-  revenue: number;
-  views: number;
-  orders: number;
-}
-
-interface OverviewData {
-  totalRevenue: number;
-  orders: number;
-  visits: number;
-  customers: number;
-  productsSold: number;
-  avgOrderValue: number;
-  conversionRate: number;
-}
-
-/* ─────────────────────── Helpers ─────────────────────── */
-
-function fmtNaira(n: number): string {
-  if (typeof n !== "number" || isNaN(n)) return "₦0";
-  return `₦${n.toLocaleString("en-NG")}`;
-}
-
-function fmtNairaCompact(n: number): string {
-  if (typeof n !== "number" || isNaN(n) || n <= 0) return "₦0";
-  if (n >= 1_000_000) return `₦${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `₦${(n / 1_000).toFixed(0)}k`;
-  return `₦${n.toFixed(0)}`;
-}
-
-function fmtNumber(n: number): string {
-  if (typeof n !== "number" || isNaN(n)) return "0";
-  return n.toLocaleString("en-NG");
-}
-
-function fmtPercent(n: number): string {
-  if (typeof n !== "number" || isNaN(n)) return "0%";
-  return `${n.toFixed(1)}%`;
-}
-
-function getShortDayLabel(dateStr: string): string {
-  if (!dateStr) return "";
-  if (dateStr.startsWith("Wk")) return dateStr;
-  try {
-    const date = new Date(dateStr);
-    if (isNaN(date.getTime())) return dateStr.slice(-2);
-    return date.toLocaleDateString("en-US", { weekday: "short" });
-  } catch {
-    return dateStr.slice(-2);
-  }
-}
-
-function processChartData(rawData: any[], range: Range): DayData[] {
-  if (!Array.isArray(rawData) || rawData.length === 0) return [];
-
-  const processed = rawData.map((d) => ({
-    dayKey: String(d.dayKey || d.label || Math.random()),
-    label: String(d.label || d.dayKey || ""),
-    revenue: Math.max(0, Number(d.revenue) || 0),
-    views: Math.max(0, Number(d.visits || d.views) || 0),
-    orders: Math.max(0, Number(d.orders || d.leads) || 0),
-  }));
-
-  if (range === "month" && processed.length > 7) {
-    const weeks: DayData[] = [];
-    processed.forEach((d, i) => {
-      const wi = Math.floor(i / 7);
-      if (!weeks[wi]) {
-        weeks[wi] = { dayKey: `week-${wi + 1}`, label: `Wk ${wi + 1}`, revenue: 0, views: 0, orders: 0 };
-      }
-      weeks[wi].revenue += d.revenue;
-      weeks[wi].views += d.views;
-      weeks[wi].orders += d.orders;
-    });
-    return weeks;
-  }
-
-  return processed;
-}
-
-/* ─────────────────────── Main Component ─────────────────────── */
+type Range = 'today' | 'week' | 'month';
 
 export default function VendorAnalyticsPage() {
   const router = useRouter();
-  const [range, setRange] = useState<Range>("week");
-  const [data, setData] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const loadAnalytics = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-    setError(null);
+  const {
+    raw,
+    summary,
+    salesGrowth,
+    revenueBreakdown,
+    conversion,
+    topProducts,
+    engagement,
+    access,
+    isLoading,
+    error,
+    notice,
+    usedRange,
+    refetch,
+    setRange,
+  } = useVendorAnalytics('week');
 
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Please log in to view analytics.");
+  const [refreshing, setRefreshing] = React.useState(false);
 
-      const res = await fetch(`/api/vendor/analytics?range=${range}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
 
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(json.error || "Failed to load analytics.");
+  const handleRangeChange = (newRange: Range) => {
+    setRange(newRange);
+  };
 
-      setData(json);
-      if (isRefresh) toast.success("Analytics refreshed!");
-    } catch (e: any) {
-      setError(e.message || "Something went wrong.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [range]);
+  const monthUnlocked = access?.canSeeMonthRange ?? false;
+  const canSeeInsights = access?.canSeeInsights ?? false;
+  const canSeeComparisons = access?.canSeeComparisons ?? false;
+  const tierName = access ? getTierDisplayName(access.planKey) : 'Free';
+  const tier = access?.tier ?? 0;
 
-  useEffect(() => {
-    loadAnalytics();
-  }, [loadAnalytics]);
+  const periodLabel =
+    usedRange === 'today' ? 'Today' : usedRange === 'month' ? 'This Month' : 'This Week';
 
-  /* ─── Derived data ─── */
-  const overview: OverviewData = useMemo(() => {
-    const ov = data?.overview || {};
-    const revenue = Number(ov.totalRevenue) || 0;
-    const orders = Number(ov.orders) || 0;
-    const visits = Number(ov.visits) || 0;
-
-    return {
-      totalRevenue: revenue,
-      orders,
-      visits,
-      customers: Number(ov.customers) || 0,
-      productsSold: Number(ov.productsSold) || 0,
-      avgOrderValue: orders > 0 ? revenue / orders : 0,
-      conversionRate: visits > 0 ? (orders / visits) * 100 : 0,
-    };
-  }, [data]);
-
-  const chartData = useMemo(() => processChartData(data?.chartDays || [], range), [data?.chartDays, range]);
-
-  const revenueChartData = useMemo(
-    () => chartData.map((d) => ({ label: getShortDayLabel(d.label), value: d.revenue })),
-    [chartData]
-  );
-  const viewsChartData = useMemo(
-    () => chartData.map((d) => ({ label: getShortDayLabel(d.label), value: d.views })),
-    [chartData]
-  );
-  const ordersChartData = useMemo(
-    () => chartData.map((d) => ({ label: getShortDayLabel(d.label), value: d.orders })),
-    [chartData]
-  );
-
-  /* ─── Insights ─── */
-  const insights = useMemo(() => {
-    const result: { title: string; description: string; type: "success" | "warning" | "info"; icon: any }[] = [];
-
-    if (overview.conversionRate > 5) {
-      result.push({
-        title: "Strong Conversion",
-        description: `${fmtPercent(overview.conversionRate)} of visitors make a purchase — well above average.`,
-        type: "success",
-        icon: Target,
-      });
-    } else if (overview.visits > 10 && overview.conversionRate < 1) {
-      result.push({
-        title: "Low Conversion Rate",
-        description: "Try improving product photos and descriptions to convert more visitors.",
-        type: "warning",
-        icon: TrendingDown,
-      });
-    }
-
-    if (overview.avgOrderValue > 0) {
-      result.push({
-        title: "Average Order Value",
-        description: `Customers spend ${fmtNaira(overview.avgOrderValue)} per order on average.`,
-        type: "info",
-        icon: DollarSign,
-      });
-    }
-
-    if (overview.visits === 0 && range === "week") {
-      result.push({
-        title: "No Store Traffic Yet",
-        description: "Share your store link on WhatsApp, Instagram, and Twitter to attract visitors.",
-        type: "warning",
-        icon: Lightbulb,
-      });
-    }
-
-    return result;
-  }, [overview, range]);
-
-  const periodLabel = range === "week" ? "Last 7 Days" : "Last 30 Days";
-
-  /* ─── Render ─── */
-  if (loading) {
+  // Loading
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <GradientHeader title="Analytics" subtitle="Loading..." showBack={true} />
+        <GradientHeader
+          title="Analytics"
+          subtitle="Loading your data..."
+          showBack
+          onBack={() => router.push('/vendor')}
+        />
         <PageSkeleton />
+      </div>
+    );
+  }
+
+  // Error
+  if (error) {
+    const isLocked = error.includes('Subscribe') || error.includes('locked');
+
+    if (isLocked) {
+      return (
+        <div className="min-h-screen bg-gray-50">
+          <GradientHeader
+            title="Analytics"
+            subtitle="Premium Feature"
+            showBack
+            onBack={() => router.push('/vendor')}
+          />
+          <LockedAnalyticsOverlay
+            reason={error}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <GradientHeader
+          title="Analytics"
+          subtitle="Something went wrong"
+          showBack
+          onBack={() => router.push('/vendor')}
+        />
+        <div className="px-4 pt-6">
+          <Card className="p-6 bg-red-50 border-red-200">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-red-800">{error}</p>
+                <Button variant="secondary" size="sm" className="mt-3" onClick={handleRefresh}>
+                  Try Again
+                </Button>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="min-h-screen pb-28 bg-gray-50">
+      {/* Header */}
       <GradientHeader
         title="Analytics"
-        subtitle="Business performance"
-        showBack={true}
+        subtitle={`${tierName} Plan · ${periodLabel}`}
+        showBack
+        onBack={() => router.push('/vendor')}
         right={
-          <button
-            onClick={() => loadAnalytics(true)}
-            disabled={refreshing}
-            className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
-          >
-            <RefreshCw className={cn("w-5 h-5 text-white", refreshing && "animate-spin")} />
-          </button>
+          <div className="flex items-center gap-2">
+            {tier < 2 && (
+              <button
+                onClick={() => router.push('/vendor/subscription')}
+                className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition"
+                aria-label="Upgrade"
+              >
+                <Gem className="w-5 h-5 text-white" />
+              </button>
+            )}
+            <button
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
+              aria-label="Refresh"
+            >
+              <RefreshCw className={cn('w-5 h-5 text-white', refreshing && 'animate-spin')} />
+            </button>
+          </div>
         }
       />
 
       <div className="px-4 space-y-4 pt-4">
         {/* Period Selector */}
         <SegmentedControl<Range>
-          value={range}
-          onChange={setRange}
+          value={usedRange}
+          onChange={handleRangeChange}
           options={[
-            { value: "week", label: "Last 7 Days" },
-            { value: "month", label: "Last 30 Days" },
+            { value: 'today', label: 'Today' },
+            { value: 'week', label: 'Week' },
+            { value: 'month', label: 'Month', disabled: !monthUnlocked },
           ]}
         />
 
-        {/* Error */}
-        {error && (
-          <Card className="p-4 bg-red-50 border-red-200">
+        {/* Notice */}
+        {notice && (
+          <Card className="p-4 bg-orange-50 border-orange-200">
             <div className="flex items-start gap-3">
-              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-              <div>
-                <p className="text-sm font-medium text-red-800">{error}</p>
-                <button
-                  onClick={() => loadAnalytics()}
-                  className="text-xs font-semibold text-red-600 mt-2 hover:underline"
-                >
-                  Try again
-                </button>
-              </div>
+              <Bell className="w-5 h-5 text-orange-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-orange-800">{notice}</p>
             </div>
           </Card>
         )}
 
-        {data && (
-          <>
-            {/* Revenue Hero */}
-            <div className="bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
-              <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+        {/* ===========================
+            SECTION 1: Sales Growth
+            Available to ALL tiers
+            =========================== */}
+        <SalesGrowthSection data={salesGrowth} />
 
-              <div className="relative z-10">
-                <div className="flex items-center gap-2 text-orange-100 mb-1">
-                  <DollarSign className="w-4 h-4" />
-                  <span className="text-xs font-semibold uppercase tracking-wider">Total Revenue</span>
-                </div>
-                <p className="text-4xl font-black tracking-tight">{fmtNaira(overview.totalRevenue)}</p>
-                <p className="text-sm text-orange-100 mt-2">
-                  {periodLabel} · {overview.orders} order{overview.orders !== 1 ? "s" : ""}
-                </p>
-              </div>
-            </div>
+        {/* ===========================
+            SECTION 2: Revenue Breakdown
+            Requires Momentum+ (tier >= 2)
+            =========================== */}
+        {canSeeInsights ? (
+          <RevenueBreakdownSection data={revenueBreakdown} />
+        ) : (
+          <LockedSectionCard
+            title="Revenue Breakdown"
+            description="See which products drive the most revenue."
+            requiredPlan="Momentum"
+            onUpgrade={() => router.push('/vendor/subscription')}
+          />
+        )}
 
-            {/* Metrics Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              <MetricCard icon={Eye} label="Store Views" value={fmtNumber(overview.visits)} color="blue" />
-              <MetricCard icon={ShoppingCart} label="Orders" value={fmtNumber(overview.orders)} color="green" />
-              <MetricCard icon={Users} label="Customers" value={fmtNumber(overview.customers)} color="purple" />
-              <MetricCard
-                icon={Percent}
-                label="Conversion"
-                value={fmtPercent(overview.conversionRate)}
-                color="orange"
-                subtitle={overview.visits > 0 ? `${overview.orders} of ${overview.visits}` : undefined}
+        {/* ===========================
+            SECTION 3: Conversion Performance
+            Requires Momentum+ (tier >= 2)
+            =========================== */}
+        {canSeeInsights ? (
+          <ConversionSection data={conversion} />
+        ) : (
+          <LockedSectionCard
+            title="Conversion Performance"
+            description="Track how visitors become buyers."
+            requiredPlan="Momentum"
+            onUpgrade={() => router.push('/vendor/subscription')}
+          />
+        )}
+
+        {/* ===========================
+            SECTION 4: Top Products
+            Requires Momentum+ (tier >= 2)
+            =========================== */}
+        {canSeeInsights ? (
+          <TopProductsSection data={topProducts} />
+        ) : (
+          <LockedSectionCard
+            title="Top Performing Products"
+            description="See your best sellers ranked by units sold."
+            requiredPlan="Momentum"
+            onUpgrade={() => router.push('/vendor/subscription')}
+          />
+        )}
+
+        {/* ===========================
+            SECTION 5: Customer Engagement
+            Requires Momentum+ (tier >= 2)
+            =========================== */}
+        {canSeeInsights ? (
+          <CustomerEngagementSection data={engagement} />
+        ) : (
+          <LockedSectionCard
+            title="Customer Engagement"
+            description="Understand visitor interest before they buy."
+            requiredPlan="Momentum"
+            onUpgrade={() => router.push('/vendor/subscription')}
+          />
+        )}
+
+        {/* ===========================
+            COMPARISONS (Apex only)
+            =========================== */}
+        {canSeeComparisons && raw?.comparisons && (
+          <SectionCard title="Period Comparison" subtitle="Current vs Previous">
+            <div className="grid grid-cols-2 gap-4">
+              <ComparisonStat
+                label="Revenue Change"
+                value={raw.comparisons.deltas.revenueDelta}
+                percentage={raw.comparisons.deltas.revenueDeltaPct}
+                isCurrency
+              />
+              <ComparisonStat
+                label="Orders Change"
+                value={raw.comparisons.deltas.ordersDelta}
+                percentage={raw.comparisons.deltas.ordersDeltaPct}
               />
             </div>
+          </SectionCard>
+        )}
 
-            {/* Revenue Chart */}
-            {revenueChartData.length > 0 && (
-              <SectionCard title="Revenue Trend" subtitle={periodLabel}>
-                <AnalyticsChart
-                  data={revenueChartData}
-                  color="bg-orange-500"
-                  height={180}
-                  formatValue={fmtNairaCompact}
-                  formatTooltip={(d) => `${d.label}: ${fmtNaira(d.value)}`}
-                  emptyMessage="No revenue data yet"
-                />
-              </SectionCard>
-            )}
-
-            {/* Traffic Chart */}
-            {viewsChartData.length > 0 && (
-              <SectionCard title="Store Traffic" subtitle="Visitors per period">
-                <AnalyticsChart
-                  data={viewsChartData}
-                  color="bg-blue-500"
-                  height={150}
-                  formatValue={(n) => n.toFixed(0)}
-                  formatTooltip={(d) => `${d.label}: ${d.value} view${d.value !== 1 ? "s" : ""}`}
-                  emptyMessage="No traffic data yet"
-                />
-              </SectionCard>
-            )}
-
-            {/* Orders Chart */}
-            {ordersChartData.length > 0 && (
-              <SectionCard title="Orders" subtitle="Orders per period">
-                <AnalyticsChart
-                  data={ordersChartData}
-                  color="bg-green-500"
-                  height={150}
-                  formatValue={(n) => n.toFixed(0)}
-                  formatTooltip={(d) => `${d.label}: ${d.value} order${d.value !== 1 ? "s" : ""}`}
-                  emptyMessage="No orders yet"
-                />
-              </SectionCard>
-            )}
-
-            {/* Insights */}
-            {insights.length > 0 && (
-              <SectionCard title="Insights" subtitle="Tips to grow your business">
-                <div className="space-y-2">
-                  {insights.map((insight, i) => {
-                    const Icon = insight.icon;
-                    const styles = {
-                      success: "bg-green-50 border-green-100",
-                      warning: "bg-amber-50 border-amber-100",
-                      info: "bg-blue-50 border-blue-100",
-                    };
-                    const textStyles = {
-                      success: "text-green-800",
-                      warning: "text-amber-800",
-                      info: "text-blue-800",
-                    };
-                    const iconStyles = {
-                      success: "text-green-600",
-                      warning: "text-amber-600",
-                      info: "text-blue-600",
-                    };
-
-                    return (
-                      <div key={i} className={cn("rounded-2xl border p-4", styles[insight.type])}>
-                        <div className="flex items-start gap-3">
-                          <Icon className={cn("w-5 h-5 shrink-0 mt-0.5", iconStyles[insight.type])} />
-                          <div>
-                            <p className={cn("text-sm font-semibold", textStyles[insight.type])}>
-                              {insight.title}
-                            </p>
-                            <p className={cn("text-xs mt-1 opacity-80", textStyles[insight.type])}>
-                              {insight.description}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+        {/* AI Checkin */}
+        {raw?.checkin && (
+          <SectionCard title={raw.checkin.title || 'Daily Check-in'}>
+            <div className="space-y-2">
+              {(raw.checkin.lines || []).map((line: string, i: number) => (
+                <p key={i} className="text-sm text-gray-600">{line}</p>
+              ))}
+              {raw.checkin.suggestion && (
+                <div className="mt-3 flex items-start gap-2 text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
+                  <span className="flex-shrink-0">💡</span>
+                  <span>{raw.checkin.suggestion}</span>
                 </div>
-              </SectionCard>
-            )}
+              )}
+            </div>
+          </SectionCard>
+        )}
 
-            {/* Summary Table */}
-            <SectionCard title="Summary" subtitle="Key performance indicators">
-              <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden divide-y divide-gray-100">
-                <SummaryRow label="Average Order Value" value={fmtNaira(overview.avgOrderValue)} />
-                <SummaryRow label="Products Sold" value={fmtNumber(overview.productsSold)} />
-                <SummaryRow label="Unique Customers" value={fmtNumber(overview.customers)} />
-                <SummaryRow label="Conversion Rate" value={fmtPercent(overview.conversionRate)} />
+        {/* Nudges */}
+        {raw?.nudges && raw.nudges.length > 0 && (
+          <SectionCard title="Notifications" subtitle="Things to act on">
+            <div className="space-y-3">
+              {raw.nudges.map((nudge: any) => (
+                <Card
+                  key={nudge.id}
+                  className={cn(
+                    'p-4',
+                    nudge.tone === 'warn' ? 'bg-red-50 border-red-200' : 'bg-blue-50 border-blue-200'
+                  )}
+                >
+                  <p className={cn(
+                    'text-sm font-bold',
+                    nudge.tone === 'warn' ? 'text-red-800' : 'text-blue-800'
+                  )}>
+                    {nudge.title}
+                  </p>
+                  <p className={cn(
+                    'text-xs mt-1',
+                    nudge.tone === 'warn' ? 'text-red-600' : 'text-blue-600'
+                  )}>
+                    {nudge.body}
+                  </p>
+                  {nudge.cta && (
+                    <button
+                      onClick={() => router.push(nudge.cta.url)}
+                      className={cn(
+                        'text-xs font-bold mt-2 underline',
+                        nudge.tone === 'warn' ? 'text-red-700' : 'text-blue-700'
+                      )}
+                    >
+                      {nudge.cta.label} →
+                    </button>
+                  )}
+                </Card>
+              ))}
+            </div>
+          </SectionCard>
+        )}
+
+        {/* Upgrade CTA for free/launch */}
+        {tier < 2 && (
+          <Card className="p-5 bg-gradient-to-br from-purple-50 to-orange-50 border-purple-100">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-orange-500 flex items-center justify-center shrink-0">
+                <BarChart3 className="w-6 h-6 text-white" />
               </div>
-            </SectionCard>
-          </>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-gray-900">Unlock Deep Analytics</p>
+                <p className="text-xs text-gray-600 mt-1">
+                  Get revenue breakdown, conversion tracking, top products, and AI insights with Momentum or Apex.
+                </p>
+                <Button
+                  size="sm"
+                  className="mt-3"
+                  onClick={() => router.push('/vendor/subscription')}
+                >
+                  View Plans →
+                </Button>
+              </div>
+            </div>
+          </Card>
         )}
       </div>
     </div>
   );
 }
 
-/* ─────────────────────── Metric Card ─────────────────────── */
+/* ——————————————————————————— Locked Section Card ——————————————————————————— */
 
-function MetricCard({
-  icon: Icon,
-  label,
-  value,
-  color,
-  subtitle,
+function LockedSectionCard({
+  title,
+  description,
+  requiredPlan,
+  onUpgrade,
 }: {
-  icon: any;
-  label: string;
-  value: string;
-  color: "orange" | "green" | "blue" | "purple";
-  subtitle?: string;
+  title: string;
+  description: string;
+  requiredPlan: string;
+  onUpgrade: () => void;
 }) {
-  const colors = {
-    orange: "bg-orange-50 text-orange-600",
-    green: "bg-green-50 text-green-600",
-    blue: "bg-blue-50 text-blue-600",
-    purple: "bg-purple-50 text-purple-600",
-  };
-
   return (
-    <Card className="p-4">
-      <div className={cn("w-9 h-9 rounded-xl flex items-center justify-center", colors[color])}>
-        <Icon className="w-4.5 h-4.5" />
+    <div className="bg-white rounded-2xl shadow-sm p-5 relative overflow-hidden">
+      <div className="flex items-start gap-3">
+        <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
+          <Lock className="w-5 h-5 text-gray-400" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-base font-bold text-gray-800">{title}</h3>
+          <p className="text-xs text-gray-500 mt-1">{description}</p>
+          <p className="text-xs text-orange-500 font-semibold mt-2">
+            Requires {requiredPlan} plan or higher
+          </p>
+          <button
+            onClick={onUpgrade}
+            className="mt-3 inline-flex items-center justify-center px-4 py-2 bg-orange-500 text-white text-xs font-semibold rounded-xl hover:bg-orange-600 transition"
+          >
+            Upgrade Now
+          </button>
+        </div>
       </div>
-      <p className="text-2xl font-black text-gray-900 mt-3 tracking-tight">{value}</p>
-      <p className="text-xs text-gray-500 mt-1">{label}</p>
-      {subtitle && <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>}
-    </Card>
+    </div>
   );
 }
 
-/* ─────────────────────── Summary Row ─────────────────────── */
+/* ——————————————————————————— Comparison Stat ——————————————————————————— */
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
+function ComparisonStat({
+  label,
+  value,
+  percentage,
+  isCurrency = false,
+}: {
+  label: string;
+  value: number;
+  percentage: number | null;
+  isCurrency?: boolean;
+}) {
+  const isPositive = value > 0;
+  const isNegative = value < 0;
+  const colorClass = isPositive
+    ? 'text-green-600'
+    : isNegative
+    ? 'text-red-600'
+    : 'text-gray-500';
+
+  const sign = isPositive ? '+' : '';
+  const displayValue = isCurrency
+    ? `${sign}₦${Math.abs(value).toLocaleString('en-NG')}`
+    : `${sign}${value}`;
+
   return (
-    <div className="flex items-center justify-between px-4 py-3">
-      <span className="text-sm text-gray-600">{label}</span>
-      <span className="text-sm font-semibold text-gray-900">{value}</span>
+    <div className="bg-gray-50 rounded-xl p-3 text-center">
+      <p className="text-xs text-gray-400 mb-1">{label}</p>
+      <p className={cn('text-lg font-bold', colorClass)}>{displayValue}</p>
+      {percentage !== null && percentage !== undefined && (
+        <p className={cn('text-xs font-semibold mt-0.5', colorClass)}>
+          {sign}{Math.round(percentage)}%
+        </p>
+      )}
     </div>
   );
 }

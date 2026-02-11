@@ -1,0 +1,185 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================
+// VENDOR
+// ===========================
+model Vendor {
+  id                  String   @id @default(cuid())
+  name                String
+  email               String   @unique
+  store_name          String
+  is_paid             Boolean  @default(false)
+  subscription_tier   String   @default("basic")
+  subscription_expiry DateTime?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  products    Product[]
+  orders      Order[]
+  daily_stats VendorDailyStats[]
+
+  @@map("vendors")
+}
+
+// ===========================
+// PRODUCT
+// ===========================
+model Product {
+  id          String   @id @default(cuid())
+  vendor_id   String
+  name        String
+  price       Float
+  image_url   String   @default("")
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  vendor      Vendor      @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+  order_items OrderItem[]
+  views       ProductView[]
+  clicks      ProductClick[]
+  saves       ProductSave[]
+  cart_adds   CartAdd[]
+
+  @@index([vendor_id])
+  @@map("products")
+}
+
+// ===========================
+// ORDER
+// ===========================
+model Order {
+  id          String      @id @default(cuid())
+  vendor_id   String
+  customer_id String
+  total       Float
+  status      String      @default("completed")
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  vendor      Vendor      @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+  items       OrderItem[]
+
+  @@index([vendor_id])
+  @@index([vendor_id, created_at])
+  @@map("orders")
+}
+
+// ===========================
+// ORDER ITEM
+// ===========================
+model OrderItem {
+  id          String   @id @default(cuid())
+  order_id    String
+  product_id  String
+  quantity    Int
+  price       Float
+  created_at  DateTime @default(now())
+
+  order       Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([order_id])
+  @@index([product_id])
+  @@map("order_items")
+}
+
+// ===========================
+// PRODUCT VIEWS
+// ===========================
+model ProductView {
+  id          String   @id @default(cuid())
+  product_id  String
+  vendor_id   String
+  viewer_id   String?
+  created_at  DateTime @default(now())
+
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([vendor_id])
+  @@index([vendor_id, created_at])
+  @@map("product_views")
+}
+
+// ===========================
+// PRODUCT CLICKS
+// ===========================
+model ProductClick {
+  id          String   @id @default(cuid())
+  product_id  String
+  vendor_id   String
+  clicker_id  String?
+  created_at  DateTime @default(now())
+
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([vendor_id])
+  @@index([vendor_id, created_at])
+  @@map("product_clicks")
+}
+
+// ===========================
+// PRODUCT SAVES
+// ===========================
+model ProductSave {
+  id          String   @id @default(cuid())
+  product_id  String
+  vendor_id   String
+  user_id     String
+  created_at  DateTime @default(now())
+
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([vendor_id])
+  @@index([vendor_id, created_at])
+  @@map("product_saves")
+}
+
+// ===========================
+// CART ADDS
+// ===========================
+model CartAdd {
+  id          String   @id @default(cuid())
+  product_id  String
+  vendor_id   String
+  user_id     String
+  created_at  DateTime @default(now())
+
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([vendor_id])
+  @@index([vendor_id, created_at])
+  @@map("cart_adds")
+}
+
+// ===========================
+// VENDOR DAILY STATS (PRE-AGGREGATED)
+// ===========================
+model VendorDailyStats {
+  id          String   @id @default(cuid())
+  vendor_id   String
+  date        DateTime @db.Date
+  sales_count Int      @default(0)
+  revenue     Float    @default(0)
+  views       Int      @default(0)
+  clicks      Int      @default(0)
+  purchases   Int      @default(0)
+  saves       Int      @default(0)
+  cart_adds   Int      @default(0)
+  shares      Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  vendor      Vendor   @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+
+  @@unique([vendor_id, date])
+  @@index([vendor_id, date])
+  @@map("vendor_daily_stats")
+}

@@ -65,3 +65,47 @@ export function DealsCarouselSkeleton() {
     </div>
   );
 }
+
+/* ——————————————————————————————————————————————
+   ANALYTICS SKELETONS (new)
+   —————————————————————————————————————————————— */
+
+export function SummaryCardSkeleton() {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
+      <div className="flex items-center justify-between mb-1">
+        <Skeleton className="h-5 w-28" variant="text" />
+        <Skeleton className="h-3.5 w-20" variant="text" />
+      </div>
+      <div className="mt-3">
+        <Skeleton className="h-10 w-24 rounded-lg" />
+      </div>
+      <div className="mt-4">
+        <Skeleton className="h-[120px] w-full rounded-xl" />
+      </div>
+      <div className="mt-4">
+        <Skeleton className="h-3.5 w-[90%]" variant="text" />
+      </div>
+      <div className="mt-4">
+        <Skeleton className="h-10 w-40 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+export function SectionSkeleton() {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
+      <Skeleton className="h-5 w-36" variant="text" />
+      <div className="mt-1">
+        <Skeleton className="h-3.5 w-48" variant="text" />
+      </div>
+      <div className="mt-4">
+        <Skeleton className="h-[120px] md:h-[200px] w-full rounded-xl" />
+      </div>
+      <div className="mt-4">
+        <Skeleton className="h-3.5 w-[85%]" variant="text" />
+      </div>
+    </div>
+  );
+}

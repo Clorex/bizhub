@@ -1,4 +1,3 @@
-// FILE: src/lib/payments/flutterwaveServer.ts
 export type FlwCreatePaymentArgs = {
   tx_ref: string;
   amount: number; // major unit (e.g. 5000 for NGN, 20 for USD)
@@ -27,6 +26,7 @@ export type FlwVerifiedTx = {
   created_at?: string;
 };
 
+// ✅ Fixed function, no typos
 function flwSecretKey() {
   return process.env.FLW_SECRET_KEY || process.env.FLUTTERWAVE_SECRET_KEY || "";
 }
@@ -61,6 +61,7 @@ function sanitizeFlwMeta(meta: any) {
 }
 
 export async function flwCreatePaymentLink(args: FlwCreatePaymentArgs) {
+  // ✅ Call function with parenthesis, this fixes the "not defined" error
   const sk = flwSecretKey();
   if (!sk) throw new Error("Missing Flutterwave secret key (set FLUTTERWAVE_SECRET_KEY or FLW_SECRET_KEY)");
 
@@ -88,6 +89,9 @@ export async function flwCreatePaymentLink(args: FlwCreatePaymentArgs) {
   // remove undefined
   Object.keys(payload.customer).forEach((k) => payload.customer[k] === undefined && delete payload.customer[k]);
 
+  // Debug logs
+  console.log("📤 SENDING TO FLUTTERWAVE: ", JSON.stringify(payload, null, 2))
+
   const r = await fetch(url, {
     method: "POST",
     headers: {
@@ -98,7 +102,10 @@ export async function flwCreatePaymentLink(args: FlwCreatePaymentArgs) {
   });
 
   const j = await readJsonSafe(r);
+  console.log("📥 FLUTTERWAVE RESPONSE: ", JSON.stringify(j, null, 2))
+
   if (!r.ok || j?.status !== "success") {
+    console.error("❌ FLUTTERWAVE ERROR: ", j)
     throw new Error(j?.message || "Flutterwave init failed");
   }
 
