@@ -1,14 +1,17 @@
-
+// src/app/api/webhooks/flutterwave/route.ts
 import { Resend } from "resend";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { OrderReceiptEmail } from "@/components/emails/OrderReceiptEmail";
 
-// Get your secret hash from your .env.local file
-const flutterwaveSecretHash = process.env.FLUTTERWAVE_SECRET_HASH || "";
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Mark as dynamic to prevent static build attempts
+export const dynamic = 'force-dynamic';
 
 export async function POST(req: Request) {
+  // Initialize inside the function - not at top level
+  const flutterwaveSecretHash = process.env.FLUTTERWAVE_SECRET_HASH || "";
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
   // 1. Verify the webhook signature for security
   const signature = req.headers.get("verif-hash");
 
@@ -90,8 +93,9 @@ export async function POST(req: Request) {
       });
 
       console.log(`Successfully sent receipt for order ${reference} to ${orderCustomer.email}.`);
-    } catch (error: any) {
-      console.error("Error processing Flutterwave webhook:", error.message);
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      console.error("Error processing Flutterwave webhook:", errorMessage);
       // Return 500 so Flutterwave might retry
       return Response.json({ error: "Internal server error" }, { status: 500 });
     }
