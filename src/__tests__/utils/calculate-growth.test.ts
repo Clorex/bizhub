@@ -1,3 +1,4 @@
+import { BASE_URL } from '../setup';
 import { calculateGrowth, getGrowthTrend, calculateProductGrowth } from '@/utils/analytics/calculate-growth';
 
 describe('calculateGrowth', () => {

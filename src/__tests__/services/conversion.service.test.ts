@@ -1,3 +1,4 @@
+import { BASE_URL } from '../setup';
 import { generateConversionInsight } from '@/services/analytics/insight-generator';
 
 describe('Conversion Insights', () => {

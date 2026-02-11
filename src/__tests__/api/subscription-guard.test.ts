@@ -1,3 +1,4 @@
+import { BASE_URL } from '../setup';
 import {
   checkSubscriptionAccess,
   getSubscriptionDaysRemaining,

@@ -4,7 +4,7 @@
  * Tests for no crashes on edge cases.
  */
 
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
+import { BASE_URL } from '../setup';
 
 describe('E2E: Edge Cases', () => {
   it('should return 401 with no vendor ID', async () => {

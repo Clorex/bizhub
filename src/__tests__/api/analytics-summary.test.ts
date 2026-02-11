@@ -5,7 +5,7 @@
  * Run with: npx jest src/__tests__/api/analytics-summary.test.ts
  */
 
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
+import { BASE_URL } from '../setup';
 
 describe('GET /api/vendor/analytics/summary', () => {
   it('should return 401 without authentication', async () => {

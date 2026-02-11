@@ -1,3 +1,4 @@
+import { BASE_URL } from '../setup';
 import React from 'react';
 
 // Mock recharts

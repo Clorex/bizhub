@@ -1,3 +1,4 @@
+import { BASE_URL } from '../setup';
 import { generateSalesGrowthInsight } from '@/services/analytics/insight-generator';
 
 describe('Sales Growth Insights', () => {

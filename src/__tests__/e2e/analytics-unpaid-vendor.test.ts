@@ -4,7 +4,7 @@
  * Verifies all endpoints return 403 for unpaid vendors.
  */
 
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
+import { BASE_URL } from '../setup';
 
 describe('E2E: Unpaid Vendor Analytics', () => {
   const UNPAID_VENDOR_ID = process.env.TEST_UNPAID_VENDOR_ID || 'UNPAID_VENDOR_ID';

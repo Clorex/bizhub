@@ -1,3 +1,4 @@
+import { BASE_URL } from '../setup';
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import LockedAnalyticsOverlay from '@/components/analytics/locked-analytics-overlay';

@@ -5,8 +5,7 @@
  * Run with: npx jest src/__tests__/e2e/analytics-paid-vendor.test.ts
  */
 
-const BASE_URL = process.env.TEST_BASE_URL || 'http://localhost:3000';
-
+import { BASE_URL } from '../setup';
 describe('E2E: Paid Vendor Analytics', () => {
   const PAID_VENDOR_ID = process.env.TEST_PAID_VENDOR_ID || 'PAID_VENDOR_ID';
 

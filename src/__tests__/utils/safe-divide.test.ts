@@ -1,3 +1,4 @@
+import { BASE_URL } from '../setup';
 import { safeDivide, safePercentage } from '@/utils/analytics/safe-divide';
 
 describe('safeDivide', () => {

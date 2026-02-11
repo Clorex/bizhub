@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import UpgradePrompt from '@/components/analytics/upgrade-prompt';
-import Button from '@/components/ui/button';
+import { Button } from "@/components/ui/Button";
 import '@/styles/analytics.css';
 
 /**
