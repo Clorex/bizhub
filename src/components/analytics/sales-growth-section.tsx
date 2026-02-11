@@ -13,7 +13,12 @@ interface SalesGrowthSectionProps {
 }
 
 export default function SalesGrowthSection({ data }: SalesGrowthSectionProps) {
-  if (!data || data.daily_sales.length === 0) {
+  const daily = data?.daily_sales || [];
+
+  // If the API returns days but all revenue is 0, treat as "no sales" and show the required message
+  const hasAnySales = daily.some((p) => Number((p as any)?.revenue || 0) > 0);
+
+  if (!data || daily.length === 0 || !hasAnySales) {
     return (
       <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
         <SectionHeader title="Sales Growth" subtitle="Compared to previous period" />
@@ -32,8 +37,8 @@ export default function SalesGrowthSection({ data }: SalesGrowthSectionProps) {
   const colorClass = isPositive
     ? 'text-green-500'
     : isNegative
-    ? 'text-red-500'
-    : 'text-gray-400';
+      ? 'text-red-500'
+      : 'text-gray-400';
 
   const peakInsight = data.peak_day
     ? formatPeakDay(data.peak_day.date, data.peak_day.revenue)
@@ -64,8 +69,8 @@ export default function SalesGrowthSection({ data }: SalesGrowthSectionProps) {
         </div>
       </div>
 
-      {/* Area chart */}
-      <AnalyticsAreaChart data={data.daily_sales} height={200} />
+      {/* Area chart (dynamic Y-axis scaling handled inside chart) */}
+      <AnalyticsAreaChart data={daily} height={200} />
 
       {/* Peak day highlight */}
       {peakInsight && (

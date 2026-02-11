@@ -1,7 +1,5 @@
 ﻿"use client";
 
-
-
 import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createUserWithEmailAndPassword } from "firebase/auth";
@@ -11,7 +9,7 @@ import { Card } from "@/components/Card";
 
 type Mode = "customer" | "vendor";
 
-export default function RegisterPage() {
+export default function RegisterPage({ storeName }: { storeName?: string | null }) {
   const router = useRouter();
   const sp = useSearchParams();
   const nextFromUrl = sp.get("next");
@@ -82,9 +80,11 @@ export default function RegisterPage() {
     }
   }
 
+  const headerTitle = storeName ? `Create Account for ${storeName}` : "Create Account";
+
   return (
     <div className="min-h-screen">
-      <GradientHeader title="Create Account" showBack={true} />
+      <GradientHeader title={headerTitle} showBack={true} />
 
       <div className="px-4 pb-24">
         <Card className="p-4">
@@ -149,7 +149,7 @@ export default function RegisterPage() {
                   onChange={(e) => setBusinessSlug(e.target.value)}
                 />
                 <p className="text-xs text-gray-600 mt-1">
-                  Your store link will be: <b>/b/your-slug</b>
+                  Your store link will look like: <b>/b/your-store</b>
                 </p>
               </>
             ) : (

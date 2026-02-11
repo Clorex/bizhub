@@ -6,7 +6,7 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { auth } from "@/lib/firebase/client";
 import { Card } from "@/components/Card";
 
-export default function LoginClient() {
+export default function LoginClient({ storeName }: { storeName?: string | null }) {
   const router = useRouter();
   const sp = useSearchParams();
   const next = sp.get("next");
@@ -57,8 +57,12 @@ export default function LoginClient() {
 
   return (
     <Card className="p-4">
-      <p className="text-base font-extrabold text-[#111827]">Welcome back</p>
-      <p className="text-sm text-gray-600 mt-1">Login to continue.</p>
+      <p className="text-base font-extrabold text-[#111827]">
+        {storeName ? `Login to ${storeName}` : "Welcome back"}
+      </p>
+      <p className="text-sm text-gray-600 mt-1">
+        {storeName ? "Continue to complete your action." : "Login to continue."}
+      </p>
 
       <div className="mt-4 space-y-2">
         <input
