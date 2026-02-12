@@ -8,6 +8,7 @@ import { PWARegister } from "@/components/PWARegister";
 import PageHelpFloating from "@/components/PageHelpFloating";
 import PushBellFloating from "@/components/PushBellFloating";
 import { Toaster } from "@/components/ui/Toaster";
+import SplashIntro from "@/components/SplashIntro";
 
 const THEME_COLOR = "#FF2D00"; // tailwind: biz.orange
 
@@ -24,6 +25,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
 
       <body>
+        {/* 1-second intro splash inside the app */}
+        <SplashIntro />
+
         <CartProvider>
           <AppShell>{children}</AppShell>
 
