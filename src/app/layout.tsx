@@ -9,9 +9,20 @@ import PageHelpFloating from "@/components/PageHelpFloating";
 import PushBellFloating from "@/components/PushBellFloating";
 import { Toaster } from "@/components/ui/Toaster";
 
+const THEME_COLOR = "#FF2D00"; // tailwind: biz.orange
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content={THEME_COLOR} />
+
+        {/* Icons */}
+        <link rel="icon" href="/icons/icon-192.png" />
+        <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+      </head>
+
       <body>
         <CartProvider>
           <AppShell>{children}</AppShell>
