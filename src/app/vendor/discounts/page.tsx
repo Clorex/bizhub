@@ -15,11 +15,13 @@ export default function VendorDiscountsPage() {
 
   const [discounts, setDiscounts] = useState<any[]>([]);
   const [meta, setMeta] = useState<any>(null);
+  const [featureLocked, setFeatureLocked] = useState(false);
 
   async function load() {
     try {
       setLoading(true);
       setMsg(null);
+      setFeatureLocked(false);
 
       const token = await auth.currentUser?.getIdToken();
       if (!token) throw new Error("Not logged in");
@@ -29,9 +31,10 @@ export default function VendorDiscountsPage() {
 
       if (!r.ok) {
         const code = String(j?.code || "");
-        if (code === "FEATURE_LOCKED") {
+        if (code === "FEATURE_LOCKED" || code === "VENDOR_LOCKED") {
           setMeta(j?.meta || null);
           setDiscounts([]);
+          setFeatureLocked(true);
           setMsg(String(j?.error || "Upgrade to use discounts."));
           return;
         }
@@ -53,15 +56,32 @@ export default function VendorDiscountsPage() {
     load();
   }, []);
 
-  const planKey = String(meta?.planKey || meta?.access?.planKey || "FREE").toUpperCase();
+  // Derive plan from API meta — this is the store/business plan, not the viewer
+  const planKey = String(meta?.planKey || "").toUpperCase();
+  const isLoadingPlan = loading && !meta;
+
+  // Apex vendors should NEVER see upgrade prompts
+  const isApexOrAbove = planKey === "APEX";
+  // Show upgrade only if we know the plan AND it's not apex AND feature is locked or no discounts
+  const shouldShowUpgrade = !isLoadingPlan && !isApexOrAbove && featureLocked;
 
   return (
     <div className="min-h-screen">
       <GradientHeader title="Sales" subtitle="Discounts on products" showBack={true} />
 
       <div className="px-4 pb-24 space-y-3">
-        {loading ? <Card className="p-4">Loading…</Card> : null}
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+        {loading ? (
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 rounded-full border-2 border-orange-300 border-t-transparent animate-spin" />
+              <span className="text-sm text-gray-500">Loading discounts…</span>
+            </div>
+          </Card>
+        ) : null}
+
+        {msg && !loading ? (
+          <Card className="p-4 text-red-700 text-sm">{msg}</Card>
+        ) : null}
 
         {!loading && discounts.length === 0 ? (
           <Card variant="soft" className="p-5">
@@ -74,14 +94,18 @@ export default function VendorDiscountsPage() {
               <Button variant="secondary" onClick={() => router.push("/vendor/products")}>
                 Products
               </Button>
-              <Button variant="secondary" onClick={() => router.push("/vendor/subscription")}>
-                Upgrade
-              </Button>
+              {shouldShowUpgrade ? (
+                <Button variant="secondary" onClick={() => router.push("/vendor/subscription")}>
+                  Upgrade
+                </Button>
+              ) : null}
             </div>
 
-            <p className="mt-3 text-[11px] text-gray-500">
-              Plan: <b className="text-biz-ink">{planKey}</b>
-            </p>
+            {planKey ? (
+              <p className="mt-3 text-[11px] text-gray-500">
+                Plan: <b className="text-biz-ink">{planKey}</b>
+              </p>
+            ) : null}
           </Card>
         ) : null}
 
@@ -89,7 +113,7 @@ export default function VendorDiscountsPage() {
           <div className="space-y-2">
             {discounts.map((d: any) => (
               <Card key={String(d.id || d.discountId || JSON.stringify(d))} className="p-4">
-                <p className="text-sm font-extrabold text-biz-ink">{d.title || "Discount"}</p>
+                <p className="text-sm font-extrabold text-biz-ink">{d.title || d.name || "Discount"}</p>
                 <p className="text-xs text-gray-500 mt-1">
                   {d.active === false ? "Inactive" : "Active"}
                 </p>

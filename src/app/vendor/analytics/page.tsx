@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
@@ -68,11 +68,16 @@ export default function VendorAnalyticsPage() {
     setRange(newRange);
   };
 
+  // Access info from server (store/business entitlement — NOT viewer)
   const monthUnlocked = access?.canSeeMonthRange ?? false;
   const canSeeInsights = access?.canSeeInsights ?? false;
   const canSeeComparisons = access?.canSeeComparisons ?? false;
   const tierName = access ? getTierDisplayName(access.planKey) : 'Free';
   const tier = access?.tier ?? 0;
+
+  // Whether to show upgrade prompts — only after loading is done
+  // and only if the confirmed tier is below threshold
+  const showUpgradePrompts = !isLoading && tier < 2;
 
   const periodLabel =
     usedRange === 'today' ? 'Today' : usedRange === 'month' ? 'This Month' : 'This Week';
@@ -126,7 +131,8 @@ export default function VendorAnalyticsPage() {
         showBack
         right={
           <div className="flex items-center gap-2">
-            {tier < 2 && (
+            {/* Only show upgrade gem for non-entitled tiers */}
+            {showUpgradePrompts && (
               <button
                 onClick={() => router.push('/vendor/subscription')}
                 className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition"
@@ -167,10 +173,10 @@ export default function VendorAnalyticsPage() {
           </Card>
         )}
 
-        {/* B4-3: Sales growth always visible (it's the base feature) */}
+        {/* Sales growth always visible (base feature) */}
         <SalesGrowthSection data={salesGrowth} />
 
-        {/* B4-3: Locked sections — NO chart rendered, just a clean locked card */}
+        {/* Locked sections — only show locked card if confirmed non-entitled */}
         {canSeeInsights ? (
           <RevenueBreakdownSection data={revenueBreakdown} />
         ) : (
@@ -295,7 +301,8 @@ export default function VendorAnalyticsPage() {
           </SectionCard>
         )}
 
-        {tier < 2 && (
+        {/* Bottom upgrade CTA — only for confirmed low-tier vendors */}
+        {showUpgradePrompts && (
           <Card className="p-5 bg-gradient-to-br from-purple-50 to-orange-50 border-purple-100">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-orange-500 flex items-center justify-center shrink-0">
@@ -319,7 +326,7 @@ export default function VendorAnalyticsPage() {
   );
 }
 
-/* ————————————————————————— Locked Section Card ————————————————————————— */
+/* LockedSectionCard */
 
 function LockedSectionCard({
   title,
@@ -356,7 +363,7 @@ function LockedSectionCard({
   );
 }
 
-/* ————————————————————————— Comparison Stat ————————————————————————— */
+/* ComparisonStat */
 
 function ComparisonStat({
   label,

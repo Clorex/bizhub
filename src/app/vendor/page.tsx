@@ -1,4 +1,4 @@
-// FILE: src/app/vendor/page.tsx
+﻿// FILE: src/app/vendor/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -284,11 +284,25 @@ export default function VendorDashboardPage() {
     return !!access?.features?.canUseMonthRange;
   }, [access]);
 
+  // CRITICAL FIX: Use the store/business plan from access, not viewer.
+  // Only consider subscription state AFTER data has loaded.
   const isSubscribed = useMemo(() => {
+    if (!access) return true; // While loading or no access data, assume subscribed to avoid flash
     const source = String(access?.source || "free");
     const pk = String(access?.planKey || "FREE").toUpperCase();
     return source === "subscription" && pk !== "FREE";
   }, [access]);
+
+  // Whether we should show any upgrade prompts at all
+  // Only show after loading is complete AND we know the plan is free/low tier
+  const showUpgradePrompts = useMemo(() => {
+    if (loading) return false; // Never show while loading
+    if (!access) return false; // No access data yet
+    const pk = String(access?.planKey || "FREE").toUpperCase();
+    const tier = Number(access?.tier ?? 0);
+    // Apex (tier 3) and Momentum (tier 2) should never see upgrade prompts
+    return tier < 1 || (pk === "FREE" && !isSubscribed);
+  }, [loading, access, isSubscribed]);
 
   const totalTodoCount =
     todo.outOfStockCount + todo.lowStockCount + todo.awaitingConfirmCount + todo.disputedCount;
@@ -315,7 +329,7 @@ export default function VendorDashboardPage() {
         showBack={false}
         right={
           <div className="flex items-center gap-2">
-            {!isSubscribed && (
+            {showUpgradePrompts && (
               <button
                 onClick={() => router.push("/vendor/subscription")}
                 className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition"
@@ -634,7 +648,8 @@ export default function VendorDashboardPage() {
               )}
             </SectionCard>
 
-            {!isSubscribed && (
+            {/* Upgrade CTA — only for confirmed free/low-tier vendors, NEVER for Apex/Momentum */}
+            {showUpgradePrompts && (
               <Card className="p-5 bg-gradient-to-br from-purple-50 to-orange-50 border-purple-100">
                 <div className="flex items-start gap-4">
                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500 to-orange-500 flex items-center justify-center shrink-0">

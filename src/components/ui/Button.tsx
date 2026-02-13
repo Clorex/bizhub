@@ -1,4 +1,4 @@
-// FILE: src/components/ui/Button.tsx
+﻿// FILE: src/components/ui/Button.tsx
 "use client";
 
 import { forwardRef } from "react";
@@ -31,7 +31,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) {
     const base =
-      "inline-flex items-center justify-center gap-2 font-bold rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed";
+      "w-full inline-flex items-center justify-center gap-2 font-bold rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-center";
 
     const variants = {
       primary:
@@ -63,9 +63,9 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ) : leftIcon ? (
           <span className="shrink-0">{leftIcon}</span>
         ) : null}
-        
-        {children}
-        
+
+        {children && <span className="truncate">{children}</span>}
+
         {!loading && rightIcon && (
           <span className="shrink-0">{rightIcon}</span>
         )}

@@ -1,4 +1,4 @@
-// FILE: src/app/vendor/products/page.tsx
+﻿// FILE: src/app/vendor/products/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -41,7 +41,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-/* ──────────────────────────────── Helpers ──────────────────────────────── */
+/* -------------------------------- Helpers -------------------------------- */
 
 function fmtNaira(n: number) {
   return formatMoneyNGN(Number(n || 0));
@@ -59,16 +59,16 @@ function buildShareCaption(p: any) {
   const link = slug && p?.id ? `${origin}/b/${slug}/p/${p.id}` : "";
 
   const lines: string[] = [];
-  lines.push(`🛍️ *${name}*`);
-  if (price > 0) lines.push(`💰 Price: ${fmtNaira(price)}`);
-  if (link) lines.push(`🔗 ${link}`);
+  lines.push(`\uD83D\uDED2 *${name}*`);
+  if (price > 0) lines.push(`\uD83D\uDCB0 Price: ${fmtNaira(price)}`);
+  if (link) lines.push(`\uD83D\uDD17 ${link}`);
   lines.push("");
-  lines.push("✅ Secure checkout via myBizHub");
+  lines.push("\u2705 Secure checkout via myBizHub");
 
   return lines.join("\n");
 }
 
-/* ──────────────────────────────── Types ──────────────────────────────── */
+/* -------------------------------- Types -------------------------------- */
 
 type FilterType = "all" | "active" | "outofstock" | "lowstock" | "hidden";
 type ViewMode = "list" | "grid";
@@ -88,7 +88,7 @@ type Access = {
   } | null;
 };
 
-/* ──────────────────────────────── Main Component ──────────────────────────────── */
+/* -------------------------------- Main Component -------------------------------- */
 
 export default function VendorProductsPage() {
   const router = useRouter();
@@ -117,7 +117,7 @@ export default function VendorProductsPage() {
   // Action menu
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
 
-  // Delete flow (B11-1/B11-2)
+  // Delete flow
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<any>(null);
   const [deleting, setDeleting] = useState(false);
@@ -158,10 +158,6 @@ export default function VendorProductsPage() {
         setPlanKey(String(accessData?.planKey || "FREE").toUpperCase());
         setFeatures(accessData?.features || {});
 
-        if (!canView && String(accessData?.role || "") === "staff") {
-          // still proceed; server may allow list but UI can show message if needed
-        }
-
         // Load products
         const prodRes = await fetch("/api/vendor/products", {
           headers: { Authorization: `Bearer ${token}` },
@@ -186,7 +182,7 @@ export default function VendorProductsPage() {
         setRefreshing(false);
       }
     },
-    [router] // do not include canView/canManage (derived from access)
+    [router]
   );
 
   useEffect(() => {
@@ -359,7 +355,7 @@ export default function VendorProductsPage() {
                   {role === "staff" && access?.staff?.staffJobTitle && (
                     <>
                       {" "}
-                      • Role: <b>{access.staff.staffJobTitle}</b>
+                      &bull; Role: <b>{access.staff.staffJobTitle}</b>
                     </>
                   )}
                 </p>
@@ -666,7 +662,7 @@ export default function VendorProductsPage() {
         </div>
       )}
 
-      {/* B11-2: Confirm before deleting */}
+      {/* Confirm before deleting */}
       <ConfirmDialog
         open={deleteOpen}
         title="Delete product"
@@ -690,7 +686,7 @@ export default function VendorProductsPage() {
   );
 }
 
-/* ──────────────────────────────── Stat Badge ──────────────────────────────── */
+/* -------------------------------- Stat Badge -------------------------------- */
 
 function StatBadge({
   label,
@@ -728,7 +724,7 @@ function StatBadge({
   );
 }
 
-/* ──────────────────────────────── Product List Card ──────────────────────────────── */
+/* -------------------------------- Product List Card -------------------------------- */
 
 function ProductListCard({
   product,
@@ -837,6 +833,7 @@ function ProductListCard({
         </Button>
       </div>
 
+      {/* 3-dot menu: Only Copy link + Delete product */}
       {actionMenuOpen && (
         <>
           <div className="fixed inset-0 z-10" onClick={onActionMenuToggle} />
@@ -849,35 +846,10 @@ function ProductListCard({
               Copy link
             </button>
 
-            <button
-              onClick={() => {
-                onEdit();
-                onActionMenuToggle();
-              }}
-              disabled={!canManage}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
-            >
-              <Edit3 className="w-4 h-4 text-gray-400" />
-              Edit product
-            </button>
-
-            <button
-              onClick={() => {
-                onView();
-                onActionMenuToggle();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
-            >
-              <ExternalLink className="w-4 h-4 text-gray-400" />
-              View in store
-            </button>
-
-            {/* B11-1: Delete product in menu (permission enforced) */}
             {canManage ? (
               <button
                 onClick={() => {
                   onDelete();
-                  onActionMenuToggle();
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-700 hover:bg-red-50 transition border-t border-gray-100"
               >
@@ -892,7 +864,7 @@ function ProductListCard({
   );
 }
 
-/* ──────────────────────────────── Product Grid Card ──────────────────────────────── */
+/* -------------------------------- Product Grid Card -------------------------------- */
 
 function ProductGridCard({
   product,
@@ -982,6 +954,7 @@ function ProductGridCard({
         </div>
       </div>
 
+      {/* 3-dot menu: Only Copy link + Delete product */}
       {actionMenuOpen && (
         <>
           <div className="fixed inset-0 z-10" onClick={onActionMenuToggle} />
@@ -994,34 +967,10 @@ function ProductGridCard({
               Copy link
             </button>
 
-            <button
-              onClick={() => {
-                onView();
-                onActionMenuToggle();
-              }}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
-            >
-              <ExternalLink className="w-4 h-4 text-gray-400" />
-              View in store
-            </button>
-
-            <button
-              onClick={() => {
-                onPromote();
-                onActionMenuToggle();
-              }}
-              disabled={!canManage || isService}
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
-            >
-              <Megaphone className="w-4 h-4 text-gray-400" />
-              Boost product
-            </button>
-
             {canManage ? (
               <button
                 onClick={() => {
                   onDelete();
-                  onActionMenuToggle();
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-700 hover:bg-red-50 transition border-t border-gray-100"
               >

@@ -36,7 +36,7 @@ export function VendorBottomNav() {
                 href={href}
                 className={cn(
                   "flex-1 py-2 flex flex-col items-center justify-center gap-1 rounded-2xl transition",
-                  active ? "bg-biz-cream" : "hover:bg-black/5"
+                  "hover:bg-black/5"
                 )}
               >
                 <Icon
@@ -48,19 +48,21 @@ export function VendorBottomNav() {
                 <span
                   className={cn(
                     "text-[11px]",
-                    active ? "font-bold text-biz-accent" : "text-gray-500"
+                    active ? "font-extrabold text-biz-accent" : "text-gray-500"
                   )}
                 >
                   {label}
                 </span>
 
+                {/* Active indicator - fixed height to prevent layout shift */}
                 <span
                   className={cn(
-                    "h-1 w-6 rounded-full transition",
+                    "h-1 w-6 rounded-full transition-colors",
                     active
                       ? "bg-gradient-to-r from-biz-accent2 to-biz-accent"
                       : "bg-transparent"
                   )}
+                  aria-hidden="true"
                 />
               </Link>
             );

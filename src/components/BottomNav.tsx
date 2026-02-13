@@ -1,4 +1,4 @@
-// FILE: src/components/BottomNav.tsx
+﻿// FILE: src/components/BottomNav.tsx
 "use client";
 
 import Link from "next/link";
@@ -38,13 +38,13 @@ export function BottomNav() {
                 href={href}
                 className={cn(
                   "flex-1 py-2 flex flex-col items-center justify-center gap-1 rounded-2xl transition",
-                  active ? "bg-biz-cream" : "hover:bg-black/5"
+                  "hover:bg-black/5"
                 )}
               >
                 <div className="relative">
                   <Icon className={cn("h-5 w-5", active ? "text-biz-accent" : "text-gray-500")} />
 
-                  {/* ✅ Cart count badge */}
+                  {/* Cart count badge */}
                   {isCart && cartCount > 0 ? (
                     <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-biz-accent text-white text-[10px] font-extrabold flex items-center justify-center">
                       {badgeText}
@@ -56,12 +56,13 @@ export function BottomNav() {
                   {label}
                 </span>
 
-                {/* small active indicator */}
+                {/* Active indicator - fixed height to prevent layout shift */}
                 <span
                   className={cn(
-                    "h-1 w-6 rounded-full transition",
+                    "h-1 w-6 rounded-full transition-colors",
                     active ? "bg-gradient-to-r from-biz-accent2 to-biz-accent" : "bg-transparent"
                   )}
+                  aria-hidden="true"
                 />
               </Link>
             );

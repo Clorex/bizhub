@@ -1,5 +1,4 @@
-// FILE: src/app/vendor/reengagement/page.tsx
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -11,7 +10,22 @@ import { Input } from "@/components/ui/Input";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { toast } from "@/lib/ui/toast";
 import { auth } from "@/lib/firebase/client";
-import { MessageCircle, AlertTriangle, RefreshCw, Copy, Sparkles, Search, Clock } from "lucide-react";
+import { cn } from "@/lib/cn";
+import { formatMoneyNGN } from "@/lib/money";
+import {
+  MessageCircle,
+  AlertTriangle,
+  RefreshCw,
+  Copy,
+  Sparkles,
+  Search,
+  Clock,
+  Users,
+  ShoppingCart,
+  CheckCircle2,
+  X,
+  ChevronRight,
+} from "lucide-react";
 import {
   composeSmartMessage,
   segmentLabel,
@@ -28,12 +42,16 @@ function waLink(phone: string, text: string) {
 }
 
 function fmtDate(ms: number) {
-  if (!ms) return "—";
+  if (!ms) return "\u2014";
   try {
     return new Date(ms).toLocaleDateString();
   } catch {
-    return "—";
+    return "\u2014";
   }
+}
+
+function fmtNaira(n: number) {
+  return formatMoneyNGN(Number(n || 0));
 }
 
 function defaultBaseFor(mode: Mode) {
@@ -108,10 +126,8 @@ export default function VendorReengagementPage() {
   });
 
   const reengagementUnlocked = !!features?.reengagement;
-
   const smartGroupsOn = !!features?.reengagementSmartGroups;
   const smartMessagesOn = !!features?.reengagementSmartMessages;
-
   const aiRemixUnlocked = !!features?.reengagementAiRemix;
   const vipAllowed = cleanPlanKey(planKey) === "APEX" && aiRemixUnlocked;
 
@@ -123,6 +139,9 @@ export default function VendorReengagementPage() {
   const [remixInfo, setRemixInfo] = useState<any>(null);
   const [remixing, setRemixing] = useState(false);
   const [tick, setTick] = useState(0);
+
+  // Step tracker for clear flow
+  const [step, setStep] = useState<1 | 2 | 3>(1);
 
   const selectedPeople = useMemo(() => people.filter((p) => selected[p.key]), [people, selected]);
 
@@ -169,7 +188,13 @@ export default function VendorReengagementPage() {
 
       const params = new URLSearchParams();
       params.set("segment", seg);
-      if (seg === "abandoned") params.set("days", String(days));
+      // Always use a generous lookback for buyers to find all past orders
+      if (seg === "abandoned") {
+        params.set("days", String(days));
+      } else {
+        // Use 365 days lookback for buyers to capture all historical buyers
+        params.set("days", "365");
+      }
       if (q.trim()) params.set("q", q.trim());
 
       const data = await authedFetch(`/api/vendor/reengagement/audience?${params.toString()}`);
@@ -198,24 +223,20 @@ export default function VendorReengagementPage() {
 
   useEffect(() => {
     loadAccess();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     setBaseText(defaultBaseFor(mode));
     if (mode === "abandoned") setSegment("buyers_all");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode]);
 
   useEffect(() => {
     loadAudience();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, segment, days, smartGroupsOn, vipAllowed]);
 
   useEffect(() => {
     const t = setTimeout(() => loadAudience(), 350);
     return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [q]);
 
   useEffect(() => {
@@ -302,10 +323,10 @@ export default function VendorReengagementPage() {
         : baseText.trim();
 
       await navigator.clipboard.writeText(text);
-      toast.success("Message copied to clipboard.");
+      toast.success("Message copied!");
       if (aiRemixUnlocked && autoRemixAfterCopy) await requestRemix({ silent: true });
     } catch {
-      toast.error("Couldn't copy the message. Please copy it manually.");
+      toast.error("Couldn't copy the message.");
     }
   }
 
@@ -399,23 +420,65 @@ export default function VendorReengagementPage() {
   const noMatches = !loading && q.trim().length > 0 && people.length === 0;
 
   return (
-    <div className="min-h-screen">
-      <GradientHeader title="Re-engagement" subtitle="Follow up with past buyers" showBack={true} />
+    <div className="min-h-screen bg-gray-50/30">
+      <GradientHeader
+        title="Re-engagement"
+        subtitle="Follow up with past buyers"
+        showBack
+        right={
+          <button
+            onClick={() => loadAudience()}
+            disabled={loading}
+            className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
+            aria-label="Refresh"
+          >
+            <RefreshCw className={cn("w-5 h-5 text-white", loading && "animate-spin")} />
+          </button>
+        }
+      />
 
-      <div className="px-4 pb-24 space-y-3">
-        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+      <div className="px-4 space-y-4 pt-4 pb-48">
+        {msg && (
+          <Card className="p-4 bg-red-50 border-red-200">
+            <p className="text-sm text-red-800">{msg}</p>
+          </Card>
+        )}
 
-        {!reengagementUnlocked ? (
-          <Card className="p-4">
-            <p className="text-sm font-bold text-biz-ink">Upgrade required</p>
-            <p className="text-xs text-gray-500 mt-1">Re-engagement is available on Launch, Momentum, and Apex plans.</p>
-            <div className="mt-3">
-              <Button onClick={() => router.push("/vendor/subscription")}>Upgrade</Button>
+        {!reengagementUnlocked && !loading && (
+          <Card className="p-5">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+                <Users className="w-5 h-5 text-orange-600" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-bold text-gray-900">Upgrade required</p>
+                <p className="text-xs text-gray-500 mt-1">
+                  Re-engagement is available on Launch, Momentum, and Apex plans.
+                </p>
+                <Button size="sm" className="mt-3" onClick={() => router.push("/vendor/subscription")}
+                  rightIcon={<ChevronRight className="w-4 h-4" />}>
+                  View plans
+                </Button>
+              </div>
             </div>
           </Card>
-        ) : null}
+        )}
 
-        <SectionCard title="Audience" subtitle="Choose who to message">
+        {/* ═══════════════════ STEP 1: Select Audience ═══════════════════ */}
+        <SectionCard
+          title="Step 1: Select audience"
+          subtitle="Choose who to message"
+          right={
+            <span className={cn(
+              "px-2 py-0.5 rounded-full text-[10px] font-bold",
+              selectedPeople.length > 0
+                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                : "bg-gray-100 text-gray-500 border border-gray-200"
+            )}>
+              {selectedPeople.length} selected
+            </span>
+          }
+        >
           <SegmentedControl<Mode>
             value={mode}
             onChange={(v) => {
@@ -424,112 +487,209 @@ export default function VendorReengagementPage() {
             }}
             options={[
               { value: "buyers", label: "Past buyers" },
-              { value: "abandoned", label: "Abandoned" },
+              { value: "abandoned", label: "Abandoned orders" },
             ]}
           />
 
-          {mode === "abandoned" ? (
+          {/* Segment filter pills (buyers mode) */}
+          {mode === "buyers" && segmentButtons.filter((x) => x.show).length > 1 && (
+            <div className="mt-3 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+              {segmentButtons
+                .filter((x) => x.show)
+                .map(({ key }) => {
+                  const active = segment === key;
+                  const c = Number((counts as any)?.[key] || 0);
+                  return (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => setSegment(key)}
+                      className={cn(
+                        "px-3 py-2 rounded-2xl text-xs font-bold shrink-0 transition",
+                        active
+                          ? "text-white bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm"
+                          : "border border-gray-200 bg-white text-gray-700 hover:border-orange-200"
+                      )}
+                    >
+                      {segmentLabel(key)} {c ? `(${c})` : ""}
+                    </button>
+                  );
+                })}
+            </div>
+          )}
+
+          {/* Abandoned days selector */}
+          {mode === "abandoned" && (
             <div className="mt-3">
+              <label className="text-xs font-semibold text-gray-600 mb-1 block">Lookback period (days)</label>
               <Input
                 type="number"
-                placeholder="Last X days"
+                placeholder="e.g. 30"
                 min={7}
                 max={365}
                 value={String(days)}
                 onChange={(e) => setDays(Number(e.target.value))}
                 disabled={sending}
               />
-              <p className="text-[11px] text-biz-muted mt-2">Show orders that started but weren't paid in the last {days} days.</p>
+              <p className="text-[10px] text-gray-400 mt-1">
+                Orders started but not paid in the last {days} days
+              </p>
             </div>
-          ) : (
-            <div className="mt-3">
-              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                {segmentButtons
-                  .filter((x) => x.show)
-                  .map(({ key }) => {
-                    const active = segment === key;
-                    const c = Number((counts as any)?.[key] || 0);
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => setSegment(key)}
-                        className={
-                          active
-                            ? "px-3 py-2 rounded-2xl text-xs font-extrabold text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shrink-0"
-                            : "px-3 py-2 rounded-2xl text-xs font-extrabold border border-biz-line bg-white shrink-0"
-                        }
-                      >
-                        {segmentLabel(key)} {c ? `(${c})` : ""}
-                      </button>
-                    );
-                  })}
+          )}
+
+          {/* Search */}
+          <div className="mt-3 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Input
+              placeholder="Search by name or phone..."
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              disabled={sending}
+              className="pl-10"
+            />
+            {q && (
+              <button
+                onClick={() => setQ("")}
+                className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300"
+              >
+                <X className="w-3 h-3 text-gray-600" />
+              </button>
+            )}
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="mt-3 flex items-center gap-3 py-4">
+              <div className="h-5 w-5 rounded-full border-2 border-orange-300 border-t-transparent animate-spin" />
+              <span className="text-sm text-gray-500">Loading audience...</span>
+            </div>
+          )}
+
+          {/* Select all / clear */}
+          {!loading && people.length > 0 && (
+            <div className="mt-3 flex items-center justify-between">
+              <p className="text-xs text-gray-500">
+                {people.length} buyer{people.length !== 1 ? "s" : ""} found
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => toggleAll(true)}
+                  disabled={sending}
+                  className="text-xs font-bold text-orange-600 hover:text-orange-700"
+                >
+                  Select all
+                </button>
+                <span className="text-gray-300">|</span>
+                <button
+                  onClick={() => toggleAll(false)}
+                  disabled={sending}
+                  className="text-xs font-bold text-gray-500 hover:text-gray-700"
+                >
+                  Clear
+                </button>
               </div>
             </div>
           )}
 
-          <div className="mt-3 flex items-center gap-2">
-            <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center border border-transparent shrink-0">
-              <Search className="h-5 w-5 text-orange-700" />
+          {/* People list */}
+          {!loading && people.length > 0 && (
+            <div className="mt-2 space-y-1.5 max-h-[320px] overflow-y-auto">
+              {people.map((p) => {
+                const isSelected = !!selected[p.key];
+                const name = String(p.fullName || "").trim() || "Unknown";
+                const phone = String(p.phone || "").trim();
+                const orderCount = Number(p.ordersCount || 0);
+                const totalSpent = Number(p.totalSpent || 0);
+
+                return (
+                  <button
+                    key={p.key}
+                    type="button"
+                    onClick={() => toggle(p.key)}
+                    disabled={sending}
+                    className={cn(
+                      "w-full text-left rounded-2xl border p-3 transition",
+                      isSelected
+                        ? "border-orange-300 bg-orange-50/50 ring-1 ring-orange-100"
+                        : "border-gray-100 bg-white hover:bg-gray-50/50"
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0",
+                        isSelected ? "border-orange-500 bg-orange-500" : "border-gray-300"
+                      )}>
+                        {isSelected && <CheckCircle2 className="w-3.5 h-3.5 text-white" />}
+                      </div>
+
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-gray-900 truncate">{name}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          {phone && <span>{phone}</span>}
+                          {orderCount > 0 && <span> &bull; {orderCount} order{orderCount !== 1 ? "s" : ""}</span>}
+                          {totalSpent > 0 && <span> &bull; {fmtNaira(totalSpent)}</span>}
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
-            <Input placeholder="Search by name or phone…" value={q} onChange={(e) => setQ(e.target.value)} disabled={sending} />
-            <Button variant="secondary" onClick={loadAudience} disabled={loading || sending} leftIcon={<RefreshCw className="h-4 w-4" />}>
-              Refresh
-            </Button>
-          </div>
+          )}
 
-          <div className="mt-3 grid grid-cols-2 gap-2">
-            <Button variant="secondary" onClick={() => toggleAll(true)} disabled={sending || people.length === 0}>
-              Select all
-            </Button>
-            <Button variant="secondary" onClick={() => toggleAll(false)} disabled={sending || people.length === 0}>
-              Clear
-            </Button>
-          </div>
-
-          {noPeople ? (
-            <Card variant="soft" className="p-4 mt-3">
+          {/* Empty states */}
+          {noPeople && !loading && (
+            <Card className="p-5 mt-3 text-center" variant="soft">
               {noMatches ? (
                 <>
-                  <p className="text-sm font-extrabold text-biz-ink">No matches</p>
+                  <p className="text-sm font-bold text-gray-900">No matches</p>
                   <p className="text-xs text-gray-500 mt-1">Try a different search term.</p>
-                  <div className="mt-3">
-                    <Button variant="secondary" onClick={() => setQ("")}>
-                      Clear search
-                    </Button>
-                  </div>
+                  <Button variant="secondary" size="sm" className="mt-3" onClick={() => setQ("")}>
+                    Clear search
+                  </Button>
                 </>
               ) : mode === "buyers" ? (
                 <>
-                  <p className="text-sm font-extrabold text-biz-ink">No buyers yet</p>
-                  <p className="text-xs text-gray-500 mt-1">After your first order, buyers will show here.</p>
-                  <div className="mt-3 grid grid-cols-2 gap-2">
-                    <Button variant="secondary" onClick={() => router.push("/vendor/orders")}>
-                      Orders
+                  <div className="flex justify-center mb-3">
+                    <div className="w-12 h-12 rounded-2xl bg-orange-50 flex items-center justify-center">
+                      <Users className="w-6 h-6 text-orange-500" />
+                    </div>
+                  </div>
+                  <p className="text-sm font-bold text-gray-900">No buyers yet</p>
+                  <p className="text-xs text-gray-500 mt-1.5 max-w-[260px] mx-auto leading-relaxed">
+                    Buyers with paid or completed orders will appear here automatically.
+                    Share your store link to start getting orders.
+                  </p>
+                  <div className="mt-4 flex gap-2 justify-center">
+                    <Button variant="secondary" size="sm" onClick={() => router.push("/vendor/orders")}>
+                      View orders
                     </Button>
-                    <Button variant="secondary" onClick={() => router.push("/vendor/products/new")}>
-                      Add product
+                    <Button size="sm" onClick={() => router.push("/vendor/products")}>
+                      View products
                     </Button>
                   </div>
                 </>
               ) : (
                 <>
-                  <p className="text-sm font-extrabold text-biz-ink">No abandoned orders</p>
-                  <p className="text-xs text-gray-500 mt-1">Nothing to follow up right now.</p>
-                  <div className="mt-3">
-                    <Button variant="secondary" onClick={loadAudience}>
-                      Refresh
-                    </Button>
+                  <div className="flex justify-center mb-3">
+                    <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
+                      <ShoppingCart className="w-6 h-6 text-gray-400" />
+                    </div>
                   </div>
+                  <p className="text-sm font-bold text-gray-900">No abandoned orders</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    No unpaid orders found in the last {days} days.
+                  </p>
                 </>
               )}
             </Card>
-          ) : null}
+          )}
         </SectionCard>
 
+        {/* ═══════════════════ STEP 2: Write Message ═══════════════════ */}
         <SectionCard
-          title="Message"
-          subtitle={smartMessagesOn ? "Personalized per buyer" : "Same message for everyone"}
+          title="Step 2: Write your message"
+          subtitle={smartMessagesOn ? "Personalized per buyer automatically" : "Same message for everyone"}
           right={
             aiRemixUnlocked ? (
               <Button
@@ -537,84 +697,84 @@ export default function VendorReengagementPage() {
                 variant="secondary"
                 onClick={() => requestRemix()}
                 disabled={sending || remixing || capReached}
-                leftIcon={<Sparkles className="h-4 w-4" />}
+                leftIcon={<Sparkles className="h-3.5 w-3.5" />}
               >
-                {capReached ? "Limit reached" : remixing ? "Remixing…" : "Remix"}
+                {capReached ? "Limit" : remixing ? "..." : "Remix"}
               </Button>
             ) : null
           }
         >
-          {capResetAtMs ? (
+          {capResetAtMs > 0 && (
             <p className="text-[11px] text-gray-500 mb-2 flex items-center gap-2">
-              <Clock className="h-4 w-4" /> Remix resets in: <b className="text-biz-ink">{fmtCountdown(countdownMs)}</b>
+              <Clock className="h-3.5 w-3.5" /> Remix resets in: <b>{fmtCountdown(countdownMs)}</b>
             </p>
-          ) : null}
+          )}
 
           <textarea
-            className="w-full rounded-2xl border border-biz-line bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30 focus:border-biz-accent/40 disabled:opacity-50"
-            placeholder="Write your message here…"
+            className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 disabled:opacity-50 resize-none"
+            placeholder="Write your message here..."
             value={baseText}
             onChange={(e) => setBaseText(e.target.value)}
-            rows={7}
+            rows={5}
             disabled={sending}
           />
 
-          {selectedPreview ? (
-            <div className="mt-3 rounded-2xl border border-biz-line bg-white p-3">
-              <p className="text-xs font-bold text-biz-ink">Preview (first selected buyer)</p>
-              <pre className="mt-2 whitespace-pre-wrap text-[12px] text-gray-800">{selectedPreview.text}</pre>
-              <div className="mt-2">
+          {/* Preview */}
+          {selectedPreview && (
+            <div className="mt-3 rounded-2xl border border-gray-100 bg-gray-50 p-3">
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-gray-600">Preview for: {selectedPreview.p.fullName || "Buyer"}</p>
                 <Button
                   size="sm"
                   variant="secondary"
                   onClick={() => copyForPerson(selectedPreview.p)}
-                  leftIcon={<Copy className="h-4 w-4" />}
+                  leftIcon={<Copy className="h-3.5 w-3.5" />}
                   disabled={sending}
                 >
                   Copy
                 </Button>
               </div>
+              <pre className="whitespace-pre-wrap text-xs text-gray-700 leading-relaxed">{selectedPreview.text}</pre>
             </div>
-          ) : null}
+          )}
 
-          <div className="mt-2 rounded-2xl border border-biz-line bg-white p-3">
-            <div className="flex items-start gap-2">
-              <div className="h-10 w-10 rounded-2xl bg-biz-cream flex items-center justify-center shrink-0">
-                <AlertTriangle className="h-5 w-5 text-orange-700" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-biz-ink">Safety policy</p>
-                <p className="text-[11px] text-gray-500 mt-1">Bullying, harassment, or offensive content is blocked and may result in account suspension.</p>
-              </div>
-            </div>
+          {/* Safety notice — compact */}
+          <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-800 leading-relaxed">
+              Harassment or offensive content will result in account suspension.
+            </p>
           </div>
         </SectionCard>
 
-        <div className="fixed bottom-0 left-0 right-0 z-40">
-          <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
-            <Card className="p-4 space-y-2">
-              <Button
-                onClick={startSend}
-                disabled={!reengagementUnlocked || sending || !baseText.trim() || selectedPeople.length === 0}
-                leftIcon={<MessageCircle className="h-4 w-4" />}
-              >
-                {sending ? "Sending…" : `Send to ${selectedPeople.length} buyer${selectedPeople.length !== 1 ? "s" : ""}`}
-              </Button>
+        {/* ═══════════════════ STEP 3: Send ═══════════════════ */}
+        {/* This is handled by the fixed bottom bar */}
+      </div>
 
-              <Button variant="secondary" onClick={() => router.back()} disabled={sending}>
-                Back
-              </Button>
+      {/* ═══════════════════ Fixed Bottom Send Bar ═══════════════════ */}
+      <div className="fixed bottom-0 left-0 right-0 z-40">
+        <div className="mx-auto w-full max-w-[430px] px-4 pb-4" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+          <Card className="p-4 shadow-lg border-gray-200">
+            <Button
+              onClick={startSend}
+              disabled={!reengagementUnlocked || sending || !baseText.trim() || selectedPeople.length === 0}
+              loading={sending}
+              leftIcon={<MessageCircle className="h-4 w-4" />}
+            >
+              {sending
+                ? "Sending..."
+                : selectedPeople.length === 0
+                ? "Select buyers to send"
+                : `Send to ${selectedPeople.length} buyer${selectedPeople.length !== 1 ? "s" : ""}`}
+            </Button>
 
-              {limits?.reengagementDaily ? (
-                <p className="text-[11px] text-gray-500 text-center">
-                  Daily limit: <b className="text-biz-ink">{limits.reengagementDaily}</b> • Selected: <b className="text-biz-ink">{selectedPeople.length}</b>
-                </p>
-              ) : null}
-            </Card>
-          </div>
+            {limits?.reengagementDaily ? (
+              <p className="text-[10px] text-gray-400 text-center mt-2">
+                Daily limit: <b>{limits.reengagementDaily}</b> &bull; Selected: <b>{selectedPeople.length}</b>
+              </p>
+            ) : null}
+          </Card>
         </div>
-
-        <div className="h-28" />
       </div>
     </div>
   );
