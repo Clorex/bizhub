@@ -1,7 +1,7 @@
 // FILE: src/app/vendor/orders/page.tsx
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { Suspense, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
@@ -181,9 +181,28 @@ function getStatusInfo(status: string): {
   return configs[s] || configs.new;
 }
 
-/* ───────────────────────── Main Component ───────────────────────── */
-
+/**
+ * ✅ Build/Deploy fix:
+ * Pages using useSearchParams() must be wrapped in Suspense to avoid prerender/export errors.
+ */
 export default function VendorOrdersPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-gray-50">
+          <GradientHeader title="Orders" subtitle="Loading..." showBack={false} />
+          <ListSkeleton count={5} />
+        </div>
+      }
+    >
+      <VendorOrdersPageInner />
+    </Suspense>
+  );
+}
+
+/* ───────────────────────── Main Component (Inner) ───────────────────────── */
+
+function VendorOrdersPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialFilter = (searchParams.get("filter") as FilterTab) || "all";
@@ -337,25 +356,16 @@ export default function VendorOrdersPage() {
   const computedStats: OrderStats = useMemo(() => {
     const total = orders.length;
 
-    const newOrders = orders.filter((o) => {
-      const s = String(o.opsStatusEffective || o.opsStatus || "").toLowerCase();
-      return s === "new";
-    }).length;
+    const newOrders = orders.filter((o) => String(o.opsStatusEffective || o.opsStatus || "").toLowerCase() === "new").length;
 
     const active = orders.filter((o) => {
       const s = String(o.opsStatusEffective || o.opsStatus || "").toLowerCase();
       return !["delivered", "cancelled", "new"].includes(s);
     }).length;
 
-    const completed = orders.filter((o) => {
-      const s = String(o.opsStatusEffective || o.opsStatus || "").toLowerCase();
-      return s === "delivered";
-    }).length;
+    const completed = orders.filter((o) => String(o.opsStatusEffective || o.opsStatus || "").toLowerCase() === "delivered").length;
 
-    const disputed = orders.filter((o) => {
-      const s = String(o.escrowStatus || "").toLowerCase();
-      return s === "disputed";
-    }).length;
+    const disputed = orders.filter((o) => String(o.escrowStatus || "").toLowerCase() === "disputed").length;
 
     const todayOrders = orders.filter((o) => isToday(getOrderCreatedAtValue(o))).length;
 
@@ -434,10 +444,7 @@ export default function VendorOrdersPage() {
       grouped[label].push(order);
     });
 
-    Object.entries(grouped).forEach(([label, orders]) => {
-      groups.push({ label, orders });
-    });
-
+    Object.entries(grouped).forEach(([label, orders]) => groups.push({ label, orders }));
     return groups;
   }, [filteredOrders]);
 
@@ -466,11 +473,7 @@ export default function VendorOrdersPage() {
               className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
               aria-label="Export"
             >
-              {exporting ? (
-                <Loader2 className="w-5 h-5 text-white animate-spin" />
-              ) : (
-                <Download className="w-5 h-5 text-white" />
-              )}
+              {exporting ? <Loader2 className="w-5 h-5 text-white animate-spin" /> : <Download className="w-5 h-5 text-white" />}
             </button>
             <button
               onClick={() => load(true)}
@@ -526,9 +529,7 @@ export default function VendorOrdersPage() {
               {stats.todayOrders > 0 && (
                 <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-white/20">
                   <TrendingUp className="w-4 h-4" />
-                  <span className="text-sm">
-                    Avg. order: {fmtNaira(stats.todayRevenue / stats.todayOrders)}
-                  </span>
+                  <span className="text-sm">Avg. order: {fmtNaira(stats.todayRevenue / stats.todayOrders)}</span>
                 </div>
               )}
             </div>
@@ -537,36 +538,10 @@ export default function VendorOrdersPage() {
 
         {orders.length > 0 && (
           <div className="grid grid-cols-4 gap-2">
-            <QuickStatButton
-              label="New"
-              value={stats.new}
-              active={filter === "new"}
-              onClick={() => setFilter(filter === "new" ? "all" : "new")}
-              color="orange"
-              hasNotification={stats.new > 0}
-            />
-            <QuickStatButton
-              label="Active"
-              value={stats.active}
-              active={filter === "active"}
-              onClick={() => setFilter(filter === "active" ? "all" : "active")}
-              color="blue"
-            />
-            <QuickStatButton
-              label="Done"
-              value={stats.completed}
-              active={filter === "completed"}
-              onClick={() => setFilter(filter === "completed" ? "all" : "completed")}
-              color="green"
-            />
-            <QuickStatButton
-              label="Disputed"
-              value={stats.disputed}
-              active={filter === "disputed"}
-              onClick={() => setFilter(filter === "disputed" ? "all" : "disputed")}
-              color="red"
-              hasNotification={stats.disputed > 0}
-            />
+            <QuickStatButton label="New" value={stats.new} active={filter === "new"} onClick={() => setFilter(filter === "new" ? "all" : "new")} color="orange" hasNotification={stats.new > 0} />
+            <QuickStatButton label="Active" value={stats.active} active={filter === "active"} onClick={() => setFilter(filter === "active" ? "all" : "active")} color="blue" />
+            <QuickStatButton label="Done" value={stats.completed} active={filter === "completed"} onClick={() => setFilter(filter === "completed" ? "all" : "completed")} color="green" />
+            <QuickStatButton label="Disputed" value={stats.disputed} active={filter === "disputed"} onClick={() => setFilter(filter === "disputed" ? "all" : "disputed")} color="red" hasNotification={stats.disputed > 0} />
           </div>
         )}
 
@@ -574,17 +549,9 @@ export default function VendorOrdersPage() {
           <div className="flex items-center gap-3">
             <div className="flex-1 relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <Input
-                placeholder="Search orders, customers..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
+              <Input placeholder="Search orders, customers..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="pl-10" />
               {searchQuery && (
-                <button
-                  onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300"
-                >
+                <button onClick={() => setSearchQuery("")} className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300" aria-label="Clear search">
                   <X className="w-3 h-3 text-gray-600" />
                 </button>
               )}
@@ -612,13 +579,7 @@ export default function VendorOrdersPage() {
                   <X className="w-3 h-3" />
                 </button>
               )}
-              <button
-                onClick={() => {
-                  setFilter("all");
-                  setSearchQuery("");
-                }}
-                className="text-xs font-medium text-gray-500 hover:text-gray-700 underline"
-              >
+              <button onClick={() => { setFilter("all"); setSearchQuery(""); }} className="text-xs font-medium text-gray-500 hover:text-gray-700 underline">
                 Clear all
               </button>
             </div>
@@ -632,8 +593,7 @@ export default function VendorOrdersPage() {
             </div>
             <p className="text-xl font-bold text-gray-900">No orders yet</p>
             <p className="text-sm text-gray-500 mt-2 max-w-xs mx-auto">
-              Once customers start ordering, their orders will appear here.
-              Share your store link to get started!
+              Once customers start ordering, their orders will appear here. Share your store link to get started!
             </p>
             <div className="mt-6 flex justify-center gap-3">
               <Button onClick={copyStoreLink} disabled={!storeUrl} leftIcon={<Link2 className="w-4 h-4" />}>
@@ -652,14 +612,7 @@ export default function VendorOrdersPage() {
             title="No matching orders"
             description="Try adjusting your filters or search term"
             actions={[
-              {
-                label: "Clear Filters",
-                onClick: () => {
-                  setFilter("all");
-                  setSearchQuery("");
-                },
-                variant: "primary",
-              },
+              { label: "Clear Filters", onClick: () => { setFilter("all"); setSearchQuery(""); }, variant: "primary" },
             ]}
           />
         )}
@@ -674,11 +627,7 @@ export default function VendorOrdersPage() {
 
             <div className="space-y-2">
               {group.orders.map((order) => (
-                <OrderCard
-                  key={order.id}
-                  order={order}
-                  onClick={() => router.push(`/vendor/orders/${order.id}`)}
-                />
+                <OrderCard key={order.id} order={order} onClick={() => router.push(`/vendor/orders/${order.id}`)} />
               ))}
             </div>
           </div>
@@ -756,13 +705,8 @@ function QuickStatButton({
   };
 
   return (
-    <button
-      onClick={onClick}
-      className={cn("relative rounded-2xl border p-3 text-center transition-all", colorStyles[color])}
-    >
-      {hasNotification && !active && (
-        <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border-2 border-white" />
-      )}
+    <button onClick={onClick} className={cn("relative rounded-2xl border p-3 text-center transition-all", colorStyles[color])}>
+      {hasNotification && !active && <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border-2 border-white" />}
       <p className="text-xl font-black">{value}</p>
       <p className="text-[10px] font-bold uppercase tracking-wide mt-0.5 opacity-80">{label}</p>
     </button>
@@ -800,8 +744,8 @@ function OrderCard({ order, onClick }: { order: any; onClick: () => void }) {
         isNew
           ? "border-orange-200 hover:border-orange-300 hover:shadow-md ring-1 ring-orange-100"
           : isDisputed
-            ? "border-red-200 hover:border-red-300"
-            : "border-gray-100 hover:border-orange-200 hover:shadow-sm"
+          ? "border-red-200 hover:border-red-300"
+          : "border-gray-100 hover:border-orange-200 hover:shadow-sm"
       )}
     >
       <div className="flex items-start gap-4">
@@ -809,21 +753,14 @@ function OrderCard({ order, onClick }: { order: any; onClick: () => void }) {
           <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
             <span className="text-lg font-bold text-white">{customerInitial}</span>
           </div>
-          <div
-            className={cn(
-              "absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white",
-              statusInfo.dotColor
-            )}
-          />
+          <div className={cn("absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full border-2 border-white", statusInfo.dotColor)} />
         </div>
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div>
               <p className="text-sm font-bold text-gray-900">{customerName}</p>
-              <p className="text-xs text-gray-500 mt-0.5">
-                #{String(order.id).slice(0, 8).toUpperCase()}
-              </p>
+              <p className="text-xs text-gray-500 mt-0.5">#{String(order.id).slice(0, 8).toUpperCase()}</p>
             </div>
             <div className="text-right shrink-0">
               <p className="text-sm font-bold text-gray-900">{fmtNaira(amount)}</p>
@@ -836,13 +773,7 @@ function OrderCard({ order, onClick }: { order: any; onClick: () => void }) {
           </p>
 
           <div className="flex items-center gap-2 mt-3 flex-wrap">
-            <span
-              className={cn(
-                "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold",
-                statusInfo.bg,
-                statusInfo.text
-              )}
-            >
+            <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold", statusInfo.bg, statusInfo.text)}>
               <StatusIcon className="w-3 h-3" />
               {statusInfo.label}
             </span>

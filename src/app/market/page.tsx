@@ -1,31 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback } from "react";
+import { Suspense, useEffect, useMemo, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import {
-  ShoppingCart,
-  SlidersHorizontal,
-  ArrowUpDown,
-  X,
-  ArrowUp,
-  Sparkles,
-} from "lucide-react";
+import { ShoppingCart, SlidersHorizontal, ArrowUpDown, X, ArrowUp, Sparkles } from "lucide-react";
 
 import { useCart } from "@/lib/cart/CartContext";
 import { useMarketSearch } from "@/hooks/useMarketSearch";
 import { buildFashionFacets } from "@/lib/market/filters/facets";
 import { saleIsActive, computeSalePriceNgn } from "@/lib/market/sale";
-import {
-  DEFAULT_MARKET_FILTERS,
-  type MarketFilterState,
-  type MarketSortKey,
-} from "@/lib/market/filters/types";
-import {
-  MARKET_CATEGORIES,
-  type MarketCategoryKey,
-} from "@/lib/search/marketTaxonomy";
+import { DEFAULT_MARKET_FILTERS, type MarketFilterState, type MarketSortKey } from "@/lib/market/filters/types";
+import { MARKET_CATEGORIES, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
 import { toast } from "@/lib/ui/toast";
 import { formatMoneyNGN } from "@/lib/money";
 
@@ -34,10 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionCard } from "@/components/ui/SectionCard";
-import {
-  ProductGridSkeleton,
-  StoreCardSkeleton,
-} from "@/components/ui/Skeleton";
+import { ProductGridSkeleton, StoreCardSkeleton } from "@/components/ui/Skeleton";
 
 import { ProductCard } from "@/components/market/ProductCard";
 import { StoreCard } from "@/components/market/StoreCard";
@@ -47,24 +30,12 @@ import { SearchBar } from "@/components/market/SearchBar";
 import { MarketFilterSheet } from "@/components/market/MarketFilterSheet";
 import { MarketSortSheet } from "@/components/market/MarketSortSheet";
 
-const POPULAR_SEARCHES = [
-  "iPhone",
-  "Sneakers",
-  "Wigs",
-  "Bags",
-  "Perfume",
-  "Ankara",
-];
-
+const POPULAR_SEARCHES = ["iPhone", "Sneakers", "Wigs", "Bags", "Perfume", "Ankara"];
 const ITEMS_PER_PAGE = 20;
 
-/* ———————— URL param helpers (B5-3) ———————— */
+/* ————— URL param helpers (B5-3) ————— */
 
-function filtersToParams(
-  filters: MarketFilterState,
-  sortKey: MarketSortKey,
-  q: string
-): URLSearchParams {
+function filtersToParams(filters: MarketFilterState, sortKey: MarketSortKey, q: string): URLSearchParams {
   const p = new URLSearchParams();
   if (q) p.set("q", q);
   if (filters.category) p.set("cat", filters.category);
@@ -78,48 +49,58 @@ function filtersToParams(
   return p;
 }
 
-function paramsToFilters(sp: URLSearchParams): {
-  filters: MarketFilterState;
-  sortKey: MarketSortKey;
-  q: string;
-} {
+function paramsToFilters(sp: URLSearchParams): { filters: MarketFilterState; sortKey: MarketSortKey; q: string } {
   const filters: MarketFilterState = {
     ...DEFAULT_MARKET_FILTERS,
     category: (sp.get("cat") as MarketCategoryKey) || null,
-    location: {
-      state: sp.get("state") || null,
-      city: sp.get("city") || null,
-    },
+    location: { state: sp.get("state") || null, city: sp.get("city") || null },
     price: {
       min: sp.has("pmin") ? Number(sp.get("pmin")) : null,
       max: sp.has("pmax") ? Number(sp.get("pmax")) : null,
       quick: null,
     },
-    status: {
-      ...DEFAULT_MARKET_FILTERS.status,
-      onSale: sp.get("sale") === "1",
-    },
-    trust: {
-      ...DEFAULT_MARKET_FILTERS.trust,
-      trustedBadgeOnly: sp.get("trusted") === "1",
-    },
+    status: { ...DEFAULT_MARKET_FILTERS.status, onSale: sp.get("sale") === "1" },
+    trust: { ...DEFAULT_MARKET_FILTERS.trust, trustedBadgeOnly: sp.get("trusted") === "1" },
   };
+
   const sortKey = (sp.get("sort") as MarketSortKey) || "recommended";
   const q = sp.get("q") || "";
   return { filters, sortKey, q };
 }
 
+/**
+ * IMPORTANT (build fix):
+ * Wrap the component using useSearchParams() in Suspense to avoid prerender/export errors.
+ */
 export default function MarketPage() {
+  return (
+    <Suspense fallback={<MarketPageFallback />}>
+      <MarketPageInner />
+    </Suspense>
+  );
+}
+
+function MarketPageFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 px-4 pt-4 pb-24">
+      <div className="h-10 w-40 bg-gray-200 rounded-xl mb-4" />
+      <Card className="p-4">
+        <p className="text-sm text-gray-600">Loading market…</p>
+      </Card>
+      <div className="mt-4">
+        <ProductGridSkeleton count={6} />
+      </div>
+    </div>
+  );
+}
+
+function MarketPageInner() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { addToCart, cart } = useCart();
 
-  // B5-3: Initialize state from URL params
-  const initial = useMemo(
-    () => paramsToFilters(searchParams),
-    [] // only on mount
-  );
+  const initial = useMemo(() => paramsToFilters(searchParams), []); // only on mount
 
   const [filters, setFilters] = useState<MarketFilterState>(initial.filters);
   const [sortKey, setSortKey] = useState<MarketSortKey>(initial.sortKey);
@@ -138,7 +119,6 @@ export default function MarketPage() {
     searchQuery,
     productsPool,
     matchScores,
-    matchLoading,
     smartMatchEnabled,
     runSearch,
     loadTrending,
@@ -149,44 +129,26 @@ export default function MarketPage() {
     trackProductClick,
   } = useMarketSearch({ filters, sortKey });
 
-  const items = useMemo(
-    () => getFilteredProducts(),
-    [getFilteredProducts]
-  );
+  const items = useMemo(() => getFilteredProducts(), [getFilteredProducts]);
   const deals = useMemo(() => getFilteredDeals(), [getFilteredDeals]);
-  const stores = useMemo(
-    () => getFilteredStores(),
-    [getFilteredStores]
-  );
-  const fashionFacets = useMemo(
-    () => buildFashionFacets(productsPool),
-    [productsPool]
-  );
+  const stores = useMemo(() => getFilteredStores(), [getFilteredStores]);
+  const fashionFacets = useMemo(() => buildFashionFacets(productsPool), [productsPool]);
 
-  const displayedItems = useMemo(
-    () => items.slice(0, displayCount),
-    [items, displayCount]
-  );
+  const displayedItems = useMemo(() => items.slice(0, displayCount), [items, displayCount]);
   const hasMore = displayCount < items.length;
 
   const itemCount = useMemo(() => {
     const list = Array.isArray(cart?.items) ? cart.items : [];
-    return list.reduce(
-      (s: number, it: any) => s + Math.max(0, Number(it?.qty || 0)),
-      0
-    );
+    return list.reduce((s: number, it: any) => s + Math.max(0, Number(it?.qty || 0)), 0);
   }, [cart]);
 
-  // B5-3: Sync filters → URL (shallow, no navigation)
+  // Sync filters → URL (shallow)
   useEffect(() => {
     const params = filtersToParams(filters, sortKey, searchText);
     const qs = params.toString();
     const target = qs ? `${pathname}?${qs}` : pathname;
-    // Only update if different (avoid loops)
     const current = searchParams.toString();
-    if (qs !== current) {
-      router.replace(target, { scroll: false });
-    }
+    if (qs !== current) router.replace(target, { scroll: false });
   }, [filters, sortKey, searchText, pathname, router, searchParams]);
 
   useEffect(() => {
@@ -194,9 +156,7 @@ export default function MarketPage() {
   }, [displayedItems, trackImpressions]);
 
   useEffect(() => {
-    const handleScroll = () => {
-      setShowBackToTop(window.scrollY > 800);
-    };
+    const handleScroll = () => setShowBackToTop(window.scrollY > 800);
     window.addEventListener("scroll", handleScroll, { passive: true });
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -205,25 +165,16 @@ export default function MarketPage() {
     setDisplayCount(ITEMS_PER_PAGE);
   }, [filters, sortKey, searchQuery]);
 
-  // B5-3: Run initial search from URL params on mount
   useEffect(() => {
-    if (initial.q) {
-      runSearch(initial.q);
-    }
+    if (initial.q) runSearch(initial.q);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleSearch = useCallback(() => {
-    runSearch(searchText);
-  }, [runSearch, searchText]);
+  const handleSearch = useCallback(() => runSearch(searchText), [runSearch, searchText]);
 
   const handleCategorySelect = useCallback(
     (category: MarketCategoryKey | null) => {
-      setFilters((s) => ({
-        ...s,
-        category,
-        categorySpecific: { color: null, size: null },
-      }));
+      setFilters((s) => ({ ...s, category, categorySpecific: { color: null, size: null } }));
       if (category) {
         runSearch("");
         setSearchText("");
@@ -244,9 +195,7 @@ export default function MarketPage() {
 
   const handleAddToCart = useCallback(
     (product: any) => {
-      const price = saleIsActive(product)
-        ? computeSalePriceNgn(product)
-        : product.price;
+      const price = saleIsActive(product) ? computeSalePriceNgn(product) : product.price;
       addToCart(product.businessSlug, {
         productId: product.id,
         name: product.name,
@@ -254,19 +203,14 @@ export default function MarketPage() {
         imageUrl: Array.isArray(product?.images) ? product.images[0] : "",
         selectedOptions: undefined,
       });
-      // B5-2: Toast confirmation on every add
       toast.success(`${String(product?.name || "Item").slice(0, 30)} added to cart`);
     },
     [addToCart]
   );
 
-  const handleLoadMore = () => {
-    setDisplayCount((prev) => prev + ITEMS_PER_PAGE);
-  };
+  const handleLoadMore = () => setDisplayCount((prev) => prev + ITEMS_PER_PAGE);
 
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  };
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
 
   const clearAllFilters = () => {
     setFilters(DEFAULT_MARKET_FILTERS);
@@ -275,27 +219,15 @@ export default function MarketPage() {
     loadTrending();
   };
 
-  // B5-3: Active filter chips
   const filterChips = useMemo(() => {
-    const chips: {
-      key: string;
-      label: string;
-      onRemove: () => void;
-    }[] = [];
+    const chips: { key: string; label: string; onRemove: () => void }[] = [];
 
     if (filters.category) {
-      const lbl =
-        MARKET_CATEGORIES.find((c) => c.key === filters.category)
-          ?.label || filters.category;
+      const lbl = MARKET_CATEGORIES.find((c) => c.key === filters.category)?.label || filters.category;
       chips.push({
         key: "cat",
         label: lbl,
-        onRemove: () =>
-          setFilters((s) => ({
-            ...s,
-            category: null,
-            categorySpecific: { color: null, size: null },
-          })),
+        onRemove: () => setFilters((s) => ({ ...s, category: null, categorySpecific: { color: null, size: null } })),
       });
     }
 
@@ -303,32 +235,17 @@ export default function MarketPage() {
       chips.push({
         key: "state",
         label: filters.location.state,
-        onRemove: () =>
-          setFilters((s) => ({
-            ...s,
-            location: { state: null, city: null },
-          })),
+        onRemove: () => setFilters((s) => ({ ...s, location: { state: null, city: null } })),
       });
     }
 
     if (filters.price.min != null || filters.price.max != null) {
-      const min =
-        filters.price.min != null
-          ? formatMoneyNGN(filters.price.min)
-          : formatMoneyNGN(0);
-      const max =
-        filters.price.max != null
-          ? formatMoneyNGN(filters.price.max)
-          : "Any";
-
+      const min = filters.price.min != null ? formatMoneyNGN(filters.price.min) : formatMoneyNGN(0);
+      const max = filters.price.max != null ? formatMoneyNGN(filters.price.max) : "Any";
       chips.push({
         key: "price",
-        label: `${min} \u2013 ${max}`,
-        onRemove: () =>
-          setFilters((s) => ({
-            ...s,
-            price: { min: null, max: null, quick: null },
-          })),
+        label: `${min} – ${max}`,
+        onRemove: () => setFilters((s) => ({ ...s, price: { min: null, max: null, quick: null } })),
       });
     }
 
@@ -336,11 +253,7 @@ export default function MarketPage() {
       chips.push({
         key: "sale",
         label: "On Sale",
-        onRemove: () =>
-          setFilters((s) => ({
-            ...s,
-            status: { ...s.status, onSale: false },
-          })),
+        onRemove: () => setFilters((s) => ({ ...s, status: { ...s.status, onSale: false } })),
       });
     }
 
@@ -348,19 +261,15 @@ export default function MarketPage() {
       chips.push({
         key: "trusted",
         label: "Trusted Only",
-        onRemove: () =>
-          setFilters((s) => ({
-            ...s,
-            trust: { ...s.trust, trustedBadgeOnly: false },
-          })),
+        onRemove: () => setFilters((s) => ({ ...s, trust: { ...s.trust, trustedBadgeOnly: false } })),
       });
     }
 
     if (sortKey !== "recommended") {
       const sortLabels: Record<string, string> = {
         best_match: "Best Match",
-        price_low: "Price: Low\u2192High",
-        price_high: "Price: High\u2192Low",
+        price_low: "Price: Low→High",
+        price_high: "Price: High→Low",
         newest: "Newest",
         popular: "Popular",
       };
@@ -383,18 +292,8 @@ export default function MarketPage() {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <div
-                className="relative h-8"
-                style={{ width: "min(140px, 40vw)" }}
-              >
-                <Image
-                  src="/brand/logo-transparent.png"
-                  alt="myBizHub"
-                  fill
-                  priority
-                  className="object-contain object-left"
-                  sizes="140px"
-                />
+              <div className="relative h-8" style={{ width: "min(140px, 40vw)" }}>
+                <Image src="/brand/logo-transparent.png" alt="myBizHub" fill priority className="object-contain object-left" sizes="140px" />
               </div>
             </div>
             <Link
@@ -415,15 +314,8 @@ export default function MarketPage() {
 
       {/* Search Section */}
       <div className="bg-gradient-to-b from-orange-50 to-gray-50 px-4 py-4">
-        <SearchBar
-          value={searchText}
-          onChange={setSearchText}
-          onSearch={handleSearch}
-          loading={loading}
-          suggestions={POPULAR_SEARCHES}
-        />
+        <SearchBar value={searchText} onChange={setSearchText} onSearch={handleSearch} loading={loading} suggestions={POPULAR_SEARCHES} />
 
-        {/* Quick filters */}
         <div className="mt-3 flex items-center gap-2">
           <button
             onClick={() => setFilterOpen(true)}
@@ -437,6 +329,7 @@ export default function MarketPage() {
               </span>
             )}
           </button>
+
           <button
             onClick={() => setSortOpen(true)}
             className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:border-orange-200 transition"
@@ -461,12 +354,11 @@ export default function MarketPage() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-orange-300 bg-gradient-to-br from-orange-50 to-white text-xs font-bold text-orange-700 shadow-sm"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Best Match {"\u2714"}
+              Best Match ✓
             </button>
           ) : null}
         </div>
 
-        {/* B5-3: Active filter chips — always visible when filters applied */}
         {filterChips.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {filterChips.map((chip) => (
@@ -475,85 +367,52 @@ export default function MarketPage() {
                 <X className="w-3 h-3 ml-1" />
               </Chip>
             ))}
-            <button
-              onClick={clearAllFilters}
-              className="text-xs font-semibold text-orange-600 hover:text-orange-700 px-2"
-            >
+            <button onClick={clearAllFilters} className="text-xs font-semibold text-orange-600 hover:text-orange-700 px-2">
               Clear all
             </button>
           </div>
         )}
 
-        {/* Search status */}
         {searchQuery && (
           <p className="mt-3 text-sm text-gray-600">
-            Searching for{" "}
-            <span className="font-bold text-gray-900">
-              &ldquo;{searchQuery}&rdquo;
-            </span>
+            Searching for <span className="font-bold text-gray-900">“{searchQuery}”</span>
             {items.length > 0 && (
               <span className="text-gray-500">
                 {" "}
-                \u2022 {items.length} result
-                {items.length !== 1 ? "s" : ""}
+                • {items.length} result{items.length !== 1 ? "s" : ""}
               </span>
             )}
           </p>
         )}
       </div>
 
-      {/* Main Content */}
       <div className="px-4 pb-24 space-y-4 pt-4">
         {error && (
           <Card className="p-4 bg-red-50 border-red-100">
             <p className="text-red-700 font-medium text-sm">{error}</p>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={loadTrending}
-              className="mt-2"
-            >
+            <Button variant="secondary" size="sm" onClick={loadTrending} className="mt-2">
               Try again
             </Button>
           </Card>
         )}
 
-        <DealsCarousel
-          deals={deals}
-          loading={dealsLoading}
-          onProductClick={handleProductClick}
-          onAddToCart={handleAddToCart}
-        />
+        <DealsCarousel deals={deals} loading={dealsLoading} onProductClick={handleProductClick} onAddToCart={handleAddToCart} />
 
         {!searchQuery && (
-          <SectionCard
-            title="Categories"
-            subtitle="Browse by what you\u2019re looking for"
-            right={
-              <Sparkles className="w-5 h-5 text-orange-500" />
-            }
-          >
-            <CategoryGrid
-              selectedCategory={filters.category}
-              onSelectCategory={handleCategorySelect}
-            />
+          <SectionCard title="Categories" subtitle="Browse by what you’re looking for" right={<Sparkles className="w-5 h-5 text-orange-500" />}>
+            <CategoryGrid selectedCategory={filters.category} onSelectCategory={handleCategorySelect} />
           </SectionCard>
         )}
 
         {searchQuery && (
-          <SectionCard
-            title="Stores"
-            subtitle="Vendors matching your search"
-          >
+          <SectionCard title="Stores" subtitle="Vendors matching your search">
             {storesLoading ? (
               <div className="space-y-2">
                 <StoreCardSkeleton />
                 <StoreCardSkeleton />
               </div>
             ) : stores.length === 0 ? (
-              <p className="text-sm text-gray-500 py-4 text-center">
-                No stores found for this search
-              </p>
+              <p className="text-sm text-gray-500 py-4 text-center">No stores found for this search</p>
             ) : (
               <div className="space-y-2">
                 {stores.map((store) => (
@@ -564,7 +423,6 @@ export default function MarketPage() {
           </SectionCard>
         )}
 
-        {/* Products Grid */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -574,18 +432,12 @@ export default function MarketPage() {
                   : searchQuery
                     ? "Products"
                     : filters.category
-                      ? MARKET_CATEGORIES.find(
-                          (c) => c.key === filters.category
-                        )?.label || "Products"
+                      ? MARKET_CATEGORIES.find((c) => c.key === filters.category)?.label || "Products"
                       : "Trending"}
               </h2>
               {!loading && items.length > 0 && (
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {items.length} product
-                  {items.length !== 1 ? "s" : ""} found
-                  {sortKey === "best_match" && matchScores
-                    ? " \u00B7 Ranked by match score"
-                    : ""}
+                  {items.length} product{items.length !== 1 ? "s" : ""} found
                 </p>
               )}
             </div>
@@ -596,17 +448,9 @@ export default function MarketPage() {
           ) : items.length === 0 ? (
             <EmptyState
               title="No products found"
-              description={
-                hasActiveFilters
-                  ? "Try adjusting your filters or search terms"
-                  : "Check back later for new products"
-              }
-              ctaLabel={
-                hasActiveFilters ? "Clear filters" : undefined
-              }
-              onCta={
-                hasActiveFilters ? clearAllFilters : undefined
-              }
+              description={hasActiveFilters ? "Try adjusting your filters or search terms" : "Check back later for new products"}
+              ctaLabel={hasActiveFilters ? "Clear filters" : undefined}
+              onCta={hasActiveFilters ? clearAllFilters : undefined}
             />
           ) : (
             <>
@@ -617,23 +461,15 @@ export default function MarketPage() {
                     product={product}
                     onClick={() => handleProductClick(product)}
                     onAddToCart={() => handleAddToCart(product)}
-                    matchResult={
-                      matchScores?.[String(product?.id || "")] ||
-                      null
-                    }
+                    matchResult={matchScores?.[String(product?.id || "")] || null}
                   />
                 ))}
               </div>
 
               {hasMore && (
                 <div className="mt-6 text-center">
-                  <Button
-                    variant="secondary"
-                    onClick={handleLoadMore}
-                    className="px-8"
-                  >
-                    Load more ({items.length - displayCount}{" "}
-                    remaining)
+                  <Button variant="secondary" onClick={handleLoadMore} className="px-8">
+                    Load more ({items.length - displayCount} remaining)
                   </Button>
                 </div>
               )}
@@ -642,7 +478,6 @@ export default function MarketPage() {
         </div>
       </div>
 
-      {/* B5-1: Only ONE floating action — back-to-top (no help FAB, no push FAB) */}
       {showBackToTop && (
         <button
           onClick={scrollToTop}
@@ -653,7 +488,6 @@ export default function MarketPage() {
         </button>
       )}
 
-      {/* Filter and Sort Sheets */}
       <MarketFilterSheet
         open={filterOpen}
         onClose={() => setFilterOpen(false)}
@@ -666,12 +500,7 @@ export default function MarketPage() {
         fashionFacets={fashionFacets}
       />
 
-      <MarketSortSheet
-        open={sortOpen}
-        onClose={() => setSortOpen(false)}
-        value={sortKey}
-        onChange={(v) => setSortKey(v)}
-      />
+      <MarketSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={sortKey} onChange={(v) => setSortKey(v)} />
     </div>
   );
 }
