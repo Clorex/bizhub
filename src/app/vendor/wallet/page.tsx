@@ -6,15 +6,7 @@ import { Card } from "@/components/Card";
 import { auth } from "@/lib/firebase/client";
 import { Button } from "@/components/ui/Button";
 import { useRouter } from "next/navigation";
-
-function fmtNairaFromKobo(kobo: number) {
-  const n = Number(kobo || 0) / 100;
-  try {
-    return `₦${n.toLocaleString()}`;
-  } catch {
-    return `₦${n}`;
-  }
-}
+import { formatMoneyNGNFromKobo } from "@/lib/money";
 
 export default function VendorBalancePage() {
   const router = useRouter();
@@ -33,7 +25,9 @@ export default function VendorBalancePage() {
         const token = await auth.currentUser?.getIdToken();
         if (!token) throw new Error("Not logged in");
 
-        const r = await fetch("/api/vendor/wallet", { headers: { Authorization: `Bearer ${token}` } });
+        const r = await fetch("/api/vendor/wallet", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data?.error || "Failed to load balance");
 
@@ -72,7 +66,9 @@ export default function VendorBalancePage() {
         {allZero ? (
           <Card variant="soft" className="p-5">
             <p className="text-sm font-extrabold text-biz-ink">No earnings yet</p>
-            <p className="text-xs text-gray-500 mt-1">Your balance will show here after paid orders.</p>
+            <p className="text-xs text-gray-500 mt-1">
+              Your balance will show here after paid orders.
+            </p>
 
             <div className="mt-4 grid grid-cols-2 gap-2">
               <Button variant="secondary" onClick={() => router.push("/vendor/products/new")}>
@@ -89,7 +85,7 @@ export default function VendorBalancePage() {
           <>
             <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
               <p className="text-xs opacity-95">Available balance</p>
-              <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(available)}</p>
+              <p className="text-2xl font-bold mt-2">{formatMoneyNGNFromKobo(available)}</p>
 
               <div className="mt-3 grid grid-cols-2 gap-2">
                 <Button onClick={() => router.push("/vendor/withdrawals")} disabled={available <= 0}>
@@ -101,18 +97,18 @@ export default function VendorBalancePage() {
               </div>
 
               <p className="mt-3 text-[11px] opacity-90">
-                Pending withdrawals (hold): <b>{fmtNairaFromKobo(hold)}</b>
+                Pending withdrawals (hold): <b>{formatMoneyNGNFromKobo(hold)}</b>
               </p>
             </div>
 
             <div className="grid grid-cols-2 gap-3">
               <Card className="p-4">
                 <p className="text-xs text-biz-muted">Pending settlement</p>
-                <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(pending)}</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{formatMoneyNGNFromKobo(pending)}</p>
               </Card>
               <Card className="p-4">
                 <p className="text-xs text-biz-muted">Total earned</p>
-                <p className="text-lg font-bold text-biz-ink mt-1">{fmtNairaFromKobo(total)}</p>
+                <p className="text-lg font-bold text-biz-ink mt-1">{formatMoneyNGNFromKobo(total)}</p>
               </Card>
             </div>
 

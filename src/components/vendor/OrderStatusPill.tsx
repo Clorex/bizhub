@@ -11,23 +11,11 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { formatOpsStatus } from "@/lib/statusLabel";
 
 interface OrderStatusPillProps {
   status: string;
   size?: "sm" | "md";
-}
-
-function labelOps(s: string): string {
-  const map: Record<string, string> = {
-    new: "New",
-    contacted: "Contacted",
-    paid: "Paid",
-    in_transit: "In Transit",
-    delivered: "Delivered",
-    cancelled: "Cancelled",
-    disputed: "Disputed",
-  };
-  return map[s.toLowerCase()] || s || "—";
 }
 
 const STATUS_STYLES: Record<string, { bg: string; text: string; icon: any }> = {
@@ -44,21 +32,21 @@ export const OrderStatusPill = memo(function OrderStatusPill({
   status,
   size = "sm",
 }: OrderStatusPillProps) {
-  const s = status.toLowerCase();
+  const s = String(status || "").toLowerCase();
   const style = STATUS_STYLES[s] || STATUS_STYLES.new;
   const Icon = style.icon;
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full font-bold",
+        "inline-flex items-center gap-1 rounded-full font-bold whitespace-nowrap shrink-0",
         style.bg,
         style.text,
         size === "md" ? "px-3 py-1.5 text-xs" : "px-2.5 py-1 text-[11px]"
       )}
     >
       <Icon className={size === "md" ? "w-3.5 h-3.5" : "w-3 h-3"} />
-      {labelOps(status)}
+      {formatOpsStatus(status)}
     </span>
   );
 });

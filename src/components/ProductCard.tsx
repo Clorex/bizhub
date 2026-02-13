@@ -3,13 +3,12 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { normalizeCoverAspect, coverAspectToTailwindClass, type CoverAspectKey } from "@/lib/products/coverAspect";
-
-function formatPriceNaira(value: any) {
-  const n = Number(value ?? 0);
-  if (!Number.isFinite(n)) return "₦0";
-  return `₦${n.toLocaleString()}`;
-}
+import {
+  normalizeCoverAspect,
+  coverAspectToTailwindClass,
+  type CoverAspectKey,
+} from "@/lib/products/coverAspect";
+import { formatMoneyNGN } from "@/lib/money";
 
 function saleIsActive(p: any, now = Date.now()) {
   if (p?.saleActive !== true) return false;
@@ -44,7 +43,7 @@ function saleBadgeText(p: any) {
   const t = String(p?.saleType || "");
   if (t === "fixed") {
     const off = Number(p?.saleAmountOffNgn || 0);
-    return off > 0 ? `${formatPriceNaira(off)} OFF` : "Sale";
+    return off > 0 ? `${formatMoneyNGN(off)} OFF` : "Sale";
   }
   const pct = Number(p?.salePercent || 0);
   return pct > 0 ? `${pct}% OFF` : "Sale";
@@ -52,7 +51,10 @@ function saleBadgeText(p: any) {
 
 type TrustBadgeType = "earned_apex" | "temporary_apex" | null;
 
-const trustCache = new Map<string, { fetchedAtMs: number; data: any; inflight?: Promise<any> }>();
+const trustCache = new Map<
+  string,
+  { fetchedAtMs: number; data: any; inflight?: Promise<any> }
+>();
 const TRUST_TTL_MS = 5 * 60 * 1000;
 
 async function fetchStoreTrust(slug: string) {
@@ -81,14 +83,16 @@ function badgeTypeFromTrust(t: any): TrustBadgeType {
 }
 
 export function ProductCard({ slug, product }: { slug: string; product: any }) {
-  const name = product?.name ?? "Product";
+  const name = String(product?.name ?? "Product");
   const img = Array.isArray(product?.images) ? product.images?.[0] : null;
 
   const listingType = String(product?.listingType || "product");
   const serviceMode = String(product?.serviceMode || "book");
   const bookOnly = listingType === "service" && serviceMode === "book";
 
-  const basePrice = Number(product?.priceKobo != null ? Number(product.priceKobo) / 100 : product?.price || 0);
+  const basePrice = Number(
+    product?.priceKobo != null ? Number(product.priceKobo) / 100 : product?.price || 0
+  );
   const onSale = !bookOnly && saleIsActive(product);
   const finalPrice = onSale ? computeSalePriceNgn(product) : basePrice;
 
@@ -139,13 +143,17 @@ export function ProductCard({ slug, product }: { slug: string; product: any }) {
     <Link
       href={`/b/${slug}/p/${product.id}`}
       className="block rounded-2xl border border-black/5 bg-white shadow-sm active:scale-[0.99] transition"
+      aria-label={name}
+      title={name}
     >
       <div className={`${aspectClass} w-full rounded-2xl bg-[#F3F4F6] overflow-hidden relative`}>
         {img ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={img} alt={name} className="h-full w-full object-cover" loading="lazy" />
         ) : (
-          <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">No image</div>
+          <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">
+            No image
+          </div>
         )}
 
         {onSale ? (
@@ -174,18 +182,28 @@ export function ProductCard({ slug, product }: { slug: string; product: any }) {
       </div>
 
       <div className="p-3">
-        <p className="text-sm font-semibold text-gray-900 line-clamp-1">{name}</p>
+        {/* 2-line clamp + reserved height to keep card height consistent */}
+        <p
+          className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight min-h-[2.6rem]"
+          title={name}
+        >
+          {name}
+        </p>
 
         <p className="mt-1 text-sm text-gray-700">
           {bookOnly ? (
             "Book only"
           ) : onSale ? (
             <>
-              <span className="line-through text-gray-400 mr-1">{formatPriceNaira(basePrice)}</span>
-              <span className="text-emerald-700 font-extrabold">{formatPriceNaira(finalPrice)}</span>
+              <span className="line-through text-gray-400 mr-1">
+                {formatMoneyNGN(basePrice)}
+              </span>
+              <span className="text-emerald-700 font-extrabold">
+                {formatMoneyNGN(finalPrice)}
+              </span>
             </>
           ) : (
-            formatPriceNaira(basePrice)
+            formatMoneyNGN(basePrice)
           )}
         </p>
 

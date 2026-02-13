@@ -1,5 +1,4 @@
 // FILE: src/app/api/vendor/orders/route.ts
-
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -44,11 +43,7 @@ export async function GET(req: Request) {
 
     const access = await getVendorLimitsResolved(me.businessId);
 
-    const snap = await adminDb
-      .collection("orders")
-      .where("businessId", "==", me.businessId)
-      .limit(500)
-      .get();
+    const snap = await adminDb.collection("orders").where("businessId", "==", me.businessId).limit(500).get();
 
     const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
     list.sort((a: any, b: any) => toMs(b.createdAt) - toMs(a.createdAt));
@@ -57,6 +52,7 @@ export async function GET(req: Request) {
 
     const orders = capped.map((o: any) => ({
       id: o.id,
+      orderNumber: o.orderNumber ?? null, // ✅ NEW
       createdAt: o.createdAt ?? null,
       paymentType: o.paymentType ?? null,
       escrowStatus: o.escrowStatus ?? null,

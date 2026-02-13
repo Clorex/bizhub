@@ -1,10 +1,19 @@
+// FILE: src/components/PushBellFloating.tsx
 "use client";
+
+/**
+ * B7-1 Fix:
+ * - Prompt closes immediately on click (UI-first).
+ * - Permission/token registration continues async.
+ * - User gets toast feedback for success/failure.
+ */
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Card } from "@/components/Card";
 import { X } from "lucide-react";
 import { auth } from "@/lib/firebase/client";
+import { toast } from "@/lib/ui/toast";
 
 const PUSH_TOKEN_KEY = "mybizhub_push_token_v1";
 const PUSH_SNOOZE_UNTIL_KEY = "mybizhub_push_snooze_until_ms_v2";
@@ -48,7 +57,6 @@ export default function PushBellFloating() {
   const [perm, setPerm] = useState<NotificationPermission | "unsupported">("unsupported");
   const [busy, setBusy] = useState(false);
   const [open, setOpen] = useState(false);
-  const [info, setInfo] = useState<string | null>(null);
 
   const [tokenLocal, setTokenLocal] = useState<string | null>(() => {
     if (typeof window === "undefined") return null;
@@ -85,58 +93,42 @@ export default function PushBellFloating() {
     return () => clearTimeout(t);
   }, [onVendor, pathname]);
 
-  useEffect(() => {
-    if (!onVendor) return;
-    if (typeof window === "undefined") return;
-
-    const p = getPerm();
-    if (p === "granted" && localStorage.getItem(PUSH_TOKEN_KEY)) return;
-    if (p === "denied") return;
-
-    const snoozeUntil = loadNum(PUSH_SNOOZE_UNTIL_KEY, 0);
-    if (snoozeUntil && now() < snoozeUntil) return;
-
-    const chance = 0.18;
-    if (Math.random() < chance) {
-      const t = setTimeout(() => {
-        setOpen(true);
-        saveNum(PUSH_LAST_PROMPT_KEY, now());
-      }, randInt(1200, 4500));
-      return () => clearTimeout(t);
-    }
-  }, [onVendor, pathname]);
-
   async function enableNotifications() {
+    // ✅ UI-first: close immediately
+    setOpen(false);
+
     try {
       setBusy(true);
-      setInfo(null);
 
       const p = getPerm();
       if (p === "unsupported") {
-        setInfo("Notifications are not supported on this browser.");
+        toast.error("Notifications are not supported on this browser.");
         snoozeLater();
         return;
       }
+
+      // Immediate feedback so user knows work continues after modal closes
+      toast.info("Enabling notifications…");
 
       const granted = await Notification.requestPermission();
       setPerm(granted);
 
       if (granted !== "granted") {
-        setOpen(false);
+        toast.info("Notifications not enabled.");
         snoozeLater();
         return;
       }
 
       const idToken = await auth.currentUser?.getIdToken();
       if (!idToken) {
-        setInfo("Please log in again.");
+        toast.error("Please log in again.");
         snoozeLater();
         return;
       }
 
       const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY;
       if (!vapidKey) {
-        setInfo("Missing NEXT_PUBLIC_FIREBASE_VAPID_KEY in env.");
+        toast.error("Missing NEXT_PUBLIC_FIREBASE_VAPID_KEY.");
         snoozeLater();
         return;
       }
@@ -153,7 +145,7 @@ export default function PushBellFloating() {
       });
 
       if (!fcmToken) {
-        setInfo("Could not enable on this device. Try again later.");
+        toast.error("Could not enable notifications on this device. Try again later.");
         snoozeLater();
         return;
       }
@@ -175,10 +167,9 @@ export default function PushBellFloating() {
 
       saveNum(PUSH_SNOOZE_UNTIL_KEY, 0);
 
-      setOpen(false);
-      setInfo(null);
+      toast.success("Notifications enabled!");
     } catch (e: any) {
-      setInfo(e?.message || "Failed to enable notifications");
+      toast.error(e?.message || "Failed to enable notifications.");
       snoozeLater();
     } finally {
       setBusy(false);
@@ -194,8 +185,10 @@ export default function PushBellFloating() {
         <Card className="p-4 rounded-[26px]">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="text-sm font-extrabold text-biz-ink">Turn on notifications</p>
-              <p className="text-xs text-biz-muted mt-1">So you don’t miss new orders and important updates.</p>
+              <p className="text-sm font-extrabold text-gray-900">Turn on notifications</p>
+              <p className="text-xs text-gray-500 mt-1">
+                So you don’t miss new orders and important updates.
+              </p>
             </div>
 
             <button
@@ -204,14 +197,12 @@ export default function PushBellFloating() {
                 setOpen(false);
                 snoozeLater();
               }}
-              className="h-10 w-10 rounded-2xl border border-biz-line bg-white inline-flex items-center justify-center"
+              className="h-10 w-10 rounded-2xl border border-gray-200 bg-white inline-flex items-center justify-center"
               aria-label="Close"
             >
               <X className="h-4 w-4 text-gray-700" />
             </button>
           </div>
-
-          {info ? <p className="mt-3 text-sm text-orange-700">{info}</p> : null}
 
           <div className="mt-3">
             <button
@@ -229,7 +220,7 @@ export default function PushBellFloating() {
                 setOpen(false);
                 snoozeLater();
               }}
-              className="mt-2 w-full rounded-2xl border border-biz-line bg-white py-3 text-sm font-bold text-biz-ink"
+              className="mt-2 w-full rounded-2xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-900"
             >
               Not now
             </button>

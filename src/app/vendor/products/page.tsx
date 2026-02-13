@@ -3,20 +3,20 @@
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Image from "next/image";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
-import { SectionCard } from "@/components/ui/SectionCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { MenuCard } from "@/components/vendor/MenuCard";
 import { VendorEmptyState } from "@/components/vendor/EmptyState";
 import { ListSkeleton } from "@/components/vendor/PageSkeleton";
+import { EmptyState } from "@/components/ui/EmptyState";
 import { auth } from "@/lib/firebase/client";
 import { toast } from "@/lib/ui/toast";
 import { cn } from "@/lib/cn";
 import { cloudinaryOptimizedUrl } from "@/lib/cloudinary/url";
+import { formatMoneyNGN } from "@/lib/money";
+import { ConfirmDialog } from "@/components/ui/ConfirmDialog";
+import { deleteVendorProduct } from "@/lib/vendor/productsClient";
 
 import {
   Plus,
@@ -32,29 +32,19 @@ import {
   ChevronRight,
   X,
   AlertCircle,
-  CheckCircle2,
-  TrendingUp,
-  Filter,
+  Sparkles,
   MoreVertical,
   ExternalLink,
-  Sparkles,
-  Archive,
-  Trash2,
-  ToggleLeft,
-  ToggleRight,
   MessageCircle,
   Grid3X3,
   List,
+  Trash2,
 } from "lucide-react";
 
-/* ─────────────────────── helpers ─────────────────────── */
+/* ──────────────────────────────── Helpers ──────────────────────────────── */
 
 function fmtNaira(n: number) {
-  try {
-    return `₦${Number(n || 0).toLocaleString("en-NG")}`;
-  } catch {
-    return `₦${n}`;
-  }
+  return formatMoneyNGN(Number(n || 0));
 }
 
 function waShareLink(text: string) {
@@ -78,7 +68,7 @@ function buildShareCaption(p: any) {
   return lines.join("\n");
 }
 
-/* ─────────────────────── types ─────────────────────── */
+/* ──────────────────────────────── Types ──────────────────────────────── */
 
 type FilterType = "all" | "active" | "outofstock" | "lowstock" | "hidden";
 type ViewMode = "list" | "grid";
@@ -98,7 +88,7 @@ type Access = {
   } | null;
 };
 
-/* ─────────────────────── main component ─────────────────────── */
+/* ──────────────────────────────── Main Component ──────────────────────────────── */
 
 export default function VendorProductsPage() {
   const router = useRouter();
@@ -127,6 +117,11 @@ export default function VendorProductsPage() {
   // Action menu
   const [actionMenuOpen, setActionMenuOpen] = useState<string | null>(null);
 
+  // Delete flow (B11-1/B11-2)
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [deleting, setDeleting] = useState(false);
+
   /* permissions */
   const role = String(access?.role || "");
   const staffPerms = access?.staff?.staffPermissions || {};
@@ -134,62 +129,65 @@ export default function VendorProductsPage() {
   const canView = role === "owner" || !!staffPerms.productsView || !!staffPerms.productsManage;
 
   /* load data */
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
-    setErrorStatus(null);
+  const load = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
 
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) {
-        router.replace("/account/login?next=" + encodeURIComponent("/vendor/products"));
-        return;
-      }
+      setError(null);
+      setErrorStatus(null);
 
-      // Load access first
-      const accessRes = await fetch("/api/vendor/access", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const accessData = await accessRes.json().catch(() => ({}));
-      
-      if (!accessRes.ok) {
-        throw new Error(accessData?.error || "Failed to load access");
-      }
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) {
+          router.replace("/account/login?next=" + encodeURIComponent("/vendor/products"));
+          return;
+        }
 
-      setAccess(accessData);
-      setPlanKey(String(accessData?.planKey || "FREE").toUpperCase());
-      setFeatures(accessData?.features || {});
+        // Load access first
+        const accessRes = await fetch("/api/vendor/access", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const accessData = await accessRes.json().catch(() => ({}));
 
-      // Load products
-      const prodRes = await fetch("/api/vendor/products", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      const prodData = await prodRes.json().catch(() => ({}));
+        if (!accessRes.ok) {
+          throw new Error(accessData?.error || "Failed to load access");
+        }
 
-      if (!prodRes.ok) {
-        setErrorStatus(prodRes.status);
-        setError(String(prodData?.error || "Failed to load products"));
+        setAccess(accessData);
+        setPlanKey(String(accessData?.planKey || "FREE").toUpperCase());
+        setFeatures(accessData?.features || {});
+
+        if (!canView && String(accessData?.role || "") === "staff") {
+          // still proceed; server may allow list but UI can show message if needed
+        }
+
+        // Load products
+        const prodRes = await fetch("/api/vendor/products", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const prodData = await prodRes.json().catch(() => ({}));
+
+        if (!prodRes.ok) {
+          setErrorStatus(prodRes.status);
+          setError(String(prodData?.error || "Failed to load products"));
+          setItems([]);
+          return;
+        }
+
+        setItems(Array.isArray(prodData.products) ? prodData.products : []);
+
+        if (isRefresh) toast.success("Products refreshed!");
+      } catch (e: any) {
+        setError(e?.message || "Something went wrong");
         setItems([]);
-        return;
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-
-      setItems(Array.isArray(prodData.products) ? prodData.products : []);
-      
-      if (isRefresh) {
-        toast.success("Products refreshed!");
-      }
-    } catch (e: any) {
-      setError(e?.message || "Something went wrong");
-      setItems([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [router]);
+    },
+    [router] // do not include canView/canManage (derived from access)
+  );
 
   useEffect(() => {
     load();
@@ -199,7 +197,6 @@ export default function VendorProductsPage() {
   const filteredItems = useMemo(() => {
     let result = [...items];
 
-    // Apply filter
     switch (filter) {
       case "active":
         result = result.filter((p) => p.marketEnabled !== false && (p.stock ?? 0) > 0);
@@ -215,12 +212,10 @@ export default function VendorProductsPage() {
         break;
     }
 
-    // Apply search
     const q = searchQuery.trim().toLowerCase();
     if (q) {
-      result = result.filter((p) =>
-        String(p?.name || "").toLowerCase().includes(q) ||
-        String(p?.category || "").toLowerCase().includes(q)
+      result = result.filter(
+        (p) => String(p?.name || "").toLowerCase().includes(q) || String(p?.category || "").toLowerCase().includes(q)
       );
     }
 
@@ -235,7 +230,7 @@ export default function VendorProductsPage() {
     const lowStock = items.filter((p) => (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5).length;
     const hidden = items.filter((p) => p.marketEnabled === false).length;
     const boosted = items.filter((p) => Number(p.boostUntilMs || 0) > Date.now()).length;
-    
+
     return { total, active, outOfStock, lowStock, hidden, boosted };
   }, [items]);
 
@@ -259,7 +254,7 @@ export default function VendorProductsPage() {
     const slug = String(p?.businessSlug || "");
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const link = slug && p?.id ? `${origin}/b/${slug}/p/${p.id}` : "";
-    
+
     if (link) {
       try {
         await navigator.clipboard.writeText(link);
@@ -271,21 +266,50 @@ export default function VendorProductsPage() {
     setActionMenuOpen(null);
   };
 
+  function requestDelete(p: any) {
+    if (!canManage) {
+      toast.error("You don't have permission to delete products.");
+      return;
+    }
+    setActionMenuOpen(null);
+    setDeleteTarget(p);
+    setDeleteOpen(true);
+  }
+
+  async function confirmDelete() {
+    const id = String(deleteTarget?.id || "").trim();
+    if (!id) {
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      await deleteVendorProduct(id);
+
+      // Remove from list without refresh
+      setItems((prev) => prev.filter((x) => String(x?.id) !== id));
+
+      toast.success("Product deleted.");
+      setDeleteOpen(false);
+      setDeleteTarget(null);
+    } catch (e: any) {
+      toast.error(e?.message || "Could not delete product.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
   /* derived states */
   const marketOn = !!features?.marketplace;
   const showMarketplaceLock = access && !marketOn;
   const showNotAuthorized = (errorStatus === 403 || error?.toLowerCase().includes("not authorized")) && !!access;
 
-  /* ─────────────────────── render ─────────────────────── */
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <GradientHeader
-          title="Products"
-          subtitle="Manage your catalog"
-          showBack={false}
-        />
+        <GradientHeader title="Products" subtitle="Manage your catalog" showBack={false} />
         <ListSkeleton count={4} />
       </div>
     );
@@ -293,7 +317,6 @@ export default function VendorProductsPage() {
 
   return (
     <div className="min-h-screen pb-28 bg-gray-50">
-      {/* Header */}
       <GradientHeader
         title="Products"
         subtitle={`${stats.total} product${stats.total !== 1 ? "s" : ""}`}
@@ -321,7 +344,7 @@ export default function VendorProductsPage() {
       />
 
       <div className="px-4 space-y-4 pt-4">
-        {/* Not Authorized State */}
+        {/* Not Authorized */}
         {showNotAuthorized && (
           <Card className="p-5 bg-red-50 border-red-200">
             <div className="flex items-start gap-4">
@@ -330,13 +353,14 @@ export default function VendorProductsPage() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-bold text-red-800">Not Authorized</p>
-                <p className="text-xs text-red-600 mt-1">
-                  Your account doesn't have permission to view or manage products.
-                </p>
+                <p className="text-xs text-red-600 mt-1">Your account doesn't have permission to view or manage products.</p>
                 <p className="text-[11px] text-red-500 mt-2">
                   Plan: <b>{planKey}</b>
                   {role === "staff" && access?.staff?.staffJobTitle && (
-                    <> • Role: <b>{access.staff.staffJobTitle}</b></>
+                    <>
+                      {" "}
+                      • Role: <b>{access.staff.staffJobTitle}</b>
+                    </>
                   )}
                 </p>
                 <div className="mt-4 flex gap-2">
@@ -352,7 +376,7 @@ export default function VendorProductsPage() {
           </Card>
         )}
 
-        {/* Marketplace Lock Notice */}
+        {/* Marketplace lock */}
         {showMarketplaceLock && !showNotAuthorized && (
           <Card className="p-5 bg-orange-50 border-orange-200">
             <div className="flex items-start gap-4">
@@ -366,7 +390,7 @@ export default function VendorProductsPage() {
                 </p>
                 <div className="mt-4 flex gap-2">
                   <Button size="sm" onClick={() => router.push("/vendor/subscription")}>
-                    Upgrade Plan
+                    Upgrade plan
                   </Button>
                   <Button size="sm" variant="secondary" onClick={() => router.push("/vendor")}>
                     Dashboard
@@ -380,7 +404,7 @@ export default function VendorProductsPage() {
           </Card>
         )}
 
-        {/* Error State */}
+        {/* Error */}
         {error && !showNotAuthorized && (
           <Card className="p-4 bg-red-50 border-red-200">
             <div className="flex items-start gap-3">
@@ -388,7 +412,7 @@ export default function VendorProductsPage() {
               <div>
                 <p className="text-sm font-medium text-red-800">{error}</p>
                 <Button size="sm" variant="secondary" className="mt-2" onClick={() => load()}>
-                  Try Again
+                  Try again
                 </Button>
               </div>
             </div>
@@ -431,7 +455,7 @@ export default function VendorProductsPage() {
               </div>
             )}
 
-            {/* Search & Filter Bar */}
+            {/* Search + View toggle */}
             <Card className="p-4">
               <div className="flex items-center gap-3">
                 <div className="flex-1 relative">
@@ -446,11 +470,13 @@ export default function VendorProductsPage() {
                     <button
                       onClick={() => setSearchQuery("")}
                       className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300"
+                      aria-label="Clear search"
                     >
                       <X className="w-3 h-3 text-gray-600" />
                     </button>
                   )}
                 </div>
+
                 <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
                   <button
                     onClick={() => setViewMode("list")}
@@ -458,6 +484,7 @@ export default function VendorProductsPage() {
                       "w-8 h-8 rounded-lg flex items-center justify-center transition",
                       viewMode === "list" ? "bg-white shadow-sm" : "hover:bg-gray-200"
                     )}
+                    aria-label="List view"
                   >
                     <List className={cn("w-4 h-4", viewMode === "list" ? "text-orange-600" : "text-gray-500")} />
                   </button>
@@ -467,13 +494,13 @@ export default function VendorProductsPage() {
                       "w-8 h-8 rounded-lg flex items-center justify-center transition",
                       viewMode === "grid" ? "bg-white shadow-sm" : "hover:bg-gray-200"
                     )}
+                    aria-label="Grid view"
                   >
                     <Grid3X3 className={cn("w-4 h-4", viewMode === "grid" ? "text-orange-600" : "text-gray-500")} />
                   </button>
                 </div>
               </div>
 
-              {/* Filter chips */}
               {filter !== "all" && (
                 <div className="mt-3 flex items-center gap-2">
                   <span className="text-xs text-gray-500">Filtered by:</span>
@@ -491,37 +518,32 @@ export default function VendorProductsPage() {
               )}
             </Card>
 
-            {/* Add Product CTA */}
+            {/* No products at all */}
             {stats.total === 0 && !error && (
-              <Card className="p-6 text-center bg-gradient-to-br from-orange-50 to-white border-orange-100">
-                <div className="w-16 h-16 rounded-2xl bg-orange-100 flex items-center justify-center mx-auto mb-4">
-                  <Package className="w-8 h-8 text-orange-600" />
-                </div>
-                <p className="text-lg font-bold text-gray-900">No products yet</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  Add your first product to start selling
-                </p>
-                <div className="mt-5 flex justify-center gap-3">
-                  <Button
-                    onClick={() => router.push("/vendor/products/new")}
-                    disabled={!canManage}
-                    leftIcon={<Plus className="w-4 h-4" />}
-                  >
-                    Add Product
-                  </Button>
-                  <Button variant="secondary" onClick={() => router.push("/vendor")}>
-                    Dashboard
-                  </Button>
-                </div>
-                {!canManage && (
-                  <p className="text-xs text-gray-500 mt-4">
-                    You don't have permission to add products.
-                  </p>
-                )}
+              <Card className="p-0 overflow-hidden bg-gradient-to-br from-orange-50 to-white border-orange-100">
+                <EmptyState
+                  icon={<Package className="w-10 h-10 text-orange-600" />}
+                  title="No products yet"
+                  description="Add your first product to start selling."
+                  actions={[
+                    {
+                      label: "Add product",
+                      onClick: () => router.push("/vendor/products/new"),
+                      variant: "primary",
+                      leftIcon: <Plus className="w-4 h-4" />,
+                    },
+                    {
+                      label: "Go to dashboard",
+                      onClick: () => router.push("/vendor"),
+                      variant: "secondary",
+                    },
+                  ]}
+                />
+                {!canManage ? <p className="text-xs text-gray-500 pb-5 text-center px-6">You don't have permission to add products.</p> : null}
               </Card>
             )}
 
-            {/* No Search Results */}
+            {/* No search/filter results */}
             {stats.total > 0 && filteredItems.length === 0 && (
               <VendorEmptyState
                 icon={Search}
@@ -529,7 +551,7 @@ export default function VendorProductsPage() {
                 description={searchQuery ? `No products match "${searchQuery}"` : "No products match this filter"}
                 actions={[
                   {
-                    label: "Clear Filters",
+                    label: "Clear filters",
                     onClick: () => {
                       setSearchQuery("");
                       setFilter("all");
@@ -540,19 +562,23 @@ export default function VendorProductsPage() {
               />
             )}
 
-            {/* Products List/Grid */}
+            {/* Products list/grid */}
             {filteredItems.length > 0 && (
               <div className={viewMode === "grid" ? "grid grid-cols-2 gap-3" : "space-y-3"}>
-                {filteredItems.map((product) => (
+                {filteredItems.map((product) =>
                   viewMode === "grid" ? (
                     <ProductGridCard
                       key={product.id}
                       product={product}
                       canManage={canManage}
+                      actionMenuOpen={actionMenuOpen === product.id}
+                      onActionMenuToggle={() => setActionMenuOpen(actionMenuOpen === product.id ? null : product.id)}
                       onEdit={() => router.push(`/vendor/products/${product.id}/edit`)}
                       onView={() => router.push(`/b/${product.businessSlug}/p/${product.id}`)}
                       onShare={() => openShare(product)}
                       onPromote={() => router.push(`/vendor/promote?productId=${product.id}`)}
+                      onCopyLink={() => copyProductLink(product)}
+                      onDelete={() => requestDelete(product)}
                     />
                   ) : (
                     <ProductListCard
@@ -566,13 +592,13 @@ export default function VendorProductsPage() {
                       onShare={() => openShare(product)}
                       onPromote={() => router.push(`/vendor/promote?productId=${product.id}`)}
                       onCopyLink={() => copyProductLink(product)}
+                      onDelete={() => requestDelete(product)}
                     />
                   )
-                ))}
+                )}
               </div>
             )}
 
-            {/* Boosted Products Tip */}
             {stats.boosted > 0 && (
               <Card className="p-4 bg-purple-50 border-purple-100">
                 <div className="flex items-center gap-3">
@@ -583,14 +609,9 @@ export default function VendorProductsPage() {
                     <p className="text-sm font-bold text-purple-800">
                       {stats.boosted} product{stats.boosted !== 1 ? "s" : ""} promoted
                     </p>
-                    <p className="text-xs text-purple-600 mt-0.5">
-                      Getting extra visibility in the marketplace
-                    </p>
+                    <p className="text-xs text-purple-600 mt-0.5">Getting extra visibility in the marketplace</p>
                   </div>
-                  <button
-                    onClick={() => router.push("/vendor/promotions")}
-                    className="text-xs font-bold text-purple-700 flex items-center gap-1"
-                  >
+                  <button onClick={() => router.push("/vendor/promotions")} className="text-xs font-bold text-purple-700 flex items-center gap-1">
                     Manage
                     <ChevronRight className="w-4 h-4" />
                   </button>
@@ -604,24 +625,18 @@ export default function VendorProductsPage() {
       {/* Share Modal */}
       {shareOpen && shareProduct && (
         <div className="fixed inset-0 z-50 bg-black/50 flex items-end justify-center">
-          <div
-            className="absolute inset-0"
-            onClick={() => setShareOpen(false)}
-          />
+          <div className="absolute inset-0" onClick={() => setShareOpen(false)} />
           <div className="relative w-full max-w-[430px] mx-auto px-4 pb-safe mb-4">
             <Card className="p-5">
               <div className="flex items-center justify-between mb-4">
                 <div>
-                  <p className="text-sm font-bold text-gray-900">
-                    Share: {shareProduct.name}
-                  </p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    Edit the message before sharing
-                  </p>
+                  <p className="text-sm font-bold text-gray-900">Share: {shareProduct.name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">Edit the message before sharing</p>
                 </div>
                 <button
                   onClick={() => setShareOpen(false)}
                   className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200"
+                  aria-label="Close share"
                 >
                   <X className="w-4 h-4 text-gray-600" />
                 </button>
@@ -635,12 +650,8 @@ export default function VendorProductsPage() {
               />
 
               <div className="mt-4 grid grid-cols-2 gap-3">
-                <Button
-                  variant="secondary"
-                  onClick={copyShareText}
-                  leftIcon={<Copy className="w-4 h-4" />}
-                >
-                  Copy Text
+                <Button variant="secondary" onClick={copyShareText} leftIcon={<Copy className="w-4 h-4" />}>
+                  Copy text
                 </Button>
                 <Button
                   onClick={() => window.open(waShareLink(shareText), "_blank")}
@@ -654,11 +665,32 @@ export default function VendorProductsPage() {
           </div>
         </div>
       )}
+
+      {/* B11-2: Confirm before deleting */}
+      <ConfirmDialog
+        open={deleteOpen}
+        title="Delete product"
+        description={
+          deleteTarget?.name
+            ? `Are you sure you want to delete this product?\n\n"${String(deleteTarget.name)}"\n\nThis cannot be undone.`
+            : "Are you sure you want to delete this product?\n\nThis cannot be undone."
+        }
+        confirmText="Delete"
+        cancelText="Cancel"
+        tone="danger"
+        loading={deleting}
+        onConfirm={confirmDelete}
+        onClose={() => {
+          if (deleting) return;
+          setDeleteOpen(false);
+          setDeleteTarget(null);
+        }}
+      />
     </div>
   );
 }
 
-/* ─────────────────────── Stat Badge ─────────────────────── */
+/* ──────────────────────────────── Stat Badge ──────────────────────────────── */
 
 function StatBadge({
   label,
@@ -689,20 +721,14 @@ function StatBadge({
   };
 
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        "rounded-2xl border p-3 text-center transition",
-        colorStyles[color]
-      )}
-    >
+    <button onClick={onClick} className={cn("rounded-2xl border p-3 text-center transition", colorStyles[color])}>
       <p className="text-lg font-black">{value}</p>
       <p className="text-[10px] font-bold uppercase tracking-wide mt-0.5">{label}</p>
     </button>
   );
 }
 
-/* ─────────────────────── Product List Card ─────────────────────── */
+/* ──────────────────────────────── Product List Card ──────────────────────────────── */
 
 function ProductListCard({
   product,
@@ -714,6 +740,7 @@ function ProductListCard({
   onShare,
   onPromote,
   onCopyLink,
+  onDelete,
 }: {
   product: any;
   canManage: boolean;
@@ -724,6 +751,7 @@ function ProductListCard({
   onShare: () => void;
   onPromote: () => void;
   onCopyLink: () => void;
+  onDelete: () => void;
 }) {
   const imgRaw = Array.isArray(product.images) ? product.images[0] : "";
   const img = imgRaw ? cloudinaryOptimizedUrl(imgRaw, { w: 160, h: 160 }) : "";
@@ -737,15 +765,10 @@ function ProductListCard({
   return (
     <Card className="p-4 relative">
       <div className="flex items-start gap-4">
-        {/* Image */}
         <div className="w-20 h-20 rounded-2xl bg-gray-100 overflow-hidden shrink-0">
           {img ? (
-            <img
-              src={img}
-              alt={product.name || "Product"}
-              className="w-full h-full object-cover"
-              loading="lazy"
-            />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={img} alt={product.name || "Product"} className="w-full h-full object-cover" loading="lazy" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <Package className="w-8 h-8 text-gray-300" />
@@ -753,26 +776,22 @@ function ProductListCard({
           )}
         </div>
 
-        {/* Info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0">
               <p className="font-bold text-gray-900 truncate">{product.name || "Unnamed"}</p>
-              <p className="text-sm text-gray-600 mt-0.5">
-                {isService ? "Service" : fmtNaira(product.price || 0)}
-              </p>
+              <p className="text-sm text-gray-600 mt-0.5">{isService ? "Service" : fmtNaira(product.price || 0)}</p>
             </div>
 
-            {/* Action menu trigger */}
             <button
               onClick={onActionMenuToggle}
               className="w-8 h-8 rounded-lg hover:bg-gray-100 flex items-center justify-center shrink-0"
+              aria-label="Product actions"
             >
               <MoreVertical className="w-4 h-4 text-gray-500" />
             </button>
           </div>
 
-          {/* Tags */}
           <div className="flex items-center gap-2 mt-2 flex-wrap">
             {boosted && (
               <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">
@@ -803,55 +822,33 @@ function ProductListCard({
         </div>
       </div>
 
-      {/* Quick Actions */}
       <div className="mt-4 grid grid-cols-4 gap-2">
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={onEdit}
-          disabled={!canManage}
-          leftIcon={<Edit3 className="w-3.5 h-3.5" />}
-        >
+        <Button size="sm" variant="secondary" onClick={onEdit} disabled={!canManage} leftIcon={<Edit3 className="w-3.5 h-3.5" />}>
           Edit
         </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={onView}
-          leftIcon={<Eye className="w-3.5 h-3.5" />}
-        >
+        <Button size="sm" variant="secondary" onClick={onView} leftIcon={<Eye className="w-3.5 h-3.5" />}>
           View
         </Button>
-        <Button
-          size="sm"
-          variant="secondary"
-          onClick={onShare}
-          leftIcon={<Share2 className="w-3.5 h-3.5" />}
-        >
+        <Button size="sm" variant="secondary" onClick={onShare} leftIcon={<Share2 className="w-3.5 h-3.5" />}>
           Share
         </Button>
-        <Button
-          size="sm"
-          onClick={onPromote}
-          disabled={!canManage || isService}
-          leftIcon={<Megaphone className="w-3.5 h-3.5" />}
-        >
+        <Button size="sm" onClick={onPromote} disabled={!canManage || isService} leftIcon={<Megaphone className="w-3.5 h-3.5" />}>
           Boost
         </Button>
       </div>
 
-      {/* Action Menu Dropdown */}
       {actionMenuOpen && (
         <>
           <div className="fixed inset-0 z-10" onClick={onActionMenuToggle} />
-          <div className="absolute right-4 top-14 z-20 w-48 rounded-2xl bg-white border border-gray-200 shadow-lg overflow-hidden">
+          <div className="absolute right-4 top-14 z-20 w-52 rounded-2xl bg-white border border-gray-200 shadow-lg overflow-hidden">
             <button
               onClick={onCopyLink}
               className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
             >
               <Copy className="w-4 h-4 text-gray-400" />
-              Copy Link
+              Copy link
             </button>
+
             <button
               onClick={() => {
                 onEdit();
@@ -861,8 +858,9 @@ function ProductListCard({
               className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
             >
               <Edit3 className="w-4 h-4 text-gray-400" />
-              Edit Product
+              Edit product
             </button>
+
             <button
               onClick={() => {
                 onView();
@@ -871,8 +869,22 @@ function ProductListCard({
               className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
             >
               <ExternalLink className="w-4 h-4 text-gray-400" />
-              View in Store
+              View in store
             </button>
+
+            {/* B11-1: Delete product in menu (permission enforced) */}
+            {canManage ? (
+              <button
+                onClick={() => {
+                  onDelete();
+                  onActionMenuToggle();
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-700 hover:bg-red-50 transition border-t border-gray-100"
+              >
+                <Trash2 className="w-4 h-4 text-red-500" />
+                Delete product
+              </button>
+            ) : null}
           </div>
         </>
       )}
@@ -880,22 +892,30 @@ function ProductListCard({
   );
 }
 
-/* ─────────────────────── Product Grid Card ─────────────────────── */
+/* ──────────────────────────────── Product Grid Card ──────────────────────────────── */
 
 function ProductGridCard({
   product,
   canManage,
+  actionMenuOpen,
+  onActionMenuToggle,
   onEdit,
   onView,
   onShare,
   onPromote,
+  onCopyLink,
+  onDelete,
 }: {
   product: any;
   canManage: boolean;
+  actionMenuOpen: boolean;
+  onActionMenuToggle: () => void;
   onEdit: () => void;
   onView: () => void;
   onShare: () => void;
   onPromote: () => void;
+  onCopyLink: () => void;
+  onDelete: () => void;
 }) {
   const imgRaw = Array.isArray(product.images) ? product.images[0] : "";
   const img = imgRaw ? cloudinaryOptimizedUrl(imgRaw, { w: 320, h: 320 }) : "";
@@ -905,23 +925,17 @@ function ProductGridCard({
   const marketEnabled = product.marketEnabled !== false;
 
   return (
-    <Card className="overflow-hidden">
-      {/* Image */}
+    <Card className="overflow-hidden relative">
       <div className="aspect-square bg-gray-100 relative">
         {img ? (
-          <img
-            src={img}
-            alt={product.name || "Product"}
-            className="w-full h-full object-cover"
-            loading="lazy"
-          />
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={img} alt={product.name || "Product"} className="w-full h-full object-cover" loading="lazy" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <Package className="w-12 h-12 text-gray-300" />
           </div>
         )}
 
-        {/* Badges */}
         <div className="absolute top-2 left-2 flex flex-col gap-1">
           {boosted && (
             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-bold">
@@ -929,40 +943,35 @@ function ProductGridCard({
               Promoted
             </span>
           )}
-          {!marketEnabled && (
-            <span className="px-2 py-0.5 rounded-full bg-gray-800/70 text-white text-[10px] font-bold">
-              Hidden
-            </span>
-          )}
+          {!marketEnabled && <span className="px-2 py-0.5 rounded-full bg-gray-800/70 text-white text-[10px] font-bold">Hidden</span>}
         </div>
 
-        {/* Stock badge */}
         {!isService && (
           <div className="absolute bottom-2 right-2">
             <span
               className={cn(
                 "px-2 py-0.5 rounded-full text-[10px] font-bold",
-                stock === 0
-                  ? "bg-red-500 text-white"
-                  : stock <= 5
-                  ? "bg-orange-500 text-white"
-                  : "bg-black/50 text-white"
+                stock === 0 ? "bg-red-500 text-white" : stock <= 5 ? "bg-orange-500 text-white" : "bg-black/50 text-white"
               )}
             >
               {stock === 0 ? "Out of stock" : `${stock} left`}
             </span>
           </div>
         )}
+
+        <button
+          onClick={onActionMenuToggle}
+          className="absolute top-2 right-2 w-8 h-8 rounded-xl bg-white/90 hover:bg-white flex items-center justify-center"
+          aria-label="Product actions"
+        >
+          <MoreVertical className="w-4 h-4 text-gray-700" />
+        </button>
       </div>
 
-      {/* Info */}
       <div className="p-3">
         <p className="font-bold text-gray-900 text-sm truncate">{product.name || "Unnamed"}</p>
-        <p className="text-sm text-orange-600 font-bold mt-1">
-          {isService ? "Service" : fmtNaira(product.price || 0)}
-        </p>
+        <p className="text-sm text-orange-600 font-bold mt-1">{isService ? "Service" : fmtNaira(product.price || 0)}</p>
 
-        {/* Actions */}
         <div className="mt-3 grid grid-cols-2 gap-2">
           <Button size="sm" variant="secondary" onClick={onEdit} disabled={!canManage}>
             Edit
@@ -972,6 +981,57 @@ function ProductGridCard({
           </Button>
         </div>
       </div>
+
+      {actionMenuOpen && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={onActionMenuToggle} />
+          <div className="absolute right-3 top-[3.25rem] z-20 w-52 rounded-2xl bg-white border border-gray-200 shadow-lg overflow-hidden">
+            <button
+              onClick={onCopyLink}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
+            >
+              <Copy className="w-4 h-4 text-gray-400" />
+              Copy link
+            </button>
+
+            <button
+              onClick={() => {
+                onView();
+                onActionMenuToggle();
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition"
+            >
+              <ExternalLink className="w-4 h-4 text-gray-400" />
+              View in store
+            </button>
+
+            <button
+              onClick={() => {
+                onPromote();
+                onActionMenuToggle();
+              }}
+              disabled={!canManage || isService}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              <Megaphone className="w-4 h-4 text-gray-400" />
+              Boost product
+            </button>
+
+            {canManage ? (
+              <button
+                onClick={() => {
+                  onDelete();
+                  onActionMenuToggle();
+                }}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-700 hover:bg-red-50 transition border-t border-gray-100"
+              >
+                <Trash2 className="w-4 h-4 text-red-500" />
+                Delete product
+              </button>
+            ) : null}
+          </div>
+        </>
+      )}
     </Card>
   );
 }

@@ -4,6 +4,7 @@
 import { memo } from "react";
 import { ShoppingBag, MessageCircle, CreditCard, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { formatMoneyNGN } from "@/lib/money";
 
 interface CartSummaryProps {
   subtotal: number;
@@ -14,10 +15,6 @@ interface CartSummaryProps {
   onCheckout: () => void;
   onContinueInChat: () => void;
   onContinueShopping: () => void;
-}
-
-function fmtNaira(n: number) {
-  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
 }
 
 export const CartSummary = memo(function CartSummary({
@@ -40,7 +37,7 @@ export const CartSummary = memo(function CartSummary({
             {itemCount} item{itemCount !== 1 ? "s" : ""}
           </p>
         </div>
-        <p className="text-2xl font-bold text-gray-900">{fmtNaira(subtotal)}</p>
+        <p className="text-2xl font-bold text-gray-900">{formatMoneyNGN(subtotal)}</p>
       </div>
 
       {/* Actions */}

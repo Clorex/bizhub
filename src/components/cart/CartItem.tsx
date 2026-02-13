@@ -5,6 +5,7 @@ import { memo } from "react";
 import { Minus, Plus, Trash2, ShoppingBag } from "lucide-react";
 import { CloudImage } from "@/components/CloudImage";
 import { cn } from "@/lib/cn";
+import { formatMoneyNGN } from "@/lib/money";
 
 interface CartItemProps {
   item: {
@@ -18,10 +19,6 @@ interface CartItemProps {
   };
   onUpdateQty: (lineId: string, qty: number) => void;
   onRemove: (lineId: string) => void;
-}
-
-function fmtNaira(n: number) {
-  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
 }
 
 export const CartItem = memo(function CartItem({
@@ -68,12 +65,12 @@ export const CartItem = memo(function CartItem({
               )}
             </div>
             <p className="text-sm font-bold text-gray-900 shrink-0">
-              {fmtNaira(lineTotal)}
+              {formatMoneyNGN(lineTotal)}
             </p>
           </div>
 
           <p className="text-xs text-gray-500 mt-1">
-            {fmtNaira(item.price)} each
+            {formatMoneyNGN(item.price)} each
           </p>
 
           {/* Quantity controls */}

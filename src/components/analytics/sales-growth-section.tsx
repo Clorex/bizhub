@@ -1,27 +1,48 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { SalesGrowthData } from '@/types/analytics';
-import SectionHeader from '@/components/ui/section-header';
-import InsightText from '@/components/ui/insight-text';
-import EmptyState from '@/components/ui/empty-state';
-import AnalyticsAreaChart from '@/components/charts/area-chart';
-import { formatNaira, formatPeakDay } from '@/lib/analytics/format';
+import React from "react";
+import { SalesGrowthData } from "@/types/analytics";
+import SectionHeader from "@/components/ui/section-header";
+import InsightText from "@/components/ui/insight-text";
+import EmptyState from "@/components/ui/empty-state";
+import AnalyticsAreaChart from "@/components/charts/area-chart";
+import { formatNaira, formatPeakDay } from "@/lib/analytics/format";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 
 interface SalesGrowthSectionProps {
   data: SalesGrowthData | null;
 }
 
+function guessRangeLabel(data: any): string | null {
+  const v = data?.rangeLabel || data?.range || data?.periodLabel || null;
+  return v ? String(v) : null;
+}
+
+function guessUpdatedAtMs(data: any): number | null {
+  const v = data?.lastUpdatedAtMs || data?.generatedAtMs || data?.updatedAtMs || null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export default function SalesGrowthSection({ data }: SalesGrowthSectionProps) {
   const daily = data?.daily_sales || [];
-
-  // If the API returns days but all revenue is 0, treat as "no sales" and show the required message
   const hasAnySales = daily.some((p) => Number((p as any)?.revenue || 0) > 0);
+
+  const rangeLabel = guessRangeLabel(data);
+  const updatedAtMs = guessUpdatedAtMs(data);
+  const updatedLabel = updatedAtMs
+    ? `Updated: ${new Date(updatedAtMs).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}`
+    : null;
 
   if (!data || daily.length === 0 || !hasAnySales) {
     return (
       <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
-        <SectionHeader title="Sales Growth" subtitle="Compared to previous period" />
+        <SectionHeader
+          title="Sales Growth"
+          subtitle="Compared to previous period"
+          metaLeft={rangeLabel ? `Range: ${rangeLabel}` : undefined}
+          metaRight={updatedLabel || undefined}
+        />
         <EmptyState
           title="No sales data yet"
           description="Start selling to see your growth trends here."
@@ -33,35 +54,44 @@ export default function SalesGrowthSection({ data }: SalesGrowthSectionProps) {
 
   const isPositive = data.growth_percentage > 0;
   const isNegative = data.growth_percentage < 0;
-  const sign = isPositive ? '+' : '';
+  const sign = isPositive ? "+" : "";
   const colorClass = isPositive
-    ? 'text-green-500'
+    ? "text-green-500"
     : isNegative
-      ? 'text-red-500'
-      : 'text-gray-400';
+      ? "text-red-500"
+      : "text-gray-400";
 
   const peakInsight = data.peak_day
     ? formatPeakDay(data.peak_day.date, data.peak_day.revenue)
-    : '';
+    : "";
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
-      <SectionHeader title="Sales Growth" subtitle="Compared to previous period" />
+      <SectionHeader
+        title="Sales Growth"
+        subtitle="Compared to previous period"
+        metaLeft={rangeLabel ? `Range: ${rangeLabel}` : undefined}
+        metaRight={updatedLabel || undefined}
+        action={
+          <InfoTooltip text="Growth % = (Current period total − Previous period total) ÷ Previous period total." />
+        }
+      />
 
-      {/* Growth stats row */}
       <div className="flex items-end gap-4 mb-4">
         <span className={`text-[2.5rem] font-extrabold leading-none tracking-tight ${colorClass}`}>
-          {sign}{Math.round(data.growth_percentage)}%
+          {sign}
+          {Math.round(data.growth_percentage)}%
         </span>
+
         <div className="text-sm text-gray-400 pb-1">
           <p>
-            Current:{' '}
+            Current:{" "}
             <span className="font-semibold text-gray-600">
               {formatNaira(data.current_period_total)}
             </span>
           </p>
           <p>
-            Previous:{' '}
+            Previous:{" "}
             <span className="font-semibold text-gray-600">
               {formatNaira(data.previous_period_total)}
             </span>
@@ -69,10 +99,8 @@ export default function SalesGrowthSection({ data }: SalesGrowthSectionProps) {
         </div>
       </div>
 
-      {/* Area chart (dynamic Y-axis scaling handled inside chart) */}
       <AnalyticsAreaChart data={daily} height={200} />
 
-      {/* Peak day highlight */}
       {peakInsight && (
         <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
           <svg className="w-3.5 h-3.5 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
@@ -82,7 +110,6 @@ export default function SalesGrowthSection({ data }: SalesGrowthSectionProps) {
         </div>
       )}
 
-      {/* Insight */}
       <InsightText text={data.insight} />
     </div>
   );

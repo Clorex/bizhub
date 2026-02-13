@@ -1,46 +1,68 @@
+// FILE: src/components/SplashIntro.tsx
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-const BRAND_ORANGE = "#FF2D00"; // your Tailwind biz.orange
+const SPLASH_SHOWN_KEY = "mybizhub_splash_shown_v1";
+const TOTAL_MS = 1000; // show for only 1 second
+const FADE_MS = 180;
+
+function hasShown(): boolean {
+  if (typeof window === "undefined") return true;
+  try {
+    return sessionStorage.getItem(SPLASH_SHOWN_KEY) === "1";
+  } catch {
+    return true;
+  }
+}
+
+function markShown() {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(SPLASH_SHOWN_KEY, "1");
+  } catch {}
+}
 
 export default function SplashIntro() {
-  const [show, setShow] = useState(false);
+  const [open, setOpen] = useState(false);
+  const [fade, setFade] = useState(false);
+  const t1 = useRef<number | null>(null);
+  const t2 = useRef<number | null>(null);
 
   useEffect(() => {
-    // show only once per app session (prevents it from showing every page change)
-    const alreadyShown = sessionStorage.getItem("mybizhub_splash_shown");
-    if (alreadyShown) return;
+    // Show only once per tab/session
+    if (hasShown()) return;
 
-    setShow(true);
-    sessionStorage.setItem("mybizhub_splash_shown", "1");
+    markShown();
+    setOpen(true);
 
-    const t = setTimeout(() => setShow(false), 1000); // 1 second
-    return () => clearTimeout(t);
+    t1.current = window.setTimeout(() => setFade(true), Math.max(0, TOTAL_MS - FADE_MS));
+    t2.current = window.setTimeout(() => setOpen(false), TOTAL_MS);
+
+    return () => {
+      if (t1.current) window.clearTimeout(t1.current);
+      if (t2.current) window.clearTimeout(t2.current);
+    };
   }, []);
 
-  if (!show) return null;
+  if (!open) return null;
 
   return (
     <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        backgroundColor: BRAND_ORANGE,
-        zIndex: 999999,
-        display: "grid",
-        placeItems: "center",
-        padding: 24,
-      }}
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#FF2D00] transition-opacity"
+      style={{ opacity: fade ? 0 : 1, transitionDuration: `${FADE_MS}ms` }}
+      aria-label="Splash"
+      role="presentation"
     >
-      <img
-        src="/splash/logo.png"
-        alt="myBizHub"
-        style={{
-          width: "min(520px, 85vw)",
-          height: "auto",
-        }}
-      />
+      <div className="w-[260px] max-w-[70vw]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/splash/logo.png"
+          alt="myBizHub"
+          className="w-full h-auto select-none"
+          draggable={false}
+        />
+      </div>
     </div>
   );
 }

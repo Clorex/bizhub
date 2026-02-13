@@ -122,7 +122,7 @@ export default function VendorAnalyticsPage() {
     <div className="min-h-screen pb-28 bg-gray-50">
       <GradientHeader
         title="Analytics"
-        subtitle={`${tierName} Plan · ${periodLabel}`}
+        subtitle={`${tierName} Plan \u00B7 ${periodLabel}`}
         showBack
         right={
           <div className="flex items-center gap-2">
@@ -167,8 +167,10 @@ export default function VendorAnalyticsPage() {
           </Card>
         )}
 
+        {/* B4-3: Sales growth always visible (it's the base feature) */}
         <SalesGrowthSection data={salesGrowth} />
 
+        {/* B4-3: Locked sections — NO chart rendered, just a clean locked card */}
         {canSeeInsights ? (
           <RevenueBreakdownSection data={revenueBreakdown} />
         ) : (
@@ -241,7 +243,7 @@ export default function VendorAnalyticsPage() {
               ))}
               {raw.checkin.suggestion && (
                 <div className="mt-3 flex items-start gap-2 text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
-                  <span className="flex-shrink-0">💡</span>
+                  <span className="flex-shrink-0">{"\uD83D\uDCA1"}</span>
                   <span>{raw.checkin.suggestion}</span>
                 </div>
               )}
@@ -284,7 +286,7 @@ export default function VendorAnalyticsPage() {
                         nudge.tone === 'warn' ? 'text-red-700' : 'text-blue-700'
                       )}
                     >
-                      {nudge.cta.label} →
+                      {nudge.cta.label} {"\u2192"}
                     </button>
                   )}
                 </Card>
@@ -306,7 +308,7 @@ export default function VendorAnalyticsPage() {
                   Momentum or Apex.
                 </p>
                 <Button size="sm" className="mt-3" onClick={() => router.push('/vendor/subscription')}>
-                  View Plans →
+                  View Plans {"\u2192"}
                 </Button>
               </div>
             </div>
@@ -317,7 +319,7 @@ export default function VendorAnalyticsPage() {
   );
 }
 
-/* ——————————————————————————— Locked Section Card ——————————————————————————— */
+/* ————————————————————————— Locked Section Card ————————————————————————— */
 
 function LockedSectionCard({
   title,
@@ -354,7 +356,7 @@ function LockedSectionCard({
   );
 }
 
-/* ——————————————————————————— Comparison Stat ——————————————————————————— */
+/* ————————————————————————— Comparison Stat ————————————————————————— */
 
 function ComparisonStat({
   label,
@@ -373,7 +375,7 @@ function ComparisonStat({
 
   const sign = isPositive ? '+' : '';
   const displayValue = isCurrency
-    ? `${sign}₦${Math.abs(value).toLocaleString('en-NG')}`
+    ? `${sign}\u20A6${Math.abs(value).toLocaleString('en-NG')}`
     : `${sign}${value}`;
 
   return (

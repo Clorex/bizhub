@@ -1,3 +1,4 @@
+// FILE: src/app/vendor/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -20,11 +21,11 @@ import DashboardAnalyticsCard from "@/components/vendor/DashboardAnalyticsCard";
 import { auth } from "@/lib/firebase/client";
 import { toast } from "@/lib/ui/toast";
 import { cn } from "@/lib/cn";
+import { formatMoneyNGN } from "@/lib/money";
 
 import {
   RefreshCw,
   Link2,
-  Store,
   Plus,
   BarChart3,
   ShoppingCart,
@@ -39,7 +40,6 @@ import {
   ClipboardList,
   Settings,
   Megaphone,
-  Loader2,
   Copy,
   ExternalLink,
   Zap,
@@ -48,8 +48,6 @@ import {
   Bell,
   Shield,
 } from "lucide-react";
-
-/* ——————————————————————————— types ——————————————————————————— */
 
 type Range = "today" | "week" | "month";
 
@@ -76,18 +74,25 @@ interface ChartDayData {
   orders: number;
 }
 
-/* ——————————————————————————— helpers ——————————————————————————— */
+const NGN_COMPACT_FORMATTER = new Intl.NumberFormat("en-NG", {
+  style: "currency",
+  currency: "NGN",
+  notation: "compact",
+  maximumFractionDigits: 1,
+});
 
 function fmtNaira(n: number): string {
-  if (typeof n !== "number" || isNaN(n)) return "₦0";
-  return `₦${n.toLocaleString("en-NG")}`;
+  return formatMoneyNGN(Number(n || 0));
 }
 
 function fmtNairaCompact(n: number): string {
-  if (typeof n !== "number" || isNaN(n) || n <= 0) return "₦0";
-  if (n >= 1_000_000) return `₦${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `₦${(n / 1_000).toFixed(0)}k`;
-  return `₦${n.toFixed(0)}`;
+  const v = Number(n);
+  if (!Number.isFinite(v) || v <= 0) return formatMoneyNGN(0);
+  try {
+    return NGN_COMPACT_FORMATTER.format(v);
+  } catch {
+    return formatMoneyNGN(v);
+  }
 }
 
 function fmtNumber(n: number): string {
@@ -127,7 +132,13 @@ function processChartData(rawData: any[], range: Range): ChartDayData[] {
     processed.forEach((d, i) => {
       const wi = Math.floor(i / 7);
       if (!weeks[wi]) {
-        weeks[wi] = { dayKey: `week-${wi + 1}`, label: `Wk ${wi + 1}`, revenue: 0, views: 0, orders: 0 };
+        weeks[wi] = {
+          dayKey: `week-${wi + 1}`,
+          label: `Wk ${wi + 1}`,
+          revenue: 0,
+          views: 0,
+          orders: 0,
+        };
       }
       weeks[wi].revenue += d.revenue;
       weeks[wi].views += d.views;
@@ -138,8 +149,6 @@ function processChartData(rawData: any[], range: Range): ChartDayData[] {
 
   return processed;
 }
-
-/* ——————————————————————————— main ——————————————————————————— */
 
 export default function VendorDashboardPage() {
   const router = useRouter();
@@ -156,73 +165,69 @@ export default function VendorDashboardPage() {
   const [verificationTier, setVerificationTier] = useState<number>(0);
   const [verificationDismissed, setVerificationDismissed] = useState(false);
 
-  /* derived */
   const storeUrl = useMemo(() => {
     if (!me?.businessSlug || typeof window === "undefined") return "";
     return `${window.location.origin}/b/${me.businessSlug}`;
   }, [me]);
 
-  /* fetch */
-  const loadData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    setError(null);
-    setNotice(null);
+  const loadData = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
 
-    try {
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Please log in to view your dashboard.");
+      setError(null);
+      setNotice(null);
 
-      const [meRes, analyticsRes] = await Promise.all([
-        fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/vendor/analytics?range=${range}`, { headers: { Authorization: `Bearer ${token}` } }),
-      ]);
-
-      const [meJson, analyticsJson] = await Promise.all([
-        meRes.json().catch(() => ({})),
-        analyticsRes.json().catch(() => ({})),
-      ]);
-
-      if (!meRes.ok) throw new Error(meJson?.error || "Could not load profile.");
-      if (!analyticsRes.ok) throw new Error(analyticsJson?.error || "Could not load analytics.");
-
-      setMe(meJson.me);
-      setData(analyticsJson);
-      setAccess(analyticsJson?.meta?.access || null);
-
-      if (analyticsJson?.meta?.notice) setNotice(String(analyticsJson.meta.notice));
-
-      const usedRange = String(analyticsJson?.meta?.usedRange || range) as Range;
-      if (usedRange !== range) setRange(usedRange);
-
-      // Fetch verification tier
       try {
-        const vRes = await fetch("/api/vendor/verification", {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const vData = await vRes.json().catch(() => ({}));
-        if (vData.ok) {
-          setVerificationTier(Number(vData.verificationTier || 0));
-        }
-      } catch {
-        // Non-fatal
-      }
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("Please log in to view your dashboard.");
 
-      if (isRefresh) {
-        toast.success("Dashboard refreshed!");
+        const [meRes, analyticsRes] = await Promise.all([
+          fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`/api/vendor/analytics?range=${range}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+        ]);
+
+        const [meJson, analyticsJson] = await Promise.all([
+          meRes.json().catch(() => ({})),
+          analyticsRes.json().catch(() => ({})),
+        ]);
+
+        if (!meRes.ok) throw new Error(meJson?.error || "Could not load profile.");
+        if (!analyticsRes.ok) throw new Error(analyticsJson?.error || "Could not load analytics.");
+
+        setMe(meJson.me);
+        setData(analyticsJson);
+        setAccess(analyticsJson?.meta?.access || null);
+
+        if (analyticsJson?.meta?.notice) setNotice(String(analyticsJson.meta.notice));
+
+        const usedRange = String(analyticsJson?.meta?.usedRange || range) as Range;
+        if (usedRange !== range) setRange(usedRange);
+
+        try {
+          const vRes = await fetch("/api/vendor/verification", {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          const vData = await vRes.json().catch(() => ({}));
+          if (vData.ok) {
+            setVerificationTier(Number(vData.verificationTier || 0));
+          }
+        } catch {}
+
+        if (isRefresh) toast.success("Dashboard refreshed!");
+      } catch (e: any) {
+        setError(e?.message || "Something went wrong.");
+        setData(null);
+        setAccess(null);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } catch (e: any) {
-      setError(e?.message || "Something went wrong.");
-      setData(null);
-      setAccess(null);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [range]);
+    },
+    [range]
+  );
 
   useEffect(() => {
     loadData();
@@ -240,7 +245,6 @@ export default function VendorDashboardPage() {
     }
   }, [storeUrl]);
 
-  /* data */
   const overview: OverviewData = useMemo(() => {
     const ov = data?.overview || {};
     return {
@@ -294,8 +298,6 @@ export default function VendorDashboardPage() {
 
   const showVerificationReminder = verificationTier < 2 && !verificationDismissed && !loading;
 
-  /* ——————— render ——————— */
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -307,7 +309,6 @@ export default function VendorDashboardPage() {
 
   return (
     <div className="min-h-screen pb-28 bg-gray-50">
-      {/* Header */}
       <GradientHeader
         title="Dashboard"
         subtitle={storeName}
@@ -336,7 +337,6 @@ export default function VendorDashboardPage() {
       />
 
       <div className="px-4 space-y-4 pt-4">
-        {/* Period Selector */}
         <SegmentedControl<Range>
           value={range}
           onChange={setRange}
@@ -347,7 +347,6 @@ export default function VendorDashboardPage() {
           ]}
         />
 
-        {/* Notices */}
         {notice && (
           <Card className="p-4 bg-orange-50 border-orange-200">
             <div className="flex items-start gap-3">
@@ -363,12 +362,7 @@ export default function VendorDashboardPage() {
               <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <div>
                 <p className="text-sm font-medium text-red-800">{error}</p>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="mt-2"
-                  onClick={() => loadData()}
-                >
+                <Button variant="secondary" size="sm" className="mt-2" onClick={() => loadData()}>
                   Try Again
                 </Button>
               </div>
@@ -376,7 +370,6 @@ export default function VendorDashboardPage() {
           </Card>
         )}
 
-        {/* ── Verification Reminder (Tier 0/1 only) ── */}
         {showVerificationReminder && (
           <Card className="p-4 bg-blue-50 border-blue-200 relative">
             <button
@@ -392,9 +385,7 @@ export default function VendorDashboardPage() {
               </div>
               <div className="flex-1">
                 <p className="text-sm font-bold text-blue-800">
-                  {verificationTier === 0
-                    ? "Get verified to start selling"
-                    : "Increase your trust level"}
+                  {verificationTier === 0 ? "Get verified to start selling" : "Increase your trust level"}
                 </p>
                 <p className="text-xs text-blue-600 mt-1 leading-relaxed">
                   Verified vendors receive more customer engagement and visibility.
@@ -408,7 +399,7 @@ export default function VendorDashboardPage() {
                   onClick={() => router.push("/vendor/verification")}
                   rightIcon={<ChevronRight className="w-4 h-4" />}
                 >
-                  {verificationTier === 0 ? "Start Verification" : "Continue Verification"}
+                  {verificationTier === 0 ? "Start verification" : "Continue verification"}
                 </Button>
               </div>
             </div>
@@ -417,14 +408,11 @@ export default function VendorDashboardPage() {
 
         {data && (
           <>
-            {/* Revenue Hero Card */}
             <div className="bg-gradient-to-br from-orange-500 via-orange-500 to-orange-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
-              {/* Decorative circles */}
               <div className="absolute top-0 right-0 w-40 h-40 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
               <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
 
               <div className="relative z-10">
-                {/* Revenue */}
                 <div className="flex items-start justify-between">
                   <div>
                     <p className="text-xs font-bold uppercase tracking-widest text-orange-100">
@@ -447,7 +435,6 @@ export default function VendorDashboardPage() {
                   )}
                 </div>
 
-                {/* Quick Stats Row */}
                 <div className="mt-5 grid grid-cols-3 gap-3">
                   <QuickStat
                     icon={ShoppingCart}
@@ -469,16 +456,13 @@ export default function VendorDashboardPage() {
                   />
                 </div>
 
-                {/* Store Link Actions */}
                 <div className="mt-5 grid grid-cols-2 gap-3">
                   <button
                     onClick={copyStoreLink}
                     disabled={!storeUrl}
                     className={cn(
                       "flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition",
-                      copied
-                        ? "bg-green-500 text-white"
-                        : "bg-white/20 hover:bg-white/30 text-white"
+                      copied ? "bg-green-500 text-white" : "bg-white/20 hover:bg-white/30 text-white"
                     )}
                   >
                     {copied ? (
@@ -489,7 +473,7 @@ export default function VendorDashboardPage() {
                     ) : (
                       <>
                         <Link2 className="w-4 h-4" />
-                        Copy Link
+                        Copy link
                       </>
                     )}
                   </button>
@@ -499,13 +483,12 @@ export default function VendorDashboardPage() {
                     className="flex items-center justify-center gap-2 bg-white text-orange-600 hover:bg-orange-50 rounded-xl py-3 text-sm font-bold transition disabled:opacity-50"
                   >
                     <ExternalLink className="w-4 h-4" />
-                    View Store
+                    View store
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* Action Required Section */}
             {totalTodoCount > 0 && (
               <SectionCard
                 title="Action Required"
@@ -520,7 +503,7 @@ export default function VendorDashboardPage() {
                   {todo.disputedCount > 0 && (
                     <MenuCard
                       icon={AlertCircle}
-                      label="Disputed Orders"
+                      label="Disputed orders"
                       description="Resolve customer disputes"
                       badge={todo.disputedCount}
                       href="/vendor/orders?filter=disputed"
@@ -530,7 +513,7 @@ export default function VendorDashboardPage() {
                   {todo.awaitingConfirmCount > 0 && (
                     <MenuCard
                       icon={Clock}
-                      label="Awaiting Confirmation"
+                      label="Awaiting confirmation"
                       description="Confirm pending payments"
                       badge={todo.awaitingConfirmCount}
                       href="/vendor/orders?filter=pending"
@@ -540,7 +523,7 @@ export default function VendorDashboardPage() {
                   {todo.outOfStockCount > 0 && (
                     <MenuCard
                       icon={Package}
-                      label="Out of Stock"
+                      label="Out of stock"
                       description="Restock or hide products"
                       badge={todo.outOfStockCount}
                       href="/vendor/products?filter=outofstock"
@@ -549,7 +532,7 @@ export default function VendorDashboardPage() {
                   {todo.lowStockCount > 0 && (
                     <MenuCard
                       icon={Package}
-                      label="Low Stock Warning"
+                      label="Low stock warning"
                       description="Products running low"
                       badge={todo.lowStockCount}
                       href="/vendor/products?filter=lowstock"
@@ -559,7 +542,6 @@ export default function VendorDashboardPage() {
               </SectionCard>
             )}
 
-            {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-3">
               <StatCard
                 label="Products Sold"
@@ -577,7 +559,6 @@ export default function VendorDashboardPage() {
               />
             </div>
 
-            {/* Revenue Chart */}
             {revenueChartData.length > 0 && (
               <SectionCard
                 title="Revenue Trend"
@@ -602,63 +583,25 @@ export default function VendorDashboardPage() {
               </SectionCard>
             )}
 
-            {/* ✅ Premium Analytics Summary Card */}
             <DashboardAnalyticsCard range={range} />
 
-            {/* Quick Actions */}
-            <SectionCard title="Quick Actions" subtitle="Manage your business">
+            <SectionCard title="Quick actions" subtitle="Manage your business">
               <div className="grid grid-cols-2 gap-2">
-                <QuickActionCard
-                  icon={Plus}
-                  label="Add Product"
-                  href="/vendor/products/new"
-                  color="orange"
-                />
-                <QuickActionCard
-                  icon={ClipboardList}
-                  label="View Orders"
-                  href="/vendor/orders"
-                  color="blue"
-                />
-                <QuickActionCard
-                  icon={BarChart3}
-                  label="Analytics"
-                  href="/vendor/analytics"
-                  color="purple"
-                />
-                <QuickActionCard
-                  icon={Settings}
-                  label="Store Settings"
-                  href="/vendor/store"
-                  color="gray"
-                />
+                <QuickActionCard icon={Plus} label="Add product" href="/vendor/products/new" color="orange" />
+                <QuickActionCard icon={ClipboardList} label="View orders" href="/vendor/orders" color="blue" />
+                <QuickActionCard icon={BarChart3} label="View analytics" href="/vendor/analytics" color="purple" />
+                <QuickActionCard icon={Settings} label="Store settings" href="/vendor/store" color="gray" />
               </div>
 
               <div className="mt-3 space-y-2">
-                <MenuCard
-                  icon={Tag}
-                  label="Coupons"
-                  description="Create discount codes"
-                  href="/vendor/coupons"
-                />
-                <MenuCard
-                  icon={Megaphone}
-                  label="Promotions"
-                  description="Boost products in marketplace"
-                  href="/vendor/promotions"
-                />
-                <MenuCard
-                  icon={Wallet}
-                  label="Payouts"
-                  description="View earnings and withdrawals"
-                  href="/vendor/payouts"
-                />
+                <MenuCard icon={Tag} label="Coupon codes" description="Create discount codes" href="/vendor/coupons" />
+                <MenuCard icon={Megaphone} label="Promotions" description="Boost products in marketplace" href="/vendor/promotions" />
+                <MenuCard icon={Wallet} label="Payouts" description="View earnings and withdrawals" href="/vendor/payouts" />
               </div>
             </SectionCard>
 
-            {/* Recent Orders */}
             <SectionCard
-              title="Recent Orders"
+              title="Recent orders"
               subtitle="Latest activity"
               right={
                 recentOrders.length > 0 && (
@@ -666,7 +609,7 @@ export default function VendorDashboardPage() {
                     onClick={() => router.push("/vendor/orders")}
                     className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1"
                   >
-                    View All
+                    View all
                     <ChevronRight className="w-4 h-4" />
                   </button>
                 )
@@ -678,34 +621,19 @@ export default function VendorDashboardPage() {
                   title="No orders yet"
                   description="Share your store link to start receiving orders from customers."
                   actions={[
-                    {
-                      label: "Copy Link",
-                      onClick: copyStoreLink,
-                      icon: Link2,
-                      variant: "primary",
-                    },
-                    {
-                      label: "Add Product",
-                      onClick: () => router.push("/vendor/products/new"),
-                      icon: Plus,
-                      variant: "secondary",
-                    },
+                    { label: "Copy link", onClick: copyStoreLink, icon: Link2, variant: "primary" },
+                    { label: "Add product", onClick: () => router.push("/vendor/products/new"), icon: Plus, variant: "secondary" },
                   ]}
                 />
               ) : (
                 <div className="space-y-2">
                   {recentOrders.slice(0, 5).map((order) => (
-                    <OrderRow
-                      key={order.id}
-                      order={order}
-                      onClick={() => router.push(`/vendor/orders/${order.id}`)}
-                    />
+                    <OrderRow key={order.id} order={order} onClick={() => router.push(`/vendor/orders/${order.id}`)} />
                   ))}
                 </div>
               )}
             </SectionCard>
 
-            {/* Upgrade CTA for free users */}
             {!isSubscribed && (
               <Card className="p-5 bg-gradient-to-br from-purple-50 to-orange-50 border-purple-100">
                 <div className="flex items-start gap-4">
@@ -713,7 +641,7 @@ export default function VendorDashboardPage() {
                     <Zap className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm font-bold text-gray-900">Unlock More Features</p>
+                    <p className="text-sm font-bold text-gray-900">Unlock more features</p>
                     <p className="text-xs text-gray-600 mt-1">
                       Get monthly analytics, priority support, coupons, and more with Pro.
                     </p>
@@ -723,7 +651,7 @@ export default function VendorDashboardPage() {
                       onClick={() => router.push("/vendor/subscription")}
                       rightIcon={<ChevronRight className="w-4 h-4" />}
                     >
-                      View Plans
+                      View plans
                     </Button>
                   </div>
                 </div>
@@ -735,8 +663,6 @@ export default function VendorDashboardPage() {
     </div>
   );
 }
-
-/* ——————————————————————————— Quick Action Card ——————————————————————————— */
 
 function QuickActionCard({
   icon: Icon,

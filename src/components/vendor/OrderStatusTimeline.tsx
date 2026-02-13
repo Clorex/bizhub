@@ -12,6 +12,7 @@ import {
   AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { formatOpsStatus } from "@/lib/statusLabel";
 
 interface TimelineEvent {
   label: string;
@@ -25,33 +26,60 @@ interface OrderStatusTimelineProps {
   order: any;
 }
 
+/**
+ * Safely converts any timestamp shape to a formatted string.
+ * Handles: Date, Firestore Timestamp (.toDate()), ISO strings, epoch numbers,
+ * and serialized Firestore objects ({seconds, nanoseconds}).
+ * Never returns "[object Object]".
+ */
 function fmtDate(v: any): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  };
+
   try {
-    if (!v) return "—";
-    if (typeof v?.toDate === "function") {
-      return v.toDate().toLocaleString("en-NG", {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-      });
+    if (!v) return "\u2014";
+
+    // Already a Date
+    if (v instanceof Date) {
+      return isNaN(v.getTime()) ? "\u2014" : v.toLocaleString("en-NG", opts);
     }
+
+    // Firestore Timestamp instance (client SDK)
+    if (typeof v?.toDate === "function") {
+      const d = v.toDate();
+      return d instanceof Date && !isNaN(d.getTime())
+        ? d.toLocaleString("en-NG", opts)
+        : "\u2014";
+    }
+
+    // ISO string or epoch number
     if (typeof v === "string" || typeof v === "number") {
       const d = new Date(v);
-      if (!isNaN(d.getTime())) {
-        return d.toLocaleString("en-NG", {
-          month: "short",
-          day: "numeric",
-          year: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        });
+      return isNaN(d.getTime()) ? "\u2014" : d.toLocaleString("en-NG", opts);
+    }
+
+    // Serialized Firestore timestamp: {seconds, nanoseconds} or {_seconds, _nanoseconds}
+    if (typeof v === "object") {
+      const seconds = v?.seconds ?? v?._seconds;
+      if (typeof seconds === "number") {
+        const ns = v?.nanoseconds ?? v?._nanoseconds;
+        const ms =
+          seconds * 1000 +
+          (typeof ns === "number" ? Math.floor(ns / 1e6) : 0);
+        const d = new Date(ms);
+        return isNaN(d.getTime()) ? "\u2014" : d.toLocaleString("en-NG", opts);
       }
     }
-    return String(v);
+
+    // Safe fallback — never String(v)
+    return "\u2014";
   } catch {
-    return "—";
+    return "\u2014";
   }
 }
 
@@ -83,11 +111,14 @@ export const OrderStatusTimeline = memo(function OrderStatusTimeline({
 
     if (Array.isArray(order.opsStatusHistory)) {
       order.opsStatusHistory.forEach((h: any) => {
-        const s = String(h.status || "").toLowerCase();
+        // Safe string coercion — h.status could be an object
+        const raw =
+          typeof h.status === "string" ? h.status : "";
+        const s = raw.toLowerCase();
         const cfg = STATUS_CONFIG[s] || STATUS_CONFIG.new;
 
         list.push({
-          label: `Status: ${h.status || "Updated"}`,
+          label: formatOpsStatus(h.status),
           date: fmtDate(h.timestamp),
           icon: cfg.icon,
           color: cfg.color,

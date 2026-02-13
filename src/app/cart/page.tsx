@@ -3,12 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import {
-  Store,
-  Trash2,
-  ShoppingBag,
-  AlertCircle,
-} from "lucide-react";
+import { Store, Trash2, AlertCircle } from "lucide-react";
 
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
@@ -19,10 +14,7 @@ import { toast } from "@/lib/ui/toast";
 import { CartItem } from "@/components/cart/CartItem";
 import { CartSummary } from "@/components/cart/CartSummary";
 import { EmptyCart } from "@/components/cart/EmptyCart";
-
-function fmtNaira(n: number) {
-  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
-}
+import { formatMoneyNGN } from "@/lib/money";
 
 function digitsOnlyPhone(v: string) {
   return String(v || "").replace(/[^\d]/g, "");
@@ -167,7 +159,7 @@ export default function CartPage() {
       const refShort = clientOrderId.slice(0, 8);
 
       const lines: string[] = [
-        `Hello ${storeName}! 👋`,
+        `Hello ${storeName}!`,
         ``,
         `I'd like to order the following from your myBizHub store:`,
         ``,
@@ -180,13 +172,15 @@ export default function CartPage() {
                 .map(([k, v]) => `${k}: ${v}`)
                 .join(", ")})`
             : "";
-        lines.push(`• ${item.qty}× ${item.name}${opts} — ${fmtNaira(item.price * item.qty)}`);
+        lines.push(
+          `• ${item.qty}× ${item.name}${opts} — ${formatMoneyNGN(item.price * item.qty)}`
+        );
       }
 
       lines.push(``);
-      lines.push(`💰 Subtotal: ${fmtNaira(subtotal)}`);
+      lines.push(`Subtotal: ${formatMoneyNGN(subtotal)}`);
       lines.push(``);
-      lines.push(`📋 Order ref: ${refShort}`);
+      lines.push(`Order ref: ${refShort}`);
 
       const text = lines.join("\n");
       window.open(waLink(chatAvail.whatsapp, text), "_blank");
@@ -203,7 +197,9 @@ export default function CartPage() {
     <div className="min-h-screen bg-gray-50">
       <GradientHeader
         title="Shopping Cart"
-        subtitle={isEmpty ? "Your cart is empty" : `${itemCount} item${itemCount !== 1 ? "s" : ""}`}
+        subtitle={
+          isEmpty ? "Your cart is empty" : `${itemCount} item${itemCount !== 1 ? "s" : ""}`
+        }
         showBack={true}
       />
 
@@ -218,9 +214,7 @@ export default function CartPage() {
                   <Store className="w-5 h-5 text-orange-600" />
                 </div>
                 <div>
-                  <p className="text-sm font-semibold text-gray-900">
-                    Shopping from
-                  </p>
+                  <p className="text-sm font-semibold text-gray-900">Shopping from</p>
                   <Link
                     href={`/b/${storeSlug}`}
                     className="text-xs text-orange-600 font-medium hover:underline"
@@ -265,9 +259,7 @@ export default function CartPage() {
             <div className="mt-4 rounded-xl bg-blue-50 border border-blue-100 p-4 flex items-start gap-3">
               <AlertCircle className="w-5 h-5 text-blue-500 shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium text-blue-900">
-                  Secure checkout
-                </p>
+                <p className="text-sm font-medium text-blue-900">Secure checkout</p>
                 <p className="text-xs text-blue-700 mt-1">
                   Your payment is protected. We support card payments and bank transfers.
                 </p>

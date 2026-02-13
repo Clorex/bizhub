@@ -1,7 +1,6 @@
 import * as React from "react";
 import { Html, Head, Preview, Body, Container, Section, Heading, Text, Row, Column } from "@react-email/components";
 
-// Helper to format currency
 function fmtNaira(n: number) {
   try {
     return `₦${Number(n || 0).toLocaleString()}`;
@@ -10,8 +9,15 @@ function fmtNaira(n: number) {
   }
 }
 
+function padOrderNumber(n?: number, width = 4) {
+  const v = Math.floor(Number(n));
+  if (!Number.isFinite(v) || v <= 0) return "";
+  return String(v).padStart(width, "0");
+}
+
 interface OrderReceiptEmailProps {
   orderId: string;
+  orderNumber?: number; // ✅ NEW (optional, backward-compatible)
   orderDate: string;
   storeName: string;
   customerName: string;
@@ -26,32 +32,32 @@ interface OrderReceiptEmailProps {
   };
 }
 
-// CHANGED: From a const arrow function to a standard function declaration to fix type error.
 export function OrderReceiptEmail({
   orderId,
+  orderNumber,
   orderDate,
   storeName,
   items,
   pricing,
 }: Readonly<OrderReceiptEmailProps>) {
+  const displayNo = padOrderNumber(orderNumber) || String(orderId || "").slice(0, 8).toUpperCase();
+
   return (
     <Html>
       <Head />
-      <Preview>Your {storeName} Order Receipt #{orderId.slice(0, 8)}</Preview>
+      <Preview>Your {storeName} Order Receipt #{displayNo}</Preview>
       <Body style={main}>
         <Container style={container}>
           <Section style={header}>
             <Heading style={heading}>Thank you for your order!</Heading>
-            <Text style={subheading}>
-              Here is your receipt for order #{orderId.slice(0, 8)} from {storeName}.
-            </Text>
+            <Text style={subheading}>Here is your receipt for order #{displayNo} from {storeName}.</Text>
           </Section>
 
           <Section style={box}>
             <Row>
               <Column>
-                <Text style={label}>Order ID</Text>
-                <Text style={value}>{orderId}</Text>
+                <Text style={label}>Order #</Text>
+                <Text style={value}>{displayNo}</Text>
               </Column>
               <Column style={{ textAlign: "right" }}>
                 <Text style={label}>Order Date</Text>
@@ -61,20 +67,14 @@ export function OrderReceiptEmail({
           </Section>
 
           <Section style={box}>
-            <Heading as="h2" style={sectionHeading}>
-              Items
-            </Heading>
+            <Heading as="h2" style={sectionHeading}>Items</Heading>
             {items.map((item, idx) => (
               <Row key={idx} style={itemRow}>
                 <Column>
-                  <Text style={itemText}>
-                    {item.qty} x {item.name}
-                  </Text>
+                  <Text style={itemText}>{item.qty} x {item.name}</Text>
                   {item.selectedOptions && Object.keys(item.selectedOptions).length > 0 && (
                     <Text style={itemOptions}>
-                      {Object.entries(item.selectedOptions)
-                        .map(([k, v]) => `${k}: ${v}`)
-                        .join(", ")}
+                      {Object.entries(item.selectedOptions).map(([k, v]) => `${k}: ${v}`).join(", ")}
                     </Text>
                   )}
                 </Column>
@@ -86,65 +86,47 @@ export function OrderReceiptEmail({
           </Section>
 
           <Section style={box}>
-            <Heading as="h2" style={sectionHeading}>
-              Summary
-            </Heading>
+            <Heading as="h2" style={sectionHeading}>Summary</Heading>
+
             <Row style={summaryRow}>
-              <Column>
-                <Text style={summaryLabel}>Subtotal</Text>
-              </Column>
-              <Column style={{ textAlign: "right" }}>
-                <Text style={summaryValue}>{fmtNaira(pricing.originalSubtotalKobo / 100)}</Text>
-              </Column>
+              <Column><Text style={summaryLabel}>Subtotal</Text></Column>
+              <Column style={{ textAlign: "right" }}><Text style={summaryValue}>{fmtNaira(pricing.originalSubtotalKobo / 100)}</Text></Column>
             </Row>
+
             {pricing.saleDiscountKobo > 0 && (
               <Row style={summaryRow}>
-                <Column>
-                  <Text style={summaryLabel}>Sale Discount</Text>
-                </Column>
-                <Column style={{ textAlign: "right" }}>
-                  <Text style={summaryValue}>-{fmtNaira(pricing.saleDiscountKobo / 100)}</Text>
-                </Column>
+                <Column><Text style={summaryLabel}>Sale Discount</Text></Column>
+                <Column style={{ textAlign: "right" }}><Text style={summaryValue}>-{fmtNaira(pricing.saleDiscountKobo / 100)}</Text></Column>
               </Row>
             )}
+
             {pricing.couponDiscountKobo > 0 && (
               <Row style={summaryRow}>
-                <Column>
-                  <Text style={summaryLabel}>Coupon Discount</Text>
-                </Column>
-                <Column style={{ textAlign: "right" }}>
-                  <Text style={summaryValue}>-{fmtNaira(pricing.couponDiscountKobo / 100)}</Text>
-                </Column>
+                <Column><Text style={summaryLabel}>Coupon Discount</Text></Column>
+                <Column style={{ textAlign: "right" }}><Text style={summaryValue}>-{fmtNaira(pricing.couponDiscountKobo / 100)}</Text></Column>
               </Row>
             )}
+
             <Row style={summaryRow}>
-              <Column>
-                <Text style={summaryLabel}>Shipping</Text>
-              </Column>
-              <Column style={{ textAlign: "right" }}>
-                <Text style={summaryValue}>{fmtNaira(pricing.shippingFeeKobo / 100)}</Text>
-              </Column>
+              <Column><Text style={summaryLabel}>Shipping</Text></Column>
+              <Column style={{ textAlign: "right" }}><Text style={summaryValue}>{fmtNaira(pricing.shippingFeeKobo / 100)}</Text></Column>
             </Row>
+
             <hr style={hr} />
+
             <Row style={summaryRow}>
-              <Column>
-                <Text style={totalLabel}>Total Paid</Text>
-              </Column>
-              <Column style={{ textAlign: "right" }}>
-                <Text style={totalValue}>{fmtNaira(pricing.totalKobo / 100)}</Text>
-              </Column>
+              <Column><Text style={totalLabel}>Total Paid</Text></Column>
+              <Column style={{ textAlign: "right" }}><Text style={totalValue}>{fmtNaira(pricing.totalKobo / 100)}</Text></Column>
             </Row>
           </Section>
-          <Text style={footer}>
-            myBizHub • If you have any questions, please contact the vendor directly.
-          </Text>
+
+          <Text style={footer}>myBizHub • If you have any questions, please contact the vendor directly.</Text>
         </Container>
       </Body>
     </Html>
   );
 }
 
-// Styles
 const main = { backgroundColor: "#f6f9fc", fontFamily: "Arial, sans-serif" };
 const container = { backgroundColor: "#ffffff", margin: "0 auto", padding: "20px 0 48px", width: "580px" };
 const header = { padding: "0 48px", textAlign: "center" as const };

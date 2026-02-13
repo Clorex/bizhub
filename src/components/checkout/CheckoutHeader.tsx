@@ -3,16 +3,13 @@
 
 import { memo } from "react";
 import { Shield, Clock, CreditCard } from "lucide-react";
+import { formatMoneyNGN } from "@/lib/money";
 
 interface CheckoutHeaderProps {
   total: number;
   storeSlug: string;
   itemCount: number;
   loading?: boolean;
-}
-
-function fmtNaira(n: number) {
-  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
 }
 
 export const CheckoutHeader = memo(function CheckoutHeader({
@@ -34,11 +31,12 @@ export const CheckoutHeader = memo(function CheckoutHeader({
         </div>
 
         <p className="text-3xl font-bold mt-2 tracking-tight">
-          {loading ? "Calculating..." : fmtNaira(total)}
+          {loading ? "Calculating..." : formatMoneyNGN(total)}
         </p>
 
         <p className="text-sm text-orange-100 mt-2">
-          {itemCount} item{itemCount !== 1 ? "s" : ""} from <span className="font-medium">@{storeSlug}</span>
+          {itemCount} item{itemCount !== 1 ? "s" : ""} from{" "}
+          <span className="font-medium">@{storeSlug}</span>
         </p>
 
         {/* Trust badges */}

@@ -12,34 +12,22 @@ import { OptionGroup, VariationBuilder } from "@/components/vendor/VariationBuil
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Chip } from "@/components/ui/Chip";
-import { VendorEmptyState } from "@/components/vendor/EmptyState";
+import { SelectMenu } from "@/components/ui/SelectMenu";
 import { toast } from "@/lib/ui/toast";
 import { cn } from "@/lib/cn";
 import { type CoverAspectKey, normalizeCoverAspect } from "@/lib/products/coverAspect";
 import { MARKET_CATEGORIES, suggestCategoriesFromText, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
+import { formatMoneyNGN } from "@/lib/money";
 
-import {
-  Package,
-  Image as ImageIcon,
-  Tag,
-  Layers,
-  ChevronRight,
-  AlertCircle,
-  CheckCircle2,
-  Zap,
-  Info,
-  Palette,
-  Ruler,
-  Box,
-} from "lucide-react";
+import { Package, AlertCircle, CheckCircle2, Zap, Info, Palette, Ruler } from "lucide-react";
 
-/* ─────────────────────── Constants ─────────────────────── */
+/* ──────────────────────────────── Constants ──────────────────────────────── */
 
 const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
 const MAX_IMAGES = 10;
 const DRAFT_KEY = "bizhub_vendor_new_product_draft_v1";
 
-/* ─────────────────────── Helpers ─────────────────────── */
+/* ──────────────────────────────── Helpers ──────────────────────────────── */
 
 function digitsOnly(s: string) {
   return String(s || "").replace(/[^\d]/g, "");
@@ -57,11 +45,7 @@ function parseNumberText(s: string) {
 }
 
 function fmtNaira(n: number) {
-  try {
-    return `₦${Number(n || 0).toLocaleString("en-NG")}`;
-  } catch {
-    return `₦${n}`;
-  }
+  return formatMoneyNGN(Number(n || 0));
 }
 
 function uniq<T>(arr: T[]) {
@@ -76,7 +60,7 @@ function uniq<T>(arr: T[]) {
   return out;
 }
 
-/* ─────────────────────── Completion Tracker ─────────────────────── */
+/* ──────────────────────────────── Completion Tracker ──────────────────────────────── */
 
 function useCompletionSteps(
   name: string,
@@ -104,7 +88,7 @@ function useCompletionSteps(
   }, [name, price, images, description, categoryKeys]);
 }
 
-/* ─────────────────────── Main Component ─────────────────────── */
+/* ──────────────────────────────── Main Component ──────────────────────────────── */
 
 export default function VendorNewProductPage() {
   const router = useRouter();
@@ -139,7 +123,25 @@ export default function VendorNewProductPage() {
     return packagingChoice;
   }, [packagingChoice, packagingOther]);
 
-  /* ─── Draft restore ─── */
+  function resetForm() {
+    setName("");
+    setDescription("");
+    setPriceText("");
+    setStockText("");
+    setPackagingChoice("Box");
+    setPackagingOther("");
+    setImages([]);
+    setOptionGroups([]);
+    setCoverAspect("1:1");
+    setCategoryKeys([]);
+    setCategoriesTouched(false);
+    setColorsCsv("");
+    setSizesCsv("");
+    setMsg(null);
+    setLocked(false);
+  }
+
+  /* Draft restore */
   useEffect(() => {
     try {
       const raw = sessionStorage.getItem(DRAFT_KEY);
@@ -163,25 +165,49 @@ export default function VendorNewProductPage() {
     } catch {}
   }, []);
 
-  /* ─── Draft save ─── */
+  /* Draft save */
   useEffect(() => {
     const t = setTimeout(() => {
       try {
         sessionStorage.setItem(
           DRAFT_KEY,
           JSON.stringify({
-            name, description, priceText, stockText, packagingChoice, packagingOther,
-            images: images.slice(0, MAX_IMAGES), optionGroups, coverAspect,
-            categoryKeys: categoryKeys.slice(0, 3), categoriesTouched, colorsCsv, sizesCsv,
+            name,
+            description,
+            priceText,
+            stockText,
+            packagingChoice,
+            packagingOther,
+            images: images.slice(0, MAX_IMAGES),
+            optionGroups,
+            coverAspect,
+            categoryKeys: categoryKeys.slice(0, 3),
+            categoriesTouched,
+            colorsCsv,
+            sizesCsv,
             ts: Date.now(),
           })
         );
       } catch {}
     }, 300);
     return () => clearTimeout(t);
-  }, [name, description, priceText, stockText, packagingChoice, packagingOther, images, optionGroups, coverAspect, categoryKeys, categoriesTouched, colorsCsv, sizesCsv]);
+  }, [
+    name,
+    description,
+    priceText,
+    stockText,
+    packagingChoice,
+    packagingOther,
+    images,
+    optionGroups,
+    coverAspect,
+    categoryKeys,
+    categoriesTouched,
+    colorsCsv,
+    sizesCsv,
+  ]);
 
-  /* ─── Auto-suggest categories ─── */
+  /* Auto-suggest categories */
   useEffect(() => {
     if (categoriesTouched) return;
     const text = `${name} ${description}`.trim();
@@ -192,7 +218,6 @@ export default function VendorNewProductPage() {
     setCategoryKeys(suggestCategoriesFromText(text, 3));
   }, [name, description, categoriesTouched, categoryKeys]);
 
-  /* ─── Toggle category ─── */
   function toggleCategory(k: MarketCategoryKey) {
     setCategoriesTouched(true);
     setCategoryKeys((prev) => {
@@ -206,7 +231,6 @@ export default function VendorNewProductPage() {
     });
   }
 
-  /* ─── Create product ─── */
   async function create() {
     setLoading(true);
     setMsg(null);
@@ -220,9 +244,18 @@ export default function VendorNewProductPage() {
         method: "POST",
         headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
         body: JSON.stringify({
-          name, description, price, stock, packaging: packagingFinal,
-          images: images.slice(0, MAX_IMAGES), optionGroups, variants: [],
-          coverAspect, categoryKeys: categoryKeys.slice(0, 3), colorsCsv, sizesCsv,
+          name,
+          description,
+          price,
+          stock,
+          packaging: packagingFinal,
+          images: images.slice(0, MAX_IMAGES),
+          optionGroups,
+          variants: [],
+          coverAspect,
+          categoryKeys: categoryKeys.slice(0, 3),
+          colorsCsv,
+          sizesCsv,
         }),
       });
 
@@ -236,9 +269,16 @@ export default function VendorNewProductPage() {
         throw new Error(data?.error || "Could not create product.");
       }
 
-      try { sessionStorage.removeItem(DRAFT_KEY); } catch {}
-      toast.success("Product created!");
-      router.push(`/vendor/products/${data.productId}/edit`);
+      try {
+        sessionStorage.removeItem(DRAFT_KEY);
+      } catch {}
+
+      // B10-3: stay on Add Product, reset form, toast
+      toast.success("Product added successfully");
+      resetForm();
+
+      // Do NOT route to edit/quick-actions screen
+      // router.push(`/vendor/products/${data.productId}/edit`);
     } catch (e: any) {
       const m = e?.message || "Could not create product.";
       setMsg(m);
@@ -250,26 +290,23 @@ export default function VendorNewProductPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
-      <GradientHeader
-        title="New Product"
-        subtitle="Add to your catalog"
-        showBack={true}
-      />
+      <GradientHeader title="New Product" subtitle="Add to your catalog" showBack={true} />
 
       <div className="px-4 space-y-4 pt-4">
         {/* Completion Progress */}
         <Card className="p-4">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold text-gray-900">Completion</p>
-            <span className={cn(
-              "text-xs font-semibold px-2 py-0.5 rounded-full",
-              percent === 100 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-            )}>
+            <span
+              className={cn(
+                "text-xs font-semibold px-2 py-0.5 rounded-full",
+                percent === 100 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+              )}
+            >
               {percent}%
             </span>
           </div>
 
-          {/* Progress bar */}
           <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
             <div
               className={cn(
@@ -280,22 +317,25 @@ export default function VendorNewProductPage() {
             />
           </div>
 
-          {/* Steps */}
           <div className="mt-3 space-y-1.5">
             {steps.map((step) => (
               <div key={step.label} className="flex items-center gap-2">
                 {step.done ? (
                   <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
                 ) : (
-                  <div className={cn(
-                    "w-4 h-4 rounded-full border-2 shrink-0",
-                    step.required ? "border-orange-300" : "border-gray-300"
-                  )} />
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full border-2 shrink-0",
+                      step.required ? "border-orange-300" : "border-gray-300"
+                    )}
+                  />
                 )}
-                <span className={cn(
-                  "text-xs",
-                  step.done ? "text-gray-500 line-through" : step.required ? "text-gray-700" : "text-gray-400"
-                )}>
+                <span
+                  className={cn(
+                    "text-xs",
+                    step.done ? "text-gray-500 line-through" : step.required ? "text-gray-700" : "text-gray-400"
+                  )}
+                >
                   {step.label}
                   {step.required && !step.done && <span className="text-orange-500"> *</span>}
                 </span>
@@ -316,7 +356,11 @@ export default function VendorNewProductPage() {
                 <p className={cn("text-xs mt-1", locked ? "text-orange-600" : "text-red-600")}>{msg}</p>
                 {locked && (
                   <div className="mt-3 flex gap-2">
-                    <Button size="sm" onClick={() => router.push("/vendor/subscription")} leftIcon={<Zap className="w-4 h-4" />}>
+                    <Button
+                      size="sm"
+                      onClick={() => router.push("/vendor/subscription")}
+                      leftIcon={<Zap className="w-4 h-4" />}
+                    >
                       Upgrade
                     </Button>
                     <Button size="sm" variant="secondary" onClick={() => router.push("/vendor/products")}>
@@ -328,6 +372,31 @@ export default function VendorNewProductPage() {
             </div>
           </Card>
         )}
+
+        {/* Images first */}
+        <SectionCard title="Product Images" subtitle={`${images.length}/${MAX_IMAGES} uploaded`}>
+          <ImageUploader
+            label="Product images"
+            value={images}
+            onChange={(next) => setImages(next)}
+            max={MAX_IMAGES}
+            folderBase="bizhub/uploads/products"
+            disabled={loading}
+            autoOpenCrop={true}
+            allowFreeAspect={false}
+            aspectKey={coverAspect}
+            onAspectKeyChange={setCoverAspect}
+          />
+
+          {images.length === 0 ? (
+            <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Add at least 1 image to create your product.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-gray-500">The first image will be your cover photo.</p>
+          )}
+        </SectionCard>
 
         {/* Product Name & Description */}
         <SectionCard title="Basic Information" subtitle="Name and description">
@@ -346,9 +415,7 @@ export default function VendorNewProductPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                Description
-              </label>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Description</label>
               <textarea
                 className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 resize-none disabled:opacity-50"
                 placeholder="Describe your product — material, features, what makes it special..."
@@ -371,7 +438,9 @@ export default function VendorNewProductPage() {
                 Price <span className="text-orange-500">*</span>
               </label>
               <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">₦</span>
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">
+                  ₦
+                </span>
                 <input
                   className="w-full border border-gray-200 rounded-2xl px-4 py-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 disabled:opacity-50"
                   placeholder="0"
@@ -384,9 +453,7 @@ export default function VendorNewProductPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                Stock Quantity
-              </label>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Stock Quantity</label>
               <Input
                 placeholder="Leave empty for unlimited"
                 inputMode="numeric"
@@ -396,18 +463,16 @@ export default function VendorNewProductPage() {
               />
             </div>
 
+            {/* B9-2: Custom select (no native <select>) */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1.5">Packaging</label>
-              <select
-                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm bg-white outline-none focus:ring-2 focus:ring-orange-500/30 disabled:opacity-50 appearance-none"
+              <SelectMenu
+                title="Packaging"
                 value={packagingChoice}
-                onChange={(e) => setPackagingChoice(e.target.value)}
+                onChange={(v) => setPackagingChoice(v)}
                 disabled={loading}
-              >
-                {PACKAGING.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
+                options={PACKAGING.map((p) => ({ value: p, label: p }))}
+              />
 
               {packagingChoice === "Other" && (
                 <Input
@@ -420,7 +485,6 @@ export default function VendorNewProductPage() {
               )}
             </div>
 
-            {/* Preview */}
             {(price > 0 || stockText) && (
               <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 flex items-center gap-4">
                 <div className="flex-1">
@@ -446,17 +510,14 @@ export default function VendorNewProductPage() {
         <SectionCard title="Categories" subtitle="Help buyers discover your product (max 3)">
           <div className="flex flex-wrap gap-2">
             {MARKET_CATEGORIES.map((c) => (
-              <Chip
-                key={c.key}
-                active={categoryKeys.includes(c.key)}
-                onClick={() => toggleCategory(c.key)}
-              >
+              <Chip key={c.key} active={categoryKeys.includes(c.key)} onClick={() => toggleCategory(c.key)}>
                 {c.label}
               </Chip>
             ))}
           </div>
 
-          <div className="mt-4 space-y-3">
+          {/* B10-1: Color + Size side-by-side on typical mobile widths, wrap gracefully */}
+          <div className="mt-4 grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1.5">
                 <span className="flex items-center gap-1.5">
@@ -465,12 +526,13 @@ export default function VendorNewProductPage() {
                 </span>
               </label>
               <Input
-                placeholder="e.g. black, red, white"
+                placeholder="e.g. Black"
                 value={colorsCsv}
                 onChange={(e) => setColorsCsv(e.target.value)}
                 disabled={loading}
               />
             </div>
+
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1.5">
                 <span className="flex items-center gap-1.5">
@@ -479,7 +541,7 @@ export default function VendorNewProductPage() {
                 </span>
               </label>
               <Input
-                placeholder="e.g. S, M, L, XL or 40, 41, 42"
+                placeholder="e.g. M, L, XL"
                 value={sizesCsv}
                 onChange={(e) => setSizesCsv(e.target.value)}
                 disabled={loading}
@@ -495,43 +557,9 @@ export default function VendorNewProductPage() {
           </div>
         </SectionCard>
 
-        {/* Images */}
-        <SectionCard
-          title="Product Photos"
-          subtitle={`${images.length}/${MAX_IMAGES} uploaded`}
-        >
-          <ImageUploader
-            label="Product images"
-            value={images}
-            onChange={(next) => setImages(next)}
-            max={MAX_IMAGES}
-            folderBase="bizhub/uploads/products"
-            disabled={loading}
-            autoOpenCrop={true}
-            allowFreeAspect={false}
-            aspectKey={coverAspect}
-            onAspectKeyChange={setCoverAspect}
-          />
-
-          {images.length === 0 ? (
-            <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
-              <AlertCircle className="w-3.5 h-3.5" />
-              Add at least 1 image to create your product.
-            </p>
-          ) : (
-            <p className="mt-2 text-xs text-gray-500">
-              The first image will be your cover photo.
-            </p>
-          )}
-        </SectionCard>
-
         {/* Variations */}
         <SectionCard title="Variations" subtitle="Optional: size, color, flavor options">
-          <VariationBuilder
-            value={optionGroups}
-            onChange={setOptionGroups}
-            maxGroups={10}
-          />
+          <VariationBuilder value={optionGroups} onChange={setOptionGroups} maxGroups={10} />
         </SectionCard>
 
         {/* Create Button */}
@@ -556,9 +584,7 @@ export default function VendorNewProductPage() {
           )}
 
           {!name.trim() && (
-            <p className="text-xs text-gray-400 text-center">
-              Enter a product name, price, and image to get started.
-            </p>
+            <p className="text-xs text-gray-400 text-center">Enter a product name, price, and image to get started.</p>
           )}
         </div>
       </div>

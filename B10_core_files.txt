@@ -1,0 +1,1380 @@
+﻿===== FILE: src/app/vendor/products/new/page.tsx =====
+// FILE: src/app/vendor/products/new/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { auth } from "@/lib/firebase/client";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { useRouter } from "next/navigation";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+import { OptionGroup, VariationBuilder } from "@/components/vendor/VariationBuilder";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Chip } from "@/components/ui/Chip";
+import { SelectMenu } from "@/components/ui/SelectMenu";
+import { toast } from "@/lib/ui/toast";
+import { cn } from "@/lib/cn";
+import { type CoverAspectKey, normalizeCoverAspect } from "@/lib/products/coverAspect";
+import { MARKET_CATEGORIES, suggestCategoriesFromText, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
+import { formatMoneyNGN } from "@/lib/money";
+
+import { Package, AlertCircle, CheckCircle2, Zap, Info, Palette, Ruler } from "lucide-react";
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
+const MAX_IMAGES = 10;
+const DRAFT_KEY = "bizhub_vendor_new_product_draft_v1";
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+function digitsOnly(s: string) {
+  return String(s || "").replace(/[^\d]/g, "");
+}
+
+function formatNumberText(s: string) {
+  const d = digitsOnly(s);
+  if (!d) return "";
+  return Number(d).toLocaleString("en-NG");
+}
+
+function parseNumberText(s: string) {
+  const d = digitsOnly(s);
+  return d ? Number(d) : 0;
+}
+
+function fmtNaira(n: number) {
+  return formatMoneyNGN(Number(n || 0));
+}
+
+function uniq<T>(arr: T[]) {
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (const x of arr) {
+    const k = String(x);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
+  }
+  return out;
+}
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Completion Tracker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+function useCompletionSteps(
+  name: string,
+  price: number,
+  images: string[],
+  description: string,
+  categoryKeys: MarketCategoryKey[]
+) {
+  return useMemo(() => {
+    const steps = [
+      { label: "Product name", done: !!name.trim(), required: true },
+      { label: "Price", done: price > 0, required: true },
+      { label: "At least 1 image", done: images.length > 0, required: true },
+      { label: "Description", done: !!description.trim(), required: false },
+      { label: "Category", done: categoryKeys.length > 0, required: false },
+    ];
+
+    const requiredDone = steps.filter((s) => s.required && s.done).length;
+    const requiredTotal = steps.filter((s) => s.required).length;
+    const allDone = steps.filter((s) => s.done).length;
+    const canCreate = requiredDone === requiredTotal;
+    const percent = Math.round((allDone / steps.length) * 100);
+
+    return { steps, canCreate, percent };
+  }, [name, price, images, description, categoryKeys]);
+}
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+export default function VendorNewProductPage() {
+  const router = useRouter();
+
+  // Form state
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [priceText, setPriceText] = useState("");
+  const [stockText, setStockText] = useState("");
+  const [packagingChoice, setPackagingChoice] = useState("Box");
+  const [packagingOther, setPackagingOther] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
+  const [coverAspect, setCoverAspect] = useState<CoverAspectKey>("1:1");
+  const [categoryKeys, setCategoryKeys] = useState<MarketCategoryKey[]>([]);
+  const [categoriesTouched, setCategoriesTouched] = useState(false);
+  const [colorsCsv, setColorsCsv] = useState("");
+  const [sizesCsv, setSizesCsv] = useState("");
+
+  // UI state
+  const [msg, setMsg] = useState<string | null>(null);
+  const [locked, setLocked] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Derived
+  const price = useMemo(() => parseNumberText(priceText), [priceText]);
+  const stock = useMemo(() => parseNumberText(stockText), [stockText]);
+  const { steps, canCreate, percent } = useCompletionSteps(name, price, images, description, categoryKeys);
+
+  const packagingFinal = useMemo(() => {
+    if (packagingChoice === "Other") return packagingOther.trim() || "Other";
+    return packagingChoice;
+  }, [packagingChoice, packagingOther]);
+
+  /* Draft restore */
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(DRAFT_KEY);
+      if (!raw) return;
+      const d = JSON.parse(raw);
+
+      if (typeof d?.name === "string") setName(d.name);
+      if (typeof d?.description === "string") setDescription(d.description);
+      if (typeof d?.priceText === "string") setPriceText(d.priceText);
+      if (typeof d?.stockText === "string") setStockText(d.stockText);
+      if (typeof d?.packagingChoice === "string") setPackagingChoice(d.packagingChoice);
+      if (typeof d?.packagingOther === "string") setPackagingOther(d.packagingOther);
+      if (Array.isArray(d?.images)) setImages(d.images.slice(0, MAX_IMAGES));
+      if (Array.isArray(d?.optionGroups)) setOptionGroups(d.optionGroups);
+      const ca = normalizeCoverAspect(d?.coverAspect);
+      if (ca) setCoverAspect(ca);
+      if (Array.isArray(d?.categoryKeys)) setCategoryKeys(d.categoryKeys.slice(0, 3));
+      if (typeof d?.categoriesTouched === "boolean") setCategoriesTouched(d.categoriesTouched);
+      if (typeof d?.colorsCsv === "string") setColorsCsv(d.colorsCsv);
+      if (typeof d?.sizesCsv === "string") setSizesCsv(d.sizesCsv);
+    } catch {}
+  }, []);
+
+  /* Draft save */
+  useEffect(() => {
+    const t = setTimeout(() => {
+      try {
+        sessionStorage.setItem(
+          DRAFT_KEY,
+          JSON.stringify({
+            name,
+            description,
+            priceText,
+            stockText,
+            packagingChoice,
+            packagingOther,
+            images: images.slice(0, MAX_IMAGES),
+            optionGroups,
+            coverAspect,
+            categoryKeys: categoryKeys.slice(0, 3),
+            categoriesTouched,
+            colorsCsv,
+            sizesCsv,
+            ts: Date.now(),
+          })
+        );
+      } catch {}
+    }, 300);
+    return () => clearTimeout(t);
+  }, [
+    name,
+    description,
+    priceText,
+    stockText,
+    packagingChoice,
+    packagingOther,
+    images,
+    optionGroups,
+    coverAspect,
+    categoryKeys,
+    categoriesTouched,
+    colorsCsv,
+    sizesCsv,
+  ]);
+
+  /* Auto-suggest categories */
+  useEffect(() => {
+    if (categoriesTouched) return;
+    const text = `${name} ${description}`.trim();
+    if (!text) return;
+    const current = Array.isArray(categoryKeys) ? categoryKeys : [];
+    const isEmpty = current.length === 0 || (current.length === 1 && current[0] === "other");
+    if (!isEmpty) return;
+    setCategoryKeys(suggestCategoriesFromText(text, 3));
+  }, [name, description, categoriesTouched, categoryKeys]);
+
+  function toggleCategory(k: MarketCategoryKey) {
+    setCategoriesTouched(true);
+    setCategoryKeys((prev) => {
+      const cur = uniq(prev).slice(0, 3);
+      if (cur.includes(k)) return cur.filter((x) => x !== k);
+      if (cur.length >= 3) {
+        toast.info("Maximum 3 categories allowed.");
+        return cur;
+      }
+      return [...cur, k].slice(0, 3);
+    });
+  }
+
+  async function create() {
+    setLoading(true);
+    setMsg(null);
+    setLocked(false);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Please log in again.");
+
+      const r = await fetch("/api/vendor/products", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name,
+          description,
+          price,
+          stock,
+          packaging: packagingFinal,
+          images: images.slice(0, MAX_IMAGES),
+          optionGroups,
+          variants: [],
+          coverAspect,
+          categoryKeys: categoryKeys.slice(0, 3),
+          colorsCsv,
+          sizesCsv,
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        if (data?.code === "PLAN_LIMIT_PRODUCTS") {
+          setLocked(true);
+          throw new Error(data?.error || "Product limit reached. Upgrade to add more.");
+        }
+        throw new Error(data?.error || "Could not create product.");
+      }
+
+      try {
+        sessionStorage.removeItem(DRAFT_KEY);
+      } catch {}
+
+      toast.success("Product created!");
+      router.push(`/vendor/products/${data.productId}/edit`);
+    } catch (e: any) {
+      const m = e?.message || "Could not create product.";
+      setMsg(m);
+      toast.error(m);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-32">
+      <GradientHeader title="New Product" subtitle="Add to your catalog" showBack={true} />
+
+      <div className="px-4 space-y-4 pt-4">
+        {/* Completion Progress */}
+        <Card className="p-4">
+          <div className="flex items-center justify-between mb-3">
+            <p className="text-sm font-semibold text-gray-900">Completion</p>
+            <span
+              className={cn(
+                "text-xs font-semibold px-2 py-0.5 rounded-full",
+                percent === 100 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
+              )}
+            >
+              {percent}%
+            </span>
+          </div>
+
+          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-500",
+                percent === 100 ? "bg-green-500" : "bg-orange-500"
+              )}
+              style={{ width: `${percent}%` }}
+            />
+          </div>
+
+          <div className="mt-3 space-y-1.5">
+            {steps.map((step) => (
+              <div key={step.label} className="flex items-center gap-2">
+                {step.done ? (
+                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+                ) : (
+                  <div
+                    className={cn(
+                      "w-4 h-4 rounded-full border-2 shrink-0",
+                      step.required ? "border-orange-300" : "border-gray-300"
+                    )}
+                  />
+                )}
+                <span
+                  className={cn(
+                    "text-xs",
+                    step.done ? "text-gray-500 line-through" : step.required ? "text-gray-700" : "text-gray-400"
+                  )}
+                >
+                  {step.label}
+                  {step.required && !step.done && <span className="text-orange-500"> *</span>}
+                </span>
+              </div>
+            ))}
+          </div>
+        </Card>
+
+        {/* Error / Upgrade Message */}
+        {msg && (
+          <Card className={cn("p-4", locked ? "bg-orange-50 border-orange-200" : "bg-red-50 border-red-200")}>
+            <div className="flex items-start gap-3">
+              <AlertCircle className={cn("w-5 h-5 shrink-0 mt-0.5", locked ? "text-orange-600" : "text-red-600")} />
+              <div className="flex-1">
+                <p className={cn("text-sm font-medium", locked ? "text-orange-800" : "text-red-800")}>
+                  {locked ? "Product limit reached" : "Something went wrong"}
+                </p>
+                <p className={cn("text-xs mt-1", locked ? "text-orange-600" : "text-red-600")}>{msg}</p>
+                {locked && (
+                  <div className="mt-3 flex gap-2">
+                    <Button size="sm" onClick={() => router.push("/vendor/subscription")} leftIcon={<Zap className="w-4 h-4" />}>
+                      Upgrade
+                    </Button>
+                    <Button size="sm" variant="secondary" onClick={() => router.push("/vendor/products")}>
+                      Back
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card>
+        )}
+
+        {/* Images first */}
+        <SectionCard title="Product Images" subtitle={`${images.length}/${MAX_IMAGES} uploaded`}>
+          <ImageUploader
+            label="Product images"
+            value={images}
+            onChange={(next) => setImages(next)}
+            max={MAX_IMAGES}
+            folderBase="bizhub/uploads/products"
+            disabled={loading}
+            autoOpenCrop={true}
+            allowFreeAspect={false}
+            aspectKey={coverAspect}
+            onAspectKeyChange={setCoverAspect}
+          />
+
+          {images.length === 0 ? (
+            <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              Add at least 1 image to create your product.
+            </p>
+          ) : (
+            <p className="mt-2 text-xs text-gray-500">The first image will be your cover photo.</p>
+          )}
+        </SectionCard>
+
+        {/* Product Name & Description */}
+        <SectionCard title="Basic Information" subtitle="Name and description">
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Product Name <span className="text-orange-500">*</span>
+              </label>
+              <Input
+                placeholder="e.g. Nike Air Max 90"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={loading}
+                maxLength={100}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Description</label>
+              <textarea
+                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 resize-none disabled:opacity-50"
+                placeholder="Describe your product â€” material, features, what makes it special..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                disabled={loading}
+                rows={4}
+                maxLength={2000}
+              />
+              <p className="text-[11px] text-gray-400 mt-1">{description.length}/2000</p>
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* Price & Stock */}
+        <SectionCard title="Pricing & Inventory" subtitle="Set your price and stock">
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Price <span className="text-orange-500">*</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400 pointer-events-none">
+                  â‚¦
+                </span>
+                <input
+                  className="w-full border border-gray-200 rounded-2xl px-4 py-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 disabled:opacity-50"
+                  placeholder="0"
+                  inputMode="numeric"
+                  value={priceText}
+                  onChange={(e) => setPriceText(formatNumberText(e.target.value))}
+                  disabled={loading}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Stock Quantity</label>
+              <Input
+                placeholder="Leave empty for unlimited"
+                inputMode="numeric"
+                value={stockText}
+                onChange={(e) => setStockText(formatNumberText(e.target.value))}
+                disabled={loading}
+              />
+            </div>
+
+            {/* B9-2: Custom select (no native <select>) */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Packaging</label>
+              <SelectMenu
+                title="Packaging"
+                value={packagingChoice}
+                onChange={(v) => setPackagingChoice(v)}
+                disabled={loading}
+                options={PACKAGING.map((p) => ({ value: p, label: p }))}
+              />
+
+              {packagingChoice === "Other" && (
+                <Input
+                  className="mt-2"
+                  placeholder="Specify packaging type"
+                  value={packagingOther}
+                  onChange={(e) => setPackagingOther(e.target.value)}
+                  disabled={loading}
+                />
+              )}
+            </div>
+
+            {(price > 0 || stockText) && (
+              <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 flex items-center gap-4">
+                <div className="flex-1">
+                  <p className="text-xs text-gray-500">Price</p>
+                  <p className="text-sm font-semibold text-gray-900">{fmtNaira(price)}</p>
+                </div>
+                <div className="w-px h-8 bg-gray-200" />
+                <div className="flex-1">
+                  <p className="text-xs text-gray-500">Stock</p>
+                  <p className="text-sm font-semibold text-gray-900">{stockText || "Unlimited"}</p>
+                </div>
+                <div className="w-px h-8 bg-gray-200" />
+                <div className="flex-1">
+                  <p className="text-xs text-gray-500">Packaging</p>
+                  <p className="text-sm font-semibold text-gray-900">{packagingFinal}</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+
+        {/* Categories */}
+        <SectionCard title="Categories" subtitle="Help buyers discover your product (max 3)">
+          <div className="flex flex-wrap gap-2">
+            {MARKET_CATEGORIES.map((c) => (
+              <Chip key={c.key} active={categoryKeys.includes(c.key)} onClick={() => toggleCategory(c.key)}>
+                {c.label}
+              </Chip>
+            ))}
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-gray-400" />
+                  Colors
+                </span>
+              </label>
+              <Input
+                placeholder="e.g. black, red, white"
+                value={colorsCsv}
+                onChange={(e) => setColorsCsv(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Ruler className="w-3.5 h-3.5 text-gray-400" />
+                  Sizes
+                </span>
+              </label>
+              <Input
+                placeholder="e.g. S, M, L, XL or 40, 41, 42"
+                value={sizesCsv}
+                onChange={(e) => setSizesCsv(e.target.value)}
+                disabled={loading}
+              />
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-start gap-2 rounded-xl bg-blue-50 border border-blue-100 p-3">
+            <Info className="w-4 h-4 text-blue-500 shrink-0 mt-0.5" />
+            <p className="text-xs text-blue-700">
+              Colors and sizes help buyers filter search results. They don't affect stock or pricing.
+            </p>
+          </div>
+        </SectionCard>
+
+        {/* Variations */}
+        <SectionCard title="Variations" subtitle="Optional: size, color, flavor options">
+          <VariationBuilder value={optionGroups} onChange={setOptionGroups} maxGroups={10} />
+        </SectionCard>
+
+        {/* Create Button */}
+        <div className="pt-2 space-y-3">
+          <Button
+            onClick={create}
+            loading={loading}
+            disabled={!canCreate || loading}
+            className="w-full"
+            leftIcon={<Package className="w-5 h-5" />}
+          >
+            Create Product
+          </Button>
+
+          {!canCreate && name.trim() && (
+            <div className="rounded-xl bg-orange-50 border border-orange-100 p-3">
+              <p className="text-xs text-orange-700">
+                {price <= 0 && "Set a price greater than â‚¦0. "}
+                {images.length === 0 && "Upload at least 1 product image."}
+              </p>
+            </div>
+          )}
+
+          {!name.trim() && (
+            <p className="text-xs text-gray-400 text-center">Enter a product name, price, and image to get started.</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+===== END FILE: src/app/vendor/products/new/page.tsx =====
+
+===== FILE: src/app/vendor/products/[productId]/edit/page.tsx =====
+// FILE: src/app/vendor/products/[productId]/edit/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState, useCallback } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase/client";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { Chip } from "@/components/ui/Chip";
+import { SegmentedControl } from "@/components/ui/SegmentedControl";
+import { SelectMenu } from "@/components/ui/SelectMenu";
+import { ImageUploader } from "@/components/vendor/ImageUploader";
+import { OptionGroup, VariationBuilder } from "@/components/vendor/VariationBuilder";
+import { FormSkeleton } from "@/components/vendor/PageSkeleton";
+import { toast } from "@/lib/ui/toast";
+import { cn } from "@/lib/cn";
+import { type CoverAspectKey, normalizeCoverAspect } from "@/lib/products/coverAspect";
+import { MARKET_CATEGORIES, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
+import { formatMoneyNGN } from "@/lib/money";
+
+import {
+  RefreshCw,
+  Trash2,
+  Eye,
+  Copy,
+  Save,
+  AlertCircle,
+  CheckCircle2,
+  ExternalLink,
+  MessageCircle,
+  ToggleLeft,
+  ToggleRight,
+  Palette,
+  Ruler,
+} from "lucide-react";
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
+const MAX_IMAGES = 10;
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+function digitsOnly(s: string) {
+  return String(s || "").replace(/[^\d]/g, "");
+}
+function formatNumberText(s: string) {
+  const d = digitsOnly(s);
+  if (!d) return "";
+  return Number(d).toLocaleString("en-NG");
+}
+function parseNumberText(s: string) {
+  const d = digitsOnly(s);
+  return d ? Number(d) : 0;
+}
+
+function fmtNaira(n: number) {
+  return formatMoneyNGN(Number(n || 0));
+}
+
+function uniq<T>(arr: T[]) {
+  const out: T[] = [];
+  const seen = new Set<string>();
+  for (const x of arr) {
+    const k = String(x);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
+  }
+  return out;
+}
+
+type ListingType = "product" | "service";
+
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
+
+export default function VendorEditProductPage() {
+  const params = useParams();
+  const router = useRouter();
+  const productId = String(params?.productId || "");
+
+  // Loading states
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Messages
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // Form state
+  const [listingType, setListingType] = useState<ListingType>("product");
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [priceText, setPriceText] = useState("");
+  const [stockText, setStockText] = useState("");
+  const [packagingChoice, setPackagingChoice] = useState("Box");
+  const [packagingOther, setPackagingOther] = useState("");
+  const [images, setImages] = useState<string[]>([]);
+  const [optionGroups, setOptionGroups] = useState<OptionGroup[]>([]);
+  const [coverAspect, setCoverAspect] = useState<CoverAspectKey>("1:1");
+  const [categoryKeys, setCategoryKeys] = useState<MarketCategoryKey[]>([]);
+  const [colorsCsv, setColorsCsv] = useState("");
+  const [sizesCsv, setSizesCsv] = useState("");
+  const [marketEnabled, setMarketEnabled] = useState(true);
+  const [businessSlug, setBusinessSlug] = useState("");
+
+  // Derived
+  const price = useMemo(() => parseNumberText(priceText), [priceText]);
+  const stock = useMemo(() => parseNumberText(stockText), [stockText]);
+  const packagingFinal = useMemo(
+    () => (packagingChoice === "Other" ? packagingOther.trim() || "Other" : packagingChoice),
+    [packagingChoice, packagingOther]
+  );
+
+  const productUrl = useMemo(() => {
+    if (!businessSlug || !productId || typeof window === "undefined") return "";
+    return `${window.location.origin}/b/${businessSlug}/p/${productId}`;
+  }, [businessSlug, productId]);
+
+  const priceOk = useMemo(() => {
+    if (!name.trim()) return false;
+    return listingType === "service" || price > 0;
+  }, [name, listingType, price]);
+
+  const imagesOk = images.length > 0;
+  const canSave = priceOk && imagesOk && !saving && !deleting;
+
+  /* â”€â”€â”€ Load Product â”€â”€â”€ */
+  const load = useCallback(
+    async (isRefresh = false) => {
+      if (isRefresh) setRefreshing(true);
+      else setLoading(true);
+
+      setError(null);
+      setSuccess(null);
+
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("Please log in again.");
+
+        const [prodRes, meRes] = await Promise.all([
+          fetch(`/api/vendor/products/${encodeURIComponent(productId)}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch("/api/me", { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+
+        const [prodData, meData] = await Promise.all([prodRes.json().catch(() => ({})), meRes.json().catch(() => ({}))]);
+
+        if (!prodRes.ok) throw new Error(prodData?.error || "Could not load product.");
+        const p = prodData.product;
+        if (!p) throw new Error("Product not found.");
+
+        setListingType(String(p.listingType || "product") as ListingType);
+        setName(String(p.name || ""));
+        setDescription(String(p.description || ""));
+        setPriceText(formatNumberText(String(Number(p.price || 0))));
+        setStockText(formatNumberText(String(Number(p.stock || 0))));
+
+        const pkg = String(p.packaging || "Box");
+        if (PACKAGING.includes(pkg as any)) {
+          setPackagingChoice(pkg);
+          setPackagingOther("");
+        } else {
+          setPackagingChoice("Other");
+          setPackagingOther(pkg);
+        }
+
+        setImages(Array.isArray(p.images) ? p.images.slice(0, MAX_IMAGES) : []);
+        setOptionGroups(Array.isArray(p.optionGroups) ? p.optionGroups : []);
+        const ca = normalizeCoverAspect(p.coverAspect);
+        if (ca) setCoverAspect(ca);
+
+        setCategoryKeys(Array.isArray(p.categoryKeys) ? p.categoryKeys.slice(0, 3) : []);
+        setColorsCsv(Array.isArray(p.colors) ? p.colors.join(", ") : String(p.colorsCsv || ""));
+        setSizesCsv(Array.isArray(p.sizes) ? p.sizes.join(", ") : String(p.sizesCsv || ""));
+        setMarketEnabled(p.marketEnabled !== false);
+
+        setBusinessSlug(String(meData?.me?.businessSlug || ""));
+
+        if (isRefresh) toast.success("Product refreshed!");
+      } catch (e: any) {
+        setError(e?.message || "Could not load product.");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    },
+    [productId]
+  );
+
+  useEffect(() => {
+    if (productId) load();
+    else {
+      setError("Invalid product ID");
+      setLoading(false);
+    }
+  }, [productId, load]);
+
+  /* â”€â”€â”€ Toggle category â”€â”€â”€ */
+  function toggleCategory(k: MarketCategoryKey) {
+    setCategoryKeys((prev) => {
+      const cur = uniq(prev).slice(0, 3);
+      if (cur.includes(k)) return cur.filter((x) => x !== k);
+      if (cur.length >= 3) {
+        toast.info("Maximum 3 categories.");
+        return cur;
+      }
+      return [...cur, k].slice(0, 3);
+    });
+  }
+
+  /* â”€â”€â”€ Save â”€â”€â”€ */
+  async function save() {
+    setSaving(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Please log in again.");
+
+      const r = await fetch(`/api/vendor/products/${encodeURIComponent(productId)}`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          listingType,
+          name,
+          description,
+          price,
+          stock,
+          packaging: packagingFinal,
+          images: images.slice(0, MAX_IMAGES),
+          optionGroups,
+          coverAspect,
+          categoryKeys: categoryKeys.slice(0, 3),
+          colorsCsv,
+          sizesCsv,
+          marketEnabled,
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Could not update product.");
+
+      setSuccess("Product updated successfully!");
+      toast.success("Product saved!");
+    } catch (e: any) {
+      setError(e?.message || "Could not update product.");
+      toast.error(e?.message || "Could not update product.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  /* â”€â”€â”€ Delete â”€â”€â”€ */
+  async function deleteProduct() {
+    if (!confirm("Are you sure you want to delete this product? This cannot be undone.")) return;
+    setDeleting(true);
+    setError(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Please log in again.");
+
+      const r = await fetch(`/api/vendor/products/${encodeURIComponent(productId)}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(data?.error || "Could not delete product.");
+
+      toast.success("Product deleted.");
+      router.push("/vendor/products");
+    } catch (e: any) {
+      setError(e?.message || "Could not delete product.");
+      toast.error(e?.message || "Could not delete product.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  /* â”€â”€â”€ Copy link â”€â”€â”€ */
+  async function copyLink() {
+    if (!productUrl) return;
+    try {
+      await navigator.clipboard.writeText(productUrl);
+      toast.success("Link copied!");
+    } catch {
+      toast.error("Could not copy link.");
+    }
+  }
+
+  /* â”€â”€â”€ Render â”€â”€â”€ */
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <GradientHeader title="Edit Product" subtitle="Loading..." showBack={true} />
+        <FormSkeleton />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 pb-32">
+      <GradientHeader
+        title="Edit Product"
+        subtitle={name || "Update details"}
+        showBack={true}
+        right={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => load(true)}
+              disabled={refreshing}
+              className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
+            >
+              <RefreshCw className={cn("w-5 h-5 text-white", refreshing && "animate-spin")} />
+            </button>
+            {productUrl && (
+              <button
+                onClick={() => window.open(productUrl, "_blank")}
+                className="w-10 h-10 rounded-xl bg-white flex items-center justify-center hover:bg-orange-50 transition"
+              >
+                <ExternalLink className="w-5 h-5 text-orange-600" />
+              </button>
+            )}
+          </div>
+        }
+      />
+
+      <div className="px-4 pt-4 space-y-4">
+        {success && (
+          <Card className="p-4 bg-green-50 border-green-200">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-5 h-5 text-green-600" />
+              <p className="text-sm font-medium text-green-800">{success}</p>
+            </div>
+          </Card>
+        )}
+
+        {error && (
+          <Card className="p-4 bg-red-50 border-red-200">
+            <div className="flex items-start gap-2">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <p className="text-sm font-medium text-red-800">{error}</p>
+            </div>
+          </Card>
+        )}
+
+        <SectionCard title="Quick Actions" subtitle="View, share, or copy link">
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={() => productUrl && window.open(productUrl, "_blank")}
+              disabled={!productUrl}
+              className="flex flex-col items-center justify-center p-3 rounded-2xl bg-blue-50 hover:bg-blue-100 border border-blue-200 transition disabled:opacity-50"
+            >
+              <Eye className="w-5 h-5 text-blue-600 mb-1.5" />
+              <span className="text-[11px] font-semibold text-blue-700">Preview</span>
+            </button>
+
+            <button
+              onClick={copyLink}
+              disabled={!productUrl}
+              className="flex flex-col items-center justify-center p-3 rounded-2xl bg-orange-50 hover:bg-orange-100 border border-orange-200 transition disabled:opacity-50"
+            >
+              <Copy className="w-5 h-5 text-orange-600 mb-1.5" />
+              <span className="text-[11px] font-semibold text-orange-700">Copy Link</span>
+            </button>
+
+            <button
+              onClick={() => {
+                if (!productUrl) return;
+                window.open(`https://wa.me/?text=${encodeURIComponent(`${name}\n${productUrl}`)}`, "_blank");
+              }}
+              disabled={!productUrl}
+              className="flex flex-col items-center justify-center p-3 rounded-2xl bg-green-50 hover:bg-green-100 border border-green-200 transition disabled:opacity-50"
+            >
+              <MessageCircle className="w-5 h-5 text-green-600 mb-1.5" />
+              <span className="text-[11px] font-semibold text-green-700">Share</span>
+            </button>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Listing Type" subtitle="Product or service">
+          <SegmentedControl<ListingType>
+            value={listingType}
+            onChange={setListingType}
+            options={[
+              { value: "product", label: "Product" },
+              { value: "service", label: "Service" },
+            ]}
+          />
+        </SectionCard>
+
+        {/* B9-3: Description is its own field in its own place */}
+        <SectionCard title="Basic Information" subtitle="Name and description">
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Product Name</label>
+              <Input
+                placeholder="Product name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                disabled={saving || deleting}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">Description</label>
+              <textarea
+                className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 resize-none disabled:opacity-50"
+                placeholder="Describe your product..."
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                disabled={saving || deleting}
+                rows={4}
+              />
+            </div>
+          </div>
+        </SectionCard>
+
+        {/* B9-2: Packaging uses custom in-app dropdown (no native select) */}
+        {listingType === "product" ? (
+          <SectionCard title="Pricing & Inventory" subtitle="Price, stock, and packaging">
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Price</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm font-semibold text-gray-400">â‚¦</span>
+                  <input
+                    className="w-full border border-gray-200 rounded-2xl px-4 py-3 pl-9 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 disabled:opacity-50"
+                    placeholder="0"
+                    inputMode="numeric"
+                    value={priceText}
+                    onChange={(e) => setPriceText(formatNumberText(e.target.value))}
+                    disabled={saving || deleting}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Stock</label>
+                <Input
+                  placeholder="Leave empty for unlimited"
+                  inputMode="numeric"
+                  value={stockText}
+                  onChange={(e) => setStockText(formatNumberText(e.target.value))}
+                  disabled={saving || deleting}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">Packaging</label>
+                <SelectMenu
+                  title="Packaging"
+                  value={packagingChoice}
+                  onChange={(v) => setPackagingChoice(v)}
+                  disabled={saving || deleting}
+                  options={PACKAGING.map((p) => ({ value: p, label: p }))}
+                />
+
+                {packagingChoice === "Other" ? (
+                  <Input
+                    className="mt-2"
+                    placeholder="Specify packaging type"
+                    value={packagingOther}
+                    onChange={(e) => setPackagingOther(e.target.value)}
+                    disabled={saving || deleting}
+                  />
+                ) : null}
+              </div>
+
+              <div className="rounded-xl bg-gray-50 border border-gray-100 p-3">
+                <p className="text-xs text-gray-500">
+                  Price: <span className="font-semibold text-gray-900">{fmtNaira(price)}</span> Â· Stock:{" "}
+                  <span className="font-semibold text-gray-900">{stockText || "Unlimited"}</span> Â· Packaging:{" "}
+                  <span className="font-semibold text-gray-900">{packagingFinal}</span>
+                </p>
+              </div>
+            </div>
+          </SectionCard>
+        ) : null}
+
+        <SectionCard title="Categories" subtitle="Max 3 categories">
+          <div className="flex flex-wrap gap-2">
+            {MARKET_CATEGORIES.map((c) => (
+              <Chip key={c.key} active={categoryKeys.includes(c.key)} onClick={() => toggleCategory(c.key)}>
+                {c.label}
+              </Chip>
+            ))}
+          </div>
+
+          <div className="mt-4 space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Palette className="w-3.5 h-3.5 text-gray-400" />
+                  Colors
+                </span>
+              </label>
+              <Input
+                placeholder="e.g. black, red, white"
+                value={colorsCsv}
+                onChange={(e) => setColorsCsv(e.target.value)}
+                disabled={saving || deleting}
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Ruler className="w-3.5 h-3.5 text-gray-400" />
+                  Sizes
+                </span>
+              </label>
+              <Input
+                placeholder="e.g. S, M, L, XL"
+                value={sizesCsv}
+                onChange={(e) => setSizesCsv(e.target.value)}
+                disabled={saving || deleting}
+              />
+            </div>
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Product Photos" subtitle={`${images.length}/${MAX_IMAGES} uploaded`}>
+          <ImageUploader
+            label="Product images"
+            value={images}
+            onChange={setImages}
+            max={MAX_IMAGES}
+            folderBase="bizhub/uploads/products"
+            disabled={saving || deleting}
+            autoOpenCrop={true}
+            allowFreeAspect={false}
+            aspectKey={coverAspect}
+            onAspectKeyChange={setCoverAspect}
+          />
+          {images.length === 0 && (
+            <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              At least 1 image is required.
+            </p>
+          )}
+        </SectionCard>
+
+        {listingType === "product" && (
+          <SectionCard title="Variations" subtitle="Size, color, flavor options">
+            <VariationBuilder value={optionGroups} onChange={setOptionGroups} maxGroups={10} />
+          </SectionCard>
+        )}
+
+        <SectionCard title="Marketplace" subtitle="Control public visibility">
+          <button
+            type="button"
+            className={cn(
+              "w-full rounded-2xl border p-4 flex items-center justify-between transition",
+              marketEnabled ? "bg-green-50 border-green-200 hover:bg-green-100" : "bg-gray-50 border-gray-200 hover:bg-gray-100"
+            )}
+            onClick={() => setMarketEnabled((v) => !v)}
+            disabled={saving || deleting}
+          >
+            <div className="text-left">
+              <p className="text-sm font-semibold text-gray-900">Show in Marketplace</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                {marketEnabled ? "Visible to all buyers in the marketplace" : "Only accessible via your store link"}
+              </p>
+            </div>
+            {marketEnabled ? (
+              <ToggleRight className="w-8 h-8 text-green-600 shrink-0" />
+            ) : (
+              <ToggleLeft className="w-8 h-8 text-gray-400 shrink-0" />
+            )}
+          </button>
+        </SectionCard>
+
+        <div className="space-y-3 pt-2">
+          <Button onClick={save} loading={saving} disabled={!canSave} className="w-full" leftIcon={<Save className="w-5 h-5" />}>
+            Save changes
+          </Button>
+
+          {!canSave && name.trim() && (
+            <div className="rounded-xl bg-orange-50 border border-orange-100 p-3">
+              <p className="text-xs text-orange-700">
+                {!priceOk && "Price must be greater than â‚¦0. "}
+                {!imagesOk && "Upload at least 1 product image."}
+              </p>
+            </div>
+          )}
+
+          <div className="pt-4 border-t border-gray-200">
+            <p className="text-xs text-gray-500 mb-3">Danger zone</p>
+            <Button
+              variant="danger"
+              onClick={deleteProduct}
+              loading={deleting}
+              disabled={saving || deleting}
+              className="w-full"
+              leftIcon={<Trash2 className="w-4 h-4" />}
+            >
+              Delete product
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+===== END FILE: src/app/vendor/products/[productId]/edit/page.tsx =====
+
+===== FILE: src/components/vendor/VariationBuilder.tsx =====
+"use client";
+
+import { useMemo, useState } from "react";
+
+export type OptionGroup = { name: string; values: string[] };
+
+const SUGGESTIONS = [
+  "Color",
+  "Size",
+  "Material",
+  "Weight",
+  "Length",
+  "Model",
+  "Brand",
+  "Condition",
+  "Flavor",
+  "Type",
+];
+
+export function VariationBuilder({
+  value,
+  onChange,
+  maxGroups = 10,
+}: {
+  value: OptionGroup[];
+  onChange: (v: OptionGroup[]) => void;
+  maxGroups?: number;
+}) {
+  const [newName, setNewName] = useState("");
+
+  const canAddMore = value.length < maxGroups;
+
+  const availableSuggestions = useMemo(() => {
+    const used = new Set(value.map((g) => g.name.toLowerCase()));
+    return SUGGESTIONS.filter((s) => !used.has(s.toLowerCase()));
+  }, [value]);
+
+  function addGroup(name: string) {
+    const n = name.trim();
+    if (!n) return;
+    if (!canAddMore) return;
+
+    const exists = value.some((g) => g.name.toLowerCase() === n.toLowerCase());
+    if (exists) return;
+
+    onChange([...value, { name: n, values: [] }]);
+    setNewName("");
+  }
+
+  function removeGroup(name: string) {
+    onChange(value.filter((g) => g.name !== name));
+  }
+
+  function addValue(groupName: string, v: string) {
+    const val = v.trim();
+    if (!val) return;
+
+    onChange(
+      value.map((g) => {
+        if (g.name !== groupName) return g;
+        if (g.values.includes(val)) return g;
+        return { ...g, values: [...g.values, val] };
+      })
+    );
+  }
+
+  function removeValue(groupName: string, v: string) {
+    onChange(
+      value.map((g) => {
+        if (g.name !== groupName) return g;
+        return { ...g, values: g.values.filter((x) => x !== v) };
+      })
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <p className="text-sm font-extrabold text-[#111827]">Variations</p>
+        <p className="text-xs text-gray-600 mt-1">
+          Customers can choose options, but price/stock stays the same.
+        </p>
+      </div>
+
+      {/* Suggestions */}
+      <div className="flex flex-wrap gap-2">
+        {availableSuggestions.map((s) => (
+          <button
+            key={s}
+            onClick={() => addGroup(s)}
+            disabled={!canAddMore}
+            className="px-4 py-2 rounded-full text-xs font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00] disabled:opacity-40"
+          >
+            + {s}
+          </button>
+        ))}
+      </div>
+
+      {/* Custom group */}
+      <div className="flex gap-2">
+        <input
+          className="flex-1 border border-[#E7E7EE] rounded-2xl p-3 text-sm outline-none focus:ring-2 focus:ring-[#FF8A00]/35"
+          placeholder="Add custom variation (e.g. Sleeve)"
+          value={newName}
+          onChange={(e) => setNewName(e.target.value)}
+          maxLength={20}
+        />
+        <button
+          className="px-4 rounded-2xl text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00] disabled:opacity-40"
+          onClick={() => addGroup(newName)}
+          disabled={!newName.trim() || !canAddMore}
+        >
+          Add
+        </button>
+      </div>
+
+      {/* Groups */}
+      {value.map((g) => (
+        <div key={g.name} className="rounded-2xl border border-[#E7E7EE] bg-white p-4">
+          <div className="flex items-center justify-between">
+            <p className="font-extrabold text-[#111827]">{g.name}</p>
+            <button
+              className="text-xs font-extrabold text-red-600"
+              onClick={() => removeGroup(g.name)}
+            >
+              Remove
+            </button>
+          </div>
+
+          <GroupValues
+            group={g}
+            onAdd={(v) => addValue(g.name, v)}
+            onRemove={(v) => removeValue(g.name, v)}
+          />
+        </div>
+      ))}
+
+      <p className="text-xs text-gray-500">
+        Max variations: {maxGroups}. Current: {value.length}.
+      </p>
+    </div>
+  );
+}
+
+function GroupValues({
+  group,
+  onAdd,
+  onRemove,
+}: {
+  group: OptionGroup;
+  onAdd: (v: string) => void;
+  onRemove: (v: string) => void;
+}) {
+  const [val, setVal] = useState("");
+
+  return (
+    <div className="mt-3">
+      <div className="flex gap-2">
+        <input
+          className="flex-1 border border-[#E7E7EE] rounded-2xl p-3 text-sm"
+          placeholder={`Add ${group.name} value (e.g. Black)`}
+          value={val}
+          onChange={(e) => setVal(e.target.value)}
+        />
+        <button
+          className="px-4 rounded-2xl text-sm font-extrabold text-white bg-gradient-to-br from-[#FF6A00] to-[#FF8A00] disabled:opacity-40"
+          onClick={() => {
+            onAdd(val);
+            setVal("");
+          }}
+          disabled={!val.trim()}
+        >
+          Add
+        </button>
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-2">
+        {group.values.map((v) => (
+          <button
+            key={v}
+            onClick={() => onRemove(v)}
+            className="px-4 py-2 rounded-full text-xs font-extrabold bg-[#FFF3E1] text-[#111827]"
+            title="Click to remove"
+          >
+            {v} Ã—
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+===== END FILE: src/components/vendor/VariationBuilder.tsx =====
+
+

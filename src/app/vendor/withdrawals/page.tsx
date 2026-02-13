@@ -7,15 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { auth } from "@/lib/firebase/client";
-
-function fmtNairaFromKobo(kobo: number) {
-  const n = Number(kobo || 0) / 100;
-  try {
-    return `₦${n.toLocaleString()}`;
-  } catch {
-    return `₦${n}`;
-  }
-}
+import { formatMoneyNGN, formatMoneyNGNFromKobo } from "@/lib/money";
 
 function fmtDate(ms?: number) {
   if (!ms) return "—";
@@ -38,7 +30,10 @@ export default function VendorWithdrawalsPage() {
 
   async function api(path: string, init?: RequestInit) {
     const token = await auth.currentUser?.getIdToken();
-    const r = await fetch(path, { ...init, headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` } });
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j?.error || "Request failed");
     return j;
@@ -99,13 +94,13 @@ export default function VendorWithdrawalsPage() {
           <>
             <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
               <p className="text-xs opacity-95">Available</p>
-              <p className="text-2xl font-bold mt-2">{fmtNairaFromKobo(availableKobo)}</p>
+              <p className="text-2xl font-bold mt-2">{formatMoneyNGNFromKobo(availableKobo)}</p>
               <p className="text-[11px] opacity-95 mt-2">
-                On hold: <b>{fmtNairaFromKobo(holdKobo)}</b>
+                On hold: <b>{formatMoneyNGNFromKobo(holdKobo)}</b>
               </p>
             </div>
 
-            <SectionCard title="Request withdrawal" subtitle="Minimum ₦1,000">
+            <SectionCard title="Request withdrawal" subtitle={`Minimum ${formatMoneyNGN(1000)}`}>
               <div className="space-y-2">
                 <Input
                   type="number"
@@ -135,9 +130,7 @@ export default function VendorWithdrawalsPage() {
                     <div key={w.id} className="rounded-2xl border border-biz-line bg-white p-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0">
-                          <p className="text-sm font-bold text-biz-ink">
-                            {w.status || "pending"}
-                          </p>
+                          <p className="text-sm font-bold text-biz-ink">{w.status || "pending"}</p>
                           <p className="text-[11px] text-gray-500 mt-1">
                             {fmtDate(Number(w.createdAtMs || 0))}
                           </p>
@@ -147,14 +140,12 @@ export default function VendorWithdrawalsPage() {
                         </div>
                         <div className="text-right shrink-0">
                           <p className="text-sm font-bold text-biz-ink">
-                            {fmtNairaFromKobo(Number(w.amountKobo || 0))}
+                            {formatMoneyNGNFromKobo(Number(w.amountKobo || 0))}
                           </p>
                         </div>
                       </div>
                       {w.adminNote ? (
-                        <p className="text-[11px] text-gray-600 mt-2">
-                          Note: {String(w.adminNote)}
-                        </p>
+                        <p className="text-[11px] text-gray-600 mt-2">Note: {String(w.adminNote)}</p>
                       ) : null}
                     </div>
                   ))}

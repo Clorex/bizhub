@@ -4,6 +4,7 @@
 import { memo } from "react";
 import { Truck, MapPin, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { formatMoneyNGN } from "@/lib/money";
 
 interface ShippingOption {
   id: string;
@@ -20,10 +21,6 @@ interface ShippingSelectorProps {
   onSelect: (option: ShippingOption) => void;
   loading?: boolean;
   error?: string | null;
-}
-
-function fmtNaira(n: number) {
-  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
 }
 
 export const ShippingSelector = memo(function ShippingSelector({
@@ -54,7 +51,8 @@ export const ShippingSelector = memo(function ShippingSelector({
     return (
       <div className="rounded-xl bg-gray-50 border border-gray-200 p-4">
         <p className="text-sm text-gray-600">
-          This vendor hasn't set up shipping options yet. Shipping fee will be ₦0.
+          This vendor hasn&apos;t set up shipping options yet. Shipping fee will be{" "}
+          {formatMoneyNGN(0)}.
         </p>
       </div>
     );
@@ -95,23 +93,28 @@ export const ShippingSelector = memo(function ShippingSelector({
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className={cn(
-                      "text-sm font-semibold",
-                      isSelected ? "text-orange-700" : "text-gray-900"
-                    )}>
+                    <p
+                      className={cn(
+                        "text-sm font-semibold",
+                        isSelected ? "text-orange-700" : "text-gray-900"
+                      )}
+                    >
                       {option.name}
                     </p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {isPickup ? "Pick up at location" : "Home delivery"}
-                      {option.etaDays > 0 && ` • ${option.etaDays} day${option.etaDays !== 1 ? "s" : ""}`}
+                      {option.etaDays > 0 &&
+                        ` • ${option.etaDays} day${option.etaDays !== 1 ? "s" : ""}`}
                     </p>
                   </div>
                   <div className="text-right shrink-0">
-                    <p className={cn(
-                      "text-sm font-bold",
-                      isSelected ? "text-orange-700" : "text-gray-900"
-                    )}>
-                      {feeNgn === 0 ? "Free" : fmtNaira(feeNgn)}
+                    <p
+                      className={cn(
+                        "text-sm font-bold",
+                        isSelected ? "text-orange-700" : "text-gray-900"
+                      )}
+                    >
+                      {feeNgn === 0 ? "Free" : formatMoneyNGN(feeNgn)}
                     </p>
                   </div>
                 </div>

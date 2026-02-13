@@ -14,10 +14,7 @@ import {
   getCouponForCheckout,
   saveAppliedCoupon,
 } from "@/lib/checkout/coupon";
-import {
-  getShippingForCheckout,
-  saveAppliedShipping,
-} from "@/lib/checkout/shipping";
+import { getShippingForCheckout, saveAppliedShipping } from "@/lib/checkout/shipping";
 import { toast } from "@/lib/ui/toast";
 
 import GradientHeader from "@/components/GradientHeader";
@@ -41,10 +38,6 @@ type ShippingOption = {
 };
 
 type PayCurrency = "NGN" | "USD";
-
-function fmtNaira(n: number) {
-  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
-}
 
 function clampStr(v: any, max = 200) {
   return String(v || "").trim().slice(0, max);
@@ -240,7 +233,9 @@ export default function CheckoutPage() {
     }
 
     if (slug) load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [slug]);
 
   // Fetch shipping options
@@ -252,7 +247,9 @@ export default function CheckoutPage() {
       setShipError(null);
 
       try {
-        const r = await fetch(`/api/vendor/shipping/options?storeSlug=${encodeURIComponent(slug)}`);
+        const r = await fetch(
+          `/api/vendor/shipping/options?storeSlug=${encodeURIComponent(slug)}`
+        );
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data?.error || "Failed to load shipping");
 
@@ -289,7 +286,9 @@ export default function CheckoutPage() {
     }
 
     if (slug) load();
-    return () => { mounted = false; };
+    return () => {
+      mounted = false;
+    };
   }, [slug]);
 
   // Fetch quote
@@ -307,9 +306,8 @@ export default function CheckoutPage() {
           selectedOptions: it.selectedOptions || null,
         }));
 
-        const coupon = opts?.couponCode != null
-          ? String(opts.couponCode)
-          : applied?.code || null;
+        const coupon =
+          opts?.couponCode != null ? String(opts.couponCode) : applied?.code || null;
 
         const r = await fetch("/api/checkout/quote", {
           method: "POST",
@@ -350,17 +348,20 @@ export default function CheckoutPage() {
   }, [validCart, selectedShipId, shippingFeeKobo, applied?.code, cart.items.length, fetchQuote]);
 
   // Shipping selection handler
-  const handleSelectShipping = useCallback((opt: ShippingOption) => {
-    setSelectedShipId(opt.id);
-    saveAppliedShipping({
-      storeSlug: slug,
-      optionId: opt.id,
-      type: opt.type,
-      name: opt.name,
-      feeKobo: Number(opt.feeKobo || 0),
-      selectedAtMs: Date.now(),
-    });
-  }, [slug]);
+  const handleSelectShipping = useCallback(
+    (opt: ShippingOption) => {
+      setSelectedShipId(opt.id);
+      saveAppliedShipping({
+        storeSlug: slug,
+        optionId: opt.id,
+        type: opt.type,
+        name: opt.name,
+        feeKobo: Number(opt.feeKobo || 0),
+        selectedAtMs: Date.now(),
+      });
+    },
+    [slug]
+  );
 
   // Coupon handlers
   const handleApplyCoupon = useCallback(async () => {
@@ -539,13 +540,22 @@ export default function CheckoutPage() {
       setPayLoading(false);
     }
   }, [
-    email, fullName, phone, address, usdEligible, payCurrency, slug,
-    cart.items, applied?.code, shippingFeeKobo, selectedShipping,
+    email,
+    fullName,
+    phone,
+    address,
+    usdEligible,
+    payCurrency,
+    slug,
+    cart.items,
+    applied?.code,
+    shippingFeeKobo,
+    selectedShipping,
   ]);
 
   const handleDirectTransfer = useCallback(() => {
     saveCheckoutProfile({ email, fullName, phone, address });
-    
+
     // Build query params with order details
     const params = new URLSearchParams({
       name: fullName,
@@ -553,22 +563,33 @@ export default function CheckoutPage() {
       email: email,
       amount: String(totalKobo / 100),
     });
-    
+
     if (address && !isPickup) {
       params.set("address", address);
     }
-    
+
     if (applied?.code) {
       params.set("coupon", applied.code);
     }
-    
+
     if (selectedShipping) {
       params.set("shipping", selectedShipping.name);
       params.set("shippingFee", String(selectedShipping.feeKobo / 100));
     }
-    
+
     router.push(`/b/${slug}/pay/direct?${params.toString()}`);
-  }, [router, slug, email, fullName, phone, address, totalKobo, isPickup, applied?.code, selectedShipping]);
+  }, [
+    router,
+    slug,
+    email,
+    fullName,
+    phone,
+    address,
+    totalKobo,
+    isPickup,
+    applied?.code,
+    selectedShipping,
+  ]);
 
   // Invalid cart state
   if (!validCart) {
@@ -585,9 +606,7 @@ export default function CheckoutPage() {
               <Button onClick={() => router.push("/cart")} variant="secondary">
                 Go to Cart
               </Button>
-              <Button onClick={() => router.push(`/b/${slug}`)}>
-                Browse Store
-              </Button>
+              <Button onClick={() => router.push(`/b/${slug}`)}>Browse Store</Button>
             </div>
           </Card>
         </div>
@@ -610,20 +629,11 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-gray-50 pb-8">
-      <GradientHeader
-        title="Checkout"
-        subtitle="Complete your order"
-        showBack={true}
-      />
+      <GradientHeader title="Checkout" subtitle="Complete your order" showBack={true} />
 
       <div className="px-4 space-y-4 mt-4">
         {/* Order total header */}
-        <CheckoutHeader
-          total={totalNgn}
-          storeSlug={slug}
-          itemCount={itemCount}
-          loading={quoteLoading}
-        />
+        <CheckoutHeader total={totalNgn} storeSlug={slug} itemCount={itemCount} loading={quoteLoading} />
 
         {/* Shipping */}
         <SectionCard title="Shipping" subtitle="Choose delivery or pickup">

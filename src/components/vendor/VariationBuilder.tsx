@@ -17,6 +17,17 @@ const SUGGESTIONS = [
   "Type",
 ];
 
+function variationExample(name: string) {
+  const n = String(name || "").trim().toLowerCase();
+
+  if (n === "color" || n === "colour") return "e.g. Black";
+  if (n === "size") return "e.g. M, L, XL";
+  if (n === "material") return "e.g. Cotton";
+
+  // Generic fallback (still helpful)
+  return "e.g. Value";
+}
+
 export function VariationBuilder({
   value,
   onChange,
@@ -77,9 +88,7 @@ export function VariationBuilder({
     <div className="space-y-3">
       <div>
         <p className="text-sm font-extrabold text-[#111827]">Variations</p>
-        <p className="text-xs text-gray-600 mt-1">
-          Customers can choose options, but price/stock stays the same.
-        </p>
+        <p className="text-xs text-gray-600 mt-1">Customers can choose options, but price/stock stays the same.</p>
       </div>
 
       {/* Suggestions */}
@@ -119,19 +128,12 @@ export function VariationBuilder({
         <div key={g.name} className="rounded-2xl border border-[#E7E7EE] bg-white p-4">
           <div className="flex items-center justify-between">
             <p className="font-extrabold text-[#111827]">{g.name}</p>
-            <button
-              className="text-xs font-extrabold text-red-600"
-              onClick={() => removeGroup(g.name)}
-            >
+            <button className="text-xs font-extrabold text-red-600" onClick={() => removeGroup(g.name)}>
               Remove
             </button>
           </div>
 
-          <GroupValues
-            group={g}
-            onAdd={(v) => addValue(g.name, v)}
-            onRemove={(v) => removeValue(g.name, v)}
-          />
+          <GroupValues group={g} onAdd={(v) => addValue(g.name, v)} onRemove={(v) => removeValue(g.name, v)} />
         </div>
       ))}
 
@@ -158,7 +160,8 @@ function GroupValues({
       <div className="flex gap-2">
         <input
           className="flex-1 border border-[#E7E7EE] rounded-2xl p-3 text-sm"
-          placeholder={`Add ${group.name} value (e.g. Black)`}
+          // B10-2: placeholders depend on variation type (Color/Size/Material)
+          placeholder={variationExample(group.name)}
           value={val}
           onChange={(e) => setVal(e.target.value)}
         />

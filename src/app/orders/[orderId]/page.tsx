@@ -13,14 +13,12 @@ import {
   Package,
   CreditCard,
   AlertTriangle,
-  ExternalLink,
-  MessageCircle,
+  AlertCircle,
   Copy,
   Check,
   ChevronRight,
   Loader2,
   ShoppingBag,
-  Clock,
 } from "lucide-react";
 
 import GradientHeader from "@/components/GradientHeader";
@@ -33,10 +31,7 @@ import { ReviewStars } from "@/components/reviews/ReviewStars";
 import { auth } from "@/lib/firebase/client";
 import { toast } from "@/lib/ui/toast";
 import { cn } from "@/lib/cn";
-
-function fmtNaira(n: number) {
-  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
-}
+import { formatMoneyNGN } from "@/lib/money";
 
 function toMs(v: any) {
   try {
@@ -52,14 +47,14 @@ function toMs(v: any) {
 
 function formatDate(v: any) {
   const ms = toMs(v);
-  if (!ms) return "—";
+  if (!ms) return "\u2014";
   try {
     return new Date(ms).toLocaleString("en-NG", {
       dateStyle: "medium",
       timeStyle: "short",
     });
   } catch {
-    return "—";
+    return "\u2014";
   }
 }
 
@@ -96,9 +91,10 @@ export default function OrderDetailPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [order, setOrder] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
+  const [httpStatus, setHttpStatus] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // ✅ Review state
+  // Review state
   const [reviewState, setReviewState] = useState<{
     loading: boolean;
     hasReview: boolean;
@@ -130,34 +126,60 @@ export default function OrderDetailPage() {
   }, [router, orderId]);
 
   // Load order
-  const loadOrder = useCallback(async (isRefresh = false) => {
-    try {
-      if (isRefresh) {
-        setRefreshing(true);
-      } else {
-        setLoading(true);
+  const loadOrder = useCallback(
+    async (isRefresh = false) => {
+      try {
+        if (isRefresh) {
+          setRefreshing(true);
+        } else {
+          setLoading(true);
+        }
+        setError(null);
+        setHttpStatus(null);
+
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) throw new Error("Not logged in");
+
+        const r = await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const data = await r.json().catch(() => ({}));
+
+        // ── Distinct error handling ──
+        if (r.status === 401) {
+          router.replace(
+            `/account/login?next=${encodeURIComponent(`/orders/${orderId}`)}`
+          );
+          return;
+        }
+        if (r.status === 403) {
+          setHttpStatus(403);
+          setError(
+            data?.error || "You don\u2019t have permission to view this order."
+          );
+          setOrder(null);
+          return;
+        }
+        if (r.status === 404) {
+          setHttpStatus(404);
+          setError(data?.error || "This order could not be found.");
+          setOrder(null);
+          return;
+        }
+        if (!r.ok) throw new Error(data?.error || "Failed to load order");
+
+        setOrder(data.order || null);
+      } catch (e: any) {
+        setError(e?.message || "Failed to load order");
+        setOrder(null);
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-      setError(null);
-
-      const token = await auth.currentUser?.getIdToken();
-      if (!token) throw new Error("Not logged in");
-
-      const r = await fetch(`/api/orders/${encodeURIComponent(orderId)}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      const data = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(data?.error || "Failed to load order");
-
-      setOrder(data.order || null);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load order");
-      setOrder(null);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  }, [orderId]);
+    },
+    [orderId, router]
+  );
 
   useEffect(() => {
     if (orderId && loggedIn) {
@@ -168,14 +190,12 @@ export default function OrderDetailPage() {
   // Auto-verify payment from redirect
   useEffect(() => {
     if (!loggedIn || !orderId) return;
-
     const reference = searchParams.get("tx_ref") ?? searchParams.get("reference");
     if (!reference) return;
-
     // Auto verification logic would go here if needed
   }, [searchParams, loggedIn, orderId]);
 
-  // ✅ Check review status
+  // Check review status
   useEffect(() => {
     if (!orderId || !loggedIn || !order) return;
 
@@ -253,21 +273,40 @@ export default function OrderDetailPage() {
       />
 
       <div className="px-4 space-y-4 mt-4">
-        {/* Error */}
-        {error && (
-          <Card className="p-4 bg-red-50 border-red-100">
-            <p className="text-sm text-red-700">{error}</p>
-            <Button variant="secondary" size="sm" className="mt-2" onClick={() => loadOrder()}>
-              Try Again
-            </Button>
-          </Card>
-        )}
-
         {/* Loading */}
         {loading && (
           <Card className="p-8 text-center">
             <Loader2 className="w-8 h-8 text-orange-500 animate-spin mx-auto" />
             <p className="text-sm text-gray-500 mt-3">Loading order details...</p>
+          </Card>
+        )}
+
+        {/* Error: Not Found / Access Denied / Generic */}
+        {!loading && !order && error && (
+          <Card className="p-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-8 h-8 text-red-500" />
+            </div>
+            <p className="text-lg font-bold text-gray-900">
+              {httpStatus === 403 ? "Access Denied" : "Order Not Found"}
+            </p>
+            <p className="text-sm text-gray-500 mt-2">
+              {httpStatus === 403
+                ? "You don\u2019t have permission to view this order."
+                : error}
+            </p>
+            <div className="mt-6 flex justify-center gap-3">
+              <Button size="sm" onClick={() => loadOrder()}>
+                Try Again
+              </Button>
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={() => router.push("/orders")}
+              >
+                All Orders
+              </Button>
+            </div>
           </Card>
         )}
 
@@ -277,20 +316,25 @@ export default function OrderDetailPage() {
             {/* Summary Header */}
             <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-              
+
               <div className="relative z-10">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-medium text-orange-100">Order Total</p>
-                    <p className="text-3xl font-black mt-1">{fmtNaira(amount)}</p>
+                    <p className="text-3xl font-black mt-1">{formatMoneyNGN(amount)}</p>
                   </div>
-                  <div className={cn(
-                    "px-4 py-2 rounded-xl font-bold text-sm",
-                    statusLabel === "Delivered" ? "bg-green-500" :
-                    statusLabel === "Cancelled" ? "bg-gray-500" :
-                    statusLabel === "Disputed" ? "bg-red-500" :
-                    "bg-white/20"
-                  )}>
+                  <div
+                    className={cn(
+                      "px-4 py-2 rounded-xl font-bold text-sm",
+                      statusLabel === "Delivered"
+                        ? "bg-green-500"
+                        : statusLabel === "Cancelled"
+                          ? "bg-gray-500"
+                          : statusLabel === "Disputed"
+                            ? "bg-red-500"
+                            : "bg-white/20"
+                    )}
+                  >
                     {statusLabel}
                   </div>
                 </div>
@@ -320,19 +364,20 @@ export default function OrderDetailPage() {
 
             {/* Status Timeline */}
             <SectionCard title="Order Status" subtitle="Track your order progress">
-              <OrderStatusTimeline
-                currentStatus={statusLabel}
-                paymentType={paymentType}
-              />
+              <OrderStatusTimeline currentStatus={statusLabel} paymentType={paymentType} />
             </SectionCard>
 
             {/* Items */}
             <SectionCard title="Items" subtitle={`${items.length} item${items.length !== 1 ? "s" : ""}`}>
               <div className="space-y-3">
                 {items.map((item: any, idx: number) => (
-                  <div key={idx} className="flex items-center gap-4 bg-white rounded-xl border border-gray-100 p-4">
+                  <div
+                    key={idx}
+                    className="flex items-center gap-4 bg-white rounded-xl border border-gray-100 p-4"
+                  >
                     <div className="w-14 h-14 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
                       {item?.imageUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={item.imageUrl}
                           alt={item.name}
@@ -350,13 +395,13 @@ export default function OrderDetailPage() {
                         <p className="text-xs text-gray-500 mt-0.5">
                           {Object.entries(item.selectedOptions)
                             .map(([k, v]) => `${k}: ${v}`)
-                            .join(" • ")}
+                            .join(" \u2022 ")}
                         </p>
                       )}
                       <p className="text-xs text-gray-500 mt-1">Qty: {item?.qty || 1}</p>
                     </div>
                     <p className="text-sm font-bold text-gray-900 shrink-0">
-                      {fmtNaira(item?.price || 0)}
+                      {formatMoneyNGN(Number(item?.price || 0))}
                     </p>
                   </div>
                 ))}
@@ -373,7 +418,7 @@ export default function OrderDetailPage() {
                   <div>
                     <p className="text-xs text-gray-500">Full Name</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {order?.customer?.fullName || "—"}
+                      {order?.customer?.fullName || "\u2014"}
                     </p>
                   </div>
                 </div>
@@ -385,7 +430,7 @@ export default function OrderDetailPage() {
                   <div>
                     <p className="text-xs text-gray-500">Phone</p>
                     <p className="text-sm font-semibold text-gray-900">
-                      {order?.customer?.phone || "—"}
+                      {order?.customer?.phone || "\u2014"}
                     </p>
                   </div>
                 </div>
@@ -397,9 +442,7 @@ export default function OrderDetailPage() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Email</p>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {order.customer.email}
-                      </p>
+                      <p className="text-sm font-semibold text-gray-900">{order.customer.email}</p>
                     </div>
                   </div>
                 )}
@@ -411,9 +454,7 @@ export default function OrderDetailPage() {
                     </div>
                     <div>
                       <p className="text-xs text-gray-500">Address</p>
-                      <p className="text-sm font-semibold text-gray-900">
-                        {order.customer.address}
-                      </p>
+                      <p className="text-sm font-semibold text-gray-900">{order.customer.address}</p>
                     </div>
                   </div>
                 )}
@@ -452,10 +493,9 @@ export default function OrderDetailPage() {
               </div>
             </SectionCard>
 
-            {/* ✅ Review Section */}
+            {/* Review Section */}
             {!reviewState.loading && (
               <>
-                {/* Already reviewed — show the review */}
                 {reviewState.hasReview && reviewState.review && (
                   <SectionCard title="Your Review" subtitle="Thank you for your feedback">
                     <div className="p-4 bg-green-50 rounded-2xl border border-green-200">
@@ -482,7 +522,6 @@ export default function OrderDetailPage() {
                   </SectionCard>
                 )}
 
-                {/* Not yet reviewed — show the form */}
                 {!reviewState.hasReview && reviewState.canReview && (
                   <SectionCard title="Rate This Order" subtitle="Share your experience">
                     <ReviewForm

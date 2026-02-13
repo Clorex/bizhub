@@ -1,4 +1,4 @@
-
+// FILE: src/app/api/orders/chat/create/route.ts
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendBusinessPush } from "@/lib/push/sendBusinessPush";
@@ -72,6 +72,11 @@ function computeSubtotalKoboFromItems(items: any[]) {
   return Math.max(0, Math.floor(kobo));
 }
 
+function safeInt(n: any, fallback = 0) {
+  const v = Math.floor(Number(n));
+  return Number.isFinite(v) ? v : fallback;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -80,21 +85,12 @@ export async function POST(req: Request) {
     const clientOrderId = cleanStr(body.clientOrderId, 120);
     const itemsRaw = Array.isArray(body.items) ? body.items : [];
 
-    if (!storeSlug) {
-      return Response.json({ ok: false, error: "storeSlug is required" }, { status: 400 });
-    }
-    if (!clientOrderId) {
-      return Response.json({ ok: false, error: "clientOrderId is required" }, { status: 400 });
-    }
-    if (!itemsRaw.length) {
-      return Response.json({ ok: false, error: "items are required" }, { status: 400 });
-    }
+    if (!storeSlug) return Response.json({ ok: false, error: "storeSlug is required" }, { status: 400 });
+    if (!clientOrderId) return Response.json({ ok: false, error: "clientOrderId is required" }, { status: 400 });
+    if (!itemsRaw.length) return Response.json({ ok: false, error: "items are required" }, { status: 400 });
 
     const bizSnap = await adminDb.collection("businesses").where("slug", "==", storeSlug).limit(1).get();
-
-    if (bizSnap.empty) {
-      return Response.json({ ok: false, error: "Store not found" }, { status: 404 });
-    }
+    if (bizSnap.empty) return Response.json({ ok: false, error: "Store not found" }, { status: 404 });
 
     const bizDoc = bizSnap.docs[0];
     const biz = { id: bizDoc.id, ...(bizDoc.data() as any) };
@@ -121,24 +117,36 @@ export async function POST(req: Request) {
     }
 
     const items = cleanItems(itemsRaw);
-    if (!items.length) {
-      return Response.json({ ok: false, error: "No valid items" }, { status: 400 });
-    }
+    if (!items.length) return Response.json({ ok: false, error: "No valid items" }, { status: 400 });
 
     const subtotalKobo = computeSubtotalKoboFromItems(items);
     const orderRef = adminDb.collection("orders").doc(clientOrderId);
 
+    // Counter doc per business (atomic)
+    const counterRef = adminDb.collection("businessCounters").doc(businessId);
+
     const result = await adminDb.runTransaction(async (t) => {
       const existing = await t.get(orderRef);
       if (existing.exists) {
-        return { ok: true, orderId: existing.id, alreadyExisted: true };
+        const d: any = existing.data() || {};
+        return { ok: true, orderId: existing.id, orderNumber: d.orderNumber ?? null, alreadyExisted: true };
       }
+
+      // Allocate next orderNumber
+      const counterSnap = await t.get(counterRef);
+      const cur = counterSnap.exists ? safeInt((counterSnap.data() as any)?.orderSeq, 0) : 0;
+      const next = cur + 1;
+
+      t.set(counterRef, { orderSeq: next, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
 
       const nowMs = Date.now();
 
       t.set(orderRef, {
         businessId,
         businessSlug: storeSlug,
+
+        // NEW: simple sequential order number
+        orderNumber: next,
 
         orderSource: "chat_whatsapp",
         paymentType: "chat_whatsapp",
@@ -172,10 +180,9 @@ export async function POST(req: Request) {
         updatedAt: FieldValue.serverTimestamp(),
       });
 
-      return { ok: true, orderId: orderRef.id, alreadyExisted: false };
+      return { ok: true, orderId: orderRef.id, orderNumber: next, alreadyExisted: false };
     });
 
-    // ✅ Push notify vendor devices (best-effort; never fail order creation)
     if (result?.ok && !result?.alreadyExisted) {
       sendBusinessPush({
         businessId,

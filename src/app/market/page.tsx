@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import {
   ShoppingCart,
   SlidersHorizontal,
@@ -22,15 +22,22 @@ import {
   type MarketFilterState,
   type MarketSortKey,
 } from "@/lib/market/filters/types";
-import { MARKET_CATEGORIES, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
+import {
+  MARKET_CATEGORIES,
+  type MarketCategoryKey,
+} from "@/lib/search/marketTaxonomy";
 import { toast } from "@/lib/ui/toast";
+import { formatMoneyNGN } from "@/lib/money";
 
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
 import { Chip } from "@/components/ui/Chip";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { SectionCard } from "@/components/ui/SectionCard";
-import { ProductGridSkeleton, StoreCardSkeleton } from "@/components/ui/Skeleton";
+import {
+  ProductGridSkeleton,
+  StoreCardSkeleton,
+} from "@/components/ui/Skeleton";
 
 import { ProductCard } from "@/components/market/ProductCard";
 import { StoreCard } from "@/components/market/StoreCard";
@@ -51,13 +58,72 @@ const POPULAR_SEARCHES = [
 
 const ITEMS_PER_PAGE = 20;
 
+/* ———————— URL param helpers (B5-3) ———————— */
+
+function filtersToParams(
+  filters: MarketFilterState,
+  sortKey: MarketSortKey,
+  q: string
+): URLSearchParams {
+  const p = new URLSearchParams();
+  if (q) p.set("q", q);
+  if (filters.category) p.set("cat", filters.category);
+  if (filters.location.state) p.set("state", filters.location.state);
+  if (filters.location.city) p.set("city", filters.location.city);
+  if (filters.price.min != null) p.set("pmin", String(filters.price.min));
+  if (filters.price.max != null) p.set("pmax", String(filters.price.max));
+  if (filters.status.onSale) p.set("sale", "1");
+  if (filters.trust.trustedBadgeOnly) p.set("trusted", "1");
+  if (sortKey !== "recommended") p.set("sort", sortKey);
+  return p;
+}
+
+function paramsToFilters(sp: URLSearchParams): {
+  filters: MarketFilterState;
+  sortKey: MarketSortKey;
+  q: string;
+} {
+  const filters: MarketFilterState = {
+    ...DEFAULT_MARKET_FILTERS,
+    category: (sp.get("cat") as MarketCategoryKey) || null,
+    location: {
+      state: sp.get("state") || null,
+      city: sp.get("city") || null,
+    },
+    price: {
+      min: sp.has("pmin") ? Number(sp.get("pmin")) : null,
+      max: sp.has("pmax") ? Number(sp.get("pmax")) : null,
+      quick: null,
+    },
+    status: {
+      ...DEFAULT_MARKET_FILTERS.status,
+      onSale: sp.get("sale") === "1",
+    },
+    trust: {
+      ...DEFAULT_MARKET_FILTERS.trust,
+      trustedBadgeOnly: sp.get("trusted") === "1",
+    },
+  };
+  const sortKey = (sp.get("sort") as MarketSortKey) || "recommended";
+  const q = sp.get("q") || "";
+  return { filters, sortKey, q };
+}
+
 export default function MarketPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { addToCart, cart } = useCart();
 
-  const [filters, setFilters] = useState<MarketFilterState>(DEFAULT_MARKET_FILTERS);
-  const [sortKey, setSortKey] = useState<MarketSortKey>("recommended");
-  const [searchText, setSearchText] = useState("");
+  // B5-3: Initialize state from URL params
+  const initial = useMemo(
+    () => paramsToFilters(searchParams),
+    [] // only on mount
+  );
+
+  const [filters, setFilters] = useState<MarketFilterState>(initial.filters);
+  const [sortKey, setSortKey] = useState<MarketSortKey>(initial.sortKey);
+  const [searchText, setSearchText] = useState(initial.q);
 
   const [filterOpen, setFilterOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -71,7 +137,6 @@ export default function MarketPage() {
     error,
     searchQuery,
     productsPool,
-    // ✅ ADDED: SmartMatch state
     matchScores,
     matchLoading,
     smartMatchEnabled,
@@ -84,19 +149,45 @@ export default function MarketPage() {
     trackProductClick,
   } = useMarketSearch({ filters, sortKey });
 
-  const items = useMemo(() => getFilteredProducts(), [getFilteredProducts]);
+  const items = useMemo(
+    () => getFilteredProducts(),
+    [getFilteredProducts]
+  );
   const deals = useMemo(() => getFilteredDeals(), [getFilteredDeals]);
-  const stores = useMemo(() => getFilteredStores(), [getFilteredStores]);
-  const fashionFacets = useMemo(() => buildFashionFacets(productsPool), [productsPool]);
+  const stores = useMemo(
+    () => getFilteredStores(),
+    [getFilteredStores]
+  );
+  const fashionFacets = useMemo(
+    () => buildFashionFacets(productsPool),
+    [productsPool]
+  );
 
-  const displayedItems = useMemo(() => items.slice(0, displayCount), [items, displayCount]);
+  const displayedItems = useMemo(
+    () => items.slice(0, displayCount),
+    [items, displayCount]
+  );
   const hasMore = displayCount < items.length;
 
-  // Calculate itemCount from cart items
   const itemCount = useMemo(() => {
     const list = Array.isArray(cart?.items) ? cart.items : [];
-    return list.reduce((s: number, it: any) => s + Math.max(0, Number(it?.qty || 0)), 0);
+    return list.reduce(
+      (s: number, it: any) => s + Math.max(0, Number(it?.qty || 0)),
+      0
+    );
   }, [cart]);
+
+  // B5-3: Sync filters → URL (shallow, no navigation)
+  useEffect(() => {
+    const params = filtersToParams(filters, sortKey, searchText);
+    const qs = params.toString();
+    const target = qs ? `${pathname}?${qs}` : pathname;
+    // Only update if different (avoid loops)
+    const current = searchParams.toString();
+    if (qs !== current) {
+      router.replace(target, { scroll: false });
+    }
+  }, [filters, sortKey, searchText, pathname, router, searchParams]);
 
   useEffect(() => {
     trackImpressions(displayedItems);
@@ -113,6 +204,14 @@ export default function MarketPage() {
   useEffect(() => {
     setDisplayCount(ITEMS_PER_PAGE);
   }, [filters, sortKey, searchQuery]);
+
+  // B5-3: Run initial search from URL params on mount
+  useEffect(() => {
+    if (initial.q) {
+      runSearch(initial.q);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSearch = useCallback(() => {
     runSearch(searchText);
@@ -155,7 +254,8 @@ export default function MarketPage() {
         imageUrl: Array.isArray(product?.images) ? product.images[0] : "",
         selectedOptions: undefined,
       });
-      toast.success("Added to cart!");
+      // B5-2: Toast confirmation on every add
+      toast.success(`${String(product?.name || "Item").slice(0, 30)} added to cart`);
     },
     [addToCart]
   );
@@ -175,13 +275,18 @@ export default function MarketPage() {
     loadTrending();
   };
 
+  // B5-3: Active filter chips
   const filterChips = useMemo(() => {
-    const chips: { key: string; label: string; onRemove: () => void }[] = [];
+    const chips: {
+      key: string;
+      label: string;
+      onRemove: () => void;
+    }[] = [];
 
     if (filters.category) {
       const lbl =
-        MARKET_CATEGORIES.find((c) => c.key === filters.category)?.label ||
-        filters.category;
+        MARKET_CATEGORIES.find((c) => c.key === filters.category)
+          ?.label || filters.category;
       chips.push({
         key: "cat",
         label: lbl,
@@ -199,22 +304,26 @@ export default function MarketPage() {
         key: "state",
         label: filters.location.state,
         onRemove: () =>
-          setFilters((s) => ({ ...s, location: { state: null, city: null } })),
+          setFilters((s) => ({
+            ...s,
+            location: { state: null, city: null },
+          })),
       });
     }
 
     if (filters.price.min != null || filters.price.max != null) {
       const min =
         filters.price.min != null
-          ? `₦${filters.price.min.toLocaleString()}`
-          : "₦0";
+          ? formatMoneyNGN(filters.price.min)
+          : formatMoneyNGN(0);
       const max =
         filters.price.max != null
-          ? `₦${filters.price.max.toLocaleString()}`
+          ? formatMoneyNGN(filters.price.max)
           : "Any";
+
       chips.push({
         key: "price",
-        label: `${min} – ${max}`,
+        label: `${min} \u2013 ${max}`,
         onRemove: () =>
           setFilters((s) => ({
             ...s,
@@ -247,8 +356,23 @@ export default function MarketPage() {
       });
     }
 
+    if (sortKey !== "recommended") {
+      const sortLabels: Record<string, string> = {
+        best_match: "Best Match",
+        price_low: "Price: Low\u2192High",
+        price_high: "Price: High\u2192Low",
+        newest: "Newest",
+        popular: "Popular",
+      };
+      chips.push({
+        key: "sort",
+        label: `Sort: ${sortLabels[sortKey] || sortKey}`,
+        onRemove: () => setSortKey("recommended"),
+      });
+    }
+
     return chips;
-  }, [filters]);
+  }, [filters, sortKey]);
 
   const hasActiveFilters = filterChips.length > 0 || searchQuery;
 
@@ -259,7 +383,10 @@ export default function MarketPage() {
         <div className="px-4 py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <div className="relative h-8" style={{ width: "min(140px, 40vw)" }}>
+              <div
+                className="relative h-8"
+                style={{ width: "min(140px, 40vw)" }}
+              >
                 <Image
                   src="/brand/logo-transparent.png"
                   alt="myBizHub"
@@ -318,7 +445,6 @@ export default function MarketPage() {
             Sort
           </button>
 
-          {/* ✅ ADDED: Quick "Best Match" chip when SmartMatch is enabled */}
           {smartMatchEnabled && sortKey !== "best_match" ? (
             <button
               onClick={() => setSortKey("best_match")}
@@ -329,19 +455,18 @@ export default function MarketPage() {
             </button>
           ) : null}
 
-          {/* ✅ ADDED: Show active sort indicator for best_match */}
           {smartMatchEnabled && sortKey === "best_match" ? (
             <button
               onClick={() => setSortKey("recommended")}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-orange-300 bg-gradient-to-br from-orange-50 to-white text-xs font-bold text-orange-700 shadow-sm"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Best Match ✓
+              Best Match {"\u2714"}
             </button>
           ) : null}
         </div>
 
-        {/* Active filter chips */}
+        {/* B5-3: Active filter chips — always visible when filters applied */}
         {filterChips.length > 0 && (
           <div className="mt-3 flex flex-wrap gap-2">
             {filterChips.map((chip) => (
@@ -363,11 +488,14 @@ export default function MarketPage() {
         {searchQuery && (
           <p className="mt-3 text-sm text-gray-600">
             Searching for{" "}
-            <span className="font-bold text-gray-900">"{searchQuery}"</span>
+            <span className="font-bold text-gray-900">
+              &ldquo;{searchQuery}&rdquo;
+            </span>
             {items.length > 0 && (
               <span className="text-gray-500">
                 {" "}
-                • {items.length} result{items.length !== 1 ? "s" : ""}
+                \u2022 {items.length} result
+                {items.length !== 1 ? "s" : ""}
               </span>
             )}
           </p>
@@ -376,7 +504,6 @@ export default function MarketPage() {
 
       {/* Main Content */}
       <div className="px-4 pb-24 space-y-4 pt-4">
-        {/* Error state */}
         {error && (
           <Card className="p-4 bg-red-50 border-red-100">
             <p className="text-red-700 font-medium text-sm">{error}</p>
@@ -391,7 +518,6 @@ export default function MarketPage() {
           </Card>
         )}
 
-        {/* Deals Carousel */}
         <DealsCarousel
           deals={deals}
           loading={dealsLoading}
@@ -399,12 +525,13 @@ export default function MarketPage() {
           onAddToCart={handleAddToCart}
         />
 
-        {/* Categories */}
         {!searchQuery && (
           <SectionCard
             title="Categories"
-            subtitle="Browse by what you're looking for"
-            right={<Sparkles className="w-5 h-5 text-orange-500" />}
+            subtitle="Browse by what you\u2019re looking for"
+            right={
+              <Sparkles className="w-5 h-5 text-orange-500" />
+            }
           >
             <CategoryGrid
               selectedCategory={filters.category}
@@ -413,9 +540,11 @@ export default function MarketPage() {
           </SectionCard>
         )}
 
-        {/* Stores */}
         {searchQuery && (
-          <SectionCard title="Stores" subtitle="Vendors matching your search">
+          <SectionCard
+            title="Stores"
+            subtitle="Vendors matching your search"
+          >
             {storesLoading ? (
               <div className="space-y-2">
                 <StoreCardSkeleton />
@@ -440,22 +569,22 @@ export default function MarketPage() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="text-lg font-bold text-gray-900">
-                {/* ✅ MODIFIED: show "Best Match" title when that sort is active */}
                 {sortKey === "best_match"
                   ? "Best Match"
                   : searchQuery
                     ? "Products"
                     : filters.category
-                      ? MARKET_CATEGORIES.find((c) => c.key === filters.category)
-                          ?.label || "Products"
+                      ? MARKET_CATEGORIES.find(
+                          (c) => c.key === filters.category
+                        )?.label || "Products"
                       : "Trending"}
               </h2>
               {!loading && items.length > 0 && (
                 <p className="text-xs text-gray-500 mt-0.5">
-                  {items.length} product{items.length !== 1 ? "s" : ""} found
-                  {/* ✅ ADDED: match score indicator */}
+                  {items.length} product
+                  {items.length !== 1 ? "s" : ""} found
                   {sortKey === "best_match" && matchScores
-                    ? " · Ranked by match score"
+                    ? " \u00B7 Ranked by match score"
                     : ""}
                 </p>
               )}
@@ -472,8 +601,12 @@ export default function MarketPage() {
                   ? "Try adjusting your filters or search terms"
                   : "Check back later for new products"
               }
-              ctaLabel={hasActiveFilters ? "Clear filters" : undefined}
-              onCta={hasActiveFilters ? clearAllFilters : undefined}
+              ctaLabel={
+                hasActiveFilters ? "Clear filters" : undefined
+              }
+              onCta={
+                hasActiveFilters ? clearAllFilters : undefined
+              }
             />
           ) : (
             <>
@@ -484,9 +617,9 @@ export default function MarketPage() {
                     product={product}
                     onClick={() => handleProductClick(product)}
                     onAddToCart={() => handleAddToCart(product)}
-                    // ✅ ADDED: pass match result to each card
                     matchResult={
-                      matchScores?.[String(product?.id || "")] || null
+                      matchScores?.[String(product?.id || "")] ||
+                      null
                     }
                   />
                 ))}
@@ -499,7 +632,8 @@ export default function MarketPage() {
                     onClick={handleLoadMore}
                     className="px-8"
                   >
-                    Load more ({items.length - displayCount} remaining)
+                    Load more ({items.length - displayCount}{" "}
+                    remaining)
                   </Button>
                 </div>
               )}
@@ -508,11 +642,11 @@ export default function MarketPage() {
         </div>
       </div>
 
-      {/* Back to top button */}
+      {/* B5-1: Only ONE floating action — back-to-top (no help FAB, no push FAB) */}
       {showBackToTop && (
         <button
           onClick={scrollToTop}
-          className="fixed bottom-24 right-4 w-12 h-12 bg-orange-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-orange-600 transition-all z-50"
+          className="fixed bottom-24 right-4 w-12 h-12 bg-orange-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-orange-600 transition-all z-40"
           aria-label="Back to top"
         >
           <ArrowUp className="w-5 h-5" />

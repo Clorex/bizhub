@@ -4,6 +4,7 @@
 import { memo, useState } from "react";
 import { Tag, X, Check, Loader2 } from "lucide-react";
 import { cn } from "@/lib/cn";
+import { formatMoneyNGN } from "@/lib/money";
 
 interface CouponInputProps {
   code: string;
@@ -14,10 +15,6 @@ interface CouponInputProps {
   applied?: boolean;
   discountAmount?: number;
   message?: string | null;
-}
-
-function fmtNaira(n: number) {
-  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
 }
 
 export const CouponInput = memo(function CouponInput({
@@ -48,11 +45,9 @@ export const CouponInput = memo(function CouponInput({
               <Check className="w-5 h-5" />
             </div>
             <div>
-              <p className="text-sm font-semibold text-green-800">
-                {code} applied!
-              </p>
+              <p className="text-sm font-semibold text-green-800">{code} applied!</p>
               <p className="text-xs text-green-600">
-                You save {fmtNaira(discountAmount / 100)}
+                You save {formatMoneyNGN(discountAmount / 100)}
               </p>
             </div>
           </div>
@@ -99,23 +94,22 @@ export const CouponInput = memo(function CouponInput({
               : "text-orange-600 hover:text-orange-700 hover:bg-orange-50"
           )}
         >
-          {loading ? (
-            <Loader2 className="w-4 h-4 animate-spin" />
-          ) : (
-            "Apply"
-          )}
+          {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Apply"}
         </button>
       </div>
 
       {message && (
-        <p className={cn(
-          "text-xs mt-2 px-1",
-          message.toLowerCase().includes("applied") || message.toLowerCase().includes("success")
-            ? "text-green-600"
-            : message.toLowerCase().includes("removed")
-            ? "text-gray-500"
-            : "text-red-500"
-        )}>
+        <p
+          className={cn(
+            "text-xs mt-2 px-1",
+            message.toLowerCase().includes("applied") ||
+              message.toLowerCase().includes("success")
+              ? "text-green-600"
+              : message.toLowerCase().includes("removed")
+              ? "text-gray-500"
+              : "text-red-500"
+          )}
+        >
           {message}
         </p>
       )}

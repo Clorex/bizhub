@@ -2,10 +2,20 @@
 
 import React from 'react';
 import { useRouter } from 'next/navigation';
+import { Lock, BarChart3, TrendingUp, Users, ShoppingBag, Sparkles, Zap } from 'lucide-react';
 
 interface LockedAnalyticsOverlayProps {
   reason?: string;
 }
+
+const FEATURES = [
+  { label: 'Sales Growth Tracking', icon: TrendingUp },
+  { label: 'Revenue Breakdown', icon: BarChart3 },
+  { label: 'Conversion Analytics', icon: Zap },
+  { label: 'Top Products Ranking', icon: ShoppingBag },
+  { label: 'Customer Engagement', icon: Users },
+  { label: 'AI-Powered Insights', icon: Sparkles },
+];
 
 export default function LockedAnalyticsOverlay({
   reason = 'Subscribe to access analytics.',
@@ -17,19 +27,7 @@ export default function LockedAnalyticsOverlay({
       <div className="flex flex-col items-center justify-center min-h-[50vh] text-center px-4">
         {/* Lock icon */}
         <div className="w-20 h-20 rounded-full bg-orange-50 flex items-center justify-center mb-6">
-          <svg
-            className="w-10 h-10 text-orange-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.5}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-            />
-          </svg>
+          <Lock className="w-10 h-10 text-orange-500" />
         </div>
 
         {/* Title */}
@@ -46,27 +44,12 @@ export default function LockedAnalyticsOverlay({
         {/* Reason */}
         <p className="text-sm text-orange-500 font-medium mb-6">{reason}</p>
 
-        {/* Features list */}
+        {/* Features list — NO charts, just text */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mb-8">
-          {[
-            'Sales Growth Tracking',
-            'Revenue Breakdown',
-            'Conversion Analytics',
-            'Top Products Ranking',
-            'Customer Engagement',
-            'AI-Powered Insights',
-          ].map((feature) => (
-            <div key={feature} className="flex items-center gap-2 text-sm text-gray-600">
-              <svg
-                className="w-4 h-4 text-orange-500 flex-shrink-0"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-              </svg>
-              <span>{feature}</span>
+          {FEATURES.map(({ label, icon: Icon }) => (
+            <div key={label} className="flex items-center gap-2 text-sm text-gray-600">
+              <Icon className="w-4 h-4 text-orange-500 flex-shrink-0" />
+              <span>{label}</span>
             </div>
           ))}
         </div>

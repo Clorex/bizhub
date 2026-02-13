@@ -27,15 +27,22 @@ import {
   ShoppingBag,
   Truck,
   ChevronRight,
-  // ✅ ADDED
   Eye,
 } from "lucide-react";
-import { auth } from "@/lib/firebase/client";
-import { signOut } from "firebase/auth";
-// ✅ ADDED
+
+import { toast } from "@/lib/ui/toast";
+import { signOutClient } from "@/lib/auth/signOutClient";
 import { isSmartMatchEnabled } from "@/lib/smartmatch/featureFlag";
 
-function Group({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
+function Group({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
   return (
     <Card className="p-4">
       <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{title}</p>
@@ -58,7 +65,6 @@ function Row({
   desc?: string;
   onClick: () => void;
   highlight?: boolean;
-  // ✅ ADDED
   badge?: string;
 }) {
   return (
@@ -82,8 +88,15 @@ function Row({
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <p className={highlight ? "text-sm font-bold text-orange-700" : "text-sm font-bold text-gray-900"}>{title}</p>
-            {/* ✅ ADDED: optional badge */}
+            <p
+              className={
+                highlight
+                  ? "text-sm font-bold text-orange-700"
+                  : "text-sm font-bold text-gray-900"
+              }
+            >
+              {title}
+            </p>
             {badge ? (
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
                 {badge}
@@ -100,12 +113,16 @@ function Row({
 
 export default function VendorMorePage() {
   const router = useRouter();
-  // ✅ ADDED
   const smartMatchEnabled = isSmartMatchEnabled();
 
-  async function logout() {
-    await signOut(auth);
-    router.push("/market");
+  async function onSignOut() {
+    const res = await signOutClient();
+    if (res.ok) {
+      toast.success("Signed out");
+      router.push("/account/login");
+    } else {
+      toast.error(res.error || "Failed to sign out");
+    }
   }
 
   return (
@@ -113,7 +130,6 @@ export default function VendorMorePage() {
       <GradientHeader title="More" subtitle="Tools, settings, and support" showBack={false} />
 
       <div className="px-4 pb-32 space-y-4">
-        {/* Subscription at top */}
         <Group title="Your plan" subtitle="Manage subscription and add-ons">
           <Row
             icon={<Crown className="h-5 w-5 text-white" />}
@@ -185,7 +201,6 @@ export default function VendorMorePage() {
         </Group>
 
         <Group title="Insights" subtitle="Analytics and AI tools">
-          {/* ✅ ADDED: SmartMatch insights row */}
           {smartMatchEnabled ? (
             <Row
               icon={<Eye className="h-5 w-5 text-orange-600" />}
@@ -195,6 +210,7 @@ export default function VendorMorePage() {
               badge="New"
             />
           ) : null}
+
           <Row
             icon={<Sparkles className="h-5 w-5 text-orange-600" />}
             title="Sales assistant"
@@ -272,7 +288,7 @@ export default function VendorMorePage() {
         <Card className="p-4">
           <button
             className="w-full rounded-2xl border border-gray-100 bg-white py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition"
-            onClick={logout}
+            onClick={onSignOut}
           >
             <span className="inline-flex items-center gap-2 justify-center">
               <LogOut className="h-4 w-4" />

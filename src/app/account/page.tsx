@@ -1,13 +1,12 @@
 // FILE: src/app/account/page.tsx
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { onAuthStateChanged, signOut } from "firebase/auth";
+import { onAuthStateChanged } from "firebase/auth";
 import {
   User,
-  Mail,
   ShoppingBag,
   Package,
   Settings,
@@ -30,6 +29,7 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { auth } from "@/lib/firebase/client";
 import { toast } from "@/lib/ui/toast";
 import { cn } from "@/lib/cn";
+import { signOutClient } from "@/lib/auth/signOutClient";
 
 type AppRole = "customer" | "owner" | "staff" | "admin";
 
@@ -67,10 +67,12 @@ function MenuCard({ item }: { item: MenuItem }) {
         <Icon className="w-5 h-5" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className={cn(
-          "text-sm font-semibold",
-          item.destructive ? "text-red-600" : "text-gray-900"
-        )}>
+        <p
+          className={cn(
+            "text-sm font-semibold",
+            item.destructive ? "text-red-600" : "text-gray-900"
+          )}
+        >
           {item.label}
         </p>
         {item.description && (
@@ -82,23 +84,23 @@ function MenuCard({ item }: { item: MenuItem }) {
           {item.badge}
         </span>
       )}
-      <ChevronRight className={cn(
-        "w-5 h-5 shrink-0",
-        item.destructive ? "text-red-300" : "text-gray-300"
-      )} />
+      <ChevronRight
+        className={cn(
+          "w-5 h-5 shrink-0",
+          item.destructive ? "text-red-300" : "text-gray-300"
+        )}
+      />
     </Component>
   );
 }
 
 function QuickStat({
   icon: Icon,
-  label,
-  value,
+  title,
   onClick,
 }: {
   icon: any;
-  label: string;
-  value: string;
+  title: string;
   onClick: () => void;
 }) {
   return (
@@ -107,8 +109,7 @@ function QuickStat({
       className="flex-1 bg-white/20 hover:bg-white/30 rounded-xl p-3 text-left transition"
     >
       <Icon className="w-5 h-5 text-white/80 mb-2" />
-      <p className="text-xs text-white/80">{label}</p>
-      <p className="text-sm font-bold text-white mt-0.5">{value}</p>
+      <p className="text-sm font-bold text-white leading-tight">{title}</p>
     </button>
   );
 }
@@ -149,18 +150,19 @@ export default function AccountPage() {
     return () => unsub();
   }, []);
 
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      toast.success("Logged out successfully");
+  const isVendor = role === "owner" || role === "staff";
+  const isAdmin = role === "admin";
+
+  const handleSignOut = async () => {
+    const res = await signOutClient();
+    if (res.ok) {
+      toast.success("Signed out");
       router.push("/market");
-    } catch (e: any) {
-      toast.error("Failed to logout");
+    } else {
+      toast.error(res.error || "Failed to sign out");
     }
   };
 
-  const isVendor = role === "owner" || role === "staff";
-  const isAdmin = role === "admin";
   const email = user?.email || "";
   const displayName = user?.displayName || email.split("@")[0] || "User";
   const initials = displayName.slice(0, 2).toUpperCase();
@@ -169,19 +171,19 @@ export default function AccountPage() {
   const customerItems: MenuItem[] = [
     {
       icon: Package,
-      label: "My Orders",
+      label: "View orders",
       description: "Track your purchases",
       href: "/orders",
     },
     {
       icon: ShoppingBag,
-      label: "Shopping Cart",
-      description: "View items in cart",
+      label: "Open cart",
+      description: "View items in your cart",
       href: "/cart",
     },
     {
       icon: Heart,
-      label: "Favorites",
+      label: "View favorites",
       description: "Saved products",
       href: "/favorites",
     },
@@ -190,41 +192,42 @@ export default function AccountPage() {
   const vendorItems: MenuItem[] = [
     {
       icon: Store,
-      label: "My Store",
-      description: "Manage your storefront",
-      href: `/b/${businessSlug}`,
+      label: "View store",
+      description: "Open your storefront",
+      href: businessSlug ? `/b/${businessSlug}` : "/vendor/store",
     },
     {
       icon: Package,
-      label: "Products",
+      label: "View products",
       description: "Manage your listings",
       href: "/vendor/products",
     },
     {
       icon: Plus,
-      label: "Add Product",
-      description: "Create new listing",
+      label: "Add product",
+      description: "Create a new listing",
       href: "/vendor/products/new",
     },
     {
       icon: BarChart3,
-      label: "Analytics",
-      description: "View business insights",
+      label: "View analytics",
+      description: "Business insights",
       href: "/vendor/analytics",
     },
     {
       icon: Settings,
-      label: "Store Settings",
+      label: "Store settings",
       description: "Configure your store",
       href: "/vendor/store",
     },
   ];
 
+  // Customer/Admin settings area (vendors manage settings from Vendor > More)
   const settingsItems: MenuItem[] = [
     {
       icon: Bell,
       label: "Notifications",
-      description: "Manage message preferences",
+      description: "Manage preferences",
       href: "/account/notifications",
     },
     {
@@ -241,7 +244,6 @@ export default function AccountPage() {
     },
   ];
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -253,14 +255,12 @@ export default function AccountPage() {
     );
   }
 
-  // Not logged in state
   if (!user) {
     return (
       <div className="min-h-screen bg-gray-50">
         <GradientHeader title="Profile" subtitle="Your account" showBack={false} />
 
         <div className="px-4 pt-4 pb-24">
-          {/* Welcome Card */}
           <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-3xl p-6 text-white shadow-lg mb-4">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center">
@@ -269,35 +269,30 @@ export default function AccountPage() {
               <div>
                 <h2 className="text-lg font-bold">Welcome to myBizHub</h2>
                 <p className="text-sm text-orange-100 mt-1">
-                  Login to track orders and access more features
+                  Sign in to track orders and access more features
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Auth Actions */}
           <Card className="p-4 space-y-3">
-            <Button
-              className="w-full"
-              onClick={() => router.push("/account/login")}
-            >
-              Login
+            <Button className="w-full" onClick={() => router.push("/account/login")}>
+              Sign in
             </Button>
             <Button
               variant="secondary"
               className="w-full"
               onClick={() => router.push("/account/register")}
             >
-              Create Account
+              Create account
             </Button>
           </Card>
 
-          {/* Quick Links */}
           <div className="mt-4 space-y-2">
             <MenuCard
               item={{
                 icon: ShoppingBag,
-                label: "Browse Marketplace",
+                label: "Browse marketplace",
                 description: "Discover products and vendors",
                 href: "/market",
               }}
@@ -316,16 +311,14 @@ export default function AccountPage() {
     );
   }
 
-  // Logged in state
   return (
     <div className="min-h-screen bg-gray-50 pb-24">
       <GradientHeader title="Profile" subtitle="Your account" showBack={false} />
 
       <div className="px-4 pt-4 space-y-4">
-        {/* Profile Header */}
         <div className="bg-gradient-to-br from-orange-500 to-orange-600 rounded-3xl p-6 text-white shadow-lg relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-          
+
           <div className="relative z-10">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-xl font-bold">
@@ -337,7 +330,7 @@ export default function AccountPage() {
                 {isVendor && (
                   <span className="inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-full bg-white/20 text-xs font-medium">
                     <Store className="w-3 h-3" />
-                    Vendor Account
+                    Vendor account
                   </span>
                 )}
                 {isAdmin && (
@@ -349,31 +342,18 @@ export default function AccountPage() {
               </div>
             </div>
 
-            {/* Quick Stats */}
             <div className="mt-6 flex gap-3">
-              <QuickStat
-                icon={Package}
-                label="Orders"
-                value="View"
-                onClick={() => router.push("/orders")}
-              />
-              <QuickStat
-                icon={ShoppingBag}
-                label="Cart"
-                value="Open"
-                onClick={() => router.push("/cart")}
-              />
+              <QuickStat icon={Package} title="View orders" onClick={() => router.push("/orders")} />
+              <QuickStat icon={ShoppingBag} title="Open cart" onClick={() => router.push("/cart")} />
               <QuickStat
                 icon={isVendor ? BarChart3 : Heart}
-                label={isVendor ? "Analytics" : "Saved"}
-                value="View"
+                title={isVendor ? "View analytics" : "View favorites"}
                 onClick={() => router.push(isVendor ? "/vendor/analytics" : "/favorites")}
               />
             </div>
           </div>
         </div>
 
-        {/* Vendor Dashboard Link */}
         {isVendor && (
           <Card className="p-4">
             <Button
@@ -381,12 +361,11 @@ export default function AccountPage() {
               onClick={() => router.push("/vendor")}
               leftIcon={<BarChart3 className="w-4 h-4" />}
             >
-              Go to Vendor Dashboard
+              Open vendor dashboard
             </Button>
           </Card>
         )}
 
-        {/* Admin Dashboard Link */}
         {isAdmin && (
           <Card className="p-4">
             <Button
@@ -394,12 +373,11 @@ export default function AccountPage() {
               onClick={() => router.push("/admin")}
               leftIcon={<Shield className="w-4 h-4" />}
             >
-              Go to Admin Dashboard
+              Open admin dashboard
             </Button>
           </Card>
         )}
 
-        {/* Customer Menu */}
         <SectionCard title="Shopping" subtitle="Your activity">
           <div className="space-y-2">
             {customerItems.map((item) => (
@@ -408,9 +386,8 @@ export default function AccountPage() {
           </div>
         </SectionCard>
 
-        {/* Vendor Menu */}
         {isVendor && (
-          <SectionCard title="Vendor Tools" subtitle="Manage your business">
+          <SectionCard title="Vendor tools" subtitle="Manage your business">
             <div className="space-y-2">
               {vendorItems.map((item) => (
                 <MenuCard key={item.label} item={item} />
@@ -419,32 +396,33 @@ export default function AccountPage() {
           </SectionCard>
         )}
 
-        {/* Settings */}
-        <SectionCard title="Settings" subtitle="Account preferences">
-          <div className="space-y-2">
-            {settingsItems.map((item) => (
-              <MenuCard key={item.label} item={item} />
-            ))}
+        {/* One settings entry point: customers/admin here; vendors use Vendor > More */}
+        {!isVendor && (
+          <SectionCard title="Settings" subtitle="Account preferences">
+            <div className="space-y-2">
+              {settingsItems.map((item) => (
+                <MenuCard key={item.label} item={item} />
+              ))}
+            </div>
+          </SectionCard>
+        )}
+
+        {/* One sign-out per role: vendors sign out from Vendor > More */}
+        {!isVendor && (
+          <div className="pt-2">
+            <MenuCard
+              item={{
+                icon: LogOut,
+                label: "Sign out",
+                description: "Sign out of your account",
+                onClick: handleSignOut,
+                destructive: true,
+              }}
+            />
           </div>
-        </SectionCard>
+        )}
 
-        {/* Logout */}
-        <div className="pt-2">
-          <MenuCard
-            item={{
-              icon: LogOut,
-              label: "Logout",
-              description: "Sign out of your account",
-              onClick: handleLogout,
-              destructive: true,
-            }}
-          />
-        </div>
-
-        {/* App Version */}
-        <p className="text-center text-xs text-gray-400 pt-4">
-          myBizHub v1.0.0
-        </p>
+        <p className="text-center text-xs text-gray-400 pt-4">myBizHub v1.0.0</p>
       </div>
     </div>
   );

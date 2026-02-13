@@ -8,16 +8,39 @@ import InsightText from "@/components/ui/insight-text";
 import EmptyState from "@/components/ui/empty-state";
 import DonutChart from "@/components/charts/donut-chart";
 import { formatPercentageClean, formatNumber } from "@/lib/analytics/format";
+import { InfoTooltip } from "@/components/ui/InfoTooltip";
 
 interface ConversionSectionProps {
   data: ConversionData | null;
 }
 
+function guessRangeLabel(data: any): string | null {
+  const v = data?.rangeLabel || data?.range || data?.periodLabel || null;
+  return v ? String(v) : null;
+}
+
+function guessUpdatedAtMs(data: any): number | null {
+  const v = data?.lastUpdatedAtMs || data?.generatedAtMs || data?.updatedAtMs || null;
+  const n = Number(v);
+  return Number.isFinite(n) && n > 0 ? n : null;
+}
+
 export default function ConversionSection({ data }: ConversionSectionProps) {
+  const rangeLabel = guessRangeLabel(data);
+  const updatedAtMs = guessUpdatedAtMs(data);
+  const updatedLabel = updatedAtMs
+    ? `Updated: ${new Date(updatedAtMs).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" })}`
+    : null;
+
   if (!data || (data.profile_views === 0 && data.product_clicks === 0 && data.purchases === 0)) {
     return (
       <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
-        <SectionHeader title="Conversion Performance" subtitle="Visits → Leads → Orders" />
+        <SectionHeader
+          title="Conversion Performance"
+          subtitle="Visits → Leads → Orders"
+          metaLeft={rangeLabel ? `Range: ${rangeLabel}` : undefined}
+          metaRight={updatedLabel || undefined}
+        />
         <EmptyState
           title="No conversion data yet"
           description="Conversion tracking starts when customers visit your store."
@@ -55,9 +78,19 @@ export default function ConversionSection({ data }: ConversionSectionProps) {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
-      <SectionHeader title="Conversion Performance" subtitle="Visits → Leads → Orders" />
+      <SectionHeader
+        title="Conversion Performance"
+        subtitle="Visits → Leads → Orders"
+        metaLeft={rangeLabel ? `Range: ${rangeLabel}` : undefined}
+        metaRight={updatedLabel || undefined}
+        action={
+          <InfoTooltip
+            label="Conversion definition"
+            text="Conversion rate = Orders ÷ Visits. Visits are store/profile views; Leads are product clicks; Orders are completed purchases."
+          />
+        }
+      />
 
-      {/* IMPORTANT: Give the chart a real width so ResponsiveContainer can render */}
       <div className="w-full max-w-[420px] mx-auto">
         <DonutChart
           data={donutData}
@@ -67,19 +100,27 @@ export default function ConversionSection({ data }: ConversionSectionProps) {
         />
       </div>
 
-      {/* Stats row */}
       <div className="mt-6 grid grid-cols-3 gap-4 text-center">
         <div>
           <p className="text-2xl font-bold text-gray-800">{formatNumber(data.profile_views)}</p>
-          <p className="text-xs text-gray-400 mt-1">Visits</p>
+          <p className="text-xs text-gray-400 mt-1 inline-flex items-center gap-1 justify-center">
+            Visits
+            <InfoTooltip text="Visits = total store/profile views in this range." />
+          </p>
         </div>
         <div>
           <p className="text-2xl font-bold text-gray-800">{formatNumber(data.product_clicks)}</p>
-          <p className="text-xs text-gray-400 mt-1">Leads</p>
+          <p className="text-xs text-gray-400 mt-1 inline-flex items-center gap-1 justify-center">
+            Leads
+            <InfoTooltip text="Leads = product clicks from your store page (people showing intent)." />
+          </p>
         </div>
         <div>
           <p className="text-2xl font-bold text-gray-800">{formatNumber(data.purchases)}</p>
-          <p className="text-xs text-gray-400 mt-1">Orders</p>
+          <p className="text-xs text-gray-400 mt-1 inline-flex items-center gap-1 justify-center">
+            Orders
+            <InfoTooltip text="Orders = completed purchases in this range." />
+          </p>
         </div>
       </div>
 

@@ -1,29 +1,25 @@
-﻿"use client";
+﻿// FILE: src/app/b/[slug]/page.tsx
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Card } from "@/components/Card";
 import { db } from "@/lib/firebase/client";
 import { collection, getDocs, limit, query, where, orderBy } from "firebase/firestore";
 import { track } from "@/lib/track/client";
 import { Button } from "@/components/ui/Button";
-import { SectionCard } from "@/components/ui/SectionCard";
 import { EmptyState } from "@/components/ui/EmptyState";
-import { 
-  Store, 
-  Phone, 
-  Package, 
-  ShoppingCart, 
-  Plus, 
-  BadgeCheck, 
-  MapPin, 
-  Instagram, 
+import {
+  Store,
+  Phone,
+  Package,
+  ShoppingCart,
+  Plus,
+  BadgeCheck,
+  MapPin,
+  Instagram,
   ChevronLeft,
   ChevronRight,
   Sparkles,
-  ExternalLink,
-  Share2,
-  Heart,
 } from "lucide-react";
 import { useCart } from "@/lib/cart/CartContext";
 import { CloudImage } from "@/components/CloudImage";
@@ -35,20 +31,13 @@ import {
   coverAspectToWH,
   type CoverAspectKey,
 } from "@/lib/products/coverAspect";
-import {
-  getThemeById,
-  getDefaultTheme,
-  type StoreTheme,
-} from "@/lib/themes/storeThemes";
+import { getThemeById, getDefaultTheme, type StoreTheme } from "@/lib/themes/storeThemes";
+import { formatMoneyNGN } from "@/lib/money";
 
 /* ─────────────────────── Helpers ─────────────────────── */
 
 function fmtNaira(n: number) {
-  try {
-    return `₦${Number(n || 0).toLocaleString("en-NG")}`;
-  } catch {
-    return `₦${n}`;
-  }
+  return formatMoneyNGN(Number(n || 0));
 }
 
 function waLink(wa: string, text: string) {
@@ -71,6 +60,7 @@ function computeSalePriceNgn(p: any) {
   const base = Number(p?.price || 0);
   if (!Number.isFinite(base) || base <= 0) return 0;
   if (!saleIsActive(p)) return Math.floor(base);
+
   const t = String(p?.saleType || "");
   if (t === "fixed") {
     const off = Number(p?.saleAmountOffNgn || 0);
@@ -91,19 +81,6 @@ function saleBadgeText(p: any) {
   return pct > 0 ? `${pct}% OFF` : "Sale";
 }
 
-type TrustBadgeType = "earned_apex" | "temporary_apex" | null;
-
-function trustBadgeTypeFromTrust(j: any): TrustBadgeType {
-  const badge = j?.badge || null;
-  if (badge?.active === true) {
-    const t = String(badge?.type || "");
-    if (t === "earned_apex" || t === "temporary_apex") return t as any;
-  }
-  if (j?.apexBadgeActive === true) return "earned_apex";
-  if (j?.temporaryApexBadgeActive === true) return "temporary_apex";
-  return null;
-}
-
 /* ─────────────────────── Themed Header Component ─────────────────────── */
 
 function ThemedStoreHeader({
@@ -122,19 +99,11 @@ function ThemedStoreHeader({
   cartCount: number;
 }) {
   return (
-    <div
-      className="relative overflow-hidden"
-      style={{ background: theme.headerGradient }}
-    >
-      {/* Overlay */}
+    <div className="relative overflow-hidden" style={{ background: theme.headerGradient }}>
       {theme.headerOverlay && (
-        <div
-          className="absolute inset-0 pointer-events-none"
-          style={{ background: theme.headerOverlay }}
-        />
+        <div className="absolute inset-0 pointer-events-none" style={{ background: theme.headerOverlay }} />
       )}
 
-      {/* Animated effects for special themes */}
       {theme.hasAnimation && theme.animationType === "shimmer" && (
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
@@ -144,22 +113,16 @@ function ThemedStoreHeader({
       {theme.hasAnimation && theme.animationType === "gradient" && (
         <div
           className="absolute inset-0 pointer-events-none animate-gradient"
-          style={{
-            background: theme.headerGradient,
-            backgroundSize: "200% 200%",
-          }}
+          style={{ background: theme.headerGradient, backgroundSize: "200% 200%" }}
         />
       )}
 
-      {/* Decorative circles */}
       <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
       <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
 
-      {/* Content */}
       <div className="relative z-10 safe-pt">
         <div className="px-4 py-4">
           <div className="flex items-center justify-between">
-            {/* Back button */}
             <button
               onClick={onBack}
               className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition"
@@ -167,12 +130,8 @@ function ThemedStoreHeader({
               <ChevronLeft className="w-5 h-5" style={{ color: theme.headerTextColor }} />
             </button>
 
-            {/* Store name */}
             <div className="flex-1 mx-4 text-center">
-              <h1
-                className="text-lg font-bold truncate"
-                style={{ color: theme.headerTextColor }}
-              >
+              <h1 className="text-lg font-bold truncate" style={{ color: theme.headerTextColor }}>
                 {name}
               </h1>
               {location && (
@@ -186,7 +145,6 @@ function ThemedStoreHeader({
               )}
             </div>
 
-            {/* Cart button */}
             <button
               onClick={onCart}
               className="relative w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition"
@@ -195,10 +153,7 @@ function ThemedStoreHeader({
               {cartCount > 0 && (
                 <span
                   className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
-                  style={{ 
-                    background: theme.primaryColor, 
-                    color: theme.buttonText 
-                  }}
+                  style={{ background: theme.primaryColor, color: theme.buttonText }}
                 >
                   {cartCount > 9 ? "9+" : cartCount}
                 </span>
@@ -244,14 +199,13 @@ function ThemedProductCard({
     <div className="w-full">
       <div
         className="rounded-2xl overflow-hidden transition-all hover:shadow-lg cursor-pointer"
-        style={{ 
+        style={{
           backgroundColor: theme.cardBg,
           borderColor: theme.cardBorder,
           borderWidth: 1,
         }}
         onClick={onOpen}
       >
-        {/* Image */}
         <div className={cn(aspectClass, "w-full overflow-hidden relative bg-gray-100")}>
           {img ? (
             <CloudImage
@@ -263,7 +217,7 @@ function ThemedProductCard({
               className="h-full w-full object-cover"
             />
           ) : (
-            <div 
+            <div
               className="h-full w-full flex items-center justify-center"
               style={{ backgroundColor: theme.primaryLight }}
             >
@@ -271,7 +225,6 @@ function ThemedProductCard({
             </div>
           )}
 
-          {/* Badges */}
           {badges.length > 0 && (
             <div className="absolute top-2 left-2 flex flex-wrap gap-1">
               {badges.map((badge) => (
@@ -279,12 +232,10 @@ function ThemedProductCard({
                   key={badge}
                   className="px-2 py-1 rounded-full text-[10px] font-bold"
                   style={{
-                    backgroundColor: badge.includes("OFF") || badge === "Sale" 
-                      ? theme.saleBadgeBg 
-                      : theme.badgeBg,
-                    color: badge.includes("OFF") || badge === "Sale"
-                      ? theme.saleBadgeText
-                      : theme.badgeText,
+                    backgroundColor:
+                      badge.includes("OFF") || badge === "Sale" ? theme.saleBadgeBg : theme.badgeBg,
+                    color:
+                      badge.includes("OFF") || badge === "Sale" ? theme.saleBadgeText : theme.badgeText,
                   }}
                 >
                   {badge}
@@ -293,7 +244,6 @@ function ThemedProductCard({
             </div>
           )}
 
-          {/* Quick Add Button */}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -315,36 +265,23 @@ function ThemedProductCard({
           </button>
         </div>
 
-        {/* Info */}
         <div className="p-3">
-          <p 
-            className="text-sm font-bold line-clamp-2"
-            style={{ color: theme.textPrimary }}
-          >
+          <p className="text-sm font-bold line-clamp-2" style={{ color: theme.textPrimary }}>
             {product?.name || "Product"}
           </p>
-          
+
           <div className="mt-1.5">
             {onSale ? (
               <div className="flex items-center gap-2">
-                <span 
-                  className="text-xs line-through"
-                  style={{ color: theme.textMuted }}
-                >
+                <span className="text-xs line-through" style={{ color: theme.textMuted }}>
                   {fmtNaira(base)}
                 </span>
-                <span 
-                  className="text-sm font-bold"
-                  style={{ color: theme.saleBadgeText }}
-                >
+                <span className="text-sm font-bold" style={{ color: theme.saleBadgeText }}>
                   {fmtNaira(final)}
                 </span>
               </div>
             ) : (
-              <span 
-                className="text-sm font-bold"
-                style={{ color: theme.primaryColor }}
-              >
+              <span className="text-sm font-bold" style={{ color: theme.primaryColor }}>
                 {fmtNaira(base)}
               </span>
             )}
@@ -368,9 +305,11 @@ export default function StorefrontPage() {
   const [items, setItems] = useState<any[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [trustBadge, setTrustBadge] = useState<TrustBadgeType>(null);
 
-  // Get theme from business data
+  // New: store trust + plan entitlements (Apex)
+  const [verificationTier, setVerificationTier] = useState<number>(0);
+  const [apexActive, setApexActive] = useState<boolean>(false);
+
   const theme = useMemo(() => {
     const themeId = biz?.themeId || "classic";
     return getThemeById(themeId) || getDefaultTheme();
@@ -414,11 +353,13 @@ export default function StorefrontPage() {
 
         if (b?.id) track({ type: "store_visit", businessId: b.id, businessSlug: slug });
 
+        // Trust + plan/entitlements (Apex)
         fetch(`/api/public/store/${encodeURIComponent(slug)}/trust`)
           .then((r) => r.json())
           .then((j) => {
             if (!mounted) return;
-            setTrustBadge(trustBadgeTypeFromTrust(j));
+            setVerificationTier(Number(j?.trust?.verificationTier || 0));
+            setApexActive(!!j?.entitlements?.apexActive);
           })
           .catch(() => {});
       } catch (e: any) {
@@ -472,30 +413,16 @@ export default function StorefrontPage() {
   const whatsapp = String(biz?.whatsapp || "");
   const instagram = String(biz?.instagram || "");
 
-  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen" style={{ backgroundColor: theme.pageBg }}>
-        <div 
-          className="h-32 animate-pulse"
-          style={{ background: theme.headerGradient }}
-        />
+        <div className="h-32 animate-pulse" style={{ background: theme.headerGradient }} />
         <div className="px-4 py-4 space-y-4">
-          <div 
-            className="h-40 rounded-2xl animate-pulse"
-            style={{ backgroundColor: theme.cardBorder }}
-          />
-          <div 
-            className="h-8 w-32 rounded-xl animate-pulse"
-            style={{ backgroundColor: theme.cardBorder }}
-          />
+          <div className="h-40 rounded-2xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
+          <div className="h-8 w-32 rounded-xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
           <div className="grid grid-cols-2 gap-3">
             {[1, 2, 3, 4].map((i) => (
-              <div 
-                key={i}
-                className="h-48 rounded-2xl animate-pulse"
-                style={{ backgroundColor: theme.cardBorder }}
-              />
+              <div key={i} className="h-48 rounded-2xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
             ))}
           </div>
         </div>
@@ -503,7 +430,6 @@ export default function StorefrontPage() {
     );
   }
 
-  // Error state
   if (msg) {
     return (
       <div className="min-h-screen" style={{ backgroundColor: theme.pageBg }}>
@@ -516,11 +442,11 @@ export default function StorefrontPage() {
           cartCount={0}
         />
         <div className="px-4 py-8">
-          <div 
+          <div
             className="rounded-2xl p-6 text-center"
             style={{ backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 }}
           >
-            <div 
+            <div
               className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
               style={{ backgroundColor: theme.primaryLight }}
             >
@@ -533,7 +459,7 @@ export default function StorefrontPage() {
               {msg}
             </p>
             <Button className="mt-6" onClick={() => router.push("/market")}>
-              Browse Marketplace
+              Browse marketplace
             </Button>
           </div>
         </div>
@@ -543,7 +469,6 @@ export default function StorefrontPage() {
 
   return (
     <div className="min-h-screen pb-8" style={{ backgroundColor: theme.pageBg }}>
-      {/* Header */}
       <ThemedStoreHeader
         theme={theme}
         name={name}
@@ -554,16 +479,10 @@ export default function StorefrontPage() {
       />
 
       <div className="px-4 space-y-4 pt-4">
-        {/* Store Info Card */}
         <div
           className="rounded-3xl overflow-hidden"
-          style={{ 
-            backgroundColor: theme.cardBg, 
-            borderColor: theme.cardBorder, 
-            borderWidth: 1 
-          }}
+          style={{ backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 }}
         >
-          {/* Banner */}
           {banner && (
             <div className="h-32 w-full overflow-hidden">
               <CloudImage
@@ -577,13 +496,11 @@ export default function StorefrontPage() {
             </div>
           )}
 
-          {/* Store Info */}
           <div className="p-4">
             <div className="flex items-start gap-3">
-              {/* Logo */}
-              <div 
+              <div
                 className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center"
-                style={{ 
+                style={{
                   backgroundColor: theme.primaryLight,
                   borderColor: theme.cardBorder,
                   borderWidth: 1,
@@ -603,52 +520,46 @@ export default function StorefrontPage() {
                 )}
               </div>
 
-              {/* Info */}
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <h2 
-                    className="text-lg font-bold"
-                    style={{ color: theme.textPrimary }}
-                  >
+                  <h2 className="text-lg font-bold" style={{ color: theme.textPrimary }}>
                     {name}
                   </h2>
 
-                  {trustBadge === "earned_apex" && (
+                  {/* Verified badge (trust tier) */}
+                  {verificationTier >= 2 ? (
                     <span
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
                       style={{ backgroundColor: theme.saleBadgeBg, color: theme.saleBadgeText }}
+                      title={`Verification tier ${verificationTier}`}
                     >
                       <BadgeCheck className="w-3 h-3" />
                       Verified
                     </span>
-                  )}
+                  ) : null}
 
-                  {trustBadge === "temporary_apex" && (
+                  {/* Apex plan badge (entitlement) */}
+                  {apexActive ? (
                     <span
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
                       style={{ backgroundColor: theme.badgeBg, color: theme.badgeText }}
+                      title="Apex plan active"
                     >
-                      <BadgeCheck className="w-3 h-3" />
+                      <Sparkles className="w-3 h-3" />
                       Apex
                     </span>
-                  )}
+                  ) : null}
                 </div>
 
                 {location && (
-                  <p 
-                    className="text-sm mt-1 flex items-center gap-1"
-                    style={{ color: theme.textSecondary }}
-                  >
+                  <p className="text-sm mt-1 flex items-center gap-1" style={{ color: theme.textSecondary }}>
                     <MapPin className="w-3.5 h-3.5" />
                     {location}
                   </p>
                 )}
 
                 {instagram && (
-                  <p 
-                    className="text-sm mt-1 flex items-center gap-1"
-                    style={{ color: theme.textMuted }}
-                  >
+                  <p className="text-sm mt-1 flex items-center gap-1" style={{ color: theme.textMuted }}>
                     <Instagram className="w-3.5 h-3.5" />
                     @{instagram.replace(/^@/, "")}
                   </p>
@@ -656,17 +567,12 @@ export default function StorefrontPage() {
               </div>
             </div>
 
-            {/* Description */}
             {about && (
-              <p 
-                className="mt-3 text-sm leading-relaxed"
-                style={{ color: theme.textSecondary }}
-              >
+              <p className="mt-3 text-sm leading-relaxed" style={{ color: theme.textSecondary }}>
                 {about}
               </p>
             )}
 
-            {/* Action Buttons */}
             <div className="mt-4 grid grid-cols-2 gap-3">
               <button
                 onClick={() => {
@@ -674,17 +580,11 @@ export default function StorefrontPage() {
                     toast.info("This store hasn't added WhatsApp yet.");
                     return;
                   }
-                  window.open(
-                    waLink(whatsapp, `Hello ${name}! I'm browsing your myBizHub store.`),
-                    "_blank"
-                  );
+                  window.open(waLink(whatsapp, `Hello ${name}! I'm browsing your myBizHub store.`), "_blank");
                 }}
                 disabled={!whatsapp}
                 className="flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-50"
-                style={{
-                  background: theme.buttonGradient,
-                  color: theme.buttonText,
-                }}
+                style={{ background: theme.buttonGradient, color: theme.buttonText }}
               >
                 <Phone className="w-4 h-4" />
                 WhatsApp
@@ -717,24 +617,16 @@ export default function StorefrontPage() {
 
         {/* Products Section */}
         <div>
-          {/* Section Header */}
           <div className="flex items-center justify-between mb-3">
             <div>
-              <h3 
-                className="text-base font-bold"
-                style={{ color: theme.textPrimary }}
-              >
+              <h3 className="text-base font-bold" style={{ color: theme.textPrimary }}>
                 Products
               </h3>
-              <p 
-                className="text-xs mt-0.5"
-                style={{ color: theme.textMuted }}
-              >
+              <p className="text-xs mt-0.5" style={{ color: theme.textMuted }}>
                 {products.length} item{products.length !== 1 ? "s" : ""} available
               </p>
             </div>
 
-            {/* Theme indicator for special themes */}
             {theme.hasAnimation && (
               <span
                 className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold"
@@ -746,42 +638,26 @@ export default function StorefrontPage() {
             )}
           </div>
 
-          {/* Products Grid or Empty State */}
           {products.length === 0 ? (
             <div
-              className="rounded-2xl p-8 text-center"
+              className="rounded-2xl"
               style={{ backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 }}
             >
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
-                style={{ backgroundColor: theme.primaryLight }}
-              >
-                <Package className="w-8 h-8" style={{ color: theme.textMuted }} />
-              </div>
-              <p 
-                className="text-sm font-semibold"
-                style={{ color: theme.textPrimary }}
-              >
-                No products yet
-              </p>
-              <p 
-                className="text-xs mt-1"
-                style={{ color: theme.textSecondary }}
-              >
-                This store hasn't added any products.
-              </p>
-              <button
-                onClick={() => router.push("/market")}
-                className="mt-4 px-4 py-2 rounded-xl text-sm font-bold transition-all"
-                style={{
-                  backgroundColor: theme.buttonSecondaryBg,
-                  color: theme.buttonSecondaryText,
-                  borderColor: theme.buttonSecondaryBorder,
-                  borderWidth: 1,
-                }}
-              >
-                Browse Marketplace
-              </button>
+              <EmptyState
+                variant="plain"
+                watermark={false}
+                icon={<Package className="w-10 h-10 text-gray-300" />}
+                title="No products yet"
+                description="This store hasn't added any products."
+                actions={[
+                  {
+                    label: "Browse marketplace",
+                    onClick: () => router.push("/market"),
+                    variant: "secondary",
+                    size: "sm",
+                  },
+                ]}
+              />
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">
@@ -797,11 +673,11 @@ export default function StorefrontPage() {
                     product={p}
                     canQuickAdd={canQuickAdd}
                     onOpen={() => {
-                      track({ 
-                        type: "store_product_click", 
-                        businessId: biz.id, 
-                        businessSlug: slug, 
-                        productId: p.id 
+                      track({
+                        type: "store_product_click",
+                        businessId: biz.id,
+                        businessSlug: slug,
+                        productId: p.id,
                       });
                       router.push(`/b/${slug}/p/${p.id}`);
                     }}
@@ -813,12 +689,8 @@ export default function StorefrontPage() {
           )}
         </div>
 
-        {/* Footer */}
         <div className="pt-4 text-center">
-          <p 
-            className="text-xs"
-            style={{ color: theme.textMuted }}
-          >
+          <p className="text-xs" style={{ color: theme.textMuted }}>
             Powered by{" "}
             <button
               onClick={() => router.push("/market")}
@@ -831,19 +703,15 @@ export default function StorefrontPage() {
         </div>
       </div>
 
-      {/* Floating Cart Button (shows when cart has items) */}
       {cartCount > 0 && (
         <div className="fixed bottom-6 left-4 right-4 z-40 max-w-[430px] mx-auto">
           <button
             onClick={() => router.push("/cart")}
             className="w-full flex items-center justify-between py-4 px-5 rounded-2xl shadow-lg transition-all hover:scale-[1.02]"
-            style={{
-              background: theme.buttonGradient,
-              color: theme.buttonText,
-            }}
+            style={{ background: theme.buttonGradient, color: theme.buttonText }}
           >
             <div className="flex items-center gap-3">
-              <div 
+              <div
                 className="w-10 h-10 rounded-xl flex items-center justify-center"
                 style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
               >
