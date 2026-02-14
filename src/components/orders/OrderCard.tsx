@@ -92,7 +92,7 @@ export const OrderCard = memo(function OrderCard({ order: o }: OrderCardProps) {
   const itemCount = Array.isArray(o?.items) ? o.items.length : 0;
   const dateStr = formatDate(o?.createdAt);
 
-  const displayNo = padOrderNumber(o?.orderNumber) || String(o?.id || "").slice(0, 8).toUpperCase();
+  const displayNo = o?.displayOrderRef || padOrderNumber(o?.orderNumber) || String(o?.id || "").slice(0, 8).toUpperCase();
 
   return (
     <Link href={`/orders/${o.id}`} className="block">

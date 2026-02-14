@@ -1,9 +1,15 @@
-﻿// FILE: src/app/api/orders/direct/create/route.ts
+// FILE: src/app/api/orders/direct/create/route.ts
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import crypto from "node:crypto";
 
 export const runtime = "nodejs";
+
+function makeDisplayRef(slug: string, seq: number): string {
+  const prefix = String(slug || "ord").replace(/[^a-z0-9]/gi, "").slice(0, 3).toLowerCase() || "ord";
+  const num = String(Math.max(1, seq)).padStart(3, "0");
+  return prefix + num;
+}
 
 function safeInt(n: any, fallback = 0) {
   const v = Math.floor(Number(n));
@@ -47,7 +53,7 @@ export async function POST(req: Request) {
       const existing = await t.get(orderRef);
       if (existing.exists) {
         const d: any = existing.data() || {};
-        return { ok: true, orderId, orderNumber: d.orderNumber ?? null, alreadyExisted: true };
+        return { ok: true, orderId, orderNumber: d.orderNumber ?? null, displayOrderRef: d.displayOrderRef ?? null, alreadyExisted: true };
       }
 
       const counterSnap = await t.get(counterRef);
@@ -68,6 +74,7 @@ export async function POST(req: Request) {
 
         // NEW: simple sequential order number
         orderNumber: next,
+        displayOrderRef: makeDisplayRef(storeSlug, next),
 
         // Status
         status: "awaiting_confirmation",
@@ -113,13 +120,15 @@ export async function POST(req: Request) {
       };
 
       t.set(orderRef, orderData);
-      return { ok: true, orderId, orderNumber: next, alreadyExisted: false };
+      return { ok: true, orderId, orderNumber: next,
+        displayOrderRef: makeDisplayRef(storeSlug, next), alreadyExisted: false };
     });
 
     return Response.json({
       success: true,
       ok: true,
       orderId: result.orderId,
+      displayOrderRef: result.displayOrderRef ?? null,
       orderNumber: result.orderNumber ?? null,
       message: "Order created. Awaiting payment confirmation.",
     });

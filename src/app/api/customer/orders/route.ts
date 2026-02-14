@@ -1,4 +1,4 @@
-﻿// FILE: src/app/api/customer/orders/route.ts
+// FILE: src/app/api/customer/orders/route.ts
 import { requireMe } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 

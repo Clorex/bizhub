@@ -183,7 +183,7 @@ export default function CartPage() {
       lines.push(`Order ref: ${refShort}`);
 
       const text = lines.join("\n");
-      window.open(waLink(chatAvail.whatsapp, text), "_blank");
+      window.location.href = waLink(chatAvail.whatsapp, text);
 
       toast.success("Opening WhatsApp...");
     } catch (e: any) {

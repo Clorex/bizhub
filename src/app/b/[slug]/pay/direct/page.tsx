@@ -1,4 +1,4 @@
-﻿// FILE: src/app/b/[slug]/pay/direct/page.tsx
+// FILE: src/app/b/[slug]/pay/direct/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -78,6 +78,7 @@ export default function DirectTransferPage() {
 
   // Order
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [displayRef, setDisplayRef] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
 
   // Amount from URL or cart
@@ -208,6 +209,7 @@ export default function DirectTransferPage() {
       }
 
       const newOrderId = json.orderId;
+      setDisplayRef(json.displayOrderRef || null);
       setOrderId(newOrderId);
 
       // Clear cart after successful order
@@ -250,9 +252,7 @@ export default function DirectTransferPage() {
     ].join("\n");
 
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
-    window.open(url, "_blank");
-
-    toast.success("Opening WhatsApp...");
+    window.location.href = url;
     setStep("complete");
   }, [vendorData, amount, orderId, customerName, customerPhone]);
 
@@ -345,7 +345,7 @@ export default function DirectTransferPage() {
                   variant="secondary"
                   onClick={() => {
                     const phone = digitsOnly(vendorData.whatsapp);
-                    window.open(`https://wa.me/${phone}`, "_blank");
+                    window.location.href = `https://wa.me/${phone}`;
                   }}
                   leftIcon={<MessageCircle className="w-4 h-4" />}
                 >
@@ -677,7 +677,7 @@ export default function DirectTransferPage() {
             {orderId && (
               <div className="mt-4 rounded-xl bg-gray-100 p-4">
                 <p className="text-xs text-gray-500">Order Reference</p>
-                <p className="text-sm font-mono font-bold text-gray-900 mt-1">{orderId}</p>
+                <p className="text-2xl font-black text-orange-700 mt-1">{displayRef || orderId}</p>
               </div>
             )}
 

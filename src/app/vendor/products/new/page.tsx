@@ -116,7 +116,7 @@ export default function VendorNewProductPage() {
   // Derived
   const price = useMemo(() => parseNumberText(priceText), [priceText]);
   const stock = useMemo(() => parseNumberText(stockText), [stockText]);
-  const { steps, canCreate, percent } = useCompletionSteps(name, price, images, description, categoryKeys);
+  const canCreate = !!name.trim() && price > 0 && images.length > 0;
 
   const packagingFinal = useMemo(() => {
     if (packagingChoice === "Other") return packagingOther.trim() || "Other";
@@ -293,56 +293,7 @@ export default function VendorNewProductPage() {
       <GradientHeader title="New Product" subtitle="Add to your catalog" showBack={true} />
 
       <div className="px-4 space-y-4 pt-4">
-        {/* Completion Progress */}
-        <Card className="p-4">
-          <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-gray-900">Completion</p>
-            <span
-              className={cn(
-                "text-xs font-semibold px-2 py-0.5 rounded-full",
-                percent === 100 ? "bg-green-100 text-green-700" : "bg-orange-100 text-orange-700"
-              )}
-            >
-              {percent}%
-            </span>
-          </div>
-
-          <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-500",
-                percent === 100 ? "bg-green-500" : "bg-orange-500"
-              )}
-              style={{ width: `${percent}%` }}
-            />
-          </div>
-
-          <div className="mt-3 space-y-1.5">
-            {steps.map((step) => (
-              <div key={step.label} className="flex items-center gap-2">
-                {step.done ? (
-                  <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-                ) : (
-                  <div
-                    className={cn(
-                      "w-4 h-4 rounded-full border-2 shrink-0",
-                      step.required ? "border-orange-300" : "border-gray-300"
-                    )}
-                  />
-                )}
-                <span
-                  className={cn(
-                    "text-xs",
-                    step.done ? "text-gray-500 line-through" : step.required ? "text-gray-700" : "text-gray-400"
-                  )}
-                >
-                  {step.label}
-                  {step.required && !step.done && <span className="text-orange-500"> *</span>}
-                </span>
-              </div>
-            ))}
-          </div>
-        </Card>
+        
 
         {/* Error / Upgrade Message */}
         {msg && (

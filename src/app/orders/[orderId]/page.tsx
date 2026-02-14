@@ -133,9 +133,7 @@ export default function CustomerOrderDetailPage() {
   const amount = Number(order.amount || (order.amountKobo ? order.amountKobo / 100 : 0) || 0);
   const items = Array.isArray(order.items) ? order.items : [];
   const statusLabel = getStatusLabel(order);
-  const displayNo = order.orderNumber
-    ? "#" + String(order.orderNumber).padStart(4, "0")
-    : "#" + String(order.id || "").slice(0, 8).toUpperCase();
+  const displayNo = order.displayOrderRef || (order.orderNumber ? "#" + String(order.orderNumber).padStart(4, "0") : "#" + String(order.id || "").slice(0, 8).toUpperCase());
 
   return (
     <div className="min-h-screen pb-28">

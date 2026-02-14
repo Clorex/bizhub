@@ -67,6 +67,12 @@ function cleanShipping(s: any) {
   };
 }
 
+function makeDisplayRef(slug: string, seq: number): string {
+  const prefix = String(slug || "ord").replace(/[^a-z0-9]/gi, "").slice(0, 3).toLowerCase() || "ord";
+  const num = String(Math.max(1, seq)).padStart(3, "0");
+  return prefix + num;
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({} as any));
@@ -249,6 +255,13 @@ export async function POST(req: Request) {
         };
       }
 
+      const counterRef = adminDb.collection("businessCounters").doc(String(quote.businessId));
+      const counterSnap = await t.get(counterRef);
+      const curSeq = counterSnap.exists ? Math.floor(Number((counterSnap.data() as any)?.orderSeq || 0)) : 0;
+      const nextSeq = curSeq + 1;
+      t.set(counterRef, { orderSeq: nextSeq, updatedAt: FieldValue.serverTimestamp() }, { merge: true });
+      const displayOrderRef = makeDisplayRef(storeSlug, nextSeq);
+
       const orderRef = adminDb.collection("orders").doc();
       const orderId = orderRef.id;
 
@@ -287,6 +300,8 @@ export async function POST(req: Request) {
         coupon: couponApplied,
         shipping: shipping || null,
 
+        orderNumber: nextSeq,
+        displayOrderRef,
         paymentType: "paystack_escrow",
         paymentStatus: "paid",
         payment: {
@@ -365,7 +380,7 @@ export async function POST(req: Request) {
         );
       }
 
-      return { ok: true, orderId, businessSlug: storeSlug, escrowStatus: "held", holdUntilMs, alreadyProcessed: false };
+      return { ok: true, orderId, businessSlug: storeSlug, escrowStatus: "held", holdUntilMs, displayOrderRef, alreadyProcessed: false };
     });
 
     return Response.json(result);

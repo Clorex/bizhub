@@ -1,4 +1,4 @@
-﻿// FILE: src/app/b/[slug]/pay/direct/page-client.tsx
+// FILE: src/app/b/[slug]/pay/direct/page-client.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -489,7 +489,7 @@ export default function DirectPayPage() {
               ) : null}
 
               {proofViewUrl ? (
-                <Button variant="secondary" onClick={() => window.open(proofViewUrl, "_blank")}>
+                <Button variant="secondary" onClick={() => window.location.href = proofViewUrl}>
                   View uploaded proof
                 </Button>
               ) : null}

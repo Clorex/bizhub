@@ -204,7 +204,7 @@ export const ProductCard = memo(function ProductCard({
 
         <div className="mt-2.5 px-0.5">
           <p
-            className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight min-h-[2.6rem]"
+            className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight "
             title={productName}
           >
             {productName}
@@ -213,7 +213,7 @@ export const ProductCard = memo(function ProductCard({
           {!compact ? (
             <p
               className={cn(
-                "text-[10px] text-gray-500 mt-0.5 line-clamp-1 leading-tight min-h-[0.9rem]",
+                "text-[10px] text-gray-500 mt-0.5 line-clamp-1 leading-tight ",
                 showMatchBadge && matchResult?.reason
                   ? ""
                   : "invisible"
