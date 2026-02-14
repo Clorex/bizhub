@@ -1,10 +1,10 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
-/* Tailwind v4 theme tokens (generates classes like bg-biz-bg, text-biz-ink, shadow-soft, etc.) */
+/* Tailwind v4 theme tokens */
 @theme {
-  /* Brand (Updated to electric orange) */
-  --color-biz-accent: #ff2d00;  /* electric orange */
-  --color-biz-accent2: #ff5200; /* deeper orange for gradients */
+  /* Brand (electric orange) */
+  --color-biz-accent: #ff2d00;
+  --color-biz-accent2: #ff5200;
 
   /* Neutrals */
   --color-biz-ink: #111827;
@@ -39,16 +39,39 @@
   a {
     -webkit-tap-highlight-color: transparent;
   }
+
+  /* Ensure minimum tap targets on interactive elements */
+  button,
+  [role="button"],
+  a {
+    min-height: 0; /* reset; use .min-tap explicitly */
+  }
 }
 
 @layer utilities {
   .safe-pb {
     padding-bottom: max(env(safe-area-inset-bottom), 1rem);
   }
+
+  /* Hide scrollbar for horizontal chip/tab scrollers */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* 44px minimum tap target */
+  .min-tap {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
-/* ═══════════════════════════════════════════════════════════
+
+/* ═══════════════════════════════════════════════════════
    STORE THEME ANIMATIONS
-   ═══════════════════════════════════════════════════════════ */
+   ═══════════════════════════════════════════════════════ */
 
 @keyframes shimmer {
   0% {

@@ -386,7 +386,7 @@ function MarketPageInner() {
         )}
       </div>
 
-      <div className="px-4 pb-24 space-y-4 pt-4">
+      <div className="px-4 pb-24 space-y-6 pt-6 max-w-[1100px] mx-auto">
         {error && (
           <Card className="p-4 bg-red-50 border-red-100">
             <p className="text-red-700 font-medium text-sm">{error}</p>
@@ -454,7 +454,7 @@ function MarketPageInner() {
             />
           ) : (
             <>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {displayedItems.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -504,3 +504,4 @@ function MarketPageInner() {
     </div>
   );
 }
+

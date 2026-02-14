@@ -1,18 +1,13 @@
-// FILE: src/app/vendor/insights/page.tsx
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import {
-  TrendingUp,
-  TrendingDown,
-  Minus,
   CheckCircle2,
   AlertTriangle,
   ArrowUpCircle,
   Loader2,
   RefreshCw,
   BarChart3,
-  Eye,
 } from "lucide-react";
 import GradientHeader from "@/components/GradientHeader";
 import { SectionCard } from "@/components/ui/SectionCard";
@@ -38,7 +33,6 @@ export default function VendorInsightsPage() {
   const [loading, setLoading] = useState(true);
   const [insights, setInsights] = useState<Insight[]>([]);
   const [comparison, setComparison] = useState<Comparison[]>([]);
-  const [summary, setSummary] = useState<any>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -54,7 +48,6 @@ export default function VendorInsightsPage() {
       if (data.ok) {
         setInsights(data.insights || []);
         setComparison(data.comparison || []);
-        setSummary(data.summary || null);
       }
     } catch {
       toast.error("Failed to load insights");
@@ -80,15 +73,16 @@ export default function VendorInsightsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 pb-24">
+    <div className="min-h-screen bg-gray-50">
       <GradientHeader
         title="Performance Insights"
-        subtitle="Private coaching to improve your visibility"
+        subtitle="Improve your visibility to buyers"
         showBack={true}
         right={
           <button
             onClick={load}
-            className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition"
+            className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition min-tap"
+            aria-label="Refresh"
           >
             <RefreshCw className={cn("w-5 h-5 text-white", loading && "animate-spin")} />
           </button>
@@ -104,29 +98,10 @@ export default function VendorInsightsPage() {
 
         {!loading && (
           <>
-            {/* Intro Card */}
-            <div className="p-4 bg-blue-50 rounded-2xl border border-blue-200">
-              <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
-                  <Eye className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-blue-800">
-                    What Influences Your Visibility
-                  </p>
-                  <p className="text-xs text-blue-600 mt-1 leading-relaxed">
-                    Your products appear based on verification level, reviews,
-                    fulfillment reliability, and product completeness. No exact
-                    formula is shown — just focus on the factors below.
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Factor Cards */}
             <SectionCard
-              title="Your Factors"
-              subtitle="Each factor influences how often buyers see you"
+              title="Visibility Factors"
+              subtitle="Focus on these to improve how often buyers find you"
             >
               <div className="space-y-3">
                 {insights.map((insight) => (
@@ -155,6 +130,13 @@ export default function VendorInsightsPage() {
                     </div>
                   </div>
                 ))}
+
+                {insights.length === 0 && (
+                  <div className="text-center py-8">
+                    <BarChart3 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                    <p className="text-sm text-gray-500">No insights available yet</p>
+                  </div>
+                )}
               </div>
             </SectionCard>
 
@@ -162,7 +144,7 @@ export default function VendorInsightsPage() {
             {comparison.length > 0 && (
               <SectionCard
                 title="How You Compare"
-                subtitle="Anonymous platform averages — no vendor names shown"
+                subtitle="Anonymous platform averages"
               >
                 <div className="space-y-2">
                   {comparison.map((c) => (
@@ -173,21 +155,18 @@ export default function VendorInsightsPage() {
                       <span className="text-sm text-gray-600">{c.metric}</span>
                       <div className="flex items-center gap-4">
                         <div className="text-center">
-                          <p className="text-xs text-gray-400">You</p>
+                          <p className="text-[10px] text-gray-400">You</p>
                           <p className="text-sm font-bold text-gray-900">{c.yours}</p>
                         </div>
                         <div className="h-6 w-px bg-gray-200" />
                         <div className="text-center">
-                          <p className="text-xs text-gray-400">Avg</p>
+                          <p className="text-[10px] text-gray-400">Avg</p>
                           <p className="text-sm font-bold text-gray-500">{c.average}</p>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-                <p className="text-[10px] text-gray-400 mt-3 text-center">
-                  Comparisons are anonymous and based on platform-wide averages.
-                </p>
               </SectionCard>
             )}
           </>

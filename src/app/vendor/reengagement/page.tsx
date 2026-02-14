@@ -25,6 +25,7 @@ import {
   CheckCircle2,
   X,
   ChevronRight,
+  Wand2,
 } from "lucide-react";
 import {
   composeSmartMessage,
@@ -140,9 +141,6 @@ export default function VendorReengagementPage() {
   const [remixing, setRemixing] = useState(false);
   const [tick, setTick] = useState(0);
 
-  // Step tracker for clear flow
-  const [step, setStep] = useState<1 | 2 | 3>(1);
-
   const selectedPeople = useMemo(() => people.filter((p) => selected[p.key]), [people, selected]);
 
   async function authedFetch(path: string, init?: RequestInit) {
@@ -188,11 +186,9 @@ export default function VendorReengagementPage() {
 
       const params = new URLSearchParams();
       params.set("segment", seg);
-      // Always use a generous lookback for buyers to find all past orders
       if (seg === "abandoned") {
         params.set("days", String(days));
       } else {
-        // Use 365 days lookback for buyers to capture all historical buyers
         params.set("days", "365");
       }
       if (q.trim()) params.set("q", q.trim());
@@ -256,50 +252,75 @@ export default function VendorReengagementPage() {
     setSelected(next);
   }
 
-  async function requestRemix(opts?: { silent?: boolean }) {
-    if (!aiRemixUnlocked) return;
+  // NEW: Actual AI rewrite function
+  async function requestRemix() {
+    if (!aiRemixUnlocked) {
+      toast.error("AI remix is not available on your plan.");
+      return;
+    }
+
+    const textToRewrite = baseText.trim();
+    if (!textToRewrite || textToRewrite.length < 10) {
+      toast.error("Please write a message first (at least 10 characters).");
+      return;
+    }
 
     setRemixing(true);
-    if (!opts?.silent) setMsg(null);
+    setMsg(null);
 
     try {
-      const token = await auth.currentUser?.getIdToken();
-      const r = await fetch("/api/vendor/reengagement/remix", {
+      // First check usage/cap
+      const usageRes = await authedFetch("/api/vendor/reengagement/remix", {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
       });
 
-      const data = await r.json().catch(() => ({}));
-
-      if (data?.ok) {
-        const rk = String(data?.rotationKey || "").trim();
-        if (rk) setRotationKey(rk);
-
-        if (data?.usage) {
-          setRemixUsage({
-            cap: Number(data.usage.cap || 0),
-            used: Number(data.usage.used || 0),
-            windowStartMs: Number(data.usage.windowStartMs || 0) || 0,
-            resetAtMs: Number(data.usage.resetAtMs || 0) || 0,
-          });
+      if (!usageRes.ok) {
+        setRemixInfo(usageRes);
+        if (usageRes.code === "REMIX_CAP_REACHED") {
+          toast.info("AI remix cap reached. Please wait for reset.");
+        } else {
+          toast.error(usageRes.error || "Remix unavailable right now.");
         }
+        setRemixing(false);
+        return;
+      }
 
-        setRemixInfo(null);
-        if (!opts?.silent) toast.success("Message remixed.");
+      // Update usage info
+      if (usageRes.usage) {
+        setRemixUsage({
+          cap: Number(usageRes.usage.cap || 0),
+          used: Number(usageRes.usage.used || 0),
+          windowStartMs: Number(usageRes.usage.windowStartMs || 0),
+          resetAtMs: Number(usageRes.usage.resetAtMs || 0),
+        });
+      }
+
+      if (usageRes.rotationKey) {
+        setRotationKey(usageRes.rotationKey);
+      }
+
+      // Now call the actual rewrite endpoint
+      const seg = currentSegment();
+      const rewriteRes = await authedFetch("/api/vendor/reengagement/rewrite", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: textToRewrite,
+          audienceType: seg,
+          tone: "friendly",
+        }),
+      });
+
+      if (rewriteRes.ok && rewriteRes.rewrittenMessage) {
+        setBaseText(rewriteRes.rewrittenMessage);
+        toast.success("Message remixed with AI!");
       } else {
-        setRemixInfo(data || null);
-        const m = String(data?.error || "Remix unavailable right now.");
-        if (!opts?.silent) {
-          setMsg(m);
-          toast.info(m);
-        }
+        throw new Error(rewriteRes.error || "Failed to rewrite message");
       }
     } catch (e: any) {
-      const m = niceError(e, "Could not remix message. Please try again.");
-      if (!opts?.silent) {
-        setMsg(m);
-        toast.error(m);
-      }
+      const m = niceError(e, "Couldn't remix message. Please try again.");
+      setMsg(m);
+      toast.error(m);
     } finally {
       setRemixing(false);
     }
@@ -324,7 +345,6 @@ export default function VendorReengagementPage() {
 
       await navigator.clipboard.writeText(text);
       toast.success("Message copied!");
-      if (aiRemixUnlocked && autoRemixAfterCopy) await requestRemix({ silent: true });
     } catch {
       toast.error("Couldn't copy the message.");
     }
@@ -491,7 +511,6 @@ export default function VendorReengagementPage() {
             ]}
           />
 
-          {/* Segment filter pills (buyers mode) */}
           {mode === "buyers" && segmentButtons.filter((x) => x.show).length > 1 && (
             <div className="mt-3 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
               {segmentButtons
@@ -518,7 +537,6 @@ export default function VendorReengagementPage() {
             </div>
           )}
 
-          {/* Abandoned days selector */}
           {mode === "abandoned" && (
             <div className="mt-3">
               <label className="text-xs font-semibold text-gray-600 mb-1 block">Lookback period (days)</label>
@@ -537,7 +555,6 @@ export default function VendorReengagementPage() {
             </div>
           )}
 
-          {/* Search */}
           <div className="mt-3 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <Input
@@ -557,7 +574,6 @@ export default function VendorReengagementPage() {
             )}
           </div>
 
-          {/* Loading */}
           {loading && (
             <div className="mt-3 flex items-center gap-3 py-4">
               <div className="h-5 w-5 rounded-full border-2 border-orange-300 border-t-transparent animate-spin" />
@@ -565,7 +581,6 @@ export default function VendorReengagementPage() {
             </div>
           )}
 
-          {/* Select all / clear */}
           {!loading && people.length > 0 && (
             <div className="mt-3 flex items-center justify-between">
               <p className="text-xs text-gray-500">
@@ -591,7 +606,6 @@ export default function VendorReengagementPage() {
             </div>
           )}
 
-          {/* People list */}
           {!loading && people.length > 0 && (
             <div className="mt-2 space-y-1.5 max-h-[320px] overflow-y-auto">
               {people.map((p) => {
@@ -637,7 +651,6 @@ export default function VendorReengagementPage() {
             </div>
           )}
 
-          {/* Empty states */}
           {noPeople && !loading && (
             <Card className="p-5 mt-3 text-center" variant="soft">
               {noMatches ? (
@@ -695,11 +708,11 @@ export default function VendorReengagementPage() {
               <Button
                 size="sm"
                 variant="secondary"
-                onClick={() => requestRemix()}
-                disabled={sending || remixing || capReached}
-                leftIcon={<Sparkles className="h-3.5 w-3.5" />}
+                onClick={requestRemix}
+                disabled={sending || remixing || capReached || baseText.trim().length < 10}
+                leftIcon={remixing ? <RefreshCw className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
               >
-                {capReached ? "Limit" : remixing ? "..." : "Remix"}
+                {capReached ? "Limit reached" : remixing ? "Rewriting..." : "Remix with AI"}
               </Button>
             ) : null
           }
@@ -710,16 +723,21 @@ export default function VendorReengagementPage() {
             </p>
           )}
 
+          {remixUsage && remixUsage.cap < Infinity && (
+            <p className="text-[11px] text-gray-400 mb-2">
+              AI remixes used: <b>{remixUsage.used}</b> / {remixUsage.cap} today
+            </p>
+          )}
+
           <textarea
             className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 disabled:opacity-50 resize-none"
             placeholder="Write your message here..."
             value={baseText}
             onChange={(e) => setBaseText(e.target.value)}
             rows={5}
-            disabled={sending}
+            disabled={sending || remixing}
           />
 
-          {/* Preview */}
           {selectedPreview && (
             <div className="mt-3 rounded-2xl border border-gray-100 bg-gray-50 p-3">
               <div className="flex items-center justify-between mb-2">
@@ -738,7 +756,6 @@ export default function VendorReengagementPage() {
             </div>
           )}
 
-          {/* Safety notice — compact */}
           <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-[11px] text-amber-800 leading-relaxed">
@@ -746,9 +763,6 @@ export default function VendorReengagementPage() {
             </p>
           </div>
         </SectionCard>
-
-        {/* ═══════════════════ STEP 3: Send ═══════════════════ */}
-        {/* This is handled by the fixed bottom bar */}
       </div>
 
       {/* ═══════════════════ Fixed Bottom Send Bar ═══════════════════ */}

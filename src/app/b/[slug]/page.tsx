@@ -1,4 +1,4 @@
-﻿// FILE: src/app/b/[slug]/page.tsx
+// FILE: src/app/b/[slug]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -34,7 +34,7 @@ import {
 import { getThemeById, getDefaultTheme, type StoreTheme } from "@/lib/themes/storeThemes";
 import { formatMoneyNGN } from "@/lib/money";
 
-/* ─────────────────────── Helpers ─────────────────────── */
+/* ----------------------- Helpers ----------------------- */
 
 function fmtNaira(n: number) {
   return formatMoneyNGN(Number(n || 0));
@@ -81,7 +81,7 @@ function saleBadgeText(p: any) {
   return pct > 0 ? `${pct}% OFF` : "Sale";
 }
 
-/* ─────────────────────── Themed Header Component ─────────────────────── */
+/* ----------------------- Themed Header Component ----------------------- */
 
 function ThemedStoreHeader({
   theme,
@@ -166,7 +166,7 @@ function ThemedStoreHeader({
   );
 }
 
-/* ─────────────────────── Themed Product Card ─────────────────────── */
+/* ----------------------- Themed Product Card ----------------------- */
 
 function ThemedProductCard({
   theme,
@@ -292,7 +292,7 @@ function ThemedProductCard({
   );
 }
 
-/* ─────────────────────── Main Component ─────────────────────── */
+/* ----------------------- Main Component ----------------------- */
 
 export default function StorefrontPage() {
   const router = useRouter();
@@ -420,7 +420,7 @@ export default function StorefrontPage() {
         <div className="px-4 py-4 space-y-4">
           <div className="h-40 rounded-2xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
           <div className="h-8 w-32 rounded-xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-48 rounded-2xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
             ))}
@@ -478,7 +478,7 @@ export default function StorefrontPage() {
         cartCount={cartCount}
       />
 
-      <div className="px-4 space-y-4 pt-4">
+      <div className="px-4 space-y-6 pt-6 max-w-[1100px] mx-auto">
         <div
           className="rounded-3xl overflow-hidden"
           style={{ backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 }}
@@ -660,7 +660,7 @@ export default function StorefrontPage() {
               />
             </div>
           ) : (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
               {products.map((p: any) => {
                 const hasOptions = Array.isArray(p?.optionGroups) && p.optionGroups.length > 0;
                 const outOfStock = Number(p?.stock ?? 0) <= 0;
@@ -731,3 +731,4 @@ export default function StorefrontPage() {
     </div>
   );
 }
+

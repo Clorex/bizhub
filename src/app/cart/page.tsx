@@ -204,7 +204,7 @@ export default function CartPage() {
       />
 
       {/* Increased bottom padding to account for fixed summary + bottom nav */}
-      <div className="px-4 pb-72">
+      <div className="px-4 pb-72 max-w-[1100px] mx-auto md:grid md:grid-cols-3 md:gap-8">
         {/* Store info */}
         {storeSlug && !isEmpty && (
           <Card className="p-4 mb-4 mt-4">
@@ -289,3 +289,5 @@ export default function CartPage() {
     </div>
   );
 }
+
+

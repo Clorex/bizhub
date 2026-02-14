@@ -10,7 +10,6 @@ import { cn } from "@/lib/cn";
 import {
   MessageCircle,
   Lightbulb,
-  ChevronRight,
   ChevronDown,
   HelpCircle,
   Store,
@@ -302,22 +301,20 @@ export default function VendorHelpCenterPage() {
           </div>
         </SectionCard>
 
-        {/* ──────────── Still need help? ──────────── */}
-        <Card className="p-4 bg-gradient-to-br from-gray-50 to-white">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center shrink-0">
-              <HelpCircle className="w-5 h-5 text-gray-500" />
+        {/* ──────────── Still need help? - CENTERED ──────────── */}
+        <Card className="p-6 bg-gradient-to-br from-gray-50 to-white">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-3">
+              <HelpCircle className="w-6 h-6 text-orange-600" />
             </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-gray-900">Still need help?</p>
-              <p className="text-xs text-gray-500 mt-0.5">Our support team is here for you</p>
-            </div>
+            <p className="text-base font-bold text-gray-900">Still need help?</p>
+            <p className="text-sm text-gray-500 mt-1">Our support team is here for you</p>
             <Button
-              size="sm"
+              className="mt-4"
               onClick={() => router.push("/vendor/promote/faq/chat")}
-              rightIcon={<ChevronRight className="w-4 h-4" />}
+              leftIcon={<MessageCircle className="w-4 h-4" />}
             >
-              Chat
+              Chat with us
             </Button>
           </div>
         </Card>

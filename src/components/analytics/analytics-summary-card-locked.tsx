@@ -1,8 +1,10 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
+import { useRouter } from 'next/navigation';
 import { DailySalesPoint } from '@/types/analytics';
 import MiniLineChart from '@/components/charts/mini-line-chart';
+import { BarChart3, ChevronRight } from 'lucide-react';
 
 interface AnalyticsSummaryCardLockedProps {
   onUpgrade?: () => void;
@@ -16,15 +18,21 @@ const fakeData: DailySalesPoint[] = Array.from({ length: 14 }, (_, i) => ({
 }));
 
 /**
- * Locked Analytics Summary Card
- * Shown to free-tier vendors on dashboard.
- * Blurred chart with lock overlay and upgrade CTA.
+ * Analytics Summary Card - Teaser version
+ * Shows a preview with CTA to view full analytics.
+ * NO upgrade prompts - just invites user to see more.
  */
 export default function AnalyticsSummaryCardLocked({ onUpgrade }: AnalyticsSummaryCardLockedProps) {
+  const router = useRouter();
+
+  const handleViewMore = () => {
+    router.push('/vendor/analytics');
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden relative">
-      {/* Blurred content */}
-      <div className="p-4 md:p-6 filter blur-[8px] pointer-events-none select-none" aria-hidden="true">
+      {/* Blurred content preview */}
+      <div className="p-4 md:p-6 filter blur-[6px] pointer-events-none select-none opacity-60" aria-hidden="true">
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-lg font-bold text-gray-800">Sales Growth</h3>
           <span className="text-xs text-gray-400">This Week</span>
@@ -35,40 +43,28 @@ export default function AnalyticsSummaryCardLocked({ onUpgrade }: AnalyticsSumma
         <div className="mt-4">
           <MiniLineChart data={fakeData} height={120} />
         </div>
-        <div className="mt-4 text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
-          💡 Your sales are growing strongly.
-        </div>
       </div>
 
-      {/* Lock overlay */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/85 backdrop-blur-sm z-10 p-6 text-center">
-        {/* Lock icon */}
-        <svg
-          className="w-12 h-12 text-orange-500 mb-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-          />
-        </svg>
+      {/* CTA overlay - no upgrade message, just "see more" */}
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm z-10 p-6 text-center">
+        {/* Analytics icon */}
+        <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-4">
+          <BarChart3 className="w-7 h-7 text-white" />
+        </div>
 
-        <h3 className="text-xl font-bold text-gray-800 mb-2">
-          Unlock Advanced Analytics
+        <h3 className="text-lg font-bold text-gray-900 mb-2">
+          Sales Analysis
         </h3>
         <p className="text-sm text-gray-500 mb-5 max-w-[280px]">
-          See growth trends, revenue breakdown, and actionable insights.
+          View detailed growth trends, revenue breakdown, and actionable insights for your store.
         </p>
 
         <button
-          onClick={onUpgrade}
-          className="inline-flex items-center justify-center px-6 py-2.5 bg-orange-500 text-white text-sm font-semibold rounded-xl hover:bg-orange-600 transition-all duration-200"
+          onClick={handleViewMore}
+          className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-br from-orange-500 to-orange-600 text-white text-sm font-semibold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-sm"
         >
-          Upgrade Now
+          See more analysis
+          <ChevronRight className="w-4 h-4" />
         </button>
       </div>
     </div>

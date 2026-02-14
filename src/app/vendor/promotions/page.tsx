@@ -15,10 +15,8 @@ import {
   RefreshCw,
   HelpCircle,
   Plus,
-  ChevronRight,
   Zap,
-  Calendar,
-  DollarSign,
+  Wallet,
   Package,
   Eye,
 } from "lucide-react";
@@ -191,7 +189,7 @@ export default function VendorPromotionsPage() {
           </Card>
         )}
 
-        {/* ──────────── Overview Stats ──────────── */}
+        {/* ──────────── Overview Stats - Wallet icon instead of Dollar ──────────── */}
         <div className="grid grid-cols-3 gap-3">
           <OverviewStat
             icon={Zap}
@@ -206,25 +204,23 @@ export default function VendorPromotionsPage() {
             color="orange"
           />
           <OverviewStat
-            icon={DollarSign}
+            icon={Wallet}
             label="Total Spent"
             value={fmtNaira(totalSpentKobo)}
             color="blue"
           />
         </div>
 
-        {/* ──────────── Create Campaign CTA ──────────── */}
-        <Card className="p-4 bg-gradient-to-br from-orange-500 to-orange-600 text-white">
-          <div className="flex items-center justify-between gap-3">
-            <div>
-              <p className="text-sm font-bold">Boost your products</p>
-              <p className="text-xs text-orange-100 mt-0.5">
-                Show your products at the top of the marketplace
-              </p>
-            </div>
+        {/* ──────────── Create Campaign CTA - Centered ──────────── */}
+        <Card className="p-6 bg-gradient-to-br from-orange-500 to-orange-600 text-white">
+          <div className="flex flex-col items-center text-center">
+            <p className="text-base font-bold">Boost your products</p>
+            <p className="text-sm text-orange-100 mt-1">
+              Show your products at the top of the marketplace
+            </p>
             <Button
               onClick={() => router.push("/vendor/promote")}
-              className="bg-white text-orange-600 hover:bg-orange-50 shrink-0"
+              className="mt-4 bg-white text-orange-600 hover:bg-orange-50"
               size="sm"
               leftIcon={<Plus className="w-4 h-4" />}
             >

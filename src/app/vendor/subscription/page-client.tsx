@@ -257,7 +257,7 @@ export default function VendorSubscriptionPageClient() {
         </Card>
 
         {/* Plan selector */}
-        <SectionCard title="Choose a plan" subtitle="Pay with Paystack. Instant activation after payment.">
+        <SectionCard title="Choose a plan" subtitle="Instant activation after payment.">
           <SegmentedControl<BizhubPlanKey>
             value={planKey}
             onChange={(v) => {

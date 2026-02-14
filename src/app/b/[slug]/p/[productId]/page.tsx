@@ -485,7 +485,7 @@ export default function ProductPage() {
         }
       />
 
-      <div className="px-4 pb-32 space-y-4">
+      <div className="px-4 pb-32 space-y-6 max-w-[1100px] mx-auto">
         {/* Loading skeleton */}
         {loading ? (
           <>
@@ -807,3 +807,4 @@ export default function ProductPage() {
     </div>
   );
 }
+

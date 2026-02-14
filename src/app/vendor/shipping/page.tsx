@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/Input";
 import { SegmentedControl } from "@/components/ui/SegmentedControl";
 import { auth } from "@/lib/firebase/client";
 import { toast } from "@/lib/ui/toast";
-import { RefreshCw, Truck, MapPin, Edit3, Trash2, ToggleLeft, ToggleRight } from "lucide-react";
+import { RefreshCw, Truck, MapPin, Edit3, Trash2 } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 type ShipType = "delivery" | "pickup";
@@ -189,7 +189,7 @@ export default function VendorShippingPage() {
           </Card>
         ) : null}
 
-        {/* ──────────── Form ──────────── */}
+        {/* ──────────── Form - Single Column Layout ──────────── */}
         <SectionCard
           title={editingId ? "Edit shipping option" : "Add new option"}
           subtitle="Customers will see these options at checkout"
@@ -201,7 +201,8 @@ export default function VendorShippingPage() {
             ) : null
           }
         >
-          <div className="space-y-3">
+          <div className="space-y-4">
+            {/* Option type tabs */}
             <SegmentedControl<ShipType>
               value={type}
               onChange={(v) => {
@@ -214,8 +215,9 @@ export default function VendorShippingPage() {
               ]}
             />
 
+            {/* Option name - full width */}
             <div>
-              <label className="text-xs font-semibold text-gray-600 mb-1 block">Option name</label>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Option name</label>
               <Input
                 placeholder={type === "pickup" ? "e.g. Pickup from shop" : "e.g. Lagos Mainland Delivery"}
                 value={name}
@@ -223,42 +225,43 @@ export default function VendorShippingPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                  {type === "pickup" ? "Fee" : "Delivery fee (\u20A6)"}
-                </label>
-                <Input
-                  type="number"
-                  placeholder="e.g. 1,500"
-                  value={type === "pickup" ? "0" : feeNgn}
-                  onChange={(e) => setFeeNgn(e.target.value ? Number(e.target.value) : "")}
-                  disabled={type === "pickup"}
-                  min={0}
-                />
-                {type === "pickup" && (
-                  <p className="text-[10px] text-gray-400 mt-1">Pickup is always free</p>
-                )}
-              </div>
-
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                  Estimated delivery time (days)
-                </label>
-                <Input
-                  type="number"
-                  placeholder="e.g. 2"
-                  value={etaDays}
-                  onChange={(e) => setEtaDays(e.target.value ? Number(e.target.value) : "")}
-                  min={0}
-                  max={30}
-                />
-                <p className="text-[10px] text-gray-400 mt-1">How many days until the customer receives it</p>
-              </div>
+            {/* Delivery fee - full width */}
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+                {type === "pickup" ? "Fee" : "Delivery fee (\u20A6)"}
+              </label>
+              <Input
+                type="number"
+                placeholder="e.g. 1500"
+                value={type === "pickup" ? "0" : feeNgn}
+                onChange={(e) => setFeeNgn(e.target.value ? Number(e.target.value) : "")}
+                disabled={type === "pickup"}
+                min={0}
+              />
+              {type === "pickup" && (
+                <p className="text-[11px] text-gray-400 mt-1.5">Pickup is always free</p>
+              )}
             </div>
 
+            {/* Estimated delivery time - full width */}
             <div>
-              <label className="text-xs font-semibold text-gray-600 mb-1 block">
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+                Estimated delivery time (days)
+              </label>
+              <Input
+                type="number"
+                placeholder="e.g. 2"
+                value={etaDays}
+                onChange={(e) => setEtaDays(e.target.value ? Number(e.target.value) : "")}
+                min={0}
+                max={30}
+              />
+              <p className="text-[11px] text-gray-400 mt-1.5">How many days until the customer receives it</p>
+            </div>
+
+            {/* Coverage/notes - full width */}
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
                 Coverage / notes <span className="text-gray-400 font-normal">(optional)</span>
               </label>
               <Input
@@ -266,53 +269,54 @@ export default function VendorShippingPage() {
                 value={areasText}
                 onChange={(e) => setAreasText(e.target.value)}
               />
-              <p className="text-[10px] text-gray-400 mt-1">Describe the areas you cover or any special instructions</p>
+              <p className="text-[11px] text-gray-400 mt-1.5">Describe the areas you cover or any special instructions</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">
-                  Sort order <span className="text-gray-400 font-normal">(optional)</span>
-                </label>
-                <Input
-                  type="number"
-                  placeholder="0"
-                  value={String(sortOrder)}
-                  onChange={(e) => setSortOrder(Number(e.target.value))}
-                  min={0}
-                />
-                <p className="text-[10px] text-gray-400 mt-1">Lower numbers appear first</p>
-              </div>
+            {/* Sort order - full width */}
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">
+                Sort order <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <Input
+                type="number"
+                placeholder="0"
+                value={String(sortOrder)}
+                onChange={(e) => setSortOrder(Number(e.target.value))}
+                min={0}
+              />
+              <p className="text-[11px] text-gray-400 mt-1.5">Lower numbers appear first</p>
+            </div>
 
-              <div>
-                <label className="text-xs font-semibold text-gray-600 mb-1 block">Status</label>
-                <button
-                  type="button"
+            {/* Status toggle - full width, compact switch style */}
+            <div>
+              <label className="text-xs font-semibold text-gray-600 mb-1.5 block">Status</label>
+              <button
+                type="button"
+                onClick={() => setActive((v) => !v)}
+                disabled={saving}
+                className="flex items-center gap-3"
+              >
+                <div
                   className={cn(
-                    "w-full rounded-2xl px-4 py-2.5 text-sm font-bold flex items-center justify-center gap-2 transition",
-                    active
-                      ? "text-white bg-gradient-to-br from-emerald-500 to-emerald-600 shadow-sm"
-                      : "bg-white border border-gray-200 text-gray-500"
+                    "relative w-11 h-6 rounded-full transition-colors",
+                    active ? "bg-emerald-500" : "bg-gray-300"
                   )}
-                  onClick={() => setActive((v) => !v)}
-                  disabled={saving}
                 >
-                  {active ? (
-                    <>
-                      <ToggleRight className="w-4 h-4" />
-                      Active
-                    </>
-                  ) : (
-                    <>
-                      <ToggleLeft className="w-4 h-4" />
-                      Inactive
-                    </>
-                  )}
-                </button>
-              </div>
+                  <div
+                    className={cn(
+                      "absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform",
+                      active ? "translate-x-[22px]" : "translate-x-0.5"
+                    )}
+                  />
+                </div>
+                <span className={cn("text-sm font-medium", active ? "text-emerald-700" : "text-gray-500")}>
+                  {active ? "Active" : "Inactive"}
+                </span>
+              </button>
             </div>
 
-            <Button onClick={save} disabled={savingDisabled} loading={saving}>
+            {/* Primary CTA - full width */}
+            <Button onClick={save} disabled={savingDisabled} loading={saving} className="w-full">
               {editingId ? "Save changes" : "Add option"}
             </Button>
           </div>

@@ -17,7 +17,7 @@ import {
   Flame,
   Package,
   ShoppingCart,
-  DollarSign,
+  Wallet,
   ChevronRight,
   Crown,
   BarChart3,
@@ -89,7 +89,6 @@ export default function VendorBestSellersPage() {
   const allowedDays: number[] = Array.isArray(meta?.allowedDays) ? meta.allowedDays : [7];
   const apexUnlocked = planKey === "APEX";
 
-  // Summary totals from daily series
   const series = useMemo(() => {
     const s = Array.isArray(dailySeries) ? dailySeries : [];
     return s.slice(-Math.max(1, Number(days || 7)));
@@ -102,7 +101,6 @@ export default function VendorBestSellersPage() {
     return { revenueKobo, units, orders };
   }, [series]);
 
-  // Apex insight counts
   const risersCount = apexInsights?.risers?.length || 0;
   const droppersCount = apexInsights?.droppers?.length || 0;
   const newHotCount = apexInsights?.newHot?.length || 0;
@@ -124,7 +122,7 @@ export default function VendorBestSellersPage() {
   }
 
   return (
-    <div className="min-h-screen pb-28 bg-gray-50">
+    <div className="min-h-screen bg-gray-50">
       <GradientHeader
         title="Best Sellers"
         subtitle={periodLabel}
@@ -133,7 +131,7 @@ export default function VendorBestSellersPage() {
           <button
             onClick={() => load(days, true)}
             disabled={refreshing}
-            className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50"
+            className="w-10 h-10 rounded-xl bg-white/20 flex items-center justify-center hover:bg-white/30 transition disabled:opacity-50 min-tap"
             aria-label="Refresh"
           >
             <RefreshCw className={cn("w-5 h-5 text-white", refreshing && "animate-spin")} />
@@ -142,28 +140,22 @@ export default function VendorBestSellersPage() {
       />
 
       <div className="px-4 space-y-4 pt-4">
-        {/* Error */}
         {msg && (
           <Card className="p-4 bg-red-50 border-red-200">
             <p className="text-sm text-red-800">{msg}</p>
-            {String(msg || "").toLowerCase().includes("locked") && (
-              <Button size="sm" className="mt-2" onClick={() => router.push("/vendor/subscription")}>
-                Upgrade
-              </Button>
-            )}
           </Card>
         )}
 
         {/* Date range selector */}
         {allowedDays.length > 1 && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 scrollbar-hide overflow-x-auto">
             {allowedDays.map((d) => (
               <button
                 key={d}
                 onClick={() => load(d)}
                 disabled={loading || refreshing}
                 className={cn(
-                  "flex-1 rounded-2xl py-2.5 text-xs font-bold transition",
+                  "flex-1 rounded-2xl py-2.5 text-xs font-bold transition shrink-0 min-h-[44px]",
                   days === d
                     ? "text-white bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm"
                     : "bg-white border border-gray-200 text-gray-700 hover:border-orange-200"
@@ -175,26 +167,11 @@ export default function VendorBestSellersPage() {
           </div>
         )}
 
-        {/* Summary cards (max 3) */}
+        {/* Summary cards — Wallet icon instead of $ */}
         <div className="grid grid-cols-3 gap-3">
-          <SummaryCard
-            icon={DollarSign}
-            label="Revenue"
-            value={fmtNaira(totals.revenueKobo / 100)}
-            color="orange"
-          />
-          <SummaryCard
-            icon={ShoppingCart}
-            label="Orders"
-            value={fmtNumber(totals.orders)}
-            color="blue"
-          />
-          <SummaryCard
-            icon={Package}
-            label="Units Sold"
-            value={fmtNumber(totals.units)}
-            color="green"
-          />
+          <SummaryCard icon={Wallet} label="Revenue" value={fmtNaira(totals.revenueKobo / 100)} color="orange" />
+          <SummaryCard icon={ShoppingCart} label="Orders" value={fmtNumber(totals.orders)} color="blue" />
+          <SummaryCard icon={Package} label="Units Sold" value={fmtNumber(totals.units)} color="green" />
         </div>
 
         {/* Empty state */}
@@ -206,8 +183,8 @@ export default function VendorBestSellersPage() {
               </div>
             </div>
             <p className="text-sm font-bold text-gray-900">No sales data yet</p>
-            <p className="text-xs text-gray-500 mt-1.5 max-w-[260px] mx-auto leading-relaxed">
-              Your best-selling products will appear here after customers place paid orders.
+            <p className="text-xs text-gray-500 mt-1.5 max-w-[260px] mx-auto">
+              Best-selling products appear here after customers place paid orders.
             </p>
             <Button size="sm" variant="secondary" className="mt-4" onClick={() => router.push("/vendor/products")}>
               View products
@@ -215,7 +192,7 @@ export default function VendorBestSellersPage() {
           </Card>
         )}
 
-        {/* Top products list */}
+        {/* Top products */}
         {products.length > 0 && (
           <SectionCard
             title="Top Products"
@@ -229,11 +206,11 @@ export default function VendorBestSellersPage() {
           </SectionCard>
         )}
 
-        {/* Apex insights — single consolidated section */}
+        {/* Apex insights */}
         {hasInsights && (
           <SectionCard
             title="Product Trends"
-            subtitle={`Comparing ${apexInsights.prevLabel || "previous"} vs ${apexInsights.recentLabel || "recent"}`}
+            subtitle={`${apexInsights.prevLabel || "Previous"} vs ${apexInsights.recentLabel || "Recent"}`}
             right={
               <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
                 Apex
@@ -241,7 +218,6 @@ export default function VendorBestSellersPage() {
             }
           >
             <div className="space-y-3">
-              {/* Rising */}
               {risersCount > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -255,8 +231,6 @@ export default function VendorBestSellersPage() {
                   </div>
                 </div>
               )}
-
-              {/* Dropping */}
               {droppersCount > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -270,8 +244,6 @@ export default function VendorBestSellersPage() {
                   </div>
                 </div>
               )}
-
-              {/* New hot */}
               {newHotCount > 0 && (
                 <div>
                   <div className="flex items-center gap-2 mb-2">
@@ -301,7 +273,7 @@ export default function VendorBestSellersPage() {
           </SectionCard>
         )}
 
-        {/* Apex locked hint (only for non-apex with data) */}
+        {/* Upgrade CTA for non-apex with data */}
         {!apexUnlocked && products.length > 0 && (
           <Card className="p-4 bg-gradient-to-br from-purple-50 to-orange-50 border-purple-100">
             <div className="flex items-start gap-3">
@@ -311,7 +283,7 @@ export default function VendorBestSellersPage() {
               <div className="flex-1">
                 <p className="text-sm font-bold text-gray-900">See product trends</p>
                 <p className="text-xs text-gray-600 mt-1">
-                  Upgrade to Apex to see which products are rising, declining, or newly trending.
+                  Upgrade to Apex to see rising, declining, and trending products.
                 </p>
                 <Button
                   size="sm"
@@ -329,8 +301,6 @@ export default function VendorBestSellersPage() {
     </div>
   );
 }
-
-/* ──────────── Summary Card ──────────── */
 
 function SummaryCard({
   icon: Icon,
@@ -360,8 +330,6 @@ function SummaryCard({
   );
 }
 
-/* ──────────── Top Product Row ──────────── */
-
 function TopProductRow({ product, rank }: { product: any; rank: number }) {
   const revenueNgn = Number(product.revenueNgn || 0);
   const unitsSold = Number(product.unitsSold || 0);
@@ -374,7 +342,6 @@ function TopProductRow({ product, rank }: { product: any; rank: number }) {
 
   return (
     <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3">
-      {/* Rank */}
       <div
         className={cn(
           "w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black shrink-0",
@@ -383,24 +350,18 @@ function TopProductRow({ product, rank }: { product: any; rank: number }) {
       >
         {rank}
       </div>
-
-      {/* Info */}
       <div className="flex-1 min-w-0">
         <p className="text-sm font-bold text-gray-900 truncate">{product.name || "Product"}</p>
         <p className="text-xs text-gray-500 mt-0.5">
           {unitsSold} unit{unitsSold !== 1 ? "s" : ""} sold
         </p>
       </div>
-
-      {/* Revenue */}
       <div className="text-right shrink-0">
         <p className="text-sm font-bold text-gray-900">{fmtNaira(revenueNgn)}</p>
       </div>
     </div>
   );
 }
-
-/* ──────────── Trend Row (Rising/Dropping) ──────────── */
 
 function TrendRow({ item, tone }: { item: any; tone: "green" | "red" }) {
   const changeNgn = Math.abs(Number(item.changeNgn || 0));

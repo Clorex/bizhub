@@ -22,10 +22,9 @@ export function VendorBottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50">
-      <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+      <div className="mx-auto w-full max-w-[640px] px-4 safe-pb pb-4">
         <div className="rounded-3xl border border-biz-line bg-white/90 backdrop-blur shadow-float px-2 py-2 flex">
           {items.map(({ href, label, Icon, exact }) => {
-            // Fix: Dashboard should NOT match every /vendor/* route
             const active = exact
               ? pathname === href || pathname === href + "/"
               : pathname === href || pathname.startsWith(href + "/");
@@ -35,7 +34,7 @@ export function VendorBottomNav() {
                 key={href}
                 href={href}
                 className={cn(
-                  "flex-1 py-2 flex flex-col items-center justify-center gap-1 rounded-2xl transition",
+                  "flex-1 py-2 flex flex-col items-center justify-center gap-1 rounded-2xl transition min-h-[44px]",
                   "hover:bg-black/5"
                 )}
               >
@@ -54,7 +53,6 @@ export function VendorBottomNav() {
                   {label}
                 </span>
 
-                {/* Active indicator - fixed height to prevent layout shift */}
                 <span
                   className={cn(
                     "h-1 w-6 rounded-full transition-colors",
