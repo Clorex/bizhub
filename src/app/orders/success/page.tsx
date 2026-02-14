@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import { Suspense, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { CheckCircle } from "lucide-react";
 import { useCart } from "@/lib/cart/CartContext";
@@ -9,12 +9,11 @@ import { Button } from "@/components/ui/Button";
 
 function SuccessContent() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const { clearCart } = useCart();
 
-  // Flutterwave uses 'tx_ref', Paystack uses 'reference'
   const reference = searchParams.get("tx_ref") || searchParams.get("reference");
 
-  // Clear the cart once the user lands on the success page
   useEffect(() => {
     clearCart();
   }, [clearCart]);
@@ -31,21 +30,18 @@ function SuccessContent() {
       )}
       <p className="mt-4 text-gray-600">A receipt has been sent to your email address.</p>
       <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full max-w-xs">
-        <Link href="/market" className="w-full">
-          <Button className="w-full">Continue Shopping</Button>
+        <Link href="/orders" className="w-full">
+          <Button className="w-full">View My Orders</Button>
         </Link>
-        <Link href="/profile/orders" className="w-full">
-           {/* This link assumes you will create a /profile/orders page later */}
-          <Button variant="secondary" className="w-full">View My Orders</Button>
+        <Link href="/market" className="w-full">
+          <Button variant="secondary" className="w-full">Continue Shopping</Button>
         </Link>
       </div>
     </div>
   );
 }
 
-// This is the main export for the page
 export default function OrderSuccessPage() {
-  // Suspense is required because useSearchParams is a client-side hook
   return (
     <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
       <SuccessContent />

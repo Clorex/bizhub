@@ -1,4 +1,4 @@
-// FILE: src/app/api/orders/direct/create/route.ts
+﻿// FILE: src/app/api/orders/direct/create/route.ts
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import crypto from "node:crypto";
@@ -85,6 +85,9 @@ export async function POST(req: Request) {
         buyerName: String(customerName || "").trim(),
         buyerPhone: String(customerPhone || "").trim(),
         buyerEmail: String(customerEmail || "").trim(),
+
+        // Link to authenticated customer if available
+        customerId: String(body.customerId || "").trim() || null,
 
         // Items
         items: Array.isArray(items) ? items : [],
