@@ -10,13 +10,7 @@ import { SmartMatchBadge } from "@/components/market/SmartMatchBadge";
 import type { ProductMatchResult } from "@/lib/smartmatch/types";
 import { formatMoneyNGN } from "@/lib/money";
 
-/**
- * We must not show "New seller" anywhere.
- * Use the existing store/vendor verification signal already present on the product payload.
- * If missing/undefined -> default to Not verified.
- */
 function isVerifiedVendorFromProduct(p: any): boolean {
-  // Prefer explicit boolean/status fields if present in the product payload
   const candidates = [
     p?.store?.isVerified,
     p?.store?.verified,
@@ -25,25 +19,20 @@ function isVerifiedVendorFromProduct(p: any): boolean {
     p?.businessVerified,
     p?.vendor?.verified,
     p?.vendorVerified,
-    p?.verificationStatus, // e.g. "VERIFIED"
+    p?.verificationStatus,
     p?.storeVerificationStatus,
-    p?.verifiedAt, // date/timestamp-like => verified
+    p?.verifiedAt,
   ];
 
   for (const v of candidates) {
     if (typeof v === "boolean") return v;
-
     if (typeof v === "string") {
       const s = v.trim().toUpperCase();
       if (s === "VERIFIED" || s === "APPROVED") return true;
       if (s === "UNVERIFIED" || s === "PENDING" || s === "REJECTED") return false;
     }
-
-    // Firestore Timestamp-like or Date-like presence
     if (v instanceof Date) return true;
     if (v && typeof v === "object" && ("seconds" in (v as any) || "toDate" in (v as any))) return true;
-
-    // Some payloads use numeric tiers (legacy)
     if (typeof v === "number" && Number.isFinite(v)) return v > 0;
   }
   return false;
@@ -114,10 +103,14 @@ export const ProductCard = memo(function ProductCard({
       aria-label={productName}
       title={productName}
     >
-      {/* Card with fixed structure for uniform height */}
-      <div className="rounded-2xl border border-gray-100 bg-white p-1.5 transition-all duration-200 hover:shadow-md hover:border-orange-200 group-active:scale-[0.98] flex flex-col h-full">
-        {/* ALWAYS square image area */}
-        <div className="relative w-full aspect-square rounded-xl bg-gray-100 overflow-hidden shrink-0">
+      {/*
+        UNIFORM HEIGHT CARD:
+        - Fixed structure: square image + exactly 2-line name + 1-line price
+        - No flex-grow or justify-between that causes uneven spacing
+      */}
+      <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden transition-all duration-200 hover:shadow-md hover:border-orange-200 group-active:scale-[0.98]">
+        {/* SQUARE IMAGE — forced aspect-square, no exceptions */}
+        <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
           {img ? (
             <CloudImage
               src={img}
@@ -133,7 +126,7 @@ export const ProductCard = memo(function ProductCard({
             </div>
           )}
 
-          {/* Top badges */}
+          {/* Top badges — absolute, don't affect layout */}
           <div className="absolute top-1.5 left-1.5 right-1.5 flex items-start justify-between gap-1 pointer-events-none">
             <div className="flex flex-col gap-1">
               {showMatchBadge && !apexBadgeActive ? <SmartMatchBadge label={matchResult!.label} compact /> : null}
@@ -160,7 +153,7 @@ export const ProductCard = memo(function ProductCard({
             )}
           </div>
 
-          {/* Bottom row on image */}
+          {/* Bottom row on image — absolute, don't affect layout */}
           <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-end justify-between">
             <div
               className={cn(
@@ -198,13 +191,21 @@ export const ProductCard = memo(function ProductCard({
           </div>
         </div>
 
-        {/* Text area - fixed height via line clamping */}
-        <div className="mt-1.5 px-1 flex flex-col flex-1 justify-between">
-          <p className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2 h-[2.4em]" title={productName}>
+        {/*
+          TEXT AREA — fixed height, no flex-grow.
+          - Name: exactly 2 lines reserved (min-h + line-clamp-2)
+          - Price: exactly 1 line
+          - Consistent p-2 padding
+        */}
+        <div className="p-2">
+          <p
+            className="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.5rem]"
+            title={productName}
+          >
             {productName}
           </p>
 
-          <p className="mt-1 text-[13px] pb-0.5">
+          <p className="mt-1 text-[13px] leading-none truncate">
             {bookOnly ? (
               <span className="text-gray-500 font-medium">Book only</span>
             ) : onSale ? (
@@ -221,4 +222,3 @@ export const ProductCard = memo(function ProductCard({
     </div>
   );
 });
-

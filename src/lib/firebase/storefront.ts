@@ -23,7 +23,9 @@ export async function listProductsByBusinessId(businessId: string): Promise<Prod
   const q = query(collection(db, "products"), where("businessId", "==", businessId));
   const snap = await getDocs(q);
 
-  return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Omit<Product, "id">) }));
+    return snap.docs
+    .map((d) => ({ id: d.id, ...(d.data() as Omit<Product, "id">) }))
+    .filter((p: any) => !p.isDeleted && !p.deletedAt);
 }
 
 export async function getProductById(productId: string): Promise<Product | null> {
@@ -33,3 +35,4 @@ export async function getProductById(productId: string): Promise<Product | null>
 
   return { id: snap.id, ...(snap.data() as Omit<Product, "id">) };
 }
+

@@ -1,4 +1,4 @@
-import { db } from "@/lib/firebase/client";
+﻿import { db } from "@/lib/firebase/client";
 import { collection, getDocs, limit, query } from "firebase/firestore";
 
 export async function listBusinesses(max = 10) {
@@ -8,12 +8,17 @@ export async function listBusinesses(max = 10) {
 }
 
 export async function listTrendingProducts(max = 12) {
-  // Simple: just grab first products. Later we’ll do analytics-based trending.
+  // Simple: just grab first products. Later weâ€™ll do analytics-based trending.
   const q = query(collection(db, "products"), limit(max));
   const snap = await getDocs(q);
 
   // Attach business slug/name if present on product, else best-effort
-  return snap.docs.map((d) => {
+    return snap.docs
+    .filter((d) => {
+      const data = d.data() as any;
+      return !data.isDeleted && !data.deletedAt;
+    })
+    .map((d) => {
     const x = d.data() as any;
     return {
       id: d.id,

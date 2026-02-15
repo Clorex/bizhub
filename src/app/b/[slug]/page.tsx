@@ -368,10 +368,11 @@ export default function StorefrontPage() {
         );
         const snapP = await getDocs(qP);
         const list = snapP.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const listFiltered = list.filter((p: any) => !p.isDeleted && !p.deletedAt);
 
         if (!mounted) return;
         setBiz(b);
-        setItems(list);
+        setItems(listFiltered);
 
         if ((b as any)?.id) track({ type: "store_visit", businessId: (b as any).id, businessSlug: slug });
 
@@ -803,3 +804,4 @@ export default function StorefrontPage() {
     </div>
   );
 }
+

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Suspense, useEffect, useMemo, useState, useCallback } from "react";
 import Image from "next/image";
@@ -33,7 +33,7 @@ import { MarketSortSheet } from "@/components/market/MarketSortSheet";
 const POPULAR_SEARCHES = ["iPhone", "Sneakers", "Wigs", "Bags", "Perfume", "Ankara"];
 const ITEMS_PER_PAGE = 20;
 
-/* ————— URL param helpers (B5-3) ————— */
+/* â€”â€”â€”â€”â€” URL param helpers (B5-3) â€”â€”â€”â€”â€” */
 
 function filtersToParams(filters: MarketFilterState, sortKey: MarketSortKey, q: string): URLSearchParams {
   const p = new URLSearchParams();
@@ -85,7 +85,7 @@ function MarketPageFallback() {
     <div className="min-h-screen bg-gray-50 px-4 pt-4 pb-24">
       <div className="h-10 w-40 bg-gray-200 rounded-xl mb-4" />
       <Card className="p-4">
-        <p className="text-sm text-gray-600">Loading market…</p>
+        <p className="text-sm text-gray-600">Loading marketâ€¦</p>
       </Card>
       <div className="mt-4">
         <ProductGridSkeleton count={6} />
@@ -142,7 +142,7 @@ function MarketPageInner() {
     return list.reduce((s: number, it: any) => s + Math.max(0, Number(it?.qty || 0)), 0);
   }, [cart]);
 
-  // Sync filters → URL (shallow)
+  // Sync filters â†’ URL (shallow)
   useEffect(() => {
     const params = filtersToParams(filters, sortKey, searchText);
     const qs = params.toString();
@@ -244,7 +244,7 @@ function MarketPageInner() {
       const max = filters.price.max != null ? formatMoneyNGN(filters.price.max) : "Any";
       chips.push({
         key: "price",
-        label: `${min} – ${max}`,
+        label: `${min} â€“ ${max}`,
         onRemove: () => setFilters((s) => ({ ...s, price: { min: null, max: null, quick: null } })),
       });
     }
@@ -268,8 +268,8 @@ function MarketPageInner() {
     if (sortKey !== "recommended") {
       const sortLabels: Record<string, string> = {
         best_match: "Best Match",
-        price_low: "Price: Low→High",
-        price_high: "Price: High→Low",
+        price_low: "Price: Lowâ†’High",
+        price_high: "Price: Highâ†’Low",
         newest: "Newest",
         popular: "Popular",
       };
@@ -354,7 +354,7 @@ function MarketPageInner() {
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-orange-300 bg-gradient-to-br from-orange-50 to-white text-xs font-bold text-orange-700 shadow-sm"
             >
               <Sparkles className="w-3.5 h-3.5" />
-              Best Match ✓
+              Best Match âœ“
             </button>
           ) : null}
         </div>
@@ -375,11 +375,11 @@ function MarketPageInner() {
 
         {searchQuery && (
           <p className="mt-3 text-sm text-gray-600">
-            Searching for <span className="font-bold text-gray-900">“{searchQuery}”</span>
+            Searching for <span className="font-bold text-gray-900">â€œ{searchQuery}â€</span>
             {items.length > 0 && (
               <span className="text-gray-500">
                 {" "}
-                • {items.length} result{items.length !== 1 ? "s" : ""}
+                â€¢ {items.length} result{items.length !== 1 ? "s" : ""}
               </span>
             )}
           </p>
@@ -399,7 +399,7 @@ function MarketPageInner() {
         <DealsCarousel deals={deals} loading={dealsLoading} onProductClick={handleProductClick} onAddToCart={handleAddToCart} />
 
         {!searchQuery && (
-          <SectionCard title="Categories" subtitle="Browse by what you’re looking for" right={<Sparkles className="w-5 h-5 text-orange-500" />}>
+          <SectionCard title="Categories" subtitle="Browse by what youâ€™re looking for" right={<Sparkles className="w-5 h-5 text-orange-500" />}>
             <CategoryGrid selectedCategory={filters.category} onSelectCategory={handleCategorySelect} />
           </SectionCard>
         )}
@@ -454,7 +454,7 @@ function MarketPageInner() {
             />
           ) : (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 auto-rows-fr">
                 {displayedItems.map((product) => (
                   <ProductCard
                     key={product.id}
@@ -504,4 +504,5 @@ function MarketPageInner() {
     </div>
   );
 }
+
 

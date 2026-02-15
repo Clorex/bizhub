@@ -1,4 +1,4 @@
-// FILE: src/app/api/vendor/products/[productId]/route.ts
+﻿// FILE: src/app/api/vendor/products/[productId]/route.ts
 
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
@@ -150,5 +150,44 @@ attrs: { colors, sizes },
     return Response.json({ ok: true });
   } catch (e: any) {
     return Response.json({ ok: false, error: e?.message || "Update failed" }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: Request, ctx: { params: Promise<{ productId: string }> }) {
+  try {
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
+
+    await requireVendorUnlocked(me.businessId);
+
+    if (me.role === "staff") {
+      const perms = await getStaffPerms(me.uid);
+      if (!perms.productsManage) return Response.json({ ok: false, error: "Not authorized to delete products" }, { status: 403 });
+    }
+
+    const { productId } = await ctx.params;
+    const pid = String(productId || "").trim();
+    if (!pid) return Response.json({ ok: false, error: "Missing productId" }, { status: 400 });
+
+    const { ref, data } = await getOwnedProduct(me, pid);
+    if (!data) return Response.json({ ok: false, error: "Product not found" }, { status: 404 });
+
+    // Soft delete: set deletedAt + hide from marketplace
+    // This preserves order history references
+    await ref.set(
+      {
+        deletedAt: FieldValue.serverTimestamp(),
+        deletedAtMs: Date.now(),
+        isDeleted: true,
+        marketEnabled: false,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    return Response.json({ ok: true, message: "Product deleted" });
+  } catch (e: any) {
+    console.error("Product delete error:", e);
+    return Response.json({ ok: false, error: e?.message || "Could not delete product" }, { status: 500 });
   }
 }

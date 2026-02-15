@@ -57,7 +57,9 @@ export async function GET(req: Request) {
     }
 
     const snap = await adminDb.collection("products").where("businessId", "==", me.businessId).limit(200).get();
-    const products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const products = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() } as any))
+      .filter((p: any) => !p.isDeleted && !p.deletedAt);
     return Response.json({ ok: true, products });
   } catch (e: any) {
     if (e?.code === "VENDOR_LOCKED") return Response.json({ ok: false, code: "VENDOR_LOCKED", error: "Subscribe to continue." }, { status: 403 });
@@ -177,3 +179,4 @@ attrs: { colors, sizes },
     return Response.json({ ok: false, error: e?.message || "Create failed" }, { status: 500 });
   }
 }
+

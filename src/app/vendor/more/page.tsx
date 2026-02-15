@@ -1,9 +1,11 @@
-// FILE: src/app/vendor/more/page.tsx
+﻿// FILE: src/app/vendor/more/page.tsx
 "use client";
 
 import { useRouter } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
+import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
 
 import {
   Store,
@@ -28,11 +30,15 @@ import {
   Truck,
   ChevronRight,
   Eye,
+  MessageCircle,
+  Headphones,
 } from "lucide-react";
 
 import { toast } from "@/lib/ui/toast";
 import { signOutClient } from "@/lib/auth/signOutClient";
 import { isSmartMatchEnabled } from "@/lib/smartmatch/featureFlag";
+
+const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
 
 function Group({
   title,
@@ -114,6 +120,10 @@ function Row({
 export default function VendorMorePage() {
   const router = useRouter();
   const smartMatchEnabled = isSmartMatchEnabled();
+
+  const supportWaLink = SUPPORT_WHATSAPP
+    ? buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")
+    : "";
 
   async function onSignOut() {
     const res = await signOutClient();
@@ -279,11 +289,48 @@ export default function VendorMorePage() {
           />
           <Row
             icon={<HelpCircle className="h-5 w-5 text-orange-600" />}
-            title="Help"
-            desc="Tips and support"
+            title="Help & FAQ"
+            desc="Tips, guides, and answers"
             onClick={() => router.push("/vendor/promote/faq")}
           />
+          <Row
+            icon={<MessageCircle className="h-5 w-5 text-orange-600" />}
+            title="AI Support Chat"
+            desc="Chat with our AI assistant"
+            onClick={() => router.push("/vendor/promote/faq/chat")}
+          />
         </Group>
+
+        {/* Talk to customer care — prominent card */}
+        <Card className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#25D366] flex items-center justify-center shrink-0 shadow-sm">
+              <Headphones className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-bold text-gray-900">Talk to customer care</p>
+              <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+              <div className="mt-3 flex gap-2">
+                {supportWaLink ? (
+                  <WhatsAppButton
+                    href={supportWaLink}
+                    label="Chat now"
+                    variant="button"
+                    size="md"
+                  />
+                ) : (
+                  <button
+                    onClick={() => router.push("/vendor/promote/faq/chat")}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-orange-500 text-white font-bold text-sm shadow-sm hover:bg-orange-600 transition"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Chat with AI support
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
 
         <Card className="p-4">
           <button

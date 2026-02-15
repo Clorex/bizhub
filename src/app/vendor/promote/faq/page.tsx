@@ -1,5 +1,8 @@
 ﻿"use client";
 
+import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
+
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
@@ -22,6 +25,8 @@ import {
   TrendingUp,
   Shield,
 } from "lucide-react";
+
+const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
 
 type TopicKey =
   | "getting_started"
@@ -301,6 +306,29 @@ export default function VendorHelpCenterPage() {
           </div>
         </SectionCard>
 
+                {/* ──────────── Talk to customer care ──────────── */}
+        {SUPPORT_WHATSAPP ? (
+          <Card className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#25D366] flex items-center justify-center shrink-0 shadow-sm">
+                <HelpCircle className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold text-gray-900">Talk to customer care</p>
+                <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+                <div className="mt-3">
+                  <WhatsAppButton
+                    href={buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")}
+                    label="Chat now"
+                    variant="button"
+                    size="md"
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
         {/* ──────────── Still need help? - CENTERED ──────────── */}
         <Card className="p-6 bg-gradient-to-br from-gray-50 to-white">
           <div className="flex flex-col items-center text-center">
@@ -327,3 +355,4 @@ export default function VendorHelpCenterPage() {
     </div>
   );
 }
+
