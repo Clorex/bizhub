@@ -1,4 +1,4 @@
-﻿// FILE: src/app/b/[slug]/pay/direct/page.tsx
+// FILE: src/app/b/[slug]/pay/direct/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -34,7 +34,6 @@ import { formatMoneyNGN } from "@/lib/money";
 
 function fmtNaira(n: number) {
   return formatMoneyNGN(n);
-}`;
 }
 
 function digitsOnly(v: string) {
@@ -237,20 +236,20 @@ export default function DirectTransferPage() {
 
     const phone = digitsOnly(vendorData.whatsapp);
     const message = [
-      `ðŸ¦ *DIRECT TRANSFER PROOF*`,
+      `Ã°Å¸ÂÂ¦ *DIRECT TRANSFER PROOF*`,
       ``,
       `Hi ${vendorData.storeName}!`,
       ``,
       `I just transferred *${fmtNaira(amount)}* to your account.`,
       ``,
-      `ðŸ“‹ *Order Details:*`,
-      `â€¢ Order ID: ${orderId || "Pending"}`,
-      `â€¢ Customer: ${customerName}`,
-      `â€¢ Phone: ${customerPhone}`,
+      `Ã°Å¸â€œâ€¹ *Order Details:*`,
+      `Ã¢â‚¬Â¢ Order ID: ${orderId || "Pending"}`,
+      `Ã¢â‚¬Â¢ Customer: ${customerName}`,
+      `Ã¢â‚¬Â¢ Phone: ${customerPhone}`,
       ``,
       `I'm sending my payment screenshot in this chat.`,
       ``,
-      `Please confirm receipt. Thank you! ðŸ™`,
+      `Please confirm receipt. Thank you! Ã°Å¸â„¢Â`,
     ].join("\n");
 
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
@@ -375,7 +374,7 @@ export default function DirectTransferPage() {
           <p className="text-sm font-medium text-orange-100">Amount to Transfer</p>
           <p className="text-4xl font-black mt-2 tracking-tight">{fmtNaira(amount)}</p>
           <p className="text-sm text-orange-100 mt-2">
-            Transfer exact amount â€¢ Include your name in narration
+            Transfer exact amount Ã¢â‚¬Â¢ Include your name in narration
           </p>
         </div>
 
@@ -637,7 +636,7 @@ export default function DirectTransferPage() {
                         Tap to upload screenshot
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        PNG, JPG or PDF â€¢ Max 10MB
+                        PNG, JPG or PDF Ã¢â‚¬Â¢ Max 10MB
                       </p>
                     </>
                   )}
@@ -706,4 +705,3 @@ export default function DirectTransferPage() {
     </div>
   );
 }
-

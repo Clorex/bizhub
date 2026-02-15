@@ -1,17 +1,54 @@
-﻿import { formatMoneyNGN } from "@/lib/money";
 "use client";
 
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CheckCircle2, HelpCircle, Megaphone } from "lucide-react";
 
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
- param($m) $m.Value + "import { formatMoneyNGN } from `"@/lib/money`";`r`n" 
+import { auth } from "@/lib/firebase/client";
+import { formatMoneyNGN } from "@/lib/money";
+
+/** Minimal SegmentedControl (keeps file self-contained + stable) */
+function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-biz-line bg-white p-1">
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            className={[
+              "rounded-2xl px-3 py-2 text-xs font-bold transition",
+              active ? "bg-orange-500 text-white" : "bg-transparent text-gray-700 hover:bg-gray-50",
+            ].join(" ")}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 type Tab = "setup" | "summary";
 
 function fmtNaira(n: number) {
   return formatMoneyNGN(n);
-}`;
-  } catch {
-    return `₦${n}`;
-  }
 }
 
 function clampInt(n: any, min: number, max: number) {
@@ -193,7 +230,7 @@ export default function PromoteWizardPage() {
           ]}
         />
 
-        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {loading ? <Card className="p-4">LoadingÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         {!loading ? (
@@ -202,7 +239,7 @@ export default function PromoteWizardPage() {
               <>
                 <SectionCard
                   title="Select products"
-                  subtitle={`Choose 1â€“${maxProducts} products to promote`}
+                  subtitle={`Choose 1ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ${maxProducts} products to promote`}
                   right={
                     <span className="text-[11px] text-biz-muted">
                       Selected: <b className="text-biz-ink">{selectedIds.length}</b>/{maxProducts}
@@ -302,7 +339,7 @@ export default function PromoteWizardPage() {
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-biz-ink">Estimated total</p>
                       <p className="text-[11px] text-biz-muted mt-1">
-                        {safeDays} day(s) Ã— {fmtNaira(safeDaily)}
+                        {safeDays} day(s) ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â {fmtNaira(safeDaily)}
                       </p>
                     </div>
                     <p className="text-lg font-bold text-biz-ink">{fmtNaira(totalCost)}</p>
@@ -336,7 +373,7 @@ export default function PromoteWizardPage() {
                   <p className="text-xs opacity-95">Promotion summary</p>
                   <p className="text-xl font-bold mt-1">{fmtNaira(totalCost)}</p>
                   <p className="text-[11px] opacity-95 mt-2">
-                    Duration: <b>{safeDays} day(s)</b> â€¢ Daily budget: <b>{fmtNaira(safeDaily)}</b>
+                    Duration: <b>{safeDays} day(s)</b> ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Daily budget: <b>{fmtNaira(safeDaily)}</b>
                   </p>
                   <p className="text-[11px] opacity-95 mt-1">
                     Products: <b>{selectedIds.length}</b> (shared exposure if multiple)
@@ -376,5 +413,3 @@ export default function PromoteWizardPage() {
     </div>
   );
 }
-
-

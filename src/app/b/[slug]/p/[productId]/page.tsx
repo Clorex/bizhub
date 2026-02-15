@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -13,23 +13,9 @@ import { doc, getDoc } from "firebase/firestore";
 import { useCart } from "@/lib/cart/CartContext";
 import { track } from "@/lib/track/client";
 import { toast } from "@/lib/ui/toast";
-import {
-  BadgeCheck,
-  ShoppingCart,
-  Package,
-  Truck,
-  MessageCircle,
-  AlertCircle,
-  Tag,
-} from "lucide-react";
-import {
+import { BadgeCheck, ShoppingCart, Package, Truck, MessageCircle, AlertCircle, Tag } from "lucide-react";
+import { normalizeCoverAspect, coverAspectToTailwindClass, coverAspectToWH, type CoverAspectKey } from "@/lib/products/coverAspect";
 import { formatMoneyNGN } from "@/lib/money";
-  normalizeCoverAspect,
-  coverAspectToTailwindClass,
-  coverAspectToWH,
-  type CoverAspectKey,
-} from "@/lib/products/coverAspect";
-
 type OptionGroup = { name: string; values: string[] };
 
 type ShippingOption = {
@@ -51,10 +37,6 @@ type ChatAvailability = {
 
 function fmtNaira(n: number) {
   return formatMoneyNGN(n);
-}`;
-  } catch {
-    return `₦${n}`;
-  }
 }
 
 function digitsOnlyPhone(v: string) {
@@ -437,7 +419,7 @@ export default function ProductPage() {
         lines.push(``);
       }
 
-      lines.push(`- ${q} Ã— ${String(p?.name || "Item")}${optsTxt}`);
+      lines.push(`- ${q} ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ${String(p?.name || "Item")}${optsTxt}`);
       lines.push(`Items subtotal: ${fmtNaira(itemsSubtotalNgn)}`);
       lines.push(``);
       lines.push(`Delivery option: ${shipLabel}`);
@@ -635,7 +617,7 @@ export default function ProductPage() {
                 </div>
                 <div className="text-xs text-gray-500">
                   Packaging:{" "}
-                  <span className="font-semibold text-gray-900">{p?.packaging || "â€”"}</span>
+                  <span className="font-semibold text-gray-900">{p?.packaging || "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â"}</span>
                 </div>
               </div>
 
@@ -732,7 +714,7 @@ export default function ProductPage() {
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
                               Fee: {opt.feeKobo === 0 ? "Free" : fmtNaira(opt.feeKobo / 100)}
-                              {opt.etaDays ? ` Â· ${opt.etaDays} day${opt.etaDays > 1 ? "s" : ""}` : ""}
+                              {opt.etaDays ? ` ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${opt.etaDays} day${opt.etaDays > 1 ? "s" : ""}` : ""}
                             </p>
                             {opt.areasText ? (
                               <p className="text-[11px] text-gray-400 mt-0.5">{opt.areasText}</p>
@@ -814,7 +796,4 @@ export default function ProductPage() {
     </div>
   );
 }
-
-
-
 
