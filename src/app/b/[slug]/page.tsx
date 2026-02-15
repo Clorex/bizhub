@@ -1,4 +1,4 @@
-// FILE: src/app/b/[slug]/page.tsx
+﻿// FILE: src/app/b/[slug]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -8,9 +8,10 @@ import { collection, getDocs, limit, query, where, orderBy } from "firebase/fire
 import { track } from "@/lib/track/client";
 import { Button } from "@/components/ui/Button";
 import { EmptyState } from "@/components/ui/EmptyState";
+import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { buildWhatsAppLink, isValidWhatsAppNumber } from "@/lib/whatsapp/buildWhatsAppLink";
 import {
   Store,
-  Phone,
   Package,
   ShoppingCart,
   Plus,
@@ -38,12 +39,6 @@ import { formatMoneyNGN } from "@/lib/money";
 
 function fmtNaira(n: number) {
   return formatMoneyNGN(Number(n || 0));
-}
-
-function waLink(wa: string, text: string) {
-  const digits = wa.replace(/[^\d]/g, "");
-  const t = encodeURIComponent(text);
-  return `https://wa.me/${digits}?text=${t}`;
 }
 
 function saleIsActive(p: any, now = Date.now()) {
@@ -87,6 +82,7 @@ function ThemedStoreHeader({
   theme,
   name,
   location,
+  whatsappLink,
   onBack,
   onCart,
   cartCount,
@@ -94,6 +90,7 @@ function ThemedStoreHeader({
   theme: StoreTheme;
   name: string;
   location: string;
+  whatsappLink: string;
   onBack: () => void;
   onCart: () => void;
   cartCount: number;
@@ -145,20 +142,27 @@ function ThemedStoreHeader({
               )}
             </div>
 
-            <button
-              onClick={onCart}
-              className="relative w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition"
-            >
-              <ShoppingCart className="w-5 h-5" style={{ color: theme.headerTextColor }} />
-              {cartCount > 0 && (
-                <span
-                  className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
-                  style={{ background: theme.primaryColor, color: theme.buttonText }}
-                >
-                  {cartCount > 9 ? "9+" : cartCount}
-                </span>
+            <div className="flex items-center gap-2">
+              {/* WhatsApp icon in header */}
+              {whatsappLink && (
+                <WhatsAppButton href={whatsappLink} variant="icon" size="sm" />
               )}
-            </button>
+
+              <button
+                onClick={onCart}
+                className="relative w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition"
+              >
+                <ShoppingCart className="w-5 h-5" style={{ color: theme.headerTextColor }} />
+                {cartCount > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
+                    style={{ background: theme.primaryColor, color: theme.buttonText }}
+                  >
+                    {cartCount > 9 ? "9+" : cartCount}
+                  </span>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -306,9 +310,10 @@ export default function StorefrontPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // New: store trust + plan entitlements (Apex)
   const [verificationTier, setVerificationTier] = useState<number>(0);
   const [apexActive, setApexActive] = useState<boolean>(false);
+  const [shelves, setShelves] = useState<any[]>([]);
+  const [activeShelf, setActiveShelf] = useState<string>("all");
 
   const theme = useMemo(() => {
     const themeId = biz?.themeId || "classic";
@@ -319,11 +324,28 @@ export default function StorefrontPage() {
     () => items.filter((x) => String(x.listingType || "product") !== "service"),
     [items]
   );
+  const filteredProducts = useMemo(() => {
+    const list = products || [];
+    if (activeShelf === "all") return list;
+    if (activeShelf === "uncat") return list.filter((p: any) => !String(p?.categoryId || "").trim());
+    return list.filter((p: any) => String(p?.categoryId || "") === activeShelf);
+  }, [products, activeShelf]);
 
   const cartCount = useMemo(() => {
     const list = Array.isArray(cart?.items) ? cart.items : [];
     return list.reduce((s: number, it: any) => s + Math.max(0, Number(it?.qty || 0)), 0);
   }, [cart]);
+
+  // Build WhatsApp link for store page
+  const whatsapp = String(biz?.whatsapp || "");
+  const storeWaLink = useMemo(() => {
+    if (!whatsapp || !isValidWhatsAppNumber(whatsapp)) return "";
+    const storeName = String(biz?.name || slug);
+    return buildWhatsAppLink(
+      whatsapp,
+      `Hello ${storeName}! I'm browsing your myBizHub store.`
+    );
+  }, [whatsapp, biz?.name, slug]);
 
   useEffect(() => {
     let mounted = true;
@@ -351,15 +373,22 @@ export default function StorefrontPage() {
         setBiz(b);
         setItems(list);
 
-        if (b?.id) track({ type: "store_visit", businessId: b.id, businessSlug: slug });
+        if ((b as any)?.id) track({ type: "store_visit", businessId: (b as any).id, businessSlug: slug });
 
-        // Trust + plan/entitlements (Apex)
         fetch(`/api/public/store/${encodeURIComponent(slug)}/trust`)
           .then((r) => r.json())
           .then((j) => {
             if (!mounted) return;
             setVerificationTier(Number(j?.trust?.verificationTier || 0));
             setApexActive(!!j?.entitlements?.apexActive);
+          })
+          .catch(() => {});
+
+        fetch(`/api/public/store/${encodeURIComponent(slug)}/categories`)
+          .then((r) => r.json())
+          .then((j) => {
+            if (!mounted) return;
+            setShelves(Array.isArray(j?.categories) ? j.categories : []);
           })
           .catch(() => {});
       } catch (e: any) {
@@ -370,9 +399,7 @@ export default function StorefrontPage() {
     }
 
     if (slug) run();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [slug]);
 
   function quickAdd(p: any) {
@@ -410,7 +437,6 @@ export default function StorefrontPage() {
   const name = String(biz?.name || slug);
   const about = String(biz?.description || "");
   const location = [biz?.city, biz?.state].filter(Boolean).join(", ");
-  const whatsapp = String(biz?.whatsapp || "");
   const instagram = String(biz?.instagram || "");
 
   if (loading) {
@@ -437,6 +463,7 @@ export default function StorefrontPage() {
           theme={theme}
           name="Store"
           location=""
+          whatsappLink=""
           onBack={() => router.push("/market")}
           onCart={() => router.push("/cart")}
           cartCount={0}
@@ -473,6 +500,7 @@ export default function StorefrontPage() {
         theme={theme}
         name={name}
         location={location}
+        whatsappLink={storeWaLink}
         onBack={() => router.back()}
         onCart={() => router.push("/cart")}
         cartCount={cartCount}
@@ -526,7 +554,6 @@ export default function StorefrontPage() {
                     {name}
                   </h2>
 
-                  {/* Verified badge (trust tier) */}
                   {verificationTier >= 2 ? (
                     <span
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
@@ -538,7 +565,6 @@ export default function StorefrontPage() {
                     </span>
                   ) : null}
 
-                  {/* Apex plan badge (entitlement) */}
                   {apexActive ? (
                     <span
                       className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
@@ -574,21 +600,22 @@ export default function StorefrontPage() {
             )}
 
             <div className="mt-4 grid grid-cols-2 gap-3">
-              <button
-                onClick={() => {
-                  if (!whatsapp) {
-                    toast.info("This store hasn't added WhatsApp yet.");
-                    return;
-                  }
-                  window.open(waLink(whatsapp, `Hello ${name}! I'm browsing your myBizHub store.`), "_blank");
-                }}
-                disabled={!whatsapp}
-                className="flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all disabled:opacity-50"
-                style={{ background: theme.buttonGradient, color: theme.buttonText }}
-              >
-                <Phone className="w-4 h-4" />
-                WhatsApp
-              </button>
+              {/* WhatsApp button (replaces old text-only version) */}
+              {storeWaLink ? (
+                <WhatsAppButton
+                  href={storeWaLink}
+                  label="WhatsApp"
+                  variant="button"
+                  className="w-full justify-center py-3"
+                />
+              ) : (
+                <div
+                  className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm opacity-50"
+                  style={{ backgroundColor: theme.buttonSecondaryBg, color: theme.buttonSecondaryText, borderColor: theme.buttonSecondaryBorder, borderWidth: 1 }}
+                >
+                  <span className="text-xs">WhatsApp not available</span>
+                </div>
+              )}
 
               <button
                 onClick={() => router.push("/cart")}
@@ -623,9 +650,54 @@ export default function StorefrontPage() {
                 Products
               </h3>
               <p className="text-xs mt-0.5" style={{ color: theme.textMuted }}>
-                {products.length} item{products.length !== 1 ? "s" : ""} available
+                {filteredProducts.length} item{products.length !== 1 ? "s" : ""} available
               </p>
             </div>
+
+          {(shelves?.length || 0) > 0 || products.some((p: any) => !String(p?.categoryId || "").trim()) ? (
+            <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1">
+              <button
+                onClick={() => setActiveShelf("all")}
+                className={[
+                  "shrink-0 px-3 py-1 rounded-full text-xs font-bold border transition",
+                  activeShelf === "all"
+                    ? "bg-orange-500 text-white border-orange-500"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-orange-200",
+                ].join(" ")}
+              >
+                All
+              </button>
+
+              {(shelves || []).map((c: any) => (
+                <button
+                  key={String(c.id)}
+                  onClick={() => setActiveShelf(String(c.id))}
+                  className={[
+                    "shrink-0 px-3 py-1 rounded-full text-xs font-bold border transition",
+                    activeShelf === String(c.id)
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "bg-white text-gray-700 border-gray-200 hover:border-orange-200",
+                  ].join(" ")}
+                >
+                  {String(c.name || "Category")}
+                </button>
+              ))}
+
+              {products.some((p: any) => !String(p?.categoryId || "").trim()) ? (
+                <button
+                  onClick={() => setActiveShelf("uncat")}
+                  className={[
+                    "shrink-0 px-3 py-1 rounded-full text-xs font-bold border transition",
+                    activeShelf === "uncat"
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "bg-white text-gray-700 border-gray-200 hover:border-orange-200",
+                  ].join(" ")}
+                >
+                  Uncategorized
+                </button>
+              ) : null}
+            </div>
+          ) : null}
 
             {theme.hasAnimation && (
               <span
@@ -661,7 +733,7 @@ export default function StorefrontPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {products.map((p: any) => {
+              {filteredProducts.map((p: any) => {
                 const hasOptions = Array.isArray(p?.optionGroups) && p.optionGroups.length > 0;
                 const outOfStock = Number(p?.stock ?? 0) <= 0;
                 const canQuickAdd = !hasOptions && !outOfStock;
@@ -731,4 +803,3 @@ export default function StorefrontPage() {
     </div>
   );
 }
-

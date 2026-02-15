@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
+import { WhatsAppButton, WhatsAppIcon } from "@/components/ui/WhatsAppButton";
+import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
 import {
   HelpCircle,
   MessageCircle,
@@ -15,7 +17,10 @@ import {
   ChevronDown,
   ChevronUp,
   ExternalLink,
+  Headphones,
 } from "lucide-react";
+
+const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
 
 interface FaqItem {
   q: string;
@@ -76,10 +81,37 @@ function FaqAccordion({ item }: { item: FaqItem }) {
 export default function HelpPage() {
   const router = useRouter();
 
+  const supportWaLink = SUPPORT_WHATSAPP
+    ? buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")
+    : "";
+
   return (
     <div className="min-h-screen">
       <GradientHeader title="Help & Support" subtitle="We're here to help" showBack />
       <div className="px-4 pb-28 space-y-4">
+        {/* Talk to customer care — prominent card */}
+        {supportWaLink ? (
+          <Card className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#25D366] flex items-center justify-center shrink-0 shadow-sm">
+                <Headphones className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold text-gray-900">Talk to customer care</p>
+                <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+                <div className="mt-3">
+                  <WhatsAppButton
+                    href={supportWaLink}
+                    label="Chat now"
+                    variant="button"
+                    size="md"
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
         {/* Quick links */}
         <div className="grid grid-cols-2 gap-3">
           {[
@@ -117,6 +149,15 @@ export default function HelpPage() {
             If you can't find your answer above, reach out to us.
           </p>
           <div className="mt-3 space-y-2">
+            {supportWaLink ? (
+              <WhatsAppButton
+                href={supportWaLink}
+                label="Chat on WhatsApp"
+                variant="button"
+                size="md"
+                className="w-full justify-center"
+              />
+            ) : null}
             <Button
               variant="secondary"
               className="w-full"

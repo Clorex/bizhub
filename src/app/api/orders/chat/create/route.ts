@@ -1,4 +1,5 @@
-// FILE: src/app/api/orders/chat/create/route.ts
+﻿// FILE: src/app/api/orders/chat/create/route.ts
+import { unlockAchievement } from "@/lib/achievements/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { sendBusinessPush } from "@/lib/push/sendBusinessPush";

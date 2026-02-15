@@ -1,4 +1,5 @@
-// FILE: src/app/api/orders/direct/create/route.ts
+﻿// FILE: src/app/api/orders/direct/create/route.ts
+import { unlockAchievement } from "@/lib/achievements/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import crypto from "node:crypto";
@@ -124,6 +125,13 @@ export async function POST(req: Request) {
         displayOrderRef: makeDisplayRef(storeSlug, next), alreadyExisted: false };
     });
 
+        // Trigger first-order achievement for vendor
+    unlockAchievement({
+      actorType: "vendor",
+      actorId: businessId,
+      key: "vendor_first_order",
+    }).catch(() => {});
+
     return Response.json({
       success: true,
       ok: true,
@@ -137,3 +145,4 @@ export async function POST(req: Request) {
     return Response.json({ error: error?.message || "Failed to create order" }, { status: 500 });
   }
 }
+

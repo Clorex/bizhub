@@ -95,6 +95,10 @@ export async function PUT(req: Request, ctx: { params: Promise<{ productId: stri
 
     const body = await req.json().catch(() => ({}));
 
+    const categoryIdRaw = body?.categoryId;
+    const categoryId = typeof categoryIdRaw === "string" ? categoryIdRaw.trim().slice(0, 120) : "";
+    const categoryIdClean = categoryId ? categoryId : null;
+
     const name = String(body.name ?? existing.name ?? "").trim();
     const description = String(body.description ?? existing.description ?? "");
     const price = Number(body.price ?? existing.price ?? 0);
@@ -133,7 +137,9 @@ export async function PUT(req: Request, ctx: { params: Promise<{ productId: stri
         coverAspect,
 
         categoryKeys,
-        attrs: { colors, sizes },
+        
+        categoryId: categoryIdClean,
+attrs: { colors, sizes },
         keywords,
 
         updatedAt: FieldValue.serverTimestamp(),

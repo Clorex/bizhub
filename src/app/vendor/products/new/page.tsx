@@ -21,13 +21,13 @@ import { formatMoneyNGN } from "@/lib/money";
 
 import { Package, AlertCircle, CheckCircle2, Zap, Info, Palette, Ruler } from "lucide-react";
 
-/* ──────────────────────────────── Constants ──────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
 const MAX_IMAGES = 10;
 const DRAFT_KEY = "bizhub_vendor_new_product_draft_v1";
 
-/* ──────────────────────────────── Helpers ──────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function digitsOnly(s: string) {
   return String(s || "").replace(/[^\d]/g, "");
@@ -60,7 +60,7 @@ function uniq<T>(arr: T[]) {
   return out;
 }
 
-/* ──────────────────────────────── Completion Tracker ──────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Completion Tracker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function useCompletionSteps(
   name: string,
@@ -88,7 +88,7 @@ function useCompletionSteps(
   }, [name, price, images, description, categoryKeys]);
 }
 
-/* ──────────────────────────────── Main Component ──────────────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export default function VendorNewProductPage() {
   const router = useRouter();
@@ -107,6 +107,10 @@ export default function VendorNewProductPage() {
   const [categoriesTouched, setCategoriesTouched] = useState(false);
   const [colorsCsv, setColorsCsv] = useState("");
   const [sizesCsv, setSizesCsv] = useState("");
+  // Shelves (vendor categories)
+  const [shelves, setShelves] = useState<any[]>([]);
+  const [shelfId, setShelfId] = useState<string>("");
+
 
   // UI state
   const [msg, setMsg] = useState<string | null>(null);
@@ -181,7 +185,8 @@ export default function VendorNewProductPage() {
             images: images.slice(0, MAX_IMAGES),
             optionGroups,
             coverAspect,
-            categoryKeys: categoryKeys.slice(0, 3),
+          categoryId: shelfId ? shelfId : null,
+          categoryKeys: categoryKeys.slice(0, 3),
             categoriesTouched,
             colorsCsv,
             sizesCsv,
@@ -206,6 +211,24 @@ export default function VendorNewProductPage() {
     colorsCsv,
     sizesCsv,
   ]);
+
+  /* Load shelves */
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        const token = await auth.currentUser?.getIdToken();
+        if (!token) return;
+        const r = await fetch("/api/vendor/categories", { headers: { Authorization: `Bearer ${token}` } });
+        const j = await r.json().catch(() => ({}));
+        if (!mounted) return;
+        setShelves(Array.isArray(j?.categories) ? j.categories : []);
+      } catch {
+        if (mounted) setShelves([]);
+      }
+    })();
+    return () => { mounted = false; };
+  }, []);
 
   /* Auto-suggest categories */
   useEffect(() => {
@@ -253,6 +276,7 @@ export default function VendorNewProductPage() {
           optionGroups,
           variants: [],
           coverAspect,
+          categoryId: shelfId ? shelfId : null,
           categoryKeys: categoryKeys.slice(0, 3),
           colorsCsv,
           sizesCsv,
@@ -369,7 +393,7 @@ export default function VendorNewProductPage() {
               <label className="block text-xs font-medium text-gray-700 mb-1.5">Description</label>
               <textarea
                 className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 resize-none disabled:opacity-50"
-                placeholder="Describe your product — material, features, what makes it special..."
+                placeholder="Describe your product â€” material, features, what makes it special..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 disabled={loading}
@@ -458,6 +482,20 @@ export default function VendorNewProductPage() {
         </SectionCard>
 
         {/* Categories */}
+        <SectionCard title="Shelf" subtitle="Group products into shelves">
+          <SelectMenu
+            title="Shelf"
+            value={shelfId}
+            onChange={(v) => setShelfId(String(v || ""))}
+            disabled={loading}
+            options={[
+              { value: "", label: "Uncategorized" },
+              ...(shelves || []).map((c: any) => ({ value: String(c.id), label: String(c.name || "Category") })),
+            ]}
+          />
+          <p className="text-[11px] text-gray-400 mt-1">Manage shelves from Vendor → Products.</p>
+        </SectionCard>
+
         <SectionCard title="Categories" subtitle="Help buyers discover your product (max 3)">
           <div className="flex flex-wrap gap-2">
             {MARKET_CATEGORIES.map((c) => (

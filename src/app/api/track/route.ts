@@ -1,4 +1,5 @@
-
+﻿
+import { unlockAchievement } from "@/lib/achievements/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 
@@ -69,6 +70,15 @@ export async function POST(req: Request) {
     }
 
     await bizRef.set(inc, { merge: true });
+
+    // Achievement: first store visit
+    if (type === "store_visit" && businessId) {
+      unlockAchievement({
+        actorType: "vendor",
+        actorId: businessId,
+        key: "vendor_first_visit",
+      }).catch(() => {});
+    }
 
     // ===== Product daily metrics (optional) =====
     if (productId) {

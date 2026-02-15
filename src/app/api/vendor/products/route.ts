@@ -1,6 +1,7 @@
-// FILE: src/app/api/vendor/products/route.ts
+﻿// FILE: src/app/api/vendor/products/route.ts
 
 import { requireAnyRole } from "@/lib/auth/server";
+import { unlockAchievement } from "@/lib/achievements/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -90,6 +91,10 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
 
+    const categoryIdRaw = body?.categoryId;
+    const categoryId = typeof categoryIdRaw === "string" ? categoryIdRaw.trim().slice(0, 120) : "";
+    const categoryIdClean = categoryId ? categoryId : null;
+
     const name = String(body.name || "").trim();
     const description = String(body.description || "");
     const price = Number(body.price || 0);
@@ -105,7 +110,7 @@ export async function POST(req: Request) {
 
     const coverAspect = normalizeCoverAspect(body.coverAspect) ?? "1:1";
 
-    // ✅ category + attrs
+    // Ã¢Å“â€¦ category + attrs
     const colors = cleanListCsv(body.colorsCsv);
     const sizes = cleanListCsv(body.sizesCsv);
 
@@ -139,7 +144,9 @@ export async function POST(req: Request) {
 
       keywords,
       categoryKeys,
-      attrs: { colors, sizes },
+      
+      categoryId: categoryIdClean,
+attrs: { colors, sizes },
 
       price: Number.isFinite(price) ? price : 0,
       stock: Number.isFinite(stock) ? stock : 0,
@@ -154,6 +161,15 @@ export async function POST(req: Request) {
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
     });
+
+        // Achievement: first product added
+    if (me?.businessId) {
+      unlockAchievement({
+        actorType: "vendor",
+        actorId: me.businessId,
+        key: "vendor_first_product",
+      }).catch(() => {});
+    }
 
     return Response.json({ ok: true, productId: ref.id });
   } catch (e: any) {

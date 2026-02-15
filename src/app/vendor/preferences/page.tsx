@@ -1,10 +1,12 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
 import { toast } from "@/lib/ui/toast";
+
+const MUTE_KEY = "bizhub_achievements_muted";
 
 type VendorPrefs = {
   notificationsOrders: boolean;
@@ -15,6 +17,8 @@ type VendorPrefs = {
   openWhatsAppInNewTab: boolean;
 
   reduceDataUsage: boolean;
+
+  muteSounds: boolean;
 };
 
 const KEY = "bizhub_vendor_prefs_v1";
@@ -28,6 +32,8 @@ const FALLBACK: VendorPrefs = {
   openWhatsAppInNewTab: true,
 
   reduceDataUsage: false,
+
+  muteSounds: false,
 };
 
 function loadPrefs(): VendorPrefs {
@@ -35,18 +41,19 @@ function loadPrefs(): VendorPrefs {
 
   try {
     const raw = localStorage.getItem(KEY);
-    if (!raw) return FALLBACK;
+    const base = raw ? JSON.parse(raw) : {};
 
-    const v = JSON.parse(raw);
+    // Also sync mute state from achievement key
+    const achieveMuted = localStorage.getItem(MUTE_KEY) === "true";
+
     return {
-      notificationsOrders: typeof v?.notificationsOrders === "boolean" ? v.notificationsOrders : FALLBACK.notificationsOrders,
-      notificationsPayments: typeof v?.notificationsPayments === "boolean" ? v.notificationsPayments : FALLBACK.notificationsPayments,
-      notificationsTips: typeof v?.notificationsTips === "boolean" ? v.notificationsTips : FALLBACK.notificationsTips,
-
-      defaultMarketEnabled: typeof v?.defaultMarketEnabled === "boolean" ? v.defaultMarketEnabled : FALLBACK.defaultMarketEnabled,
-      openWhatsAppInNewTab: typeof v?.openWhatsAppInNewTab === "boolean" ? v.openWhatsAppInNewTab : FALLBACK.openWhatsAppInNewTab,
-
-      reduceDataUsage: typeof v?.reduceDataUsage === "boolean" ? v.reduceDataUsage : FALLBACK.reduceDataUsage,
+      notificationsOrders: typeof base?.notificationsOrders === "boolean" ? base.notificationsOrders : FALLBACK.notificationsOrders,
+      notificationsPayments: typeof base?.notificationsPayments === "boolean" ? base.notificationsPayments : FALLBACK.notificationsPayments,
+      notificationsTips: typeof base?.notificationsTips === "boolean" ? base.notificationsTips : FALLBACK.notificationsTips,
+      defaultMarketEnabled: typeof base?.defaultMarketEnabled === "boolean" ? base.defaultMarketEnabled : FALLBACK.defaultMarketEnabled,
+      openWhatsAppInNewTab: typeof base?.openWhatsAppInNewTab === "boolean" ? base.openWhatsAppInNewTab : FALLBACK.openWhatsAppInNewTab,
+      reduceDataUsage: typeof base?.reduceDataUsage === "boolean" ? base.reduceDataUsage : FALLBACK.reduceDataUsage,
+      muteSounds: typeof base?.muteSounds === "boolean" ? base.muteSounds : achieveMuted,
     };
   } catch {
     return FALLBACK;
@@ -56,6 +63,8 @@ function loadPrefs(): VendorPrefs {
 function savePrefs(p: VendorPrefs) {
   if (typeof window === "undefined") return;
   localStorage.setItem(KEY, JSON.stringify(p));
+  // Sync mute state to achievement key
+  localStorage.setItem(MUTE_KEY, p.muteSounds ? "true" : "false");
 }
 
 function ToggleRow({
@@ -154,6 +163,17 @@ export default function VendorPreferencesPage() {
             subtitle="Short suggestions to help you improve sales"
             value={prefs.notificationsTips}
             onChange={(v) => setPrefs((p) => ({ ...p, notificationsTips: v }))}
+          />
+        </Card>
+
+        <Card className="p-4 space-y-2">
+          <p className="text-sm font-extrabold text-biz-ink">Sounds</p>
+
+          <ToggleRow
+            title="Mute achievement sounds"
+            subtitle="Turn off celebration sounds for milestones and achievements"
+            value={prefs.muteSounds}
+            onChange={(v) => setPrefs((p) => ({ ...p, muteSounds: v }))}
           />
         </Card>
 

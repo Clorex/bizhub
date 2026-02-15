@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -8,6 +8,8 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { CloudImage } from "@/components/CloudImage";
+import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { buildWhatsAppLink, isValidWhatsAppNumber } from "@/lib/whatsapp/buildWhatsAppLink";
 import { db } from "@/lib/firebase/client";
 import { doc, getDoc } from "firebase/firestore";
 import { useCart } from "@/lib/cart/CartContext";
@@ -16,6 +18,7 @@ import { toast } from "@/lib/ui/toast";
 import { BadgeCheck, ShoppingCart, Package, Truck, MessageCircle, AlertCircle, Tag } from "lucide-react";
 import { normalizeCoverAspect, coverAspectToTailwindClass, coverAspectToWH, type CoverAspectKey } from "@/lib/products/coverAspect";
 import { formatMoneyNGN } from "@/lib/money";
+
 type OptionGroup = { name: string; values: string[] };
 
 type ShippingOption = {
@@ -37,16 +40,6 @@ type ChatAvailability = {
 
 function fmtNaira(n: number) {
   return formatMoneyNGN(n);
-}
-
-function digitsOnlyPhone(v: string) {
-  return String(v || "").replace(/[^\d]/g, "");
-}
-
-function waLink(wa: string, text: string) {
-  const digits = digitsOnlyPhone(wa);
-  const t = encodeURIComponent(text);
-  return `https://wa.me/${digits}?text=${t}`;
 }
 
 function makeClientOrderId() {
@@ -118,6 +111,7 @@ export default function ProductPage() {
   const [selected, setSelected] = useState<Record<string, string>>({});
 
   const [storeTrustBadge, setStoreTrustBadge] = useState<TrustBadgeType>(null);
+  const [vendorWhatsApp, setVendorWhatsApp] = useState<string>("");
 
   const [activeImg, setActiveImg] = useState(0);
 
@@ -199,9 +193,22 @@ export default function ProductPage() {
     return q >= 1;
   }, [qty, p, canChat, bookOnly, outOfStock, shippingRequired, selectedShipping, deliveryLocation]);
 
-  // Load trust badge
+  // Build WhatsApp link for product enquiry (icon button)
+  const productWaLink = useMemo(() => {
+    if (!vendorWhatsApp || !isValidWhatsAppNumber(vendorWhatsApp)) return "";
+    const productName = String(p?.name || "this product");
+    const productUrl = typeof window !== "undefined" ? window.location.href : "";
+    return buildWhatsAppLink(
+      vendorWhatsApp,
+      `Hi, I'm interested in ${productName} on BizHub: ${productUrl}`
+    );
+  }, [vendorWhatsApp, p]);
+
+  // Load trust badge + vendor WhatsApp
   useEffect(() => {
     let mounted = true;
+
+    // Load trust
     fetch(`/api/public/store/${encodeURIComponent(slug)}/trust`)
       .then((r) => r.json())
       .then((j) => {
@@ -209,9 +216,18 @@ export default function ProductPage() {
         setStoreTrustBadge(trustBadgeTypeFromTrust(j));
       })
       .catch(() => {});
-    return () => {
-      mounted = false;
-    };
+
+    // Load vendor WhatsApp from public store API
+    fetch(`/api/public/store/${encodeURIComponent(slug)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!mounted) return;
+        const wa = String(j?.store?.whatsapp || "").trim();
+        setVendorWhatsApp(wa);
+      })
+      .catch(() => {});
+
+    return () => { mounted = false; };
   }, [slug]);
 
   // Load product
@@ -258,9 +274,7 @@ export default function ProductPage() {
     }
 
     if (productId) run();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [productId, slug]);
 
   // Load shipping
@@ -295,9 +309,7 @@ export default function ProductPage() {
     }
 
     if (slug) loadShipping();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [slug]);
 
   // Load chat availability
@@ -321,9 +333,7 @@ export default function ProductPage() {
     }
 
     if (slug) loadChatAvail();
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [slug]);
 
   function pick(groupName: string, value: string) {
@@ -359,7 +369,7 @@ export default function ProductPage() {
       const whatsapp = String(chatAvail?.whatsapp || "");
       if (!whatsapp) return;
 
-      const q = Math.max(1, Math.floor(Number(qty || 1)));
+      const q2 = Math.max(1, Math.floor(Number(qty || 1)));
       const clientOrderId = makeClientOrderId();
 
       const payload = {
@@ -369,7 +379,7 @@ export default function ProductPage() {
           {
             productId: String(p.id),
             name: String(p?.name || "Item"),
-            qty: q,
+            qty: q2,
             price: unitPriceNgn,
             imageUrl: images[0] || null,
             selectedOptions: selectedOptionsClean,
@@ -419,7 +429,7 @@ export default function ProductPage() {
         lines.push(``);
       }
 
-      lines.push(`- ${q} ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â ${String(p?.name || "Item")}${optsTxt}`);
+      lines.push(`- ${q2} x ${String(p?.name || "Item")}${optsTxt}`);
       lines.push(`Items subtotal: ${fmtNaira(itemsSubtotalNgn)}`);
       lines.push(``);
       lines.push(`Delivery option: ${shipLabel}`);
@@ -435,7 +445,10 @@ export default function ProductPage() {
       lines.push(``);
       lines.push(`myBizHub chat order ref: ${refShort}`);
 
-      window.open(waLink(whatsapp, lines.join("\n")), "_blank");
+      window.open(
+        buildWhatsAppLink(whatsapp, lines.join("\n")),
+        "_blank"
+      );
     } catch (e: any) {
       setMsg(e?.message || "Failed to open chat");
     }
@@ -562,9 +575,9 @@ export default function ProductPage() {
                 </div>
               ) : null}
 
-              {/* Name + trust badge */}
+              {/* Name + trust badge + WhatsApp icon */}
               <div className="mt-4 flex items-center gap-2 flex-wrap">
-                <p className="text-lg font-bold text-gray-900">{p?.name}</p>
+                <p className="text-lg font-bold text-gray-900 flex-1">{p?.name}</p>
 
                 {storeTrustBadge === "earned_apex" ? (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
@@ -579,7 +592,17 @@ export default function ProductPage() {
                     Apex
                   </span>
                 ) : null}
+
+                {/* WhatsApp icon button for product enquiry */}
+                {productWaLink ? (
+                  <WhatsAppButton href={productWaLink} variant="icon" size="sm" />
+                ) : null}
               </div>
+
+              {/* Fallback text if no WhatsApp */}
+              {!productWaLink && !loading && vendorWhatsApp === "" ? (
+                <p className="text-[11px] text-gray-400 mt-1">WhatsApp not available</p>
+              ) : null}
 
               {/* Price */}
               <div className="mt-2">
@@ -617,7 +640,7 @@ export default function ProductPage() {
                 </div>
                 <div className="text-xs text-gray-500">
                   Packaging:{" "}
-                  <span className="font-semibold text-gray-900">{p?.packaging || "ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â"}</span>
+                  <span className="font-semibold text-gray-900">{p?.packaging || "\u2014"}</span>
                 </div>
               </div>
 
@@ -714,7 +737,7 @@ export default function ProductPage() {
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
                               Fee: {opt.feeKobo === 0 ? "Free" : fmtNaira(opt.feeKobo / 100)}
-                              {opt.etaDays ? ` ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â· ${opt.etaDays} day${opt.etaDays > 1 ? "s" : ""}` : ""}
+                              {opt.etaDays ? ` \u00B7 ${opt.etaDays} day${opt.etaDays > 1 ? "s" : ""}` : ""}
                             </p>
                             {opt.areasText ? (
                               <p className="text-[11px] text-gray-400 mt-0.5">{opt.areasText}</p>
@@ -796,4 +819,3 @@ export default function ProductPage() {
     </div>
   );
 }
-
