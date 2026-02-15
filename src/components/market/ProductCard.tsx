@@ -9,14 +9,7 @@ import {
   ShoppingBag,
   Check,
 } from "lucide-react";
-import { Card } from "@/components/Card";
 import { CloudImage } from "@/components/CloudImage";
-import {
-  normalizeCoverAspect,
-  coverAspectToTailwindClass,
-  coverAspectToWH,
-  type CoverAspectKey,
-} from "@/lib/products/coverAspect";
 import {
   computeSalePriceNgn,
   saleBadgeText,
@@ -60,12 +53,7 @@ export const ProductCard = memo(function ProductCard({
   const onSale = !bookOnly && saleIsActive(p);
   const finalPrice = onSale ? computeSalePriceNgn(p) : basePrice;
   const apexBadgeActive = p?.apexBadgeActive === true;
-  const coverAspect: CoverAspectKey =
-    normalizeCoverAspect(p?.coverAspect) ?? "1:1";
-  const aspectClass = coverAspectToTailwindClass(coverAspect);
-  const { w, h } = coverAspectToWH(coverAspect, compact ? 320 : 520);
 
-  // B5-2: Visual feedback state for add-to-cart
   const [justAdded, setJustAdded] = useState(false);
 
   const handleCardClick = (e: React.MouseEvent) => {
@@ -79,8 +67,6 @@ export const ProductCard = memo(function ProductCard({
       e.stopPropagation();
       e.preventDefault();
       onAddToCart?.(e);
-
-      // B5-2: Show checkmark briefly on the button
       setJustAdded(true);
       setTimeout(() => setJustAdded(false), 1200);
     },
@@ -109,68 +95,60 @@ export const ProductCard = memo(function ProductCard({
       aria-label={productName}
       title={productName}
     >
-      <Card className="p-2.5 transition-all duration-200 hover:shadow-md hover:border-orange-200 group-active:scale-[0.98]">
-        <div
-          className={cn(
-            aspectClass,
-            "w-full rounded-xl bg-gradient-to-br from-gray-100 to-gray-50 overflow-hidden relative"
-          )}
-        >
+      {/* Card with fixed structure for uniform height */}
+      <div className="rounded-2xl border border-gray-100 bg-white p-1.5 transition-all duration-200 hover:shadow-md hover:border-orange-200 group-active:scale-[0.98] flex flex-col h-full">
+        {/* ALWAYS square image area */}
+        <div className="relative w-full aspect-square rounded-xl bg-gray-100 overflow-hidden shrink-0">
           {img ? (
             <CloudImage
               src={img}
               alt={productName}
-              w={w}
-              h={h}
-              sizes={
-                compact
-                  ? "(max-width: 430px) 40vw, 160px"
-                  : "(max-width: 430px) 45vw, 220px"
-              }
-              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              w={400}
+              h={400}
+              sizes="(max-width: 430px) 45vw, 220px"
+              className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
             />
           ) : (
-            <div className="h-full w-full flex items-center justify-center">
+            <div className="absolute inset-0 flex items-center justify-center">
               <ShoppingBag className="w-8 h-8 text-gray-300" />
             </div>
           )}
 
           {/* Top badges */}
-          <div className="absolute top-2 left-2 right-2 flex items-start justify-between gap-1 pointer-events-none">
+          <div className="absolute top-1.5 left-1.5 right-1.5 flex items-start justify-between gap-1 pointer-events-none">
             <div className="flex flex-col gap-1">
               {showMatchBadge && !apexBadgeActive ? (
                 <SmartMatchBadge label={matchResult!.label} compact />
               ) : null}
 
               {apexBadgeActive && (
-                <div className="px-2 py-1 rounded-full text-[10px] font-bold bg-emerald-500 text-white inline-flex items-center gap-1 shadow-sm">
-                  <BadgeCheck className="h-3 w-3" />
+                <div className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500 text-white inline-flex items-center gap-0.5 shadow-sm">
+                  <BadgeCheck className="h-2.5 w-2.5" />
                   <span>Trusted</span>
                 </div>
               )}
 
               {!apexBadgeActive && !showMatchBadge && boosted && (
-                <div className="px-2 py-1 rounded-full text-[10px] font-bold bg-white/95 text-orange-600 inline-flex items-center gap-1 shadow-sm">
-                  <Sparkles className="h-3 w-3" />
-                  <span>Promoted</span>
+                <div className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/95 text-orange-600 inline-flex items-center gap-0.5 shadow-sm">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  <span>Ad</span>
                 </div>
               )}
             </div>
 
             {onSale && (
-              <div className="px-2 py-1 rounded-full text-[10px] font-bold bg-red-500 text-white shadow-sm">
+              <div className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-500 text-white shadow-sm">
                 {saleBadgeText(p, formatMoneyNGN)}
               </div>
             )}
           </div>
 
-          {/* Bottom row */}
-          <div className="absolute bottom-2 left-2 right-2 flex items-end justify-between">
-            <div className="px-2 py-1 rounded-full text-[9px] font-semibold bg-white/95 text-gray-600 shadow-sm pointer-events-none">
+          {/* Bottom row on image */}
+          <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-end justify-between">
+            <div className="px-1.5 py-0.5 rounded-full text-[8px] font-semibold bg-white/90 text-gray-600 shadow-sm pointer-events-none">
               {verificationLabel(tier)}
             </div>
 
-            {/* B5-2: Add-to-cart button with visual feedback */}
             {!bookOnly && onAddToCart && (
               <div
                 data-add-to-cart
@@ -185,7 +163,7 @@ export const ProductCard = memo(function ProductCard({
                   }
                 }}
                 className={cn(
-                  "h-8 w-8 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer",
+                  "h-7 w-7 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer",
                   justAdded
                     ? "bg-green-500 text-white scale-110"
                     : "bg-orange-500 text-white hover:bg-orange-600"
@@ -193,45 +171,30 @@ export const ProductCard = memo(function ProductCard({
                 aria-label={justAdded ? "Added!" : "Add to cart"}
               >
                 {justAdded ? (
-                  <Check className="h-4 w-4" strokeWidth={3} />
+                  <Check className="h-3.5 w-3.5" strokeWidth={3} />
                 ) : (
-                  <Plus className="h-4 w-4" strokeWidth={2.5} />
+                  <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
                 )}
               </div>
             )}
           </div>
         </div>
 
-        <div className="mt-2.5 px-0.5">
+        {/* Text area - fixed height via line clamping */}
+        <div className="mt-1.5 px-1 flex flex-col flex-1 justify-between">
           <p
-            className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight "
+            className="text-[13px] font-semibold text-gray-900 leading-tight line-clamp-2 h-[2.4em]"
             title={productName}
           >
             {productName}
           </p>
 
-          {!compact ? (
-            <p
-              className={cn(
-                "text-[10px] text-gray-500 mt-0.5 line-clamp-1 leading-tight ",
-                showMatchBadge && matchResult?.reason
-                  ? ""
-                  : "invisible"
-              )}
-              title={matchResult?.reason || ""}
-            >
-              {matchResult?.reason || "\u2014"}
-            </p>
-          ) : null}
-
-          <p className="mt-1.5 text-sm">
+          <p className="mt-1 text-[13px] pb-0.5">
             {bookOnly ? (
-              <span className="text-gray-500 font-medium">
-                Book only
-              </span>
+              <span className="text-gray-500 font-medium">Book only</span>
             ) : onSale ? (
               <>
-                <span className="line-through text-gray-400 mr-1.5 text-xs">
+                <span className="line-through text-gray-400 mr-1 text-[11px]">
                   {formatMoneyNGN(basePrice)}
                 </span>
                 <span className="text-red-600 font-bold">
@@ -245,7 +208,7 @@ export const ProductCard = memo(function ProductCard({
             )}
           </p>
         </div>
-      </Card>
+      </div>
     </div>
   );
 });
