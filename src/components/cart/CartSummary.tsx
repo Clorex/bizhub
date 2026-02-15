@@ -1,4 +1,4 @@
-// FILE: src/components/cart/CartSummary.tsx
+﻿// FILE: src/components/cart/CartSummary.tsx
 "use client";
 
 import { memo } from "react";
@@ -59,7 +59,7 @@ export const CartSummary = memo(function CartSummary({
             loading={chatLoading}
             disabled={chatLoading}
           >
-            Continue in WhatsApp
+            Continue in Chat
           </Button>
         )}
 

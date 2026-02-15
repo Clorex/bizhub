@@ -1,4 +1,4 @@
-// FILE: src/hooks/useMarketSearch.ts
+﻿// FILE: src/hooks/useMarketSearch.ts
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
@@ -10,6 +10,7 @@ import {
   orderBy,
   query,
   where,
+  documentId,
   type DocumentData,
 } from "firebase/firestore";
 import { trackBatch, track } from "@/lib/track/client";
@@ -17,7 +18,7 @@ import { applyMarketProductFilters } from "@/lib/market/filters/apply";
 import { saleIsActive } from "@/lib/market/sale";
 import type { MarketFilterState, MarketSortKey } from "@/lib/market/filters/types";
 import type { MarketCategoryKey } from "@/lib/search/marketTaxonomy";
-// ✅ ADDED: SmartMatch imports
+// âœ… ADDED: SmartMatch imports
 import { isSmartMatchEnabled } from "@/lib/smartmatch/featureFlag";
 import type { ProductMatchResult } from "@/lib/smartmatch/types";
 
@@ -43,6 +44,84 @@ function tokensForSearch(q: string) {
   return out;
 }
 
+// ------------------------------
+// Business verification helpers
+// ------------------------------
+function chunk<T>(arr: T[], size: number): T[][] {
+  const out: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+  return out;
+}
+
+function businessIsVerified(b: any): boolean {
+  if (!b || typeof b !== "object") return false;
+
+  const direct = [
+    b?.isVerified,
+    b?.verified,
+    b?.businessVerified,
+    b?.verificationStatus, // e.g. "VERIFIED"
+    b?.storeVerificationStatus,
+  ];
+
+  for (const v of direct) {
+    if (typeof v === "boolean") return v;
+    if (typeof v === "string") {
+      const s = v.trim().toUpperCase();
+      if (s === "VERIFIED" || s === "APPROVED") return true;
+      if (s === "UNVERIFIED" || s === "PENDING" || s === "REJECTED") return false;
+    }
+    if (typeof v === "number" && Number.isFinite(v)) return v > 0;
+  }
+
+  // Timestamp/Date presence means verified in many schemas
+  const vt = b?.verifiedAt ?? b?.verifiedAtMs;
+  if (vt instanceof Date) return true;
+  if (vt && typeof vt === "object" && ("seconds" in (vt as any) || "toDate" in (vt as any))) return true;
+  if (typeof vt === "number" && Number.isFinite(vt) && vt > 0) return true;
+
+  return false;
+}
+
+async function attachBusinessVerificationToProducts(products: DocumentData[]): Promise<DocumentData[]> {
+  try {
+    const ids = Array.from(
+      new Set(
+        (products || [])
+          .map((p: any) => String(p?.businessId || "").trim())
+          .filter(Boolean)
+      )
+    );
+
+    if (!ids.length) {
+      return (products || []).map((p: any) => ({ ...p, businessVerified: false }));
+    }
+
+    // Firestore 'in' supports max 10
+    const chunks = chunk(ids, 10);
+    const bizMap: Record<string, any> = {};
+
+    for (const group of chunks) {
+      const snap = await getDocs(
+        query(collection(db, "businesses"), where(documentId(), "in", group))
+      );
+      for (const d of snap.docs) bizMap[d.id] = d.data();
+    }
+
+    return (products || []).map((p: any) => {
+      const bid = String(p?.businessId || "").trim();
+      const b = bid ? bizMap[bid] : null;
+      return {
+        ...p,
+        businessVerified: businessIsVerified(b),
+      };
+    });
+  } catch {
+    // Safe fallback: default Not verified
+    return (products || []).map((p: any) => ({ ...p, businessVerified: false }));
+  }
+}
+
 interface UseMarketSearchOptions {
   filters: MarketFilterState;
   sortKey: MarketSortKey;
@@ -62,12 +141,12 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
   const [searchQuery, setSearchQuery] = useState("");
   const impressed = useRef(new Set<string>());
 
-  // ✅ ADDED: SmartMatch scores state
+  // âœ… ADDED: SmartMatch scores state
   const [matchScores, setMatchScores] = useState<Record<string, ProductMatchResult> | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
   const smartMatchEnabled = isSmartMatchEnabled();
 
-  // ✅ ADDED: Fetch match scores for a pool of products
+  // âœ… ADDED: Fetch match scores for a pool of products
   const fetchMatchScores = useCallback(
     async (products: DocumentData[]) => {
       if (!smartMatchEnabled) return;
@@ -105,7 +184,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
           setMatchScores(null);
         }
       } catch {
-        // Graceful degradation — no scores, market works normally
+        // Graceful degradation â€” no scores, market works normally
         setMatchScores(null);
       } finally {
         setMatchLoading(false);
@@ -149,7 +228,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
 
       setProductsPool(merged);
 
-      // ✅ ADDED: fetch match scores after products load
+      // âœ… ADDED: fetch match scores after products load
       fetchMatchScores(merged);
     } catch (e: any) {
       setError(e?.message || "Could not load marketplace. Please try again.");
@@ -194,7 +273,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
         const products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setProductsPool(products);
 
-        // ✅ ADDED: fetch match scores
+        // âœ… ADDED: fetch match scores
         fetchMatchScores(products);
       } catch (e: any) {
         setError(e?.message || "Could not load this category. Please try again.");
@@ -263,7 +342,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
         const products = Array.from(productMap.values());
         setProductsPool(products);
 
-        // ✅ ADDED: fetch match scores
+        // âœ… ADDED: fetch match scores
         fetchMatchScores(products);
 
         const storeMap = new Map<string, any>();
@@ -287,7 +366,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
     [filters.category, loadByCategory, loadTrending, fetchMatchScores]
   );
 
-  // ✅ MODIFIED: pass matchScores to filter function
+  // âœ… MODIFIED: pass matchScores to filter function
   const getFilteredProducts = useCallback(() => {
     return applyMarketProductFilters({
       products: productsPool,
@@ -379,7 +458,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
     loadDeals();
   }, [filters.category, loadDeals]);
 
-  // ✅ ADDED: Refetch scores when filters change (buyer intent changed)
+  // âœ… ADDED: Refetch scores when filters change (buyer intent changed)
   useEffect(() => {
     if (smartMatchEnabled && productsPool.length > 0) {
       fetchMatchScores(productsPool);
@@ -394,7 +473,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
     error,
     searchQuery,
     productsPool,
-    // ✅ ADDED: expose match data
+    // âœ… ADDED: expose match data
     matchScores,
     matchLoading,
     smartMatchEnabled,

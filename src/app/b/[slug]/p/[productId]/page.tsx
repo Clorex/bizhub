@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -50,9 +50,9 @@ type ChatAvailability = {
 
 function fmtNaira(n: number) {
   try {
-    return `₦${Number(n || 0).toLocaleString("en-NG")}`;
+    return `â‚¦${Number(n || 0).toLocaleString("en-NG")}`;
   } catch {
-    return `₦${n}`;
+    return `â‚¦${n}`;
   }
 }
 
@@ -436,7 +436,7 @@ export default function ProductPage() {
         lines.push(``);
       }
 
-      lines.push(`- ${q} × ${String(p?.name || "Item")}${optsTxt}`);
+      lines.push(`- ${q} Ã— ${String(p?.name || "Item")}${optsTxt}`);
       lines.push(`Items subtotal: ${fmtNaira(itemsSubtotalNgn)}`);
       lines.push(``);
       lines.push(`Delivery option: ${shipLabel}`);
@@ -634,7 +634,7 @@ export default function ProductPage() {
                 </div>
                 <div className="text-xs text-gray-500">
                   Packaging:{" "}
-                  <span className="font-semibold text-gray-900">{p?.packaging || "—"}</span>
+                  <span className="font-semibold text-gray-900">{p?.packaging || "â€”"}</span>
                 </div>
               </div>
 
@@ -731,7 +731,7 @@ export default function ProductPage() {
                             </div>
                             <p className="text-xs text-gray-500 mt-1">
                               Fee: {opt.feeKobo === 0 ? "Free" : fmtNaira(opt.feeKobo / 100)}
-                              {opt.etaDays ? ` · ${opt.etaDays} day${opt.etaDays > 1 ? "s" : ""}` : ""}
+                              {opt.etaDays ? ` Â· ${opt.etaDays} day${opt.etaDays > 1 ? "s" : ""}` : ""}
                             </p>
                             {opt.areasText ? (
                               <p className="text-[11px] text-gray-400 mt-0.5">{opt.areasText}</p>
@@ -773,18 +773,24 @@ export default function ProductPage() {
                     <Button onClick={bookOnlyHandler}>Book service</Button>
                   ) : canChat ? (
                     <>
-                      <Button onClick={continueInChatQuickOrder} disabled={!canQuickOrderChat}>
-                        <MessageCircle className="h-4 w-4 mr-1.5" />
+                      <Button
+                        onClick={continueInChatQuickOrder}
+                        disabled={!canQuickOrderChat}
+                        leftIcon={<MessageCircle className="h-4 w-4" />}
+                      >
                         Continue in Chat
                       </Button>
-                      <Button variant="secondary" onClick={add} disabled={outOfStock}>
-                        <ShoppingCart className="h-4 w-4 mr-1.5" />
+                      <Button
+                        variant="secondary"
+                        onClick={add}
+                        disabled={outOfStock}
+                        leftIcon={<ShoppingCart className="h-4 w-4" />}
+                      >
                         {outOfStock ? "Out of stock" : "Add to cart"}
                       </Button>
                     </>
                   ) : (
-                    <Button onClick={add} disabled={outOfStock}>
-                      <ShoppingCart className="h-4 w-4 mr-1.5" />
+                    <Button onClick={add} disabled={outOfStock} leftIcon={<ShoppingCart className="h-4 w-4" />}>
                       {outOfStock ? "Out of stock" : "Add to cart"}
                     </Button>
                   )}
@@ -807,4 +813,5 @@ export default function ProductPage() {
     </div>
   );
 }
+
 
