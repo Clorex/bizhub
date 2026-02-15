@@ -1,25 +1,16 @@
-﻿"use client";
+﻿import { formatMoneyNGN } from "@/lib/money";
+"use client";
 
 
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import GradientHeader from "@/components/GradientHeader";
-import { Card } from "@/components/Card";
-import { Button } from "@/components/ui/Button";
-import { Input } from "@/components/ui/Input";
-import { SectionCard } from "@/components/ui/SectionCard";
-import { SegmentedControl } from "@/components/ui/SegmentedControl";
-import { auth } from "@/lib/firebase/client";
-import { CheckCircle2, HelpCircle, Megaphone } from "lucide-react";
-
+ param($m) $m.Value + "import { formatMoneyNGN } from `"@/lib/money`";`r`n" 
 type Tab = "setup" | "summary";
 
 function fmtNaira(n: number) {
-  try {
-    return `â‚¦${Number(n || 0).toLocaleString()}`;
+  return formatMoneyNGN(n);
+}`;
   } catch {
-    return `â‚¦${n}`;
+    return `₦${n}`;
   }
 }
 
@@ -256,7 +247,7 @@ export default function PromoteWizardPage() {
                                   {p?.name || "Product"}
                                 </p>
                                 <p className={on ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-biz-muted mt-1"}>
-                                  â‚¦{Number(p?.price || 0).toLocaleString()}
+                                  {formatMoneyNGN(Number(p?.price || 0))}
                                 </p>
                               </div>
 
@@ -292,7 +283,7 @@ export default function PromoteWizardPage() {
                     </div>
 
                     <div>
-                      <p className="text-xs text-biz-muted mb-1">Daily budget (minimum â‚¦1,700)</p>
+                      <p className="text-xs text-biz-muted mb-1">Daily budget (minimum {formatMoneyNGN(1700)})</p>
                       <Input
                         type="number"
                         min={1700}
@@ -332,7 +323,7 @@ export default function PromoteWizardPage() {
 
                   {!canContinue ? (
                     <p className="mt-2 text-[11px] text-red-700">
-                      Select at least 1 product (max {maxProducts}), and use at least 2 days + â‚¦1,700/day.
+                      Select at least 1 product (max {maxProducts}), and use at least 2 days + {formatMoneyNGN(1700)}/day.
                     </p>
                   ) : null}
                 </Card>
@@ -357,7 +348,7 @@ export default function PromoteWizardPage() {
                     {selectedProducts.map((p: any) => (
                       <div key={String(p.id)} className="rounded-2xl border border-biz-line bg-white p-3">
                         <p className="text-sm font-bold text-biz-ink">{p?.name || "Product"}</p>
-                        <p className="text-[11px] text-biz-muted mt-1">â‚¦{Number(p?.price || 0).toLocaleString()}</p>
+                        <p className="text-[11px] text-biz-muted mt-1">{formatMoneyNGN(Number(p?.price || 0))}</p>
                       </div>
                     ))}
                   </div>
@@ -385,3 +376,5 @@ export default function PromoteWizardPage() {
     </div>
   );
 }
+
+

@@ -1,4 +1,4 @@
-// FILE: src/app/b/[slug]/pay/direct/page.tsx
+﻿// FILE: src/app/b/[slug]/pay/direct/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -30,9 +30,11 @@ import { SectionCard } from "@/components/ui/SectionCard";
 import { useCart } from "@/lib/cart/CartContext";
 import { toast } from "@/lib/ui/toast";
 import { cn } from "@/lib/cn";
+import { formatMoneyNGN } from "@/lib/money";
 
 function fmtNaira(n: number) {
-  return `₦${Number(n || 0).toLocaleString("en-NG")}`;
+  return formatMoneyNGN(n);
+}`;
 }
 
 function digitsOnly(v: string) {
@@ -235,20 +237,20 @@ export default function DirectTransferPage() {
 
     const phone = digitsOnly(vendorData.whatsapp);
     const message = [
-      `🏦 *DIRECT TRANSFER PROOF*`,
+      `ðŸ¦ *DIRECT TRANSFER PROOF*`,
       ``,
       `Hi ${vendorData.storeName}!`,
       ``,
       `I just transferred *${fmtNaira(amount)}* to your account.`,
       ``,
-      `📋 *Order Details:*`,
-      `• Order ID: ${orderId || "Pending"}`,
-      `• Customer: ${customerName}`,
-      `• Phone: ${customerPhone}`,
+      `ðŸ“‹ *Order Details:*`,
+      `â€¢ Order ID: ${orderId || "Pending"}`,
+      `â€¢ Customer: ${customerName}`,
+      `â€¢ Phone: ${customerPhone}`,
       ``,
       `I'm sending my payment screenshot in this chat.`,
       ``,
-      `Please confirm receipt. Thank you! 🙏`,
+      `Please confirm receipt. Thank you! ðŸ™`,
     ].join("\n");
 
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
@@ -373,7 +375,7 @@ export default function DirectTransferPage() {
           <p className="text-sm font-medium text-orange-100">Amount to Transfer</p>
           <p className="text-4xl font-black mt-2 tracking-tight">{fmtNaira(amount)}</p>
           <p className="text-sm text-orange-100 mt-2">
-            Transfer exact amount • Include your name in narration
+            Transfer exact amount â€¢ Include your name in narration
           </p>
         </div>
 
@@ -635,7 +637,7 @@ export default function DirectTransferPage() {
                         Tap to upload screenshot
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        PNG, JPG or PDF • Max 10MB
+                        PNG, JPG or PDF â€¢ Max 10MB
                       </p>
                     </>
                   )}
@@ -704,3 +706,4 @@ export default function DirectTransferPage() {
     </div>
   );
 }
+

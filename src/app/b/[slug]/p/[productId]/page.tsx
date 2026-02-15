@@ -23,6 +23,7 @@ import {
   Tag,
 } from "lucide-react";
 import {
+import { formatMoneyNGN } from "@/lib/money";
   normalizeCoverAspect,
   coverAspectToTailwindClass,
   coverAspectToWH,
@@ -49,10 +50,10 @@ type ChatAvailability = {
 };
 
 function fmtNaira(n: number) {
-  try {
-    return `â‚¦${Number(n || 0).toLocaleString("en-NG")}`;
+  return formatMoneyNGN(n);
+}`;
   } catch {
-    return `â‚¦${n}`;
+    return `₦${n}`;
   }
 }
 
@@ -813,5 +814,7 @@ export default function ProductPage() {
     </div>
   );
 }
+
+
 
 
