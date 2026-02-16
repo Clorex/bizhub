@@ -77,12 +77,12 @@ export async function buildDailyPlatformReport(params?: { date?: Date }) {
   }
 
   const lines: string[] = [];
-  lines.push(`myBizHub Daily Report â€” ${dkToday}`);
+  lines.push(`myBizHub Daily Report — ${dkToday}`);
   lines.push(``);
   lines.push(`Traffic`);
-  lines.push(`- Views:  ${tViews.toLocaleString()} (${pct(tViews, yViews) == null ? "â€”" : pct(tViews, yViews)!.toFixed(1) + "%"})`);
-  lines.push(`- Leads:  ${tLeads.toLocaleString()} (${pct(tLeads, yLeads) == null ? "â€”" : pct(tLeads, yLeads)!.toFixed(1) + "%"})`);
-  lines.push(`- Visits: ${tVisits.toLocaleString()} (${pct(tVisits, yVisits) == null ? "â€”" : pct(tVisits, yVisits)!.toFixed(1) + "%"})`);
+  lines.push(`- Views:  ${tViews.toLocaleString()} (${pct(tViews, yViews) == null ? "—" : pct(tViews, yViews)!.toFixed(1) + "%"})`);
+  lines.push(`- Leads:  ${tLeads.toLocaleString()} (${pct(tLeads, yLeads) == null ? "—" : pct(tLeads, yLeads)!.toFixed(1) + "%"})`);
+  lines.push(`- Visits: ${tVisits.toLocaleString()} (${pct(tVisits, yVisits) == null ? "—" : pct(tVisits, yVisits)!.toFixed(1) + "%"})`);
   lines.push(``);
   lines.push(`Sales`);
   lines.push(`- Orders: ${orderCount.toLocaleString()}`);
@@ -101,3 +101,4 @@ export async function buildDailyPlatformReport(params?: { date?: Date }) {
     text: lines.join("\n"),
   };
 }
+

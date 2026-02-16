@@ -259,8 +259,8 @@ export function MarketFilterSheet({
         <div className="mt-2 flex flex-wrap gap-2">
           {[
             { key: "UNDER_5K", label: "Under ₦5k" },
-            { key: "5K_20K", label: "₦5k â€“ ₦20k" },
-            { key: "20K_100K", label: "₦20k â€“ ₦100k" },
+            { key: "5K_20K", label: "₦5k – ₦20k" },
+            { key: "20K_100K", label: "₦20k – ₦100k" },
             { key: "ABOVE_100K", label: "Above ₦100k" },
           ].map((r) => {
             const active = draft.price.quick === (r.key as any);
@@ -288,7 +288,7 @@ export function MarketFilterSheet({
         </div>
       </div>
 
-      {/* CATEGORY-SPECIFIC (DYNAMIC) â€” V1: Fashion only */}
+      {/* CATEGORY-SPECIFIC (DYNAMIC) — V1: Fashion only */}
       {draft.category === "fashion" ? (
         <div className="mt-5">
           <p className="text-xs font-extrabold text-gray-500 uppercase">Fashion details</p>
@@ -481,3 +481,4 @@ export function MarketFilterSheet({
     </BottomSheet>
   );
 }
+

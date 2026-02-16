@@ -133,7 +133,7 @@ function generateSalesInsight(growthPct: number | null, totalRevenue: number): s
 function generateConversionInsight(rate: number): string {
   if (rate > 0.5) return 'Your store converts visitors very well.';
   if (rate >= 0.2) return 'Your conversion rate is average. Improve product descriptions to boost it.';
-  if (rate > 0) return 'Low conversion â€” try better photos, clearer pricing, or adding more products.';
+  if (rate > 0) return 'Low conversion — try better photos, clearer pricing, or adding more products.';
   return 'No conversions yet. Focus on getting traffic to your store.';
 }
 
@@ -147,7 +147,7 @@ function generateEngagementInsight(
   if (leads > 0 && orders === 0) return 'Customers are interested but not buying. Follow up with leads quickly.';
   if (visits > 0 && orders > 0) {
     const rate = orders / visits;
-    if (rate > 0.3) return 'Strong engagement â€” visitors are converting to buyers.';
+    if (rate > 0.3) return 'Strong engagement — visitors are converting to buyers.';
     return 'Moderate engagement. Try improving your store page to convert more visitors.';
   }
   return 'Keep promoting your store to build engagement.';
@@ -238,7 +238,7 @@ export function adaptToRevenueBreakdown(data: VendorAnalyticsResponse): RevenueB
   const topProducts: ProductRevenue[] = data.insights.topProducts.map((p) => {
     const pct = totalRevenue > 0 ? (p.revenue / totalRevenue) * 100 : 0;
     // Truncate name at 15 characters per spec
-    const name = p.name.length > 15 ? p.name.substring(0, 15) + 'â€¦' : p.name;
+    const name = p.name.length > 15 ? p.name.substring(0, 15) + '…' : p.name;
     return {
       product_id: p.productId,
       product_name: name,
@@ -365,3 +365,4 @@ export function mapTierToSubscriptionTier(planKey: string): string {
     default: return 'basic';
   }
 }
+

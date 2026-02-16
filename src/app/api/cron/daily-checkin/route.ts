@@ -103,7 +103,7 @@ export async function GET(req: Request) {
 
         const todayLine = `Today: ${Number(
           snapshot?.today?.orders || 0
-        )} order(s) â€¢ ${fmtNaira(
+        )} order(s) • ${fmtNaira(
           Number(snapshot?.today?.revenue || 0)
         )}`;
 
@@ -119,7 +119,7 @@ export async function GET(req: Request) {
           title: "Daily business check-in",
           lines: [
             todayLine,
-            `Pending: ${pending} â€¢ Disputes: ${disputes}`,
+            `Pending: ${pending} • Disputes: ${disputes}`,
             needs
               ? `Needs attention: ${needs} order(s)`
               : "Needs attention: none",
@@ -208,4 +208,5 @@ export async function GET(req: Request) {
     );
   }
 }
+
 

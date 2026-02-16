@@ -113,7 +113,7 @@ export default function AdminCustomersPage() {
           </div>
         </Card>
 
-        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {loading ? <Card className="p-4">Loading…</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         {!loading && data ? (
@@ -121,10 +121,10 @@ export default function AdminCustomersPage() {
             <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
               <p className="text-xs opacity-95">Customer summary</p>
               <p className="text-xl font-bold mt-1">
-                {Number(totals.uniqueBuyers || 0).toLocaleString()} buyers â€¢ {fmtNaira(totals.revenue || 0)}
+                {Number(totals.uniqueBuyers || 0).toLocaleString()} buyers • {fmtNaira(totals.revenue || 0)}
               </p>
               <p className="text-[11px] opacity-95 mt-2">
-                Orders: <b>{Number(totals.orders || 0).toLocaleString()}</b> â€¢ Repeat buyers:{" "}
+                Orders: <b>{Number(totals.orders || 0).toLocaleString()}</b> • Repeat buyers:{" "}
                 <b>{Number(totals.repeatBuyers || 0).toLocaleString()}</b>
               </p>
             </div>
@@ -140,7 +140,7 @@ export default function AdminCustomersPage() {
                       <div
                         className="w-full rounded-xl bg-gradient-to-b from-biz-accent to-biz-accent2"
                         style={{ height: `${h}%` }}
-                        title={`${d.dayKey} â€¢ orders: ${v}`}
+                        title={`${d.dayKey} • orders: ${v}`}
                       />
                       <span className="text-[10px] text-gray-500">{label}</span>
                     </div>
@@ -162,7 +162,7 @@ export default function AdminCustomersPage() {
                             {b.fullName || b.phone || b.email || "Customer"}
                           </p>
                           <p className="text-[11px] text-gray-500 mt-1 break-all">
-                            {b.phone ? `Phone: ${b.phone}` : b.email ? `Email: ${b.email}` : "â€”"}
+                            {b.phone ? `Phone: ${b.phone}` : b.email ? `Email: ${b.email}` : "—"}
                           </p>
                           <p className="text-[11px] text-gray-500 mt-1">
                             Orders: <b className="text-biz-ink">{Number(b.orders || 0)}</b>
@@ -183,3 +183,4 @@ export default function AdminCustomersPage() {
     </div>
   );
 }
+

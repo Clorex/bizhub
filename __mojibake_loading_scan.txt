@@ -1,0 +1,340 @@
+﻿=== MOJIBAKE / LOADING SCAN ===
+Time: 02/15/2026 20:28:12
+
+
+--- Pattern: Loadingâ ---
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:156 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:116 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:268 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:141 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:79 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:219 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:114 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\components\AuthGate.tsx:69 <Card className="p-4">Loadingâ€¦</Card>
+
+--- Pattern: â€¦ ---
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:156 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:116 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:268 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:141 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:79 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\staff\register\register-client.tsx:149 {loading ? <p className="mt-4 text-sm text-gray-600">Loading inviteâ€¦</p> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:219 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:114 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\components\AuthGate.tsx:69 <Card className="p-4">Loadingâ€¦</Card>
+C:\Users\USER\Desktop\bizhub\src\lib\analytics\adapter.ts:241 const name = p.name.length > 15 ? p.name.substring(0, 15) + 'â€¦' : p.name;
+
+--- Pattern: â€™ ---
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:106 toast.error("Couldnâ€™t copy the message. Please copy it manually.");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts:375 else if (outOfStockCount > 0) suggestion = "Restock your outâ€‘ofâ€‘stock products so customers donâ€™t bounce.";
+
+--- Pattern: â€ ---
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:106 toast.error("Couldnâ€™t copy the message. Please copy it manually.");
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:118 <p className="text-[11px] text-gray-500 mt-3 break-all">Code: {code || "â€”"}</p>
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:24 if (v == null) return "â€”";
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:26 if (!Number.isFinite(n)) return "â€”";
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:32 if (v == null) return "â€”";
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:34 if (!Number.isFinite(n)) return "â€”";
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:156 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:165 {totals.orders?.toLocaleString?.() || 0} order(s) â€¢ {fmtNaira(totals.revenue || 0)}
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:168 Visits: <b>{Number(totals.visits || 0).toLocaleString()}</b> â€¢ Leads:{" "}
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:169 <b>{Number(totals.leads || 0).toLocaleString()}</b> â€¢ Views:{" "}
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:202 subtitle="Shows trend â€” use this to spot decline/increase"
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:225 title={`${d.dayKey} â€¢ ${metric}: ${v.toLocaleString()}`}
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:116 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:124 {Number(totals.uniqueBuyers || 0).toLocaleString()} buyers â€¢ {fmtNaira(totals.revenue || 0)}
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:127 Orders: <b>{Number(totals.orders || 0).toLocaleString()}</b> â€¢ Repeat buyers:{" "}
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:143 title={`${d.dayKey} â€¢ orders: ${v}`}
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:165 {b.phone ? `Phone: ${b.phone}` : b.email ? `Email: ${b.email}` : "â€”"}
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:35 if (!ms) return "â€”";
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:268 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:422 {w.createdAtMs ? new Date(Number(w.createdAtMs)).toLocaleString() : "â€”"}
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:426 By: <b className="text-biz-ink">{String(w.createdByEmail || w.createdByUid || "â€”")}</b>
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:21 if (!ms) return "â€”";
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:129 Unread: <b className="text-biz-ink">{unreadCount}</b> â€¢ Total: <b className="text-biz-ink">{rows.length}</b>
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:141 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:179 {slug ? <> â€¢ <b className="text-biz-ink">{slug}</b></> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:186 {cycle ? <> â€¢ <b className="text-biz-ink">{cycle}</b></> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:20 if (!ms) return "â€”";
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:79 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:105 Business: <b className="text-biz-ink">{w.businessId}</b> â€¢ Slug: <b className="text-biz-ink">{w.businessSlug || "â€”"}</b>
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:110 <p className="text-sm font-bold text-biz-ink mt-1">{w?.payoutDetails?.bankName || "â€”"}</p>
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:112 {w?.payoutDetails?.accountNumber || "â€”"} â€¢ {w?.payoutDetails?.accountName || "â€”"}
+C:\Users\USER\Desktop\bizhub\src\app\api\cron\daily-checkin\route.ts:106 )} order(s) â€¢ ${fmtNaira(
+C:\Users\USER\Desktop\bizhub\src\app\api\cron\daily-checkin\route.ts:122 `Pending: ${pending} â€¢ Disputes: ${disputes}`,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts:375 else if (outOfStockCount > 0) suggestion = "Restock your outâ€‘ofâ€‘stock products so customers donâ€™t bounce.";
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts:377 else if (visits > 0 && ordersWin.length === 0) suggestion = "You have visits but no ordersâ€”try clearer prices and a stronger product photo.";
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts:380 title: "Daily business checkâ€‘in",
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts:382 `Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts:383 `This ${usedRange}: ${ordersWin.length} order(s) â€¢ ${fmtNaira(totalRevenue)}`,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:153 summaryLines.push(`myBizHub summary â€” ${storeName}`);
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:154 summaryLines.push(`Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`);
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:155 summaryLines.push(`This week: ${weekOrders} order(s) â€¢ ${fmtNaira(weekRevenue)}`);
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:160 summaryLines.push(`Store link: ${slug ? `${process.env.NEXT_PUBLIC_APP_URL}/b/${slug}` : "â€”"}`);
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\plans\route.ts:164 `${title} â€¢ ₦${m.toLocaleString("en-NG")}/month â€¢ ₦${y.toLocaleString("en-NG")}/year`;
+C:\Users\USER\Desktop\bizhub\src\app\staff\register\register-client.tsx:149 {loading ? <p className="mt-4 text-sm text-gray-600">Loading inviteâ€¦</p> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\add-picture\page.tsx:111 Tip: If you go back without pressing â€œDoneâ€, your uploaded pictures will still be saved for this step.
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:48 if (!ms) return "â€”";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:51 } catch { return "â€”"; }
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:21 if (!ms) return "â€”";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:163 Items: <b className="text-biz-ink">{Number(totals.deadCount || 0)}</b> â€¢ Value:{" "}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:194 <p className="text-[11px] text-biz-muted mt-1">No chart library â€” simple bars.</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:219 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:240 Stock: <b className="text-biz-ink">{Number(p.stock || 0)}</b> â€¢ Unit:{" "}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:248 â€¢ <b className="text-biz-ink">{Number(p.daysSinceLastSale)}</b> day(s) ago
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:512 Plan: {planKey} â€¢ Showing {filteredOrders.length} of {orders.length} orders
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:24 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Constants Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:30 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:63 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Completion Tracker Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:91 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Main Component Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:396 placeholder="Describe your product Ã¢â‚¬â€ material, features, what makes it special..."
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:114 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:217 {a.expiresAtMs ? ` â€¢ expires: ${new Date(a.expiresAtMs).toLocaleDateString()}` : ""}
+C:\Users\USER\Desktop\bizhub\src\components\emails\OrderReceiptEmail.tsx:123 <Text style={footer}>myBizHub â€¢ If you have any questions, please contact the vendor directly.</Text>
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:262 { key: "5K_20K", label: "₦5k â€“ ₦20k" },
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:263 { key: "20K_100K", label: "₦20k â€“ ₦100k" },
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:291 {/* CATEGORY-SPECIFIC (DYNAMIC) â€” V1: Fashion only */}
+C:\Users\USER\Desktop\bizhub\src\components\AuthGate.tsx:69 <Card className="p-4">Loadingâ€¦</Card>
+C:\Users\USER\Desktop\bizhub\src\lib\analytics\adapter.ts:136 if (rate > 0) return 'Low conversion â€” try better photos, clearer pricing, or adding more products.';
+C:\Users\USER\Desktop\bizhub\src\lib\analytics\adapter.ts:150 if (rate > 0.3) return 'Strong engagement â€” visitors are converting to buyers.';
+C:\Users\USER\Desktop\bizhub\src\lib\analytics\adapter.ts:241 const name = p.name.length > 15 ? p.name.substring(0, 15) + 'â€¦' : p.name;
+C:\Users\USER\Desktop\bizhub\src\lib\reports\platformDaily.ts:80 lines.push(`myBizHub Daily Report â€” ${dkToday}`);
+C:\Users\USER\Desktop\bizhub\src\lib\reports\platformDaily.ts:83 lines.push(`- Views:  ${tViews.toLocaleString()} (${pct(tViews, yViews) == null ? "â€”" : pct(tViews, yViews)!.toFixed(1) + "%"})`);
+C:\Users\USER\Desktop\bizhub\src\lib\reports\platformDaily.ts:84 lines.push(`- Leads:  ${tLeads.toLocaleString()} (${pct(tLeads, yLeads) == null ? "â€”" : pct(tLeads, yLeads)!.toFixed(1) + "%"})`);
+C:\Users\USER\Desktop\bizhub\src\lib\reports\platformDaily.ts:85 lines.push(`- Visits: ${tVisits.toLocaleString()} (${pct(tVisits, yVisits) == null ? "â€”" : pct(tVisits, yVisits)!.toFixed(1) + "%"})`);
+C:\Users\USER\Desktop\bizhub\src\lib\bizhubPlans.ts:34 /** Optional add-ons / upgrades (can include â€œcoming soonâ€) */
+
+--- Pattern: Ãƒ ---
+
+--- Pattern: Ã¢ ---
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:24 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Constants Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:30 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:63 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Completion Tracker Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:91 /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Main Component Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:396 placeholder="Describe your product Ã¢â‚¬â€ material, features, what makes it special..."
+
+--- Vendor loading strings (contains 'Loading') ---
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\loading.tsx:1 // FILE: src/app/vendor/analytics/loading.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\loading.tsx:5 export default function AnalyticsLoading() {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:51 isLoading,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:78 // Whether to show upgrade prompts — only after loading is done
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:80 const showUpgradePrompts = !isLoading && tier < 2;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:85 if (isLoading) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:88 <GradientHeader title="Analytics" subtitle="Loading your data..." showBack />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:37 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:59 else setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:79 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:111 if (loading) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:114 <GradientHeader title="Best Sellers" subtitle="Loading..." showBack />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:156 disabled={loading || refreshing}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:178 {!loading && products.length === 0 && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:117 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:156 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:171 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:279 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:283 <span className="text-sm text-gray-500">Loading coupons...</span>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:288 {msg && !loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:294 {!loading && !isOwner ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:306 {!loading && isOwner ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:487 <Button onClick={saveCoupon} loading={saving} disabled={saving || (touched && hasErrors)}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:494 {!loading && coupons.length === 0 ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:519 disabled={loading || saving}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:59 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:88 else setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:100 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:197 if (loading) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:200 <GradientHeader title="Customers" subtitle="Loading..." showBack={true} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:471 loading={savingNotes === c.customerKey}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:40 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:73 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:89 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:124 <IconButton aria-label="Refresh" onClick={() => load()} disabled={loading}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:169 <Button variant="secondary" size="sm" onClick={() => load()} loading={loading}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:182 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:191 {!loading && products.length > 0 ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:219 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:221 {!loading && products.length === 0 && !msg ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:13 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:22 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:51 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:61 const isLoadingPlan = loading && !meta;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:66 const shouldShowUpgrade = !isLoadingPlan && !isApexOrAbove && featureLocked;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:73 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:77 <span className="text-sm text-gray-500">Loading discounts…</span>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:82 {msg && !loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:86 {!loading && discounts.length === 0 ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:112 {!loading && discounts.length > 0 ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\insights\page.tsx:33 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\insights\page.tsx:38 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\insights\page.tsx:55 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\insights\page.tsx:87 <RefreshCw className={cn("w-5 h-5 text-white", loading && "animate-spin")} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\insights\page.tsx:93 {loading && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\insights\page.tsx:99 {!loading && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx:110 <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-gray-500 font-bold">Loading order details...</div>}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:137 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:156 else setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:184 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:337 if (loading) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:340 <GradientHeader title="Orders" subtitle="Loading..." showBack={false} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:118 const [loading, setLoading] = useState(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:258 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:311 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:359 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:387 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:399 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:425 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:437 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:448 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:458 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:490 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:521 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:536 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:558 loading={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:559 disabled={!canCreate || loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:99 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:264 else setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:301 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:397 if (loading) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:720 <Button onClick={createCategory} disabled={catBusy || !catName.trim()} loading={catBusy} className="w-auto px-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:760 loading={deleting}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:842 <img src={img} alt={product.name || "Product"} className="w-full h-full object-cover" loading="lazy" />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:947 <img src={img} alt={product.name || "Product"} className="w-full h-full object-cover" loading="lazy" />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\chat\page.tsx:127 <Button onClick={send} disabled={!canSend} loading={busy}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:80 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:106 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:140 if (mounted) setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:233 {loading ? <Card className="p-4">Loading…</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:236 {!loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:397 <Button onClick={startPayment} loading={paying} disabled={!canContinue}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:58 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:79 else setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:91 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:145 if (loading) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:148 <GradientHeader title="Promotions" subtitle="Loading..." showBack />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\callback\page-client.tsx:18 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\callback\page-client.tsx:37 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\callback\page-client.tsx:43 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\callback\page-client.tsx:58 if (mounted) setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\callback\page-client.tsx:75 <Button onClick={() => router.push("/vendor/purchases")} disabled={loading}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\callback\page-client.tsx:78 <Button variant="secondary" onClick={() => router.push("/vendor")} disabled={loading}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:41 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:63 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:75 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:114 {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:116 {!loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:187 <Button onClick={() => buy(a.sku)} loading={disabled} disabled={disabled}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:229 <Button onClick={() => buy(a.sku)} loading={disabled} disabled={disabled}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:96 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:181 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:216 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:439 const noPeople = !loading && people.length === 0;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:440 const noMatches = !loading && q.trim().length > 0 && people.length === 0;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:451 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:455 <RefreshCw className={cn("w-5 h-5 text-white", loading && "animate-spin")} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:467 {!reengagementUnlocked && !loading && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:577 {loading && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:580 <span className="text-sm text-gray-500">Loading audience...</span>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:584 {!loading && people.length > 0 && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:609 {!loading && people.length > 0 && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:654 {noPeople && !loading && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:775 loading={sending}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\security\page.tsx:28 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\security\page.tsx:39 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\security\page.tsx:46 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\security\page.tsx:69 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\security\page.tsx:71 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\security\page.tsx:130 {loading ? <Card className="p-4">Loading…</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\security\page.tsx:133 {!loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:48 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:65 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:80 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:142 disabled={loading}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:146 <RefreshCw className={cn("w-5 h-5 text-white", loading && "animate-spin")} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:176 {!loading && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:202 {loading
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:203 ? "Loading your payout details\u2026"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:212 {/* Loading skeleton */}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:213 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:278 loading={saving}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:288 {!loading && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:37 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:75 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:86 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:177 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:181 <span className="text-sm text-gray-500">Loading shipping options\u2026</span>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:319 <Button onClick={save} disabled={savingDisabled} loading={saving} className="w-full">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:326 {!loading && activeOptions.length > 0 && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:347 {!loading && inactiveOptions.length > 0 && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:368 {!loading && options.length === 0 && !msg && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:381 {!loading && options.length > 0 && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:387 disabled={loading || saving}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:496 loading={deleting}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:226 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:245 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:262 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:339 {/* Loading skeleton */}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:340 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:356 {!loading && data?.ok && data?.enabled ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:100 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:177 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:201 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:309 <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:316 {loading ? <Card className="p-4">Loading…</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:319 {!loading && !isOwner ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:331 {!loading && isOwner ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:453 <Button onClick={createInvite} loading={creating} disabled={creating || !email.trim() || !canInvite}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:516 loading={revokingId === inv.id}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:550 loading={removingId === s.id}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:51 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:81 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:126 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:191 if (loading) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:194 <GradientHeader title="Store Settings" subtitle="Loading..." showBack={true} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:516 loading={saving}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:146 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:173 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:194 if (mountedRef.current) setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:287 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:294 {loading
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:305 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:409 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:433 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:461 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:527 <Button onClick={payNow} loading={paying} disabled={!canPay || !plan}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:137 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:156 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:170 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:240 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:247 {loading
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:276 {loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:394 <Button onClick={continueToSummary} disabled={!plan || loading}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:98 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:133 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:159 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:252 {loading ? <Card className="p-4">Loading…</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:259 {!loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:327 <Button onClick={submitTier1} loading={saving} disabled={saving || selfieUrls.length < 1}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:382 <Button onClick={submitTier2} loading={saving} disabled={saving || idNumber.trim().length < 5}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:453 <Button onClick={submitTier3} loading={saving} disabled={saving || proofUrls.length < 1}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:13 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:22 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:40 if (mounted) setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:55 const allZero = !loading && !msg && pending === 0 && available === 0 && hold === 0 && total === 0;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:62 {loading ? <Card className="p-4">Loading…</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:84 {!loading && !msg && !allZero ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:22 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:43 setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:54 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:90 {loading ? <Card className="p-4">Loading…</Card> : null}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:93 {!loading ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:114 <Button onClick={requestWithdrawal} loading={sending} disabled={sending}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:160 const [loading, setLoading] = useState(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:176 else setLoading(true);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:225 setLoading(false);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:290 if (!access) return true; // While loading or no access data, assume subscribed to avoid flash
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:297 // Only show after loading is complete AND we know the plan is free/low tier
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:299 if (loading) return false; // Never show while loading
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:305 }, [loading, access, isSubscribed]);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:313 const showVerificationReminder = verificationTier < 2 && !verificationDismissed && !loading;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:315 if (loading) {
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:318 <GradientHeader title="Dashboard" subtitle="Loading your business..." showBack={false} />

@@ -108,9 +108,10 @@ export default function VendorAddPicturePage() {
         </div>
 
         <p className="text-[11px] text-gray-500">
-          Tip: If you go back without pressing â€œDoneâ€, your uploaded pictures will still be saved for this step.
+          Tip: If you go back without pressing “Done”, your uploaded pictures will still be saved for this step.
         </p>
       </div>
     </div>
   );
 }
+

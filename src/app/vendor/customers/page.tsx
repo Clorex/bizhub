@@ -45,10 +45,10 @@ function fmtNaira(n: number) {
 }
 
 function fmtDate(ms?: number) {
-  if (!ms) return "â€”";
+  if (!ms) return "—";
   try {
     return new Date(ms).toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" });
-  } catch { return "â€”"; }
+  } catch { return "—"; }
 }
 
 /* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
@@ -504,3 +504,4 @@ export default function VendorCustomersPage() {
     </div>
   );
 }
+

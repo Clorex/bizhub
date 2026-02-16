@@ -399,7 +399,7 @@ function MarketPageInner() {
         <DealsCarousel deals={deals} loading={dealsLoading} onProductClick={handleProductClick} onAddToCart={handleAddToCart} />
 
         {!searchQuery && (
-          <SectionCard title="Categories" subtitle="Browse by what you?re looking for" right={<Sparkles className="w-5 h-5 text-orange-500" />}>
+          <SectionCard title="Categories" subtitle="Browse by what you are looking for" right={<Sparkles className="w-5 h-5 text-orange-500" />}>
             <CategoryGrid selectedCategory={filters.category} onSelectCategory={handleCategorySelect} />
           </SectionCard>
         )}

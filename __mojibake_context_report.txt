@@ -1,0 +1,744 @@
+﻿=== MOJIBAKE CONTEXT REPORT (ASCII-SAFE) ===
+Time: 02/15/2026 20:40:42
+
+
+--- Pattern: Loading_mojibake_prefix ---
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 156 (showing 154..158):
+  154:         </Card>
+  155: 
+  156:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  157:         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+  158: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx
+Line 116 (showing 114..118):
+  114:         </Card>
+  115: 
+  116:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  117:         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+  118: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx
+Line 268 (showing 266..270):
+  266: 
+  267:       <div className="px-4 pb-24 space-y-3">
+  268:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  269:         {msg ? <Card className={String(msg).toLowerCase().includes("failed") ? "p-4 text-red-700" : "p-4"}>{msg}</Card> : null}
+  270: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx
+Line 141 (showing 139..143):
+  139:         </Card>
+  140: 
+  141:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  142: 
+  143:         {!loading && rows.length === 0 ? (
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx
+Line 79 (showing 77..81):
+  77: 
+  78:       <div className="px-4 pb-24 space-y-3">
+  79:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  80:         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+  81: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx
+Line 219 (showing 217..221):
+  217:         ) : null}
+  218: 
+  219:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  220: 
+  221:         {!loading && products.length === 0 && !msg ? (
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx
+Line 114 (showing 112..116):
+  112:       <div className="px-4 pb-24 space-y-3">
+  113:         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+  114:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  115: 
+  116:         {!loading ? (
+
+FILE: C:\Users\USER\Desktop\bizhub\src\components\AuthGate.tsx
+Line 69 (showing 67..71):
+  67:     return (
+  68:       <div className="min-h-screen p-4 bg-biz-bg">
+  69:         <Card className="p-4">Loadingâ€¦</Card>
+  70:       </div>
+  71:     );
+
+--- Pattern: MB_ELLIPSIS ---
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 156 (showing 154..158):
+  154:         </Card>
+  155: 
+  156:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  157:         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+  158: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx
+Line 116 (showing 114..118):
+  114:         </Card>
+  115: 
+  116:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  117:         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+  118: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx
+Line 268 (showing 266..270):
+  266: 
+  267:       <div className="px-4 pb-24 space-y-3">
+  268:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  269:         {msg ? <Card className={String(msg).toLowerCase().includes("failed") ? "p-4 text-red-700" : "p-4"}>{msg}</Card> : null}
+  270: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx
+Line 141 (showing 139..143):
+  139:         </Card>
+  140: 
+  141:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  142: 
+  143:         {!loading && rows.length === 0 ? (
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx
+Line 79 (showing 77..81):
+  77: 
+  78:       <div className="px-4 pb-24 space-y-3">
+  79:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  80:         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+  81: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\staff\register\register-client.tsx
+Line 149 (showing 147..151):
+  147:       <p className="text-sm text-gray-600 mt-1">Only set a password. Your role is pre-filled from the invite.</p>
+  148: 
+  149:       {loading ? <p className="mt-4 text-sm text-gray-600">Loading inviteâ€¦</p> : null}
+  150: 
+  151:       {!loading && invite ? (
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx
+Line 219 (showing 217..221):
+  217:         ) : null}
+  218: 
+  219:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  220: 
+  221:         {!loading && products.length === 0 && !msg ? (
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx
+Line 114 (showing 112..116):
+  112:       <div className="px-4 pb-24 space-y-3">
+  113:         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+  114:         {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+  115: 
+  116:         {!loading ? (
+
+FILE: C:\Users\USER\Desktop\bizhub\src\components\AuthGate.tsx
+Line 69 (showing 67..71):
+  67:     return (
+  68:       <div className="min-h-screen p-4 bg-biz-bg">
+  69:         <Card className="p-4">Loadingâ€¦</Card>
+  70:       </div>
+  71:     );
+
+FILE: C:\Users\USER\Desktop\bizhub\src\lib\analytics\adapter.ts
+Line 241 (showing 239..243):
+  239:     const pct = totalRevenue > 0 ? (p.revenue / totalRevenue) * 100 : 0;
+  240:     // Truncate name at 15 characters per spec
+  241:     const name = p.name.length > 15 ? p.name.substring(0, 15) + 'â€¦' : p.name;
+  242:     return {
+  243:       product_id: p.productId,
+
+--- Pattern: MB_APOSTROPHE ---
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx
+Line 106 (showing 104..108):
+  104:       toast.success("Message copied. Send it to the business owner.");
+  105:     } catch {
+  106:       toast.error("Couldnâ€™t copy the message. Please copy it manually.");
+  107:     }
+  108:   }
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts
+Line 375 (showing 373..377):
+  373:     else if (disputedCountAll > 0) suggestion = "Respond to disputes quickly with clear delivery proof to protect visibility.";
+  374:     else if (products.length === 0) suggestion = "Add your first product so customers can start ordering.";
+  375:     else if (outOfStockCount > 0) suggestion = "Restock your outâ€‘ofâ€‘stock products so customers donâ€™t bounce.";
+  376:     else if (lowStockCount > 0) suggestion = "Top up low stock items (especially your fast movers).";
+  377:     else if (visits > 0 && ordersWin.length === 0) suggestion = "You have visits but no ordersâ€”try clearer prices and a stronger product photo.";
+
+--- Pattern: MB_LDQUO ---
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\add-picture\page.tsx
+Line 111 (showing 109..113):
+  109: 
+  110:         <p className="text-[11px] text-gray-500">
+  111:           Tip: If you go back without pressing â€œDoneâ€, your uploaded pictures will still be saved for this step.
+  112:         </p>
+  113:       </div>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\lib\bizhubPlans.ts
+Line 34 (showing 32..36):
+  32:   benefits: Record<string, string[]>;
+  33: 
+  34:   /** Optional add-ons / upgrades (can include â€œcoming soonâ€) */
+  35:   purchases: Record<string, string[]>;
+  36: };
+
+--- Pattern: MB_RDQUO ---
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\add-picture\page.tsx
+Line 111 (showing 109..113):
+  109: 
+  110:         <p className="text-[11px] text-gray-500">
+  111:           Tip: If you go back without pressing â€œDoneâ€, your uploaded pictures will still be saved for this step.
+  112:         </p>
+  113:       </div>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+Line 24 (showing 22..26):
+  22: import { Package, AlertCircle, CheckCircle2, Zap, Info, Palette, Ruler } from "lucide-react";
+  23: 
+  24: /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Constants Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+  25: 
+  26: const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+Line 30 (showing 28..32):
+  28: const DRAFT_KEY = "bizhub_vendor_new_product_draft_v1";
+  29: 
+  30: /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+  31: 
+  32: function digitsOnly(s: string) {
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+Line 63 (showing 61..65):
+  61: }
+  62: 
+  63: /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Completion Tracker Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+  64: 
+  65: function useCompletionSteps(
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+Line 91 (showing 89..93):
+  89: }
+  90: 
+  91: /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Main Component Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+  92: 
+  93: export default function VendorNewProductPage() {
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+Line 396 (showing 394..398):
+  394:               <textarea
+  395:                 className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 resize-none disabled:opacity-50"
+  396:                 placeholder="Describe your product Ã¢â‚¬â€ material, features, what makes it special..."
+  397:                 value={description}
+  398:                 onChange={(e) => setDescription(e.target.value)}
+
+FILE: C:\Users\USER\Desktop\bizhub\src\lib\bizhubPlans.ts
+Line 34 (showing 32..36):
+  32:   benefits: Record<string, string[]>;
+  33: 
+  34:   /** Optional add-ons / upgrades (can include â€œcoming soonâ€) */
+  35:   purchases: Record<string, string[]>;
+  36: };
+
+--- Pattern: MB_ENDASH ---
+
+FILE: C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx
+Line 262 (showing 260..264):
+  260:           {[
+  261:             { key: "UNDER_5K", label: "Under ₦5k" },
+  262:             { key: "5K_20K", label: "₦5k â€“ ₦20k" },
+  263:             { key: "20K_100K", label: "₦20k â€“ ₦100k" },
+  264:             { key: "ABOVE_100K", label: "Above ₦100k" },
+
+FILE: C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx
+Line 263 (showing 261..265):
+  261:             { key: "UNDER_5K", label: "Under ₦5k" },
+  262:             { key: "5K_20K", label: "₦5k â€“ ₦20k" },
+  263:             { key: "20K_100K", label: "₦20k â€“ ₦100k" },
+  264:             { key: "ABOVE_100K", label: "Above ₦100k" },
+  265:           ].map((r) => {
+
+--- Pattern: MB_EMDASH ---
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx
+Line 118 (showing 116..120):
+  116:       <p className={status === "error" ? "text-sm text-red-700 mt-2" : "text-sm text-biz-muted mt-2"}>{msg}</p>
+  117: 
+  118:       <p className="text-[11px] text-gray-500 mt-3 break-all">Code: {code || "â€”"}</p>
+  119: 
+  120:       <div className="mt-4 space-y-2">
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 24 (showing 22..26):
+  22: 
+  23: function pctText(v: any) {
+  24:   if (v == null) return "â€”";
+  25:   const n = Number(v);
+  26:   if (!Number.isFinite(n)) return "â€”";
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 26 (showing 24..28):
+  24:   if (v == null) return "â€”";
+  25:   const n = Number(v);
+  26:   if (!Number.isFinite(n)) return "â€”";
+  27:   const s = n >= 0 ? "+" : "";
+  28:   return `${s}${n.toFixed(1)}%`;
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 32 (showing 30..34):
+  30: 
+  31: function diffText(v: any) {
+  32:   if (v == null) return "â€”";
+  33:   const n = Number(v);
+  34:   if (!Number.isFinite(n)) return "â€”";
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 34 (showing 32..36):
+  32:   if (v == null) return "â€”";
+  33:   const n = Number(v);
+  34:   if (!Number.isFinite(n)) return "â€”";
+  35:   const s = n >= 0 ? "+" : "";
+  36:   return `${s}${n.toLocaleString()}`;
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 202 (showing 200..204):
+  200:             <SectionCard
+  201:               title="Daily chart"
+  202:               subtitle="Shows trend â€” use this to spot decline/increase"
+  203:               right={
+  204:                 <select
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx
+Line 165 (showing 163..167):
+  163:                           </p>
+  164:                           <p className="text-[11px] text-gray-500 mt-1 break-all">
+  165:                             {b.phone ? `Phone: ${b.phone}` : b.email ? `Email: ${b.email}` : "â€”"}
+  166:                           </p>
+  167:                           <p className="text-[11px] text-gray-500 mt-1">
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx
+Line 35 (showing 33..37):
+  33: function fmtDateTime(v: any) {
+  34:   const ms = toMs(v);
+  35:   if (!ms) return "â€”";
+  36:   try {
+  37:     return new Date(ms).toLocaleString();
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx
+Line 422 (showing 420..424):
+  420:                           <p className="text-sm font-bold text-biz-ink">{w.status || "recorded"}</p>
+  421:                           <p className="text-[11px] text-gray-500 mt-1">
+  422:                             {w.createdAtMs ? new Date(Number(w.createdAtMs)).toLocaleString() : "â€”"}
+  423:                           </p>
+  424:                           {w.note ? <p className="text-[11px] text-gray-600 mt-1">{String(w.note)}</p> : null}
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx
+Line 426 (showing 424..428):
+  424:                           {w.note ? <p className="text-[11px] text-gray-600 mt-1">{String(w.note)}</p> : null}
+  425:                           <p className="text-[11px] text-gray-500 mt-1 break-all">
+  426:                             By: <b className="text-biz-ink">{String(w.createdByEmail || w.createdByUid || "â€”")}</b>
+  427:                           </p>
+  428:                         </div>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx
+Line 21 (showing 19..23):
+  19: 
+  20: function fmtDateMs(ms?: number) {
+  21:   if (!ms) return "â€”";
+  22:   try {
+  23:     return new Date(ms).toLocaleString();
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx
+Line 20 (showing 18..22):
+  18: 
+  19: function fmtDate(ms?: number) {
+  20:   if (!ms) return "â€”";
+  21:   try {
+  22:     return new Date(ms).toLocaleString();
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx
+Line 105 (showing 103..107):
+  103:                   </p>
+  104:                   <p className="text-[11px] text-gray-500 mt-1 break-all">
+  105:                     Business: <b className="text-biz-ink">{w.businessId}</b> â€¢ Slug: <b className="text-biz-ink">{w.businessSlug || "â€”"}</b>
+  106:                   </p>
+  107: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx
+Line 110 (showing 108..112):
+  108:                   <div className="mt-2 rounded-2xl border border-biz-line bg-white p-3">
+  109:                     <p className="text-[11px] text-gray-500">Bank</p>
+  110:                     <p className="text-sm font-bold text-biz-ink mt-1">{w?.payoutDetails?.bankName || "â€”"}</p>
+  111:                     <p className="text-[11px] text-gray-500 mt-1">
+  112:                       {w?.payoutDetails?.accountNumber || "â€”"} â€¢ {w?.payoutDetails?.accountName || "â€”"}
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx
+Line 112 (showing 110..114):
+  110:                     <p className="text-sm font-bold text-biz-ink mt-1">{w?.payoutDetails?.bankName || "â€”"}</p>
+  111:                     <p className="text-[11px] text-gray-500 mt-1">
+  112:                       {w?.payoutDetails?.accountNumber || "â€”"} â€¢ {w?.payoutDetails?.accountName || "â€”"}
+  113:                     </p>
+  114:                   </div>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts
+Line 377 (showing 375..379):
+  375:     else if (outOfStockCount > 0) suggestion = "Restock your outâ€‘ofâ€‘stock products so customers donâ€™t bounce.";
+  376:     else if (lowStockCount > 0) suggestion = "Top up low stock items (especially your fast movers).";
+  377:     else if (visits > 0 && ordersWin.length === 0) suggestion = "You have visits but no ordersâ€”try clearer prices and a stronger product photo.";
+  378: 
+  379:     let checkin: any = {
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts
+Line 153 (showing 151..155):
+  151: 
+  152:     const summaryLines: string[] = [];
+  153:     summaryLines.push(`myBizHub summary â€” ${storeName}`);
+  154:     summaryLines.push(`Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`);
+  155:     summaryLines.push(`This week: ${weekOrders} order(s) â€¢ ${fmtNaira(weekRevenue)}`);
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts
+Line 160 (showing 158..162):
+  158:       summaryLines.push(`Risk Shield: ${disputeLevel === "none" ? "OK" : disputeLevel.toUpperCase()} (${riskShieldMode})`);
+  159:     }
+  160:     summaryLines.push(`Store link: ${slug ? `${process.env.NEXT_PUBLIC_APP_URL}/b/${slug}` : "â€”"}`);
+  161: 
+  162:     const whatsappText = summaryLines.join("\n");
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx
+Line 48 (showing 46..50):
+  46: 
+  47: function fmtDate(ms?: number) {
+  48:   if (!ms) return "â€”";
+  49:   try {
+  50:     return new Date(ms).toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" });
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx
+Line 51 (showing 49..53):
+  49:   try {
+  50:     return new Date(ms).toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" });
+  51:   } catch { return "â€”"; }
+  52: }
+  53: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx
+Line 21 (showing 19..23):
+  19: 
+  20: function fmtDateMs(ms?: number) {
+  21:   if (!ms) return "â€”";
+  22:   try {
+  23:     return new Date(ms).toLocaleString();
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx
+Line 194 (showing 192..196):
+  192:           <Card className="p-4">
+  193:             <p className="font-extrabold text-biz-ink">Top dead stock by value</p>
+  194:             <p className="text-[11px] text-biz-muted mt-1">No chart library â€” simple bars.</p>
+  195: 
+  196:             <div className="mt-3 space-y-2">
+
+FILE: C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx
+Line 291 (showing 289..293):
+  289:       </div>
+  290: 
+  291:       {/* CATEGORY-SPECIFIC (DYNAMIC) â€” V1: Fashion only */}
+  292:       {draft.category === "fashion" ? (
+  293:         <div className="mt-5">
+
+FILE: C:\Users\USER\Desktop\bizhub\src\lib\analytics\adapter.ts
+Line 136 (showing 134..138):
+  134:   if (rate > 0.5) return 'Your store converts visitors very well.';
+  135:   if (rate >= 0.2) return 'Your conversion rate is average. Improve product descriptions to boost it.';
+  136:   if (rate > 0) return 'Low conversion â€” try better photos, clearer pricing, or adding more products.';
+  137:   return 'No conversions yet. Focus on getting traffic to your store.';
+  138: }
+
+FILE: C:\Users\USER\Desktop\bizhub\src\lib\analytics\adapter.ts
+Line 150 (showing 148..152):
+  148:   if (visits > 0 && orders > 0) {
+  149:     const rate = orders / visits;
+  150:     if (rate > 0.3) return 'Strong engagement â€” visitors are converting to buyers.';
+  151:     return 'Moderate engagement. Try improving your store page to convert more visitors.';
+  152:   }
+
+FILE: C:\Users\USER\Desktop\bizhub\src\lib\reports\platformDaily.ts
+Line 80 (showing 78..82):
+  78: 
+  79:   const lines: string[] = [];
+  80:   lines.push(`myBizHub Daily Report â€” ${dkToday}`);
+  81:   lines.push(``);
+  82:   lines.push(`Traffic`);
+
+FILE: C:\Users\USER\Desktop\bizhub\src\lib\reports\platformDaily.ts
+Line 83 (showing 81..85):
+  81:   lines.push(``);
+  82:   lines.push(`Traffic`);
+  83:   lines.push(`- Views:  ${tViews.toLocaleString()} (${pct(tViews, yViews) == null ? "â€”" : pct(tViews, yViews)!.toFixed(1) + "%"})`);
+  84:   lines.push(`- Leads:  ${tLeads.toLocaleString()} (${pct(tLeads, yLeads) == null ? "â€”" : pct(tLeads, yLeads)!.toFixed(1) + "%"})`);
+  85:   lines.push(`- Visits: ${tVisits.toLocaleString()} (${pct(tVisits, yVisits) == null ? "â€”" : pct(tVisits, yVisits)!.toFixed(1) + "%"})`);
+
+FILE: C:\Users\USER\Desktop\bizhub\src\lib\reports\platformDaily.ts
+Line 84 (showing 82..86):
+  82:   lines.push(`Traffic`);
+  83:   lines.push(`- Views:  ${tViews.toLocaleString()} (${pct(tViews, yViews) == null ? "â€”" : pct(tViews, yViews)!.toFixed(1) + "%"})`);
+  84:   lines.push(`- Leads:  ${tLeads.toLocaleString()} (${pct(tLeads, yLeads) == null ? "â€”" : pct(tLeads, yLeads)!.toFixed(1) + "%"})`);
+  85:   lines.push(`- Visits: ${tVisits.toLocaleString()} (${pct(tVisits, yVisits) == null ? "â€”" : pct(tVisits, yVisits)!.toFixed(1) + "%"})`);
+  86:   lines.push(``);
+
+FILE: C:\Users\USER\Desktop\bizhub\src\lib\reports\platformDaily.ts
+Line 85 (showing 83..87):
+  83:   lines.push(`- Views:  ${tViews.toLocaleString()} (${pct(tViews, yViews) == null ? "â€”" : pct(tViews, yViews)!.toFixed(1) + "%"})`);
+  84:   lines.push(`- Leads:  ${tLeads.toLocaleString()} (${pct(tLeads, yLeads) == null ? "â€”" : pct(tLeads, yLeads)!.toFixed(1) + "%"})`);
+  85:   lines.push(`- Visits: ${tVisits.toLocaleString()} (${pct(tVisits, yVisits) == null ? "â€”" : pct(tVisits, yVisits)!.toFixed(1) + "%"})`);
+  86:   lines.push(``);
+  87:   lines.push(`Sales`);
+
+--- Pattern: MB_BULLET ---
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 165 (showing 163..167):
+  163:               <p className="text-xs opacity-95">Platform summary</p>
+  164:               <p className="text-xl font-bold mt-1">
+  165:                 {totals.orders?.toLocaleString?.() || 0} order(s) â€¢ {fmtNaira(totals.revenue || 0)}
+  166:               </p>
+  167:               <p className="text-[11px] opacity-95 mt-2">
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 168 (showing 166..170):
+  166:               </p>
+  167:               <p className="text-[11px] opacity-95 mt-2">
+  168:                 Visits: <b>{Number(totals.visits || 0).toLocaleString()}</b> â€¢ Leads:{" "}
+  169:                 <b>{Number(totals.leads || 0).toLocaleString()}</b> â€¢ Views:{" "}
+  170:                 <b>{Number(totals.views || 0).toLocaleString()}</b>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 169 (showing 167..171):
+  167:               <p className="text-[11px] opacity-95 mt-2">
+  168:                 Visits: <b>{Number(totals.visits || 0).toLocaleString()}</b> â€¢ Leads:{" "}
+  169:                 <b>{Number(totals.leads || 0).toLocaleString()}</b> â€¢ Views:{" "}
+  170:                 <b>{Number(totals.views || 0).toLocaleString()}</b>
+  171:               </p>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+Line 225 (showing 223..227):
+  223:                         className="w-full rounded-xl bg-gradient-to-b from-biz-accent to-biz-accent2"
+  224:                         style={{ height: `${h}%` }}
+  225:                         title={`${d.dayKey} â€¢ ${metric}: ${v.toLocaleString()}`}
+  226:                       />
+  227:                       <span className="text-[10px] text-gray-500">{label}</span>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx
+Line 124 (showing 122..126):
+  122:               <p className="text-xs opacity-95">Customer summary</p>
+  123:               <p className="text-xl font-bold mt-1">
+  124:                 {Number(totals.uniqueBuyers || 0).toLocaleString()} buyers â€¢ {fmtNaira(totals.revenue || 0)}
+  125:               </p>
+  126:               <p className="text-[11px] opacity-95 mt-2">
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx
+Line 127 (showing 125..129):
+  125:               </p>
+  126:               <p className="text-[11px] opacity-95 mt-2">
+  127:                 Orders: <b>{Number(totals.orders || 0).toLocaleString()}</b> â€¢ Repeat buyers:{" "}
+  128:                 <b>{Number(totals.repeatBuyers || 0).toLocaleString()}</b>
+  129:               </p>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx
+Line 143 (showing 141..145):
+  141:                         className="w-full rounded-xl bg-gradient-to-b from-biz-accent to-biz-accent2"
+  142:                         style={{ height: `${h}%` }}
+  143:                         title={`${d.dayKey} â€¢ orders: ${v}`}
+  144:                       />
+  145:                       <span className="text-[10px] text-gray-500">{label}</span>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx
+Line 129 (showing 127..131):
+  127:           <p className="font-extrabold text-biz-ink">Overview</p>
+  128:           <p className="text-xs text-biz-muted mt-1">
+  129:             Unread: <b className="text-biz-ink">{unreadCount}</b> â€¢ Total: <b className="text-biz-ink">{rows.length}</b>
+  130:           </p>
+  131:           <div className="mt-3 flex gap-2">
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx
+Line 179 (showing 177..181):
+  177:                       <p className="text-[11px] text-gray-500 mt-1 break-all">
+  178:                         Business: <b className="text-biz-ink">{bid}</b>
+  179:                         {slug ? <> â€¢ <b className="text-biz-ink">{slug}</b></> : null}
+  180:                       </p>
+  181:                     ) : null}
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx
+Line 186 (showing 184..188):
+  184:                       <p className="text-[11px] text-gray-500 mt-1">
+  185:                         Plan: <b className="text-biz-ink">{planKey}</b>
+  186:                         {cycle ? <> â€¢ <b className="text-biz-ink">{cycle}</b></> : null}
+  187:                       </p>
+  188:                     ) : null}
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx
+Line 105 (showing 103..107):
+  103:                   </p>
+  104:                   <p className="text-[11px] text-gray-500 mt-1 break-all">
+  105:                     Business: <b className="text-biz-ink">{w.businessId}</b> â€¢ Slug: <b className="text-biz-ink">{w.businessSlug || "â€”"}</b>
+  106:                   </p>
+  107: 
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx
+Line 112 (showing 110..114):
+  110:                     <p className="text-sm font-bold text-biz-ink mt-1">{w?.payoutDetails?.bankName || "â€”"}</p>
+  111:                     <p className="text-[11px] text-gray-500 mt-1">
+  112:                       {w?.payoutDetails?.accountNumber || "â€”"} â€¢ {w?.payoutDetails?.accountName || "â€”"}
+  113:                     </p>
+  114:                   </div>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\cron\daily-checkin\route.ts
+Line 106 (showing 104..108):
+  104:         const todayLine = `Today: ${Number(
+  105:           snapshot?.today?.orders || 0
+  106:         )} order(s) â€¢ ${fmtNaira(
+  107:           Number(snapshot?.today?.revenue || 0)
+  108:         )}`;
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\cron\daily-checkin\route.ts
+Line 122 (showing 120..124):
+  120:           lines: [
+  121:             todayLine,
+  122:             `Pending: ${pending} â€¢ Disputes: ${disputes}`,
+  123:             needs
+  124:               ? `Needs attention: ${needs} order(s)`
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts
+Line 382 (showing 380..384):
+  380:       title: "Daily business checkâ€‘in",
+  381:       lines: [
+  382:         `Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`,
+  383:         `This ${usedRange}: ${ordersWin.length} order(s) â€¢ ${fmtNaira(totalRevenue)}`,
+  384:         attentionCount ? `Needs attention: ${attentionCount} order(s)` : "Needs attention: none",
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts
+Line 383 (showing 381..385):
+  381:       lines: [
+  382:         `Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`,
+  383:         `This ${usedRange}: ${ordersWin.length} order(s) â€¢ ${fmtNaira(totalRevenue)}`,
+  384:         attentionCount ? `Needs attention: ${attentionCount} order(s)` : "Needs attention: none",
+  385:       ],
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts
+Line 154 (showing 152..156):
+  152:     const summaryLines: string[] = [];
+  153:     summaryLines.push(`myBizHub summary â€” ${storeName}`);
+  154:     summaryLines.push(`Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`);
+  155:     summaryLines.push(`This week: ${weekOrders} order(s) â€¢ ${fmtNaira(weekRevenue)}`);
+  156:     if (openDisputes > 0) summaryLines.push(`Open disputes: ${openDisputes}`);
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts
+Line 155 (showing 153..157):
+  153:     summaryLines.push(`myBizHub summary â€” ${storeName}`);
+  154:     summaryLines.push(`Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`);
+  155:     summaryLines.push(`This week: ${weekOrders} order(s) â€¢ ${fmtNaira(weekRevenue)}`);
+  156:     if (openDisputes > 0) summaryLines.push(`Open disputes: ${openDisputes}`);
+  157:     if (riskShieldEnabled) {
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\vendor\plans\route.ts
+Line 164 (showing 162..166):
+  162: 
+  163:   const fmt = (title: string, m: number, y: number) =>
+  164:     `${title} â€¢ ₦${m.toLocaleString("en-NG")}/month â€¢ ₦${y.toLocaleString("en-NG")}/year`;
+  165: 
+  166:   const out: Record<string, string[]> = {};
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx
+Line 163 (showing 161..165):
+  161:               {totals ? (
+  162:                 <p className="text-[11px] text-gray-500 mt-1">
+  163:                   Items: <b className="text-biz-ink">{Number(totals.deadCount || 0)}</b> â€¢ Value:{" "}
+  164:                   <b className="text-biz-ink">{fmtNaira(Number(totals.deadValueNgn || 0))}</b>
+  165:                 </p>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx
+Line 240 (showing 238..242):
+  238:                   </p>
+  239:                   <p className="text-[11px] text-gray-500 mt-2">
+  240:                     Stock: <b className="text-biz-ink">{Number(p.stock || 0)}</b> â€¢ Unit:{" "}
+  241:                     <b className="text-biz-ink">{fmtNaira(Number(p.priceNgn || 0))}</b>
+  242:                   </p>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx
+Line 248 (showing 246..250):
+  246:                       <>
+  247:                         {" "}
+  248:                         â€¢ <b className="text-biz-ink">{Number(p.daysSinceLastSale)}</b> day(s) ago
+  249:                       </>
+  250:                     ) : null}
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx
+Line 512 (showing 510..514):
+  510:           <div className="text-center pt-2 space-y-2">
+  511:             <p className="text-xs text-gray-400">
+  512:               Plan: {planKey} â€¢ Showing {filteredOrders.length} of {orders.length} orders
+  513:             </p>
+  514:             {planKey === "FREE" && (
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx
+Line 217 (showing 215..219):
+  215:                                 <b className="text-biz-ink">
+  216:                                   {a.status.toUpperCase()}
+  217:                                   {a.expiresAtMs ? ` â€¢ expires: ${new Date(a.expiresAtMs).toLocaleDateString()}` : ""}
+  218:                                 </b>
+  219:                               </p>
+
+FILE: C:\Users\USER\Desktop\bizhub\src\components\emails\OrderReceiptEmail.tsx
+Line 123 (showing 121..125):
+  121:           </Section>
+  122: 
+  123:           <Text style={footer}>myBizHub â€¢ If you have any questions, please contact the vendor directly.</Text>
+  124:         </Container>
+  125:       </Body>
+
+--- Pattern: DOUBLE_ENC_MARKER_A_CIRC ---
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+Line 24 (showing 22..26):
+  22: import { Package, AlertCircle, CheckCircle2, Zap, Info, Palette, Ruler } from "lucide-react";
+  23: 
+  24: /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Constants Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+  25: 
+  26: const PACKAGING = ["Box", "Nylon", "Bottle", "Plate", "Wrap", "Carton", "Sachet", "Bag", "Other"] as const;
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+Line 30 (showing 28..32):
+  28: const DRAFT_KEY = "bizhub_vendor_new_product_draft_v1";
+  29: 
+  30: /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Helpers Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+  31: 
+  32: function digitsOnly(s: string) {
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+Line 63 (showing 61..65):
+  61: }
+  62: 
+  63: /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Completion Tracker Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+  64: 
+  65: function useCompletionSteps(
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+Line 91 (showing 89..93):
+  89: }
+  90: 
+  91: /* Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ Main Component Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬Ã¢â€â‚¬ */
+  92: 
+  93: export default function VendorNewProductPage() {
+
+FILE: C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+Line 396 (showing 394..398):
+  394:               <textarea
+  395:                 className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-orange-500/30 focus:border-orange-300 resize-none disabled:opacity-50"
+  396:                 placeholder="Describe your product Ã¢â‚¬â€ material, features, what makes it special..."
+  397:                 value={description}
+  398:                 onChange={(e) => setDescription(e.target.value)}
+
+--- Pattern: DOUBLE_ENC_MARKER_A_TILDE ---
+(none)

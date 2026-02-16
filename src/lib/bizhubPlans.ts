@@ -31,7 +31,7 @@ export type PlanCatalog = {
   /** Longer breakdown */
   benefits: Record<string, string[]>;
 
-  /** Optional add-ons / upgrades (can include â€œcoming soonâ€) */
+  /** Optional add-ons / upgrades (can include “coming soon”) */
   purchases: Record<string, string[]>;
 };
 
@@ -373,3 +373,4 @@ export function getEntitlement(params: {
 export function productLimitFor(planKey: BizhubPlanKey): number | "unlimited" {
   return BIZHUB_PLANS[planKey]?.limits?.maxProducts ?? 20;
 }
+

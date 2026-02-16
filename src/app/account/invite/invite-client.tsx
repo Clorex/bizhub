@@ -103,7 +103,7 @@ export default function InviteAcceptClient() {
       await navigator.clipboard.writeText(ownerMessage);
       toast.success("Message copied. Send it to the business owner.");
     } catch {
-      toast.error("Couldnâ€™t copy the message. Please copy it manually.");
+      toast.error("Couldn’t copy the message. Please copy it manually.");
     }
   }
 
@@ -115,7 +115,7 @@ export default function InviteAcceptClient() {
 
       <p className={status === "error" ? "text-sm text-red-700 mt-2" : "text-sm text-biz-muted mt-2"}>{msg}</p>
 
-      <p className="text-[11px] text-gray-500 mt-3 break-all">Code: {code || "â€”"}</p>
+      <p className="text-[11px] text-gray-500 mt-3 break-all">Code: {code || "—"}</p>
 
       <div className="mt-4 space-y-2">
         {status === "ready" ? <Button onClick={accept}>Accept invite</Button> : null}
@@ -135,4 +135,5 @@ export default function InviteAcceptClient() {
     </Card>
   );
 }
+
 

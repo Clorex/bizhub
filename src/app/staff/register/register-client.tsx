@@ -146,7 +146,7 @@ export default function StaffRegisterClient() {
       <p className="text-base font-extrabold text-[#111827]">Create your staff account</p>
       <p className="text-sm text-gray-600 mt-1">Only set a password. Your role is pre-filled from the invite.</p>
 
-      {loading ? <p className="mt-4 text-sm text-gray-600">Loading inviteâ€¦</p> : null}
+      {loading ? <p className="mt-4 text-sm text-gray-600">Loading invite…</p> : null}
 
       {!loading && invite ? (
         <div className="mt-4 space-y-2">
@@ -213,3 +213,4 @@ export default function StaffRegisterClient() {
     </Card>
   );
 }
+

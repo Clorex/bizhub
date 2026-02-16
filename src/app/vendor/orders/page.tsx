@@ -509,7 +509,7 @@ export default function VendorOrdersPage() {
         {meta && orders.length > 0 && (
           <div className="text-center pt-2 space-y-2">
             <p className="text-xs text-gray-400">
-              Plan: {planKey} â€¢ Showing {filteredOrders.length} of {orders.length} orders
+              Plan: {planKey} • Showing {filteredOrders.length} of {orders.length} orders
             </p>
             {planKey === "FREE" && (
               <button
@@ -644,3 +644,4 @@ function OrderCard({ order, onClick }: { order: any; onClick: () => void }) {
     </button>
   );
 }
+

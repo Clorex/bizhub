@@ -120,7 +120,7 @@ export function OrderReceiptEmail({
             </Row>
           </Section>
 
-          <Text style={footer}>myBizHub â€¢ If you have any questions, please contact the vendor directly.</Text>
+          <Text style={footer}>myBizHub • If you have any questions, please contact the vendor directly.</Text>
         </Container>
       </Body>
     </Html>
@@ -146,3 +146,4 @@ const hr = { borderColor: "#e5e7eb", margin: "16px 0" };
 const totalLabel = { color: "#1a1a1a", fontSize: "16px", fontWeight: "bold", margin: 0 };
 const totalValue = { color: "#1a1a1a", fontSize: "16px", fontWeight: "bold", margin: 0 };
 const footer = { color: "#888888", fontSize: "12px", textAlign: "center" as const, marginTop: "20px" };
+

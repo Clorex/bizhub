@@ -17,7 +17,7 @@ function fmtNairaFromKobo(kobo: number) {
 }
 
 function fmtDate(ms?: number) {
-  if (!ms) return "â€”";
+  if (!ms) return "—";
   try {
     return new Date(ms).toLocaleString();
   } catch {
@@ -76,7 +76,7 @@ export default function AdminWithdrawalsPage() {
       <GradientHeader title="Withdrawals" subtitle="Admin payout processing" showBack={true} />
 
       <div className="px-4 pb-24 space-y-3">
-        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {loading ? <Card className="p-4">Loading…</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         <Card className="p-4">
@@ -102,14 +102,14 @@ export default function AdminWithdrawalsPage() {
                     {fmtDate(Number(w.createdAtMs || 0))}
                   </p>
                   <p className="text-[11px] text-gray-500 mt-1 break-all">
-                    Business: <b className="text-biz-ink">{w.businessId}</b> â€¢ Slug: <b className="text-biz-ink">{w.businessSlug || "â€”"}</b>
+                    Business: <b className="text-biz-ink">{w.businessId}</b> • Slug: <b className="text-biz-ink">{w.businessSlug || "—"}</b>
                   </p>
 
                   <div className="mt-2 rounded-2xl border border-biz-line bg-white p-3">
                     <p className="text-[11px] text-gray-500">Bank</p>
-                    <p className="text-sm font-bold text-biz-ink mt-1">{w?.payoutDetails?.bankName || "â€”"}</p>
+                    <p className="text-sm font-bold text-biz-ink mt-1">{w?.payoutDetails?.bankName || "—"}</p>
                     <p className="text-[11px] text-gray-500 mt-1">
-                      {w?.payoutDetails?.accountNumber || "â€”"} â€¢ {w?.payoutDetails?.accountName || "â€”"}
+                      {w?.payoutDetails?.accountNumber || "—"} • {w?.payoutDetails?.accountName || "—"}
                     </p>
                   </div>
 
@@ -140,3 +140,4 @@ export default function AdminWithdrawalsPage() {
     </div>
   );
 }
+

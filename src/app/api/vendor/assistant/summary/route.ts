@@ -150,14 +150,14 @@ export async function GET(req: Request) {
     }
 
     const summaryLines: string[] = [];
-    summaryLines.push(`myBizHub summary â€” ${storeName}`);
-    summaryLines.push(`Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`);
-    summaryLines.push(`This week: ${weekOrders} order(s) â€¢ ${fmtNaira(weekRevenue)}`);
+    summaryLines.push(`myBizHub summary — ${storeName}`);
+    summaryLines.push(`Today: ${todayOrders} order(s) • ${fmtNaira(todayRevenue)}`);
+    summaryLines.push(`This week: ${weekOrders} order(s) • ${fmtNaira(weekRevenue)}`);
     if (openDisputes > 0) summaryLines.push(`Open disputes: ${openDisputes}`);
     if (riskShieldEnabled) {
       summaryLines.push(`Risk Shield: ${disputeLevel === "none" ? "OK" : disputeLevel.toUpperCase()} (${riskShieldMode})`);
     }
-    summaryLines.push(`Store link: ${slug ? `${process.env.NEXT_PUBLIC_APP_URL}/b/${slug}` : "â€”"}`);
+    summaryLines.push(`Store link: ${slug ? `${process.env.NEXT_PUBLIC_APP_URL}/b/${slug}` : "—"}`);
 
     const whatsappText = summaryLines.join("\n");
 
@@ -201,3 +201,4 @@ export async function GET(req: Request) {
     return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
   }
 }
+

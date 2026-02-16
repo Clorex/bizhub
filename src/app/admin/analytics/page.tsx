@@ -21,17 +21,17 @@ function fmtNaira(n: number) {
 }
 
 function pctText(v: any) {
-  if (v == null) return "â€”";
+  if (v == null) return "—";
   const n = Number(v);
-  if (!Number.isFinite(n)) return "â€”";
+  if (!Number.isFinite(n)) return "—";
   const s = n >= 0 ? "+" : "";
   return `${s}${n.toFixed(1)}%`;
 }
 
 function diffText(v: any) {
-  if (v == null) return "â€”";
+  if (v == null) return "—";
   const n = Number(v);
-  if (!Number.isFinite(n)) return "â€”";
+  if (!Number.isFinite(n)) return "—";
   const s = n >= 0 ? "+" : "";
   return `${s}${n.toLocaleString()}`;
 }
@@ -153,7 +153,7 @@ export default function AdminPlatformAnalyticsPage() {
           </p>
         </Card>
 
-        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {loading ? <Card className="p-4">Loading…</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         {!loading && data ? (
@@ -162,11 +162,11 @@ export default function AdminPlatformAnalyticsPage() {
             <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
               <p className="text-xs opacity-95">Platform summary</p>
               <p className="text-xl font-bold mt-1">
-                {totals.orders?.toLocaleString?.() || 0} order(s) â€¢ {fmtNaira(totals.revenue || 0)}
+                {totals.orders?.toLocaleString?.() || 0} order(s) • {fmtNaira(totals.revenue || 0)}
               </p>
               <p className="text-[11px] opacity-95 mt-2">
-                Visits: <b>{Number(totals.visits || 0).toLocaleString()}</b> â€¢ Leads:{" "}
-                <b>{Number(totals.leads || 0).toLocaleString()}</b> â€¢ Views:{" "}
+                Visits: <b>{Number(totals.visits || 0).toLocaleString()}</b> • Leads:{" "}
+                <b>{Number(totals.leads || 0).toLocaleString()}</b> • Views:{" "}
                 <b>{Number(totals.views || 0).toLocaleString()}</b>
               </p>
             </div>
@@ -199,7 +199,7 @@ export default function AdminPlatformAnalyticsPage() {
             {/* Metric chart */}
             <SectionCard
               title="Daily chart"
-              subtitle="Shows trend â€” use this to spot decline/increase"
+              subtitle="Shows trend — use this to spot decline/increase"
               right={
                 <select
                   value={metric}
@@ -222,7 +222,7 @@ export default function AdminPlatformAnalyticsPage() {
                       <div
                         className="w-full rounded-xl bg-gradient-to-b from-biz-accent to-biz-accent2"
                         style={{ height: `${h}%` }}
-                        title={`${d.dayKey} â€¢ ${metric}: ${v.toLocaleString()}`}
+                        title={`${d.dayKey} • ${metric}: ${v.toLocaleString()}`}
                       />
                       <span className="text-[10px] text-gray-500">{label}</span>
                     </div>
@@ -250,3 +250,4 @@ export default function AdminPlatformAnalyticsPage() {
     </div>
   );
 }
+

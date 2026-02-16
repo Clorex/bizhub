@@ -32,7 +32,7 @@ function toMs(v: any) {
 
 function fmtDateTime(v: any) {
   const ms = toMs(v);
-  if (!ms) return "â€”";
+  if (!ms) return "—";
   try {
     return new Date(ms).toLocaleString();
   } catch {
@@ -265,7 +265,7 @@ export default function AdminFinancePage() {
       />
 
       <div className="px-4 pb-24 space-y-3">
-        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
+        {loading ? <Card className="p-4">Loading…</Card> : null}
         {msg ? <Card className={String(msg).toLowerCase().includes("failed") ? "p-4 text-red-700" : "p-4"}>{msg}</Card> : null}
 
         {!loading && finance ? (
@@ -419,11 +419,11 @@ export default function AdminFinancePage() {
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-biz-ink">{w.status || "recorded"}</p>
                           <p className="text-[11px] text-gray-500 mt-1">
-                            {w.createdAtMs ? new Date(Number(w.createdAtMs)).toLocaleString() : "â€”"}
+                            {w.createdAtMs ? new Date(Number(w.createdAtMs)).toLocaleString() : "—"}
                           </p>
                           {w.note ? <p className="text-[11px] text-gray-600 mt-1">{String(w.note)}</p> : null}
                           <p className="text-[11px] text-gray-500 mt-1 break-all">
-                            By: <b className="text-biz-ink">{String(w.createdByEmail || w.createdByUid || "â€”")}</b>
+                            By: <b className="text-biz-ink">{String(w.createdByEmail || w.createdByUid || "—")}</b>
                           </p>
                         </div>
                         <div className="text-right shrink-0">
@@ -503,3 +503,4 @@ export default function AdminFinancePage() {
     </div>
   );
 }
+
