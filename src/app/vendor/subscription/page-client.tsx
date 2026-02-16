@@ -115,7 +115,7 @@ type PlansResponse = {
 
 export default function VendorSubscriptionPageClient() {
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
 
   const planFromUrl = String(sp.get("plan") || "LAUNCH").toUpperCase();
   const cycleFromUrl = String(sp.get("cycle") || "yearly").toLowerCase();

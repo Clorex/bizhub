@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
@@ -37,7 +37,7 @@ function toMs(v: any) {
 
 function fmtDateTime(v: any) {
   const ms = toMs(v);
-  if (!ms) return "—";
+  if (!ms) return "â€”";
   try {
     return new Date(ms).toLocaleString();
   } catch {
@@ -46,7 +46,7 @@ function fmtDateTime(v: any) {
 }
 
 function fmtDate(ms?: number) {
-  if (!ms) return "—";
+  if (!ms) return "â€”";
   try {
     return new Date(ms).toLocaleDateString();
   } catch {
@@ -55,7 +55,7 @@ function fmtDate(ms?: number) {
 }
 
 function fmtDateMs(ms?: number) {
-  if (!ms) return "—";
+  if (!ms) return "â€”";
   try {
     return new Date(ms).toLocaleString();
   } catch {
@@ -76,7 +76,7 @@ export default function AdminVendorDetailPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [data, setData] = useState<any>(null);
 
-  // ✅ subscription control (manual override)
+  // âœ… subscription control (manual override)
   const [planKey, setPlanKey] = useState<PlanKey>("LAUNCH");
   const [cycle, setCycle] = useState<Cycle>("monthly");
   const [lastPaymentReference, setLastPaymentReference] = useState<string>("manual-admin");
@@ -140,10 +140,10 @@ export default function AdminVendorDetailPage() {
 
   const planLabel = useMemo(() => {
     if (biz?.subscription?.planKey && Number(biz?.subscription?.expiresAtMs || 0) > Date.now()) {
-      return `Subscribed • ${biz.subscription.planKey}`;
+      return `Subscribed â€¢ ${biz.subscription.planKey}`;
     }
     if (biz?.trial?.planKey && Number(biz?.trial?.endsAtMs || 0) > Date.now()) {
-      return `Trial • ${biz.trial.planKey}`;
+      return `Trial â€¢ ${biz.trial.planKey}`;
     }
     return "Free";
   }, [biz]);
@@ -212,7 +212,7 @@ export default function AdminVendorDetailPage() {
       />
 
       <div className="px-4 pb-24 space-y-3">
-        {/* ✅ Subscription control */}
+        {/* âœ… Subscription control */}
         <SectionCard title="Subscription control" subtitle="Admin manual upgrade (override anytime)">
           <Card variant="soft" className="p-3">
             <p className="text-sm font-bold text-biz-ink">Current</p>
@@ -320,7 +320,7 @@ export default function AdminVendorDetailPage() {
           </div>
         </Card>
 
-        {loading ? <Card className="p-4">Loading…</Card> : null}
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         {!loading && data ? (
@@ -329,7 +329,7 @@ export default function AdminVendorDetailPage() {
               <p className="text-xs opacity-95">Vendor</p>
               <p className="text-xl font-bold mt-1">
                 {biz?.name || "Business"}{" "}
-                <span className="opacity-95 text-[11px]">({biz?.slug || "—"})</span>
+                <span className="opacity-95 text-[11px]">({biz?.slug || "â€”"})</span>
               </p>
               <p className="text-[11px] opacity-95 mt-2">
                 Plan: <b>{planLabel}</b>
@@ -397,7 +397,7 @@ export default function AdminVendorDetailPage() {
                       <div
                         className="w-full rounded-xl bg-gradient-to-b from-biz-accent to-biz-accent2"
                         style={{ height: `${h}%` }}
-                        title={`${d.dayKey} • ${metric}: ${v.toLocaleString()}`}
+                        title={`${d.dayKey} â€¢ ${metric}: ${v.toLocaleString()}`}
                       />
                       <span className="text-[10px] text-gray-500">{label}</span>
                     </div>
@@ -427,7 +427,7 @@ export default function AdminVendorDetailPage() {
                         <div className="min-w-0">
                           <p className="text-sm font-bold text-biz-ink">Order #{String(o.id).slice(0, 8)}</p>
                           <p className="text-[11px] text-gray-500 mt-1">
-                            {String(o.paymentType || "—")} • {String(o.orderStatus || o.escrowStatus || "—")}
+                            {String(o.paymentType || "â€”")} â€¢ {String(o.orderStatus || o.escrowStatus || "â€”")}
                           </p>
                           <p className="text-[11px] text-gray-500 mt-1">Created: {fmtDateTime(o.createdAt)}</p>
                         </div>

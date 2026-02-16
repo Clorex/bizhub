@@ -1,4 +1,4 @@
-import * as React from "react";
+﻿import * as React from "react";
 import { Html, Head, Preview, Body, Container, Section, Heading, Text, Row, Column } from "@react-email/components";
 
 function fmtNaira(n: number) {
@@ -17,7 +17,7 @@ function padOrderNumber(n?: number, width = 4) {
 
 interface OrderReceiptEmailProps {
   orderId: string;
-  orderNumber?: number; // ✅ NEW (optional, backward-compatible)
+  orderNumber?: number; // âœ… NEW (optional, backward-compatible)
   orderDate: string;
   storeName: string;
   customerName: string;
@@ -120,7 +120,7 @@ export function OrderReceiptEmail({
             </Row>
           </Section>
 
-          <Text style={footer}>myBizHub • If you have any questions, please contact the vendor directly.</Text>
+          <Text style={footer}>myBizHub â€¢ If you have any questions, please contact the vendor directly.</Text>
         </Container>
       </Body>
     </Html>

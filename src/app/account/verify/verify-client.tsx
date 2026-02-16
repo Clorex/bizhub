@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -7,7 +7,7 @@ import { Card } from "@/components/Card";
 
 export default function VerifyClient() {
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
   const next = sp.get("next") || "/account";
 
   const [code, setCode] = useState("");

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -18,7 +18,7 @@ function fmtNaira(n: number) {
 }
 
 function fmtDateMs(ms?: number) {
-  if (!ms) return "—";
+  if (!ms) return "â€”";
   try {
     return new Date(ms).toLocaleString();
   } catch {
@@ -160,7 +160,7 @@ export default function VendorDeadStockPage() {
               </p>
               {totals ? (
                 <p className="text-[11px] text-gray-500 mt-1">
-                  Items: <b className="text-biz-ink">{Number(totals.deadCount || 0)}</b> • Value:{" "}
+                  Items: <b className="text-biz-ink">{Number(totals.deadCount || 0)}</b> â€¢ Value:{" "}
                   <b className="text-biz-ink">{fmtNaira(Number(totals.deadValueNgn || 0))}</b>
                 </p>
               ) : null}
@@ -191,7 +191,7 @@ export default function VendorDeadStockPage() {
         {!loading && products.length > 0 ? (
           <Card className="p-4">
             <p className="font-extrabold text-biz-ink">Top dead stock by value</p>
-            <p className="text-[11px] text-biz-muted mt-1">No chart library — simple bars.</p>
+            <p className="text-[11px] text-biz-muted mt-1">No chart library â€” simple bars.</p>
 
             <div className="mt-3 space-y-2">
               {topBars.list.map((p) => {
@@ -216,7 +216,7 @@ export default function VendorDeadStockPage() {
           </Card>
         ) : null}
 
-        {loading ? <Card className="p-4">Loading…</Card> : null}
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
 
         {!loading && products.length === 0 && !msg ? (
           <Card className="p-5 text-center">
@@ -237,7 +237,7 @@ export default function VendorDeadStockPage() {
                     Product ID: <b className="text-biz-ink">{p.productId}</b>
                   </p>
                   <p className="text-[11px] text-gray-500 mt-2">
-                    Stock: <b className="text-biz-ink">{Number(p.stock || 0)}</b> • Unit:{" "}
+                    Stock: <b className="text-biz-ink">{Number(p.stock || 0)}</b> â€¢ Unit:{" "}
                     <b className="text-biz-ink">{fmtNaira(Number(p.priceNgn || 0))}</b>
                   </p>
                   <p className="text-[11px] text-gray-500 mt-1">
@@ -245,7 +245,7 @@ export default function VendorDeadStockPage() {
                     {p.daysSinceLastSale != null ? (
                       <>
                         {" "}
-                        • <b className="text-biz-ink">{Number(p.daysSinceLastSale)}</b> day(s) ago
+                        â€¢ <b className="text-biz-ink">{Number(p.daysSinceLastSale)}</b> day(s) ago
                       </>
                     ) : null}
                   </p>

@@ -1,4 +1,4 @@
-// FILE: src/app/vendor/customers/page.tsx
+﻿// FILE: src/app/vendor/customers/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -37,7 +37,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 
-/* ─────────────────────── Helpers ─────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 function fmtNaira(n: number) {
   try { return `₦${Number(n || 0).toLocaleString("en-NG")}`; }
@@ -45,13 +45,13 @@ function fmtNaira(n: number) {
 }
 
 function fmtDate(ms?: number) {
-  if (!ms) return "—";
+  if (!ms) return "â€”";
   try {
     return new Date(ms).toLocaleDateString("en-NG", { month: "short", day: "numeric", year: "numeric" });
-  } catch { return "—"; }
+  } catch { return "â€”"; }
 }
 
-/* ─────────────────────── Main Component ─────────────────────── */
+/* â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ Main Component â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 export default function VendorCustomersPage() {
   const router = useRouter();
@@ -69,7 +69,7 @@ export default function VendorCustomersPage() {
   const [expandedCustomer, setExpandedCustomer] = useState<string | null>(null);
   const [savingNotes, setSavingNotes] = useState<string | null>(null);
 
-  /* ─── Authed fetch ─── */
+  /* â”€â”€â”€ Authed fetch â”€â”€â”€ */
   const authedFetch = useCallback(async (path: string, init?: RequestInit) => {
     const token = await auth.currentUser?.getIdToken();
     const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
@@ -82,7 +82,7 @@ export default function VendorCustomersPage() {
     return data;
   }, []);
 
-  /* ─── Load ─── */
+  /* â”€â”€â”€ Load â”€â”€â”€ */
   const load = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
@@ -104,7 +104,7 @@ export default function VendorCustomersPage() {
 
   useEffect(() => { load(); }, [load]);
 
-  /* ─── Export ─── */
+  /* â”€â”€â”€ Export â”€â”€â”€ */
   const exportCsv = useCallback(async () => {
     setExporting(true);
     try {
@@ -134,7 +134,7 @@ export default function VendorCustomersPage() {
     }
   }, []);
 
-  /* ─── Save notes ─── */
+  /* â”€â”€â”€ Save notes â”€â”€â”€ */
   const saveNotes = useCallback(async (customer: any) => {
     setSavingNotes(customer.customerKey);
     try {
@@ -160,7 +160,7 @@ export default function VendorCustomersPage() {
     }
   }, [authedFetch]);
 
-  /* ─── Derived ─── */
+  /* â”€â”€â”€ Derived â”€â”€â”€ */
   const planKey = String(meta?.planKey || "FREE").toUpperCase();
   const exportUnlocked = !!meta?.limits?.customersExportUnlocked;
   const notesUnlocked = !!meta?.limits?.customerNotesUnlocked;
@@ -182,7 +182,7 @@ export default function VendorCustomersPage() {
     [customers]
   );
 
-  /* ─── Update customer note field locally ─── */
+  /* â”€â”€â”€ Update customer note field locally â”€â”€â”€ */
   function updateCustomerNote(key: string, field: string, value: any) {
     setCustomers((prev) =>
       prev.map((c) =>
@@ -193,7 +193,7 @@ export default function VendorCustomersPage() {
     );
   }
 
-  /* ─── Render ─── */
+  /* â”€â”€â”€ Render â”€â”€â”€ */
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -497,7 +497,7 @@ export default function VendorCustomersPage() {
         {/* Plan Info */}
         {meta && customers.length > 0 && (
           <p className="text-xs text-gray-400 text-center pt-2">
-            Plan: {planKey} · Showing up to {visibleCap} customers
+            Plan: {planKey} Â· Showing up to {visibleCap} customers
           </p>
         )}
       </div>

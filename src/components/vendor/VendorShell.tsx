@@ -5,7 +5,7 @@ import { VendorBottomNav } from "@/components/vendor/VendorBottomNav";
 import { cn } from "@/lib/cn";
 
 export function VendorShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() || "/";
   const hideNav = pathname.startsWith("/vendor/subscription");
 
   return (
@@ -23,3 +23,4 @@ export function VendorShell({ children }: { children: React.ReactNode }) {
     </div>
   );
 }
+

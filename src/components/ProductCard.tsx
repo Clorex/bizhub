@@ -3,11 +3,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import {
-  normalizeCoverAspect,
-  coverAspectToTailwindClass,
-  type CoverAspectKey,
-} from "@/lib/products/coverAspect";
 import { formatMoneyNGN } from "@/lib/money";
 
 function saleIsActive(p: any, now = Date.now()) {
@@ -95,10 +90,7 @@ export function ProductCard({ slug, product }: { slug: string; product: any }) {
   );
   const onSale = !bookOnly && saleIsActive(product);
   const finalPrice = onSale ? computeSalePriceNgn(product) : basePrice;
-
-  const coverAspect: CoverAspectKey = normalizeCoverAspect(product?.coverAspect) ?? "1:1";
-  const aspectClass = coverAspectToTailwindClass(coverAspect);
-
+  const aspectClass = "aspect-square";
   const [trust, setTrust] = useState<any>(null);
 
   useEffect(() => {

@@ -12,11 +12,11 @@ import { Button } from "@/components/ui/Button";
 import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 
 function SubscriptionCallbackInner() {
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
   const reference = sp.get("reference") ?? sp.get("trxref");
 
   const [status, setStatus] = useState<"loading" | "error" | "ok">("loading");
-  const [msg, setMsg] = useState("Confirming subscriptionâ€¦");
+  const [msg, setMsg] = useState("Confirming subscription?");
 
   useEffect(() => {
     let mounted = true;
@@ -65,7 +65,7 @@ function SubscriptionCallbackInner() {
               <div className="mx-auto h-14 w-14 rounded-2xl bg-biz-cream flex items-center justify-center">
                 <Loader2 className="h-6 w-6 text-orange-700 animate-spin" />
               </div>
-              <p className="mt-4 text-base font-bold text-biz-ink">Processingâ€¦</p>
+              <p className="mt-4 text-base font-bold text-biz-ink">Processing?</p>
               <p className="text-sm text-biz-muted mt-2">{msg}</p>
             </>
           ) : null}
@@ -90,7 +90,7 @@ function SubscriptionCallbackInner() {
             </>
           ) : null}
 
-          <p className="text-[11px] text-gray-500 mt-3 break-all">Payment ID: {reference || "â€”"}</p>
+          <p className="text-[11px] text-gray-500 mt-3 break-all">Payment ID: {reference || "?"}</p>
 
           <div className="mt-4 space-y-2">
             <Link href="/vendor" className="block">
@@ -113,7 +113,7 @@ export default function SubscriptionCallbackPage() {
         <div className="min-h-screen">
           <GradientHeader title="Subscription" subtitle="Payment confirmation" showBack={true} />
           <div className="px-4 pb-24">
-            <Card className="p-4">Loadingâ€¦</Card>
+            <Card className="p-4">Loading?</Card>
           </div>
         </div>
       }
@@ -122,4 +122,6 @@ export default function SubscriptionCallbackPage() {
     </Suspense>
   );
 }
+
+
 

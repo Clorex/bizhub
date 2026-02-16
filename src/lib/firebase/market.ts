@@ -8,7 +8,7 @@ export async function listBusinesses(max = 10) {
 }
 
 export async function listTrendingProducts(max = 12) {
-  // Simple: just grab first products. Later weâ€™ll do analytics-based trending.
+  // Simple: just grab first products. Later we?ll do analytics-based trending.
   const q = query(collection(db, "products"), limit(max));
   const snap = await getDocs(q);
 
@@ -31,3 +31,4 @@ export async function listTrendingProducts(max = 12) {
     };
   });
 }
+

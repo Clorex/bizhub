@@ -1,0 +1,1220 @@
+﻿=== SUPPORT+GRID SCAN ===
+Generated: 02/15/2026 11:33:32
+Root: C:\Users\USER\Desktop\bizhub
+
+--- Candidate route files (page.tsx/page.jsx) ---
+C:\Users\USER\Desktop\bizhub\src\app\account\forgot\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\account\login\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\account\notifications\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\account\security\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\reports\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\reviews\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\[businessId]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\checkout\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\p\[productId]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\pay\direct\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\favorites\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\marketplace\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\orders\success\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\orders\[orderId]\dispute\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\orders\[orderId]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\staff\login\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\staff\register\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\store\[slug]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\add-picture\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dashboard\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\insights\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\[orderId]\dispute\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\[orderId]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\[productId]\edit\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\chat\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\callback\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reviews\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\security\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\upgrade\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\page.tsx
+
+--- Likely Vendor/Help/Support/Market/Marketplace files ---
+C:\Users\USER\Desktop\bizhub\src\app\api\help\page\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\marketing\optout\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\support\chat\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\marketplace\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx
+C:\Users\USER\Desktop\bizhub\src\components\market\DealsCarousel.tsx
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketSortSheet.tsx
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx
+C:\Users\USER\Desktop\bizhub\src\components\market\SearchBar.tsx
+C:\Users\USER\Desktop\bizhub\src\components\market\SmartMatchBadge.tsx
+C:\Users\USER\Desktop\bizhub\src\components\market\StoreCard.tsx
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx
+C:\Users\USER\Desktop\bizhub\src\hooks\useMarketSearch.ts
+C:\Users\USER\Desktop\bizhub\src\lib\ai\groqPageHelp.ts
+C:\Users\USER\Desktop\bizhub\src\lib\firebase\market.ts
+C:\Users\USER\Desktop\bizhub\src\lib\market\filters\apply.ts
+C:\Users\USER\Desktop\bizhub\src\lib\market\filters\facets.ts
+C:\Users\USER\Desktop\bizhub\src\lib\market\filters\types.ts
+C:\Users\USER\Desktop\bizhub\src\lib\market\sale.ts
+C:\Users\USER\Desktop\bizhub\src\lib\marketing\optOut.ts
+C:\Users\USER\Desktop\bizhub\src\lib\search\marketTaxonomy.ts
+
+--- Project-wide matches (path:line text) ---
+
+### AI Support Chat
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:298 title="AI Support Chat"
+
+### Chat with AI support
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:327 Chat with AI support
+
+### Talk to customer care
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:92 {/* Talk to customer care — prominent card */}
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:100 <p className="text-base font-bold text-gray-900">Talk to customer care</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:304 {/* Talk to customer care — prominent card */}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:311 <p className="text-base font-bold text-gray-900">Talk to customer care</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:309 {/* ──────────── Talk to customer care ──────────── */}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:317 <p className="text-base font-bold text-gray-900">Talk to customer care</p>
+
+### We reply fast on WhatsApp
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:101 <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:312 <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:318 <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+
+### Help & FAQ
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:292 title="Help & FAQ"
+
+### Help & Support
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:241 label: "Help & Support",
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:303 label: "Help & Support",
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:90 <GradientHeader title="Help & Support" subtitle="We're here to help" showBack />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:235 <GradientHeader title="Help & Support" subtitle="Get help quickly" showBack />
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx:191 Help & Support
+
+### AI assistant
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:299 desc="Chat with our AI assistant"
+
+### Support chat
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:298 title="AI Support Chat"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\chat\page.tsx:59 if (!token) throw new Error("Please login again to use support chat.");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\chat\page.tsx:74 if (!r.ok || !data?.ok) throw new Error(data?.error || "Support chat failed");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\chat\page.tsx:92 <GradientHeader title="Support chat" subtitle="Explain your issue in simple words" showBack={true} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:221 a: "myBizHub support will NEVER ask for your password or OTP.\n\nIf someone asks, ignore them and report it in support chat immediately.",
+
+### Chat with support
+
+### Support team
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:339 <p className="text-sm text-gray-500 mt-1">Our support team is here for you</p>
+
+### ProductCard
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:25 import { ProductCard } from "@/components/market/ProductCard";
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:459 <ProductCard
+C:\Users\USER\Desktop\bizhub\src\components\market\DealsCarousel.tsx:5 import { ProductCard } from "./ProductCard";
+C:\Users\USER\Desktop\bizhub\src\components\market\DealsCarousel.tsx:80 <ProductCard
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:1 // FILE: src/components/market/ProductCard.tsx
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:41 interface ProductCardProps {
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:49 export const ProductCard = memo(function ProductCard({
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:55 }: ProductCardProps) {
+C:\Users\USER\Desktop\bizhub\src\components\ui\Skeleton.tsx:25 export function ProductCardSkeleton() {
+C:\Users\USER\Desktop\bizhub\src\components\ui\Skeleton.tsx:39 <ProductCardSkeleton key={i} />
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:1 // FILE: src/components/ProductCard.tsx
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:85 export function ProductCard({ slug, product }: { slug: string; product: any }) {
+
+### Marketplace
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:295 label: "Browse marketplace",
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:129 <Toggle label="Marketplace" value={!!f.marketplace} onClick={(v) => setFeature(p, "marketplace", v)} />
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:311 : "Standard marketplace sorting only"}
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\insights\route.ts:80 ? "Complete basic verification to unlock marketplace visibility."
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\insights\route.ts:136 ? "Add products to your store to start appearing in the marketplace."
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\plans\route.ts:49 addIf(core, !!features.marketplace, "Reach thousands of buyers on the myBizHub Marketplace");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\plans\route.ts:53 addIf(core, !!features.promotions, "Boost products to the top of the Marketplace (paid ads)");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\plans\route.ts:142 apex.push("Higher marketplace ranking (your products show up first)");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\products\route.ts:125 const marketAllowed = !!plan.features?.marketplace;
+C:\Users\USER\Desktop\bizhub\src\app\favorites\page.tsx:90 Browse the marketplace and tap the heart icon on products you love to save them here.
+C:\Users\USER\Desktop\bizhub\src\app\favorites\page.tsx:96 Browse marketplace
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:33 a: "Browse the marketplace, add items to your cart, then proceed to checkout. You can pay via card, bank transfer, or other available methods.",
+C:\Users\USER\Desktop\bizhub\src\app\marketplace\page.tsx:3 export default function MarketplaceRedirectPage() {
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:176 Browse marketplace
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:248 desc="Boost products in the marketplace"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:184 title="Show new products in Marketplace by default"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:361 const marketOn = !!features?.marketplace;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:362 const showMarketplaceLock = access && !marketOn;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:453 {showMarketplaceLock && !showNotAuthorized && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:460 <p className="text-sm font-bold text-orange-800">Marketplace Locked</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:462 Customers can still buy via your store link. Upgrade to list products on the public marketplace.
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:649 <p className="text-xs text-purple-600 mt-0.5">Getting extra visibility in the marketplace</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:113 a: "Check these:\n• Your products have photos and a price\n• Your product is not out of stock\n• Your marketplace setting is ON\n\nIf it still doesn't show, contact support.",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:189 a: "Promotions help your products appear more often in the Marketplace (like ads).\n\nThe longer you run a promotion, the more exposure you get.",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:162 subtitle="Boost your products in the marketplace"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:219 Show your products at the top of the marketplace
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:242 Boost your products to the top of the marketplace so more buyers discover them.
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:276 Verification helps customers feel safer and improves your visibility in the marketplace.
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:347 Providing your ID information raises accountability and unlocks full marketplace visibility. Your information is submitted and reviewed — myBizHub does not claim identity is confirmed.
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:390 <p className="text-xs text-green-700 font-medium">✓ Information submitted and reviewed. You have full marketplace access.</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:407 ? " Complete basic verification to unlock the marketplace."
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:408 : " Submit your ID to reach full marketplace access."}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:612 <MenuCard icon={Megaphone} label="Promotions" description="Boost products in marketplace" href="/vendor/promotions" />
+C:\Users\USER\Desktop\bizhub\src\app\not-found.tsx:24 Go to Marketplace
+C:\Users\USER\Desktop\bizhub\src\components\cart\EmptyCart.tsx:27 Explore Marketplace
+C:\Users\USER\Desktop\bizhub\src\components\reviews\ReviewForm.tsx:70 Your feedback helps improve the marketplace.
+C:\Users\USER\Desktop\bizhub\src\hooks\useMarketSearch.ts:234 setError(e?.message || "Could not load marketplace. Please try again.");
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\limitsServer.ts:7 marketplace: boolean;
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\limitsServer.ts:75 marketplace: !!f.marketplace,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:7 marketplace: boolean;
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:85 marketplace: typeof o.marketplace === "boolean" ? o.marketplace : fallback.marketplace,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:151 marketplace: false,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:203 marketplace: true,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:255 marketplace: true,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:307 marketplace: true,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\syncBusinessSignals.ts:35 // penalty is used only to reduce marketplace visibility
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\syncBusinessSignals.ts:44 // Plan-resolved marketplace flag (FREE should not appear on market)
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\syncBusinessSignals.ts:47 const marketAllowed = !!plan.features?.marketplace;
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\syncBusinessSignals.ts:78 marketAllowed, // ✅ now tied to plan.features.marketplace
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\trustRulesServer.ts:7 reduceOpenDisputes: number; // reduce marketplace visibility
+C:\Users\USER\Desktop\bizhub\src\lib\bizhubPlans.ts:190 "Better marketplace visibility for sales (Hot deals)",
+C:\Users\USER\Desktop\bizhub\src\lib\bizhubPlans.ts:260 "Hot deals marketplace visibility",
+C:\Users\USER\Desktop\bizhub\src\lib\bizhubPlans.ts:266 "Best marketplace visibility for sales",
+
+### marketplace
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:295 label: "Browse marketplace",
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:129 <Toggle label="Marketplace" value={!!f.marketplace} onClick={(v) => setFeature(p, "marketplace", v)} />
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:311 : "Standard marketplace sorting only"}
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\insights\route.ts:80 ? "Complete basic verification to unlock marketplace visibility."
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\insights\route.ts:136 ? "Add products to your store to start appearing in the marketplace."
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\plans\route.ts:49 addIf(core, !!features.marketplace, "Reach thousands of buyers on the myBizHub Marketplace");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\plans\route.ts:53 addIf(core, !!features.promotions, "Boost products to the top of the Marketplace (paid ads)");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\plans\route.ts:142 apex.push("Higher marketplace ranking (your products show up first)");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\products\route.ts:125 const marketAllowed = !!plan.features?.marketplace;
+C:\Users\USER\Desktop\bizhub\src\app\favorites\page.tsx:90 Browse the marketplace and tap the heart icon on products you love to save them here.
+C:\Users\USER\Desktop\bizhub\src\app\favorites\page.tsx:96 Browse marketplace
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:33 a: "Browse the marketplace, add items to your cart, then proceed to checkout. You can pay via card, bank transfer, or other available methods.",
+C:\Users\USER\Desktop\bizhub\src\app\marketplace\page.tsx:3 export default function MarketplaceRedirectPage() {
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:176 Browse marketplace
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:248 desc="Boost products in the marketplace"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:184 title="Show new products in Marketplace by default"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:361 const marketOn = !!features?.marketplace;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:362 const showMarketplaceLock = access && !marketOn;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:453 {showMarketplaceLock && !showNotAuthorized && (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:460 <p className="text-sm font-bold text-orange-800">Marketplace Locked</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:462 Customers can still buy via your store link. Upgrade to list products on the public marketplace.
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:649 <p className="text-xs text-purple-600 mt-0.5">Getting extra visibility in the marketplace</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:113 a: "Check these:\n• Your products have photos and a price\n• Your product is not out of stock\n• Your marketplace setting is ON\n\nIf it still doesn't show, contact support.",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:189 a: "Promotions help your products appear more often in the Marketplace (like ads).\n\nThe longer you run a promotion, the more exposure you get.",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:162 subtitle="Boost your products in the marketplace"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:219 Show your products at the top of the marketplace
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:242 Boost your products to the top of the marketplace so more buyers discover them.
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:276 Verification helps customers feel safer and improves your visibility in the marketplace.
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:347 Providing your ID information raises accountability and unlocks full marketplace visibility. Your information is submitted and reviewed — myBizHub does not claim identity is confirmed.
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:390 <p className="text-xs text-green-700 font-medium">✓ Information submitted and reviewed. You have full marketplace access.</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:407 ? " Complete basic verification to unlock the marketplace."
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:408 : " Submit your ID to reach full marketplace access."}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:612 <MenuCard icon={Megaphone} label="Promotions" description="Boost products in marketplace" href="/vendor/promotions" />
+C:\Users\USER\Desktop\bizhub\src\app\not-found.tsx:24 Go to Marketplace
+C:\Users\USER\Desktop\bizhub\src\components\cart\EmptyCart.tsx:27 Explore Marketplace
+C:\Users\USER\Desktop\bizhub\src\components\reviews\ReviewForm.tsx:70 Your feedback helps improve the marketplace.
+C:\Users\USER\Desktop\bizhub\src\hooks\useMarketSearch.ts:234 setError(e?.message || "Could not load marketplace. Please try again.");
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\limitsServer.ts:7 marketplace: boolean;
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\limitsServer.ts:75 marketplace: !!f.marketplace,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:7 marketplace: boolean;
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:85 marketplace: typeof o.marketplace === "boolean" ? o.marketplace : fallback.marketplace,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:151 marketplace: false,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:203 marketplace: true,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:255 marketplace: true,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\planConfigServer.ts:307 marketplace: true,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\syncBusinessSignals.ts:35 // penalty is used only to reduce marketplace visibility
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\syncBusinessSignals.ts:44 // Plan-resolved marketplace flag (FREE should not appear on market)
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\syncBusinessSignals.ts:47 const marketAllowed = !!plan.features?.marketplace;
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\syncBusinessSignals.ts:78 marketAllowed, // ✅ now tied to plan.features.marketplace
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\trustRulesServer.ts:7 reduceOpenDisputes: number; // reduce marketplace visibility
+C:\Users\USER\Desktop\bizhub\src\lib\bizhubPlans.ts:190 "Better marketplace visibility for sales (Hot deals)",
+C:\Users\USER\Desktop\bizhub\src\lib\bizhubPlans.ts:260 "Hot deals marketplace visibility",
+C:\Users\USER\Desktop\bizhub\src\lib\bizhubPlans.ts:266 "Best marketplace visibility for sales",
+
+### grid
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:101 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\account\security\page.tsx:111 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:177 <div className="grid grid-cols-3 gap-2 text-xs">
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:235 <div className="grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:153 <div className="mt-3 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:168 <div className="mt-2 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:180 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:191 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:283 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:382 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:128 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:186 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\reports\page.tsx:73 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:527 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:628 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:118 <div className="mt-3 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:129 <div className="mt-3 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:139 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:131 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\page.tsx:94 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:207 <div className="px-4 pb-72 max-w-[1100px] mx-auto md:grid md:grid-cols-3 md:gap-8">
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:116 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:23 import { ProductGridSkeleton, StoreCardSkeleton } from "@/components/ui/Skeleton";
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:28 import { CategoryGrid } from "@/components/market/CategoryGrid";
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:91 <ProductGridSkeleton count={6} />
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:403 <CategoryGrid selectedCategory={filters.category} onSelectCategory={handleCategorySelect} />
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:447 <ProductGridSkeleton count={6} />
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:457 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 auto-rows-fr">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\add-picture\page.tsx:86 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\loading.tsx:17 <div className="analytics-grid">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\loading.tsx:22 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:226 <div className="grid grid-cols-2 gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:171 <div className="grid grid-cols-3 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:378 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:438 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:244 <div className="grid grid-cols-3 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:93 <div className="mt-4 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:400 <div className="grid grid-cols-2 gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:422 <div className="grid grid-cols-4 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:509 <div className="mt-4 grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:37 Grid3X3,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:72 type ViewMode = "list" | "grid";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:489 <div className="grid grid-cols-4 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:570 onClick={() => setViewMode("grid")}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:571 className={cn("w-8 h-8 rounded-lg flex items-center justify-center transition", viewMode === "grid" ? "bg-white shadow-sm" : "hover:bg-gray-200")}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:572 aria-label="Grid view"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:574 <Grid3X3 className={cn("w-4 h-4", viewMode === "grid" ? "text-orange-600" : "text-gray-500")} />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:604 <div className={viewMode === "grid" ? "grid grid-cols-2 gap-3" : "space-y-3"}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:606 viewMode === "grid" ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:607 <ProductGridCard
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:688 <div className="mt-4 grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:881 <div className="mt-4 grid grid-cols-4 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:910 /* -------------------------------- Product Grid Card -------------------------------- */
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:912 function ProductGridCard({
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:981 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:239 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:265 <div className="grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:27 <div className="grid grid-cols-2 gap-2 rounded-2xl border border-biz-line bg-white p-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:348 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:193 <div className="grid grid-cols-3 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:390 <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:134 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\security\page.tsx:149 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:532 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:494 <div className="mt-2 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:355 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:567 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:591 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:616 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:356 <div className="grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:339 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:307 <div className="mt-3 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:425 <div className="mt-3 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:73 <div className="mt-4 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:90 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:104 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:452 <div className="mt-5 grid grid-cols-3 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:473 <div className="mt-5 grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:559 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:603 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:140 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-grid-layout.tsx:5 interface AnalyticsGridLayoutProps {
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-grid-layout.tsx:10 * Analytics Grid Layout
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-grid-layout.tsx:12 * Desktop: 2-column grid where appropriate, max 1200px, centered.
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-grid-layout.tsx:14 export default function AnalyticsGridLayout({ children }: AnalyticsGridLayoutProps) {
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-grid-layout.tsx:17 <div className="analytics-grid">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-grid-layout.tsx:30 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\conversion-section.tsx:103 <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\locked-analytics-overlay.tsx:48 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mb-8">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\upgrade-prompt.tsx:81 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+C:\Users\USER\Desktop\bizhub\src\components\charts\AnalyticsChart.tsx:89 {/* Y-axis labels and grid lines */}
+C:\Users\USER\Desktop\bizhub\src\components\charts\area-chart.tsx:10 CartesianGrid,
+C:\Users\USER\Desktop\bizhub\src\components\charts\area-chart.tsx:110 <CartesianGrid stroke="#E2E8F0" strokeDasharray="3 3" opacity={0.6} vertical={false} />
+C:\Users\USER\Desktop\bizhub\src\components\charts\bar-chart.tsx:10 CartesianGrid,
+C:\Users\USER\Desktop\bizhub\src\components\charts\bar-chart.tsx:53 <CartesianGrid stroke="#E2E8F0" strokeDasharray="3 3" opacity={0.6} vertical={false} />
+C:\Users\USER\Desktop\bizhub\src\components\charts\chart-theme.ts:17 grid: ANALYTICS_CONFIG.COLORS.chartGrid,
+C:\Users\USER\Desktop\bizhub\src\components\charts\chart-theme.ts:54 // Grid
+C:\Users\USER\Desktop\bizhub\src\components\charts\chart-theme.ts:55 grid: {
+C:\Users\USER\Desktop\bizhub\src\components\checkout\PaymentButtons.tsx:38 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:1 // FILE: src/components/market/CategoryGrid.tsx
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:12 Grid3X3,
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:24 other: Grid3X3,
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:37 interface CategoryGridProps {
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:43 export const CategoryGrid = memo(function CategoryGrid({
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:47 }: CategoryGridProps) {
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:72 <Grid3X3 className="w-5 h-5" />
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:87 {/* Category grid */}
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:88 <div className="grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:112 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:132 <div className="mt-2 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:184 <div className="mt-2 grid grid-cols-1 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:232 <div className="mt-2 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:395 <div className="mt-2 grid grid-cols-1 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\orders\OrderCard.tsx:106 <div className="grid grid-cols-[1fr_auto] gap-2 items-start">
+C:\Users\USER\Desktop\bizhub\src\components\reviews\VendorReviewsPanel.tsx:109 {/* Stats Grid */}
+C:\Users\USER\Desktop\bizhub\src\components\reviews\VendorReviewsPanel.tsx:110 <div className="grid grid-cols-3 gap-3 mb-4">
+C:\Users\USER\Desktop\bizhub\src\components\ui\ConfirmDialog.tsx:80 <div className="mt-5 grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\ui\SegmentedControl.tsx:17 "rounded-2xl border border-biz-line bg-white shadow-soft p-1 grid",
+C:\Users\USER\Desktop\bizhub\src\components\ui\SegmentedControl.tsx:20 style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
+C:\Users\USER\Desktop\bizhub\src\components\ui\Skeleton.tsx:35 export function ProductGridSkeleton({ count = 6 }: { count?: number }) {
+C:\Users\USER\Desktop\bizhub\src\components\ui\Skeleton.tsx:37 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:488 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:526 <div className="mt-2 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:564 <div className="mt-2 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\OrderRow.tsx:63 <div className="flex-1 min-w-0 grid grid-cols-[1fr_auto] gap-3 items-start">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\PageSkeleton.tsx:22 {/* Stats grid skeleton */}
+C:\Users\USER\Desktop\bizhub\src\components\vendor\PageSkeleton.tsx:23 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\PageSkeleton.tsx:73 export const GridSkeleton = memo(function GridSkeleton({ count = 6 }: { count?: number }) {
+C:\Users\USER\Desktop\bizhub\src\components\vendor\PageSkeleton.tsx:76 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\BottomNav.tsx:6 import { LayoutGrid, ShoppingCart, ClipboardList, User } from "lucide-react";
+C:\Users\USER\Desktop\bizhub\src\components\BottomNav.tsx:11 { href: "/market", label: "Market", Icon: LayoutGrid },
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx:296 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\config\analytics.config.ts:40 chartGrid: '#E2E8F0',
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:19 --analytics-chart-grid: #E2E8F0;
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:49 ANALYTICS GRID
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:51 .analytics-grid {
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:58 .analytics-grid-2col {
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:59 display: grid;
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:60 grid-template-columns: 1fr 1fr;
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:65 .analytics-grid-full {
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:66 grid-column: 1 / -1;
+C:\Users\USER\Desktop\bizhub\src\styles\charts.css:28 .recharts-cartesian-grid-horizontal line,
+C:\Users\USER\Desktop\bizhub\src\styles\charts.css:29 .recharts-cartesian-grid-vertical line {
+C:\Users\USER\Desktop\bizhub\src\styles\charts.css:30 stroke: var(--analytics-chart-grid, #E2E8F0);
+C:\Users\USER\Desktop\bizhub\src\styles\charts.css:48 border: 1px solid var(--analytics-chart-grid, #E2E8F0);
+C:\Users\USER\Desktop\bizhub\src\styles\charts.css:157 .chart-mini-container .recharts-cartesian-grid {
+C:\Users\USER\Desktop\bizhub\src\__tests__\components\sales-growth-section.test.tsx:11 CartesianGrid: () => <div />,
+
+### gap
+C:\Users\USER\Desktop\bizhub\src\app\account\login\login-client.tsx:95 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\account\notifications\page.tsx:139 <div className="flex items-center gap-3 p-3 rounded-2xl bg-green-50 border border-green-200">
+C:\Users\USER\Desktop\bizhub\src\app\account\notifications\page.tsx:168 <div className="flex items-start gap-3 p-3 rounded-2xl bg-red-50 border border-red-200">
+C:\Users\USER\Desktop\bizhub\src\app\account\notifications\page.tsx:180 <div className="flex items-start gap-3 p-3 rounded-2xl bg-gray-50 border border-gray-200">
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:101 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:177 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\account\security\page.tsx:111 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:57 "w-full flex items-center gap-4 p-4 rounded-2xl border border-gray-100 bg-white hover:border-orange-200 hover:shadow-sm transition text-left",
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:265 <div className="flex items-center gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:323 <div className="flex items-center gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:331 <span className="inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-full bg-white/20 text-xs font-medium">
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:337 <span className="inline-flex items-center gap-1 mt-2 px-2 py-1 rounded-full bg-white/20 text-xs font-medium">
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:345 <div className="mt-6 flex gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:130 <div className="mt-3 flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:177 <div className="grid grid-cols-3 gap-2 text-xs">
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:215 <div className="flex items-end gap-2 h-28">
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:221 <div key={d.dayKey} className="flex-1 flex flex-col items-center justify-end gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\analytics\page.tsx:235 <div className="grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:95 <div className="mt-3 flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:133 <div className="flex items-end gap-2 h-28">
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:139 <div key={d.dayKey} className="flex-1 flex flex-col items-center justify-end gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\customers\page.tsx:159 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:153 <div className="mt-3 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:168 <div className="mt-2 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:180 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:191 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:283 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:299 <span className="inline-flex items-center gap-2 text-[11px] text-gray-500">
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:382 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:418 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:460 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\finance\page.tsx:462 <div className="flex items-center gap-2 flex-wrap">
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:128 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\packages\page.tsx:186 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\reports\page.tsx:73 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\reviews\page.tsx:176 <div className="flex items-center gap-3 mb-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\reviews\page.tsx:250 "w-full flex items-center gap-3 p-3 rounded-xl border transition text-left",
+C:\Users\USER\Desktop\bizhub\src\app\admin\reviews\page.tsx:288 <div className="flex gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:240 className="flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm"
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:252 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:292 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:339 <div className="flex items-start gap-2 mb-3 p-3 rounded-2xl border border-amber-200 bg-amber-50">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:356 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:368 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:527 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:564 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:595 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx:628 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:131 <div className="mt-3 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:163 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:165 <div className="flex items-center gap-2 flex-wrap">
+C:\Users\USER\Desktop\bizhub\src\app\admin\subscription\page.tsx:202 <div className="mt-3 flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\page.tsx:108 <div className="mt-2 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\page.tsx:148 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\vendors\page.tsx:155 <div className="mt-2 flex flex-wrap gap-2 items-center">
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:118 <div className="mt-3 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:129 <div className="mt-3 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:139 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:98 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\admin\withdrawals\page.tsx:131 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\admin\page.tsx:65 className="relative flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm"
+C:\Users\USER\Desktop\bizhub\src\app\admin\page.tsx:94 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:207 <div className="px-4 pb-72 max-w-[1100px] mx-auto md:grid md:grid-cols-3 md:gap-8">
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:212 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:228 className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-600 transition px-3 py-2 rounded-lg hover:bg-red-50"
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:259 <div className="mt-4 rounded-xl bg-blue-50 border border-blue-100 p-4 flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\favorites\page.tsx:94 <span className="inline-flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\favorites\page.tsx:104 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:68 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:95 <div className="flex items-start gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:116 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:168 <span className="inline-flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:293 <div className="flex items-center justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:301 className="relative flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold hover:border-orange-200 transition"
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:319 <div className="mt-3 flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:322 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:border-orange-200 transition"
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:335 className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:border-orange-200 transition"
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:344 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition"
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:354 className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-orange-300 bg-gradient-to-br from-orange-50 to-white text-xs font-bold text-orange-700 shadow-sm"
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:363 <div className="mt-3 flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:457 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 auto-rows-fr">
+C:\Users\USER\Desktop\bizhub\src\app\orders\success\page.tsx:32 <div className="mt-8 flex flex-col sm:flex-row gap-4 w-full max-w-xs">
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:151 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\orders\page.tsx:174 <span className="inline-flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:160 className="mt-2 inline-flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\add-picture\page.tsx:86 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\loading.tsx:22 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:111 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:133 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:169 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:226 <div className="grid grid-cols-2 gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:251 <div className="mt-3 flex items-start gap-2 text-sm text-gray-500 bg-gray-50 rounded-xl px-4 py-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:307 <div className="flex items-start gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\analytics\page.tsx:344 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:151 <div className="flex gap-2 scrollbar-hide overflow-x-auto">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:171 <div className="grid grid-cols-3 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:223 <div className="flex items-center gap-2 mb-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:236 <div className="flex items-center gap-2 mb-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:249 <div className="flex items-center gap-2 mb-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:256 <div className="flex items-center justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:279 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:344 <div className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\best-sellers\page.tsx:377 <div className="flex items-center justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:281 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:378 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:438 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:471 <span className="text-sm font-bold text-gray-900 flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:542 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\coupon\page.tsx:544 <div className="flex items-center gap-2 flex-wrap">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:213 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:244 <div className="grid grid-cols-3 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:268 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:340 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:358 <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:363 <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1 truncate">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:369 <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:371 <span className="px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-semibold flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:381 <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-semibold flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:403 className="mt-2 text-xs font-medium text-orange-600 flex items-center gap-0.5 ml-auto"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:419 <div className="flex flex-wrap gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:425 <label key={key} className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\customers\page.tsx:486 className="text-xs font-medium text-orange-600 flex items-center gap-1"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:135 <div className="mt-2 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:152 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:175 <div className="mt-3 flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:202 <div className="flex items-center justify-between gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\dead-stock\page.tsx:233 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:75 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\discounts\page.tsx:93 <div className="mt-4 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\insights\page.tsx:115 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\insights\page.tsx:156 <div className="flex items-center gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:22 Megaphone,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:86 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:96 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:246 icon={<Megaphone className="h-5 w-5 text-orange-600" />}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:306 <div className="flex items-start gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:313 <div className="mt-3 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:324 className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-orange-500 text-white font-bold text-sm shadow-sm hover:bg-orange-600 transition"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:340 <span className="inline-flex items-center gap-2 justify-center">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx:34 <div className="mt-4 bg-white border border-gray-200 px-5 py-2.5 rounded-2xl shadow-sm inline-flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx:45 className="flex items-center justify-center gap-2 w-full rounded-2xl bg-black text-white px-4 py-4 text-sm font-bold shadow-xl hover:scale-105 active:scale-95 transition-all"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx:62 className="flex items-center gap-3 w-full bg-white border border-gray-200 p-4 rounded-2xl hover:border-biz-accent transition-colors shadow-sm group"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx:76 className="flex items-center gap-3 w-full bg-white border border-gray-200 p-4 rounded-2xl hover:border-emerald-500 transition-colors shadow-sm group text-left"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx:90 className="flex items-center gap-3 w-full bg-white border border-gray-200 p-4 rounded-2xl hover:border-red-500 transition-colors shadow-sm group"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:353 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:377 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:395 <div className="flex items-center gap-2 mb-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:400 <div className="grid grid-cols-2 gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:412 <div className="mt-4 flex items-center gap-2 px-3 py-2 rounded-xl bg-white/20">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:422 <div className="grid grid-cols-4 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:431 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:457 <div className="mt-6 flex justify-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:479 <div className="flex items-center gap-3 px-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:496 className="w-full p-4 rounded-2xl bg-orange-50 border border-orange-200 flex items-center gap-4 hover:bg-orange-100 transition"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:517 className="inline-flex items-center gap-1 text-xs font-bold text-orange-600 hover:text-orange-700"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:597 <div className="flex items-start gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:606 <div className="flex items-start justify-between gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:621 <div className="flex items-center gap-2 mt-3 flex-wrap">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:622 <span className={cn("inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold", statusInfo.bg, statusInfo.text)}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:632 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[10px] font-bold">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:87 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:325 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:333 <div className="mt-3 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:367 <p className="mt-2 text-xs text-red-600 flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:464 <div className="rounded-xl bg-gray-50 border border-gray-100 p-3 flex items-center gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:500 <div className="flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:509 <div className="mt-4 grid grid-cols-1 min-[360px]:grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:512 <span className="flex items-center gap-1.5">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:527 <span className="flex items-center gap-1.5">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:541 <div className="mt-3 flex items-start gap-2 rounded-xl bg-blue-50 border border-blue-100 p-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:24 Megaphone,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:413 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:437 <div className="flex items-start gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:444 <div className="mt-4 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:455 <div className="flex items-start gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:464 <div className="mt-4 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:476 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:489 <div className="grid grid-cols-4 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:506 <div className="mt-3 flex items-center gap-2 overflow-x-auto pb-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:546 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:561 <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:604 <div className={viewMode === "grid" ? "grid grid-cols-2 gap-3" : "space-y-3"}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:641 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:651 <button onClick={() => router.push("/vendor/promotions")} className="text-xs font-bold text-purple-700 flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:688 <div className="mt-4 grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:718 <div className="mt-3 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:730 <div key={c.id} className="rounded-2xl border border-gray-200 bg-white p-3 flex items-center justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:732 <div className="flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:838 <div className="flex items-start gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:851 <div className="flex items-start justify-between gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:862 <div className="flex items-center gap-2 mt-2 flex-wrap">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:864 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:881 <div className="mt-4 grid grid-cols-4 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:885 <Button size="sm" onClick={onPromote} disabled={!canManage || isService} leftIcon={<Megaphone className="w-3.5 h-3.5" />}>Boost</Button>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:892 <button onClick={onCopyLink} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:898 <button onClick={onDelete} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-700 hover:bg-red-50 transition border-t border-gray-100">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:954 <div className="absolute top-2 left-2 flex flex-col gap-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:956 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500 text-white text-[10px] font-bold">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:981 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:991 <button onClick={onCopyLink} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:997 <button onClick={onDelete} className="w-full flex items-center gap-3 px-4 py-3 text-sm text-red-700 hover:bg-red-50 transition border-t border-gray-100">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\chat\page.tsx:116 <div className="mt-3 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:24 Megaphone,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:51 promotions: Megaphone,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:68 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:239 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:265 <div className="grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:312 <div className="flex items-start gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:5 import { CheckCircle2, HelpCircle, Megaphone } from "lucide-react";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:27 <div className="grid grid-cols-2 gap-2 rounded-2xl border border-biz-line bg-white p-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:214 className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-bold shadow-soft inline-flex items-center gap-2"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:274 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:338 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:348 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:352 leftIcon={<Megaphone className="h-4 w-4" />}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:14 Megaphone,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:165 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:193 <div className="grid grid-cols-3 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:237 <Megaphone className="w-7 h-7 text-orange-500" />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:245 <div className="mt-4 flex gap-2 justify-center">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:249 leftIcon={<Megaphone className="w-4 h-4" />}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:272 <div key={p.id} className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:285 <p className="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:292 className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-0.5 shrink-0"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:309 <div className="flex gap-2 mb-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:357 <div className="flex items-center justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:358 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:390 <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:401 <div className="mt-3 flex gap-2 overflow-x-auto">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:119 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:134 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:172 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\page.tsx:208 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:469 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:515 <div className="mt-3 flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:578 <div className="mt-3 flex items-center gap-3 py-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:589 <div className="flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:631 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:676 <div className="mt-4 flex gap-2 justify-center">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:721 <p className="text-[11px] text-gray-500 mb-2 flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\reengagement\page.tsx:759 <div className="mt-3 flex items-start gap-2 rounded-xl bg-amber-50 border border-amber-100 px-3 py-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\security\page.tsx:149 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:155 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:178 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:195 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\settings\payouts\page.tsx:290 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:179 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:297 className="flex items-center gap-3"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:426 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:427 <div className="flex items-start gap-3 min-w-0 flex-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:442 <div className="flex items-center gap-2 flex-wrap">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:457 <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\shipping\page.tsx:481 <div className="mt-3 flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:121 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:129 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-50 text-amber-700 border border-amber-200">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:136 <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-red-50 text-red-700 border border-red-200">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:155 <div className="flex flex-col items-center gap-1.5">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:291 className="flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm disabled:opacity-50"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:305 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:322 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:360 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:362 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:377 <div className="flex items-center gap-1.5 justify-end">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:383 <div className="flex items-center gap-1.5 justify-end">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:390 <div className="flex items-center gap-1.5 justify-end">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:489 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:495 <div className="flex items-center justify-between gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:499 <div className="flex items-center gap-1.5 shrink-0">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:532 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:604 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:619 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:634 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\smartmatch\page-client.tsx:649 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:342 <div className="mt-3 flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:394 <div className="flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\staff\page.tsx:494 <div className="mt-2 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:227 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:278 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:311 className="mt-4 flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white/20 hover:bg-white/30 transition"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:355 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:380 <span className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:395 <span className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:416 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:547 <div className="mt-3 flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:564 <div className="flex items-center gap-2 mb-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:567 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:582 <div className="flex items-center gap-2 mb-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:585 <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 text-[10px] font-bold flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:591 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:607 <div className="flex items-center gap-2 mb-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:610 <span className="px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 text-[10px] font-bold flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:616 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:633 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:71 <div key={t} className="flex items-start gap-2 text-sm text-gray-700">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:253 className="flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:266 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:280 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:309 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:330 <div key={t} className="flex items-start gap-2 text-sm">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:356 <div className="grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:399 <div className="flex items-start gap-3 mb-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:423 <div className="flex items-start gap-3 mb-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:451 <div className="flex items-start gap-3 mb-4">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:482 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:75 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:76 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:207 className="flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:219 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:233 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:314 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:325 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:339 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:370 <div key={t} className="flex items-start gap-2 rounded-2xl border border-gray-100 bg-white p-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:60 <span className={cn("inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold border", config.cls)}>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:70 <span className="inline-flex items-center gap-1 text-xs font-bold text-green-700">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:78 <span className="inline-flex items-center gap-1 text-xs font-bold text-amber-700">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:86 <span className="inline-flex items-center gap-1 text-xs font-bold text-red-700">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:266 <div className="mt-3 flex items-center gap-2 flex-wrap">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:269 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-[11px] font-bold border bg-red-50 text-red-700 border-red-100">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:307 <div className="mt-3 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:425 <div className="mt-3 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:471 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:73 <div className="mt-4 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:90 <div className="mt-3 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\wallet\page.tsx:104 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\withdrawals\page.tsx:131 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:42 Megaphone,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:331 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:366 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:375 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:396 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:439 <p className="text-sm text-orange-100 mt-1 flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:452 <div className="mt-5 grid grid-cols-3 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:473 <div className="mt-5 grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:478 "flex items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:497 className="flex items-center justify-center gap-2 bg-white text-orange-600 hover:bg-orange-50 rounded-xl py-3 text-sm font-bold transition disabled:opacity-50"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:559 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:583 className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:603 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:612 <MenuCard icon={Megaphone} label="Promotions" description="Boost products in marketplace" href="/vendor/promotions" />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:624 className="text-xs font-bold text-orange-600 hover:text-orange-700 flex items-center gap-1"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:654 <div className="flex items-start gap-4">
+C:\Users\USER\Desktop\bizhub\src\app\not-found.tsx:19 <div className="mt-8 flex flex-col gap-3">
+C:\Users\USER\Desktop\bizhub\src\app\not-found.tsx:22 className="inline-flex items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-orange-500 to-orange-600 px-6 py-3.5 text-sm font-bold text-white shadow-lg hover:shadow-xl transition"
+C:\Users\USER\Desktop\bizhub\src\app\not-found.tsx:29 className="inline-flex items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-white px-6 py-3.5 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
+C:\Users\USER\Desktop\bizhub\src\components\admin\AdminSecurityGate.tsx:140 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-grid-layout.tsx:11 * Mobile: stacked vertically, full width, 24px gap.
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-grid-layout.tsx:30 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-header.tsx:32 <div className="flex items-center justify-between flex-wrap gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-header.tsx:42 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-header.tsx:56 <div className="mt-3 flex items-center gap-2 text-sm text-amber-600 bg-amber-50 rounded-xl px-4 py-2.5">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\analytics-summary-card-locked.tsx:64 className="inline-flex items-center justify-center gap-2 px-6 py-2.5 bg-gradient-to-br from-orange-500 to-orange-600 text-white text-sm font-semibold rounded-xl hover:from-orange-600 hover:to-orange-700 transition-all duration-200 shadow-sm"
+C:\Users\USER\Desktop\bizhub\src\components\analytics\conversion-section.tsx:103 <div className="mt-6 grid grid-cols-3 gap-4 text-center">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\conversion-section.tsx:106 <p className="text-xs text-gray-400 mt-1 inline-flex items-center gap-1 justify-center">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\conversion-section.tsx:113 <p className="text-xs text-gray-400 mt-1 inline-flex items-center gap-1 justify-center">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\conversion-section.tsx:120 <p className="text-xs text-gray-400 mt-1 inline-flex items-center gap-1 justify-center">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\customer-engagement-section.tsx:57 <div className="flex items-end gap-3 h-40 px-2">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\customer-engagement-section.tsx:62 <div key={bar.label} className="flex flex-col items-center flex-1 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\locked-analytics-overlay.tsx:48 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-lg mb-8">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\locked-analytics-overlay.tsx:50 <div key={label} className="flex items-center gap-2 text-sm text-gray-600">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\locked-analytics-overlay.tsx:58 <div className="flex flex-col sm:flex-row gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\revenue-breakdown-section.tsx:56 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\revenue-breakdown-section.tsx:60 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\sales-growth-section.tsx:80 <div className="flex items-end gap-4 mb-4">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\sales-growth-section.tsx:105 <div className="mt-3 flex items-center gap-2 text-xs text-gray-400">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\top-product-item.tsx:22 <div className="flex items-center gap-3 py-3 border-b border-gray-100 last:border-b-0">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\top-product-item.tsx:72 <span className={`inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full ${trendColor}`}>
+C:\Users\USER\Desktop\bizhub\src\components\analytics\upgrade-prompt.tsx:62 <div className="flex items-center justify-between flex-wrap gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\upgrade-prompt.tsx:81 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+C:\Users\USER\Desktop\bizhub\src\components\analytics\upgrade-prompt.tsx:111 <li key={feature} className="flex items-start gap-2 text-sm text-gray-600">
+C:\Users\USER\Desktop\bizhub\src\components\cart\CartItem.tsx:34 <div className="flex gap-4">
+C:\Users\USER\Desktop\bizhub\src\components\cart\CartItem.tsx:54 <div className="flex items-start justify-between gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\cart\CartItem.tsx:78 <div className="flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\components\cart\CartItem.tsx:106 className="flex items-center gap-1.5 text-xs font-medium text-red-500 hover:text-red-600 transition px-2 py-1 rounded-lg hover:bg-red-50"
+C:\Users\USER\Desktop\bizhub\src\components\cart\CartSummary.tsx:68 className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-gray-600 hover:text-orange-600 transition"
+C:\Users\USER\Desktop\bizhub\src\components\charts\AnalyticsChart.tsx:102 <div className="absolute inset-0 left-12 flex items-end justify-around pb-8 gap-1">
+C:\Users\USER\Desktop\bizhub\src\components\charts\AnalyticsChart.tsx:125 <div className="flex items-end justify-center gap-1 w-full h-full">
+C:\Users\USER\Desktop\bizhub\src\components\charts\donut-chart.tsx:93 <div className="mt-3 flex flex-wrap justify-center gap-4">
+C:\Users\USER\Desktop\bizhub\src\components\charts\donut-chart.tsx:95 <div key={`legend-${index}`} className="flex items-center gap-2 text-xs text-gray-700">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\CheckoutHeader.tsx:28 <div className="flex items-center gap-2 text-orange-100 text-xs font-medium">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\CheckoutHeader.tsx:43 <div className="flex items-center gap-4 mt-4 pt-4 border-t border-white/20">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\CheckoutHeader.tsx:44 <div className="flex items-center gap-1.5 text-xs text-orange-100">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\CheckoutHeader.tsx:48 <div className="flex items-center gap-1.5 text-xs text-orange-100">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\CouponInput.tsx:43 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\CustomerForm.tsx:55 <div className="flex items-center gap-1.5 mt-1.5 text-amber-600">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\CustomerForm.tsx:124 <div className="rounded-xl bg-blue-50 border border-blue-100 p-4 flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\PaymentButtons.tsx:38 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\PaymentButtons.tsx:109 <div className="flex items-center justify-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\PaymentButtons.tsx:138 <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\ShippingSelector.tsx:81 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\checkout\ShippingSelector.tsx:94 <div className="flex items-start justify-between gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:63 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\market\CategoryGrid.tsx:88 <div className="grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\DealsCarousel.tsx:75 className="flex gap-3 overflow-x-auto scrollbar-hide px-1 py-1 snap-x snap-mandatory"
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:112 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:132 <div className="mt-2 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:184 <div className="mt-2 grid grid-cols-1 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:232 <div className="mt-2 grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:259 <div className="mt-2 flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:298 <div className="mt-2 flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:334 <div className="mt-2 flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:395 <div className="mt-2 grid grid-cols-1 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\MarketFilterSheet.tsx:443 <div className="mt-2 flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:130 <div className="absolute top-1.5 left-1.5 right-1.5 flex items-start justify-between gap-1 pointer-events-none">
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:131 <div className="flex flex-col gap-1">
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:135 <div className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500 text-white inline-flex items-center gap-0.5 shadow-sm">
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:142 <div className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/95 text-orange-600 inline-flex items-center gap-0.5 shadow-sm">
+C:\Users\USER\Desktop\bizhub\src\components\market\SearchBar.tsx:62 "flex items-center gap-2 rounded-2xl border bg-white px-4 py-3 transition-all",
+C:\Users\USER\Desktop\bizhub\src\components\market\SearchBar.tsx:98 className="px-4 py-2 bg-orange-500 text-white text-sm font-bold rounded-xl hover:bg-orange-600 transition disabled:opacity-50 flex items-center gap-2"
+C:\Users\USER\Desktop\bizhub\src\components\market\SearchBar.tsx:116 className="w-full text-left px-4 py-3 text-sm text-gray-700 hover:bg-gray-50 transition flex items-center gap-3 border-b border-gray-100 last:border-0"
+C:\Users\USER\Desktop\bizhub\src\components\market\SmartMatchBadge.tsx:39 <div className={cn("flex flex-col gap-0.5", className)}>
+C:\Users\USER\Desktop\bizhub\src\components\market\SmartMatchBadge.tsx:42 "inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold border w-fit",
+C:\Users\USER\Desktop\bizhub\src\components\market\StoreCard.tsx:28 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\market\StoreCard.tsx:33 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\market\StoreCard.tsx:42 <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+C:\Users\USER\Desktop\bizhub\src\components\market\StoreCard.tsx:47 <span className="flex items-center gap-1">
+C:\Users\USER\Desktop\bizhub\src\components\orders\OrderCard.tsx:100 <div className="flex items-start gap-4">
+C:\Users\USER\Desktop\bizhub\src\components\orders\OrderCard.tsx:106 <div className="grid grid-cols-[1fr_auto] gap-2 items-start">
+C:\Users\USER\Desktop\bizhub\src\components\orders\OrderCard.tsx:119 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-3 min-w-0">
+C:\Users\USER\Desktop\bizhub\src\components\orders\OrderStatusTimeline.tsx:60 <div key={step.key} className="flex items-start gap-4 relative">
+C:\Users\USER\Desktop\bizhub\src\components\reviews\ReviewCard.tsx:51 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\reviews\ReviewCard.tsx:61 <div className="flex items-center gap-2 mt-0.5">
+C:\Users\USER\Desktop\bizhub\src\components\reviews\ReviewCard.tsx:73 <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+C:\Users\USER\Desktop\bizhub\src\components\reviews\ReviewForm.tsx:91 <div className="flex items-center gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\reviews\ReviewStars.tsx:24 <div className="flex items-center gap-0.5">
+C:\Users\USER\Desktop\bizhub\src\components\reviews\StoreReviews.tsx:59 <div className="flex items-center gap-4 p-4 bg-amber-50 rounded-2xl border border-amber-200 mb-4">
+C:\Users\USER\Desktop\bizhub\src\components\reviews\VendorReviewsPanel.tsx:102 className="text-xs text-orange-600 font-bold flex items-center gap-1"
+C:\Users\USER\Desktop\bizhub\src\components\reviews\VendorReviewsPanel.tsx:110 <div className="grid grid-cols-3 gap-3 mb-4">
+C:\Users\USER\Desktop\bizhub\src\components\reviews\VendorReviewsPanel.tsx:157 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\reviews\VendorReviewsPanel.tsx:180 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\ui\AppHeader.tsx:17 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\ui\AppHeader.tsx:18 <div className="flex items-start gap-3 min-w-0">
+C:\Users\USER\Desktop\bizhub\src\components\ui\BannerCarousel.tsx:42 <div className="flex justify-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\ui\BottomSheet.tsx:77 <div className="flex items-center justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\ui\Button.tsx:34 "w-full inline-flex items-center justify-center gap-2 font-bold rounded-2xl transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed text-center";
+C:\Users\USER\Desktop\bizhub\src\components\ui\ConfirmDialog.tsx:70 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\ui\ConfirmDialog.tsx:80 <div className="mt-5 grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\ui\EmptyState.tsx:68 <div className={cn("mt-4 flex flex-wrap justify-center gap-3")}>
+C:\Users\USER\Desktop\bizhub\src\components\ui\growth-indicator.tsx:53 inline-flex items-center gap-1 font-semibold rounded-full
+C:\Users\USER\Desktop\bizhub\src\components\ui\insight-text.tsx:24 flex items-start gap-2
+C:\Users\USER\Desktop\bizhub\src\components\ui\section-header.tsx:33 <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-gray-400">
+C:\Users\USER\Desktop\bizhub\src\components\ui\SectionCard.tsx:19 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\ui\Skeleton.tsx:37 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\ui\Skeleton.tsx:57 <div className="flex gap-3 overflow-hidden">
+C:\Users\USER\Desktop\bizhub\src\components\ui\Toaster.tsx:86 "flex items-start justify-between gap-3",
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:70 "inline-flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] text-white font-bold shadow-sm transition-all hover:bg-[#20bd5a] hover:scale-[1.02] active:scale-[0.98]",
+C:\Users\USER\Desktop\bizhub\src\components\vendor\DisputeCommentBubble.tsx:59 <div className="flex items-center gap-2 mb-1">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\DisputeCommentBubble.tsx:71 <div className="mt-2 flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\DisputeStatusBadge.tsx:54 "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border",
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:475 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:488 <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:512 <div className="mt-2 flex items-center justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:526 <div className="mt-2 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:564 <div className="mt-2 grid grid-cols-3 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:590 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\MenuCard.tsx:44 "w-full flex items-center gap-4 p-4 rounded-2xl border bg-white transition text-left",
+C:\Users\USER\Desktop\bizhub\src\components\vendor\OrderRow.tsx:58 <button onClick={onClick} className="w-full flex items-center gap-3 p-4 rounded-2xl border border-gray-100 bg-white hover:border-orange-200 hover:shadow-sm transition text-left">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\OrderRow.tsx:63 <div className="flex-1 min-w-0 grid grid-cols-[1fr_auto] gap-3 items-start">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\OrderRow.tsx:67 <div className="flex items-center gap-2 mt-1.5 flex-wrap min-w-0">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\OrderRow.tsx:72 <div className="flex items-center gap-1.5 mt-1.5 text-gray-400 min-w-0">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\OrderStatusPill.tsx:42 "inline-flex items-center gap-1 rounded-full font-bold whitespace-nowrap shrink-0",
+C:\Users\USER\Desktop\bizhub\src\components\vendor\OrderStatusTimeline.tsx:152 <div key={idx} className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\PageSkeleton.tsx:23 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\PageSkeleton.tsx:76 <div className="grid grid-cols-2 gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\QuickStat.tsx:27 <div className="flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\VariationBuilder.tsx:95 <div className="flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\VariationBuilder.tsx:109 <div className="flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\VariationBuilder.tsx:160 <div className="flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\VariationBuilder.tsx:180 <div className="mt-3 flex flex-wrap gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\vendor\VendorBottomNav.tsx:37 "flex-1 py-2 flex flex-col items-center justify-center gap-1 rounded-2xl transition min-h-[44px]",
+C:\Users\USER\Desktop\bizhub\src\components\AchievementModal.tsx:82 <div className="absolute top-3 right-3 flex items-center gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\AchievementModal.tsx:116 <div className="flex items-center justify-center gap-2 mb-2">
+C:\Users\USER\Desktop\bizhub\src\components\BottomNav.tsx:40 "flex-1 py-2 flex flex-col items-center justify-center gap-1 rounded-2xl transition",
+C:\Users\USER\Desktop\bizhub\src\components\GradientHeader.tsx:29 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\GradientHeader.tsx:30 <div className="flex items-start gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx:184 className="w-full flex items-center gap-3 p-4 rounded-2xl border border-gray-100 bg-white hover:border-orange-200 hover:shadow-sm transition text-left"
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx:204 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx:224 <div className="mt-3 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx:238 className="rounded-2xl border border-gray-200 bg-white px-3 py-3 text-sm font-bold text-gray-900 disabled:opacity-50 inline-flex items-center gap-2"
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx:245 <div className="mt-3 flex gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx:296 <div className="grid grid-cols-2 gap-2">
+C:\Users\USER\Desktop\bizhub\src\components\PushBellFloating.tsx:186 <div className="flex items-start justify-between gap-3">
+C:\Users\USER\Desktop\bizhub\src\components\SearchBar.tsx:13 <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 border border-black/5 shadow-sm">
+C:\Users\USER\Desktop\bizhub\src\services\analytics\sales-growth.service.ts:85 * Build a complete daily sales array, filling gaps with zero values.
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:54 gap: 24px;
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:61 gap: 24px;
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:273 gap: 12px;
+C:\Users\USER\Desktop\bizhub\src\styles\analytics.css:321 gap: 4px;
+C:\Users\USER\Desktop\bizhub\src\styles\charts.css:127 gap: 16px;
+C:\Users\USER\Desktop\bizhub\src\styles\charts.css:135 gap: 6px;
+C:\Users\USER\Desktop\bizhub\src\styles\charts.css:172 gap: 12px;
+C:\Users\USER\Desktop\bizhub\src\styles\charts.css:182 gap: 8px;
+
+### aspect
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\products\route.ts:9 import { normalizeCoverAspect } from "@/lib/products/coverAspect";
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\products\route.ts:113 const coverAspect = normalizeCoverAspect(body.coverAspect) ?? "1:1";
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\products\route.ts:161 coverAspect,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:18 import { type CoverAspectKey, normalizeCoverAspect } from "@/lib/products/coverAspect";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:105 const [coverAspect, setCoverAspect] = useState<CoverAspectKey>("1:1");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:139 setCoverAspect("1:1");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:163 const ca = normalizeCoverAspect(d?.coverAspect);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:164 if (ca) setCoverAspect(ca);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:187 coverAspect,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:208 coverAspect,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:278 coverAspect,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:361 allowFreeAspect={false}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:362 aspectKey={coverAspect}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\new\page.tsx:363 onAspectKeyChange={setCoverAspect}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:944 <div className="aspect-square bg-gray-100 relative">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:448 aspectKey="1:1"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:449 allowFreeAspect={false}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:463 aspectKey="16:9"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:464 allowFreeAspect={false}
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:112 {/* SQUARE IMAGE — forced aspect-square, no exceptions */}
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:113 <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
+C:\Users\USER\Desktop\bizhub\src\components\ui\Skeleton.tsx:28 <Skeleton className="aspect-square w-full rounded-xl" />
+C:\Users\USER\Desktop\bizhub\src\components\ui\Skeleton.tsx:60 <Skeleton className="aspect-square w-full rounded-xl" />
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:8 import type { CoverAspectKey } from "@/lib/products/coverAspect";
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:256 aspectKey?: CoverAspectKey;
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:257 onAspectKeyChange?: (k: CoverAspectKey) => void;
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:258 allowFreeAspect?: boolean;
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:539 <img src={thumb} alt="Photo" className="aspect-square w-full object-cover" loading="lazy" decoding="async" />
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:568 <img src={d.previewUrl} alt="Selected" className="aspect-square w-full object-cover" />
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:7 normalizeCoverAspect,
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:8 coverAspectToTailwindClass,
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:9 type CoverAspectKey,
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:10 } from "@/lib/products/coverAspect";
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:99 const coverAspect: CoverAspectKey = normalizeCoverAspect(product?.coverAspect) ?? "1:1";
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:100 const aspectClass = coverAspectToTailwindClass(coverAspect);
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:149 <div className={`${aspectClass} w-full rounded-2xl bg-[#F3F4F6] overflow-hidden relative`}>
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:1 // FILE: src/lib/products/coverAspect.ts
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:2 export type CoverAspectKey = "1:1" | "4:5" | "5:7" | "3:4" | "2:3" | "16:9" | "9:16";
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:4 export const COVER_ASPECT_OPTIONS: { key: CoverAspectKey; label: string; w: number; h: number }[] = [
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:14 export function normalizeCoverAspect(v: any): CoverAspectKey | null {
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:16 return COVER_ASPECT_OPTIONS.some((x) => x.key === s) ? (s as CoverAspectKey) : null;
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:20 export const COVER_ASPECT_CLASS: Record<CoverAspectKey, string> = {
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:21 "1:1": "aspect-square",
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:22 "4:5": "aspect-[4/5]",
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:23 "5:7": "aspect-[5/7]",
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:24 "3:4": "aspect-[3/4]",
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:25 "2:3": "aspect-[2/3]",
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:26 "16:9": "aspect-video",
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:27 "9:16": "aspect-[9/16]",
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:30 export function coverAspectToTailwindClass(k: CoverAspectKey) {
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:31 return COVER_ASPECT_CLASS[k] || "aspect-square";
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:34 export function coverAspectToWH(k: CoverAspectKey, baseW: number) {
+C:\Users\USER\Desktop\bizhub\src\lib\products\coverAspect.ts:35 const opt = COVER_ASPECT_OPTIONS.find((x) => x.key === k) || COVER_ASPECT_OPTIONS[0];
+
+### object-cover
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:157 <img src={u} alt="Evidence" className="h-24 w-full object-cover rounded-2xl border" />
+C:\Users\USER\Desktop\bizhub\src\app\admin\disputes\page.tsx:172 <img src={u} alt="Screenshot" className="h-24 w-full object-cover rounded-2xl border" />
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:122 <img src={u} alt="Proof" className="h-24 w-full object-cover rounded-2xl border" />
+C:\Users\USER\Desktop\bizhub\src\app\admin\verification\page.tsx:133 <img src={u} alt="Selfie" className="h-24 w-full object-cover rounded-2xl border" />
+C:\Users\USER\Desktop\bizhub\src\app\favorites\page.tsx:109 className="w-16 h-16 rounded-xl object-cover shrink-0"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:842 <img src={img} alt={product.name || "Product"} className="w-full h-full object-cover" loading="lazy" />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:947 <img src={img} alt={product.name || "Product"} className="w-full h-full object-cover" loading="lazy" />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:278 <img src={img} alt={p?.name || "Product"} className="h-full w-full object-cover" />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:276 <img src={p.imageUrl} alt={p.name || "Product"} className="w-full h-full object-cover" />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:409 <img src={p.imageUrl} alt={p.name} className="w-full h-full object-cover" />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:311 <img src={u} alt="Selfie" className="h-24 w-full object-cover" />
+C:\Users\USER\Desktop\bizhub\src\app\vendor\verification\page.tsx:429 <img src={u} alt="Proof" className="h-24 w-full object-cover" />
+C:\Users\USER\Desktop\bizhub\src\components\analytics\top-product-item.tsx:32 className="w-full h-full object-cover rounded-xl"
+C:\Users\USER\Desktop\bizhub\src\components\cart\CartItem.tsx:43 className="w-full h-full object-cover"
+C:\Users\USER\Desktop\bizhub\src\components\market\ProductCard.tsx:121 className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
+C:\Users\USER\Desktop\bizhub\src\components\vendor\DisputeCommentBubble.tsx:84 className="w-full h-full object-cover"
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:539 <img src={thumb} alt="Photo" className="aspect-square w-full object-cover" loading="lazy" decoding="async" />
+C:\Users\USER\Desktop\bizhub\src\components\vendor\ImageUploader.tsx:568 <img src={d.previewUrl} alt="Selected" className="aspect-square w-full object-cover" />
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:152 <img src={img} alt={name} className="h-full w-full object-cover" loading="lazy" />
+
+### objectFit
+
+### whatsapp
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:108 const whatsapp = cleanStr(biz?.whatsapp, 40);
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:122 if (!whatsapp) {
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:123 return Response.json({ ok: false, code: "WHATSAPP_NOT_SET", error: "Vendor WhatsApp is not set." }, { status: 400 });
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:159 orderSource: "chat_whatsapp",
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:160 paymentType: "chat_whatsapp",
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:183 type: "whatsapp",
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:184 vendorWhatsapp: whatsapp,
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:198 body: "A customer started an order via WhatsApp.",
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts:167 const chatOrders = ordersWin.filter((o) => o.paymentType === "chat_whatsapp").length;
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:135 const isChat = payType === "chat_whatsapp";
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:162 const whatsappText = summaryLines.join("\n");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:195 whatsappText,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\chat\availability\route.ts:35 const whatsapp = String(biz?.whatsapp || "").trim();
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\chat\availability\route.ts:39 const enabled = !!(enabledToggle && subscribed && whatsapp);
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\chat\availability\route.ts:49 whatsappSet: !!whatsapp,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\chat\availability\route.ts:51 whatsapp: enabled ? whatsapp : null,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\orders\export\route.ts:42 if (pt === "chat_whatsapp") return "new";
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\orders\route.ts:33 if (pt === "chat_whatsapp") return "new";
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\plans\route.ts:51 addIf(core, !!features.continueInChat, "Let buyers complete orders via WhatsApp (Continue in Chat)");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\reengagement\rewrite\route.ts:23 const system = `You are a friendly WhatsApp message writer for Nigerian small businesses.
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\store\route.ts:75 whatsapp: typeof body.whatsapp === "string" ? body.whatsapp.trim() : undefined,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\support\chat\route.ts:54 "- WhatsApp status, WhatsApp groups, Instagram stories",
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:40 whatsapp: string | null;
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:90 return !!(chatAvail?.ok && chatAvail?.enabled && chatAvail?.whatsapp);
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:128 if (!storeSlug || !canChat || !chatAvail?.whatsapp) return;
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:157 // Build WhatsApp message
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:186 window.location.href = waLink(chatAvail.whatsapp, text);
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:188 toast.success("Opening WhatsApp...");
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:8 import { WhatsAppButton, WhatsAppIcon } from "@/components/ui/WhatsAppButton";
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:9 import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:23 const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:84 const supportWaLink = SUPPORT_WHATSAPP
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:85 ? buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:101 <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:103 <WhatsAppButton
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:153 <WhatsAppButton
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:155 label="Chat on WhatsApp"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:7 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:8 import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:41 const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:124 const supportWaLink = SUPPORT_WHATSAPP
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:125 ? buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:163 desc="Brand, location, WhatsApp, banner"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:312 <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:315 <WhatsAppButton
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx:75 onClick={() => alert("Check your receipt for the vendor's WhatsApp link!")}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:17 openWhatsAppInNewTab: boolean;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:32 openWhatsAppInNewTab: true,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:54 openWhatsAppInNewTab: typeof base?.openWhatsAppInNewTab === "boolean" ? base.openWhatsAppInNewTab : FALLBACK.openWhatsAppInNewTab,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:191 title="Open WhatsApp in a new tab"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:193 value={prefs.openWhatsAppInNewTab}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:194 onChange={(v) => setPrefs((p) => ({ ...p, openWhatsAppInNewTab: v }))}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:697 WhatsApp
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:3 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:4 import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:29 const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:109 a: "Open your vendor dashboard, then copy your store link and share it on WhatsApp, Instagram, Facebook, or anywhere your customers are.\n\nTip: Share your store link first, then share individual product links for best results.",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:117 a: "Best order:\n1. Add 5–10 products with clear photos\n2. Set correct price and stock\n3. Add your WhatsApp number in store settings\n4. Share your store link with your customers",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:207 a: "Top tips:\n• Clear product photos (3–5 per product)\n• Fair prices\n• Fast WhatsApp responses\n• Good reviews\n• Regular updates and new products",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:310 {SUPPORT_WHATSAPP ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:318 <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:320 <WhatsAppButton
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:321 href={buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:64 const [whatsapp, setWhatsapp] = useState("");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:112 setWhatsapp(biz.whatsapp || "");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:157 whatsapp: whatsapp.trim(),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:179 }, [name, description, state, city, whatsapp, instagram, logoUrl, bannerUrl, themeId, continueInChat, searchTags, planKey]);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:382 WhatsApp Number
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:386 value={whatsapp}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:387 onChange={(e) => setWhatsapp(e.target.value)}
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:1 // FILE: src/components/ui/WhatsAppButton.tsx
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:7 * WhatsApp SVG icon (official shape, green brand color).
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:10 function WhatsAppIcon({ className }: { className?: string }) {
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:23 interface WhatsAppButtonProps {
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:32 * WhatsApp contact button. Opens WhatsApp ONLY on user click.
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:36 export function WhatsAppButton({
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:42 }: WhatsAppButtonProps) {
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:56 aria-label="Chat on WhatsApp"
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:57 title="Chat on WhatsApp"
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:59 <WhatsAppIcon className={size === "sm" ? "w-4 h-4" : "w-5 h-5"} />
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:74 aria-label={label || "Chat on WhatsApp"}
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:76 <WhatsAppIcon className={size === "sm" ? "w-4 h-4" : "w-5 h-5"} />
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:82 export { WhatsAppIcon };
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx:89 hint: "Brand info and WhatsApp settings.",
+C:\Users\USER\Desktop\bizhub\src\lib\smartmatch\buyerIntent.ts:44 } else if (t === "chat_whatsapp") {
+C:\Users\USER\Desktop\bizhub\src\lib\smartmatch\vendorProfile.ts:44 whatsapp?: string;
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:8 canSendWhatsappSummary: boolean;
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:28 canSendWhatsappSummary: !!obj.canSendWhatsappSummary,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:56 FREE: { canUseAssistant: false, canSendWhatsappSummary: false, canUseShareTemplates: false },
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:57 LAUNCH: { canUseAssistant: true, canSendWhatsappSummary: true, canUseShareTemplates: true },
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:58 MOMENTUM: { canUseAssistant: true, canSendWhatsappSummary: true, canUseShareTemplates: true },
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:59 APEX: { canUseAssistant: true, canSendWhatsappSummary: true, canUseShareTemplates: true },
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:1 // FILE: src/lib/whatsapp/buildWhatsAppLink.ts
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:4 * Shared WhatsApp link builder.
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:8 export function sanitizeWhatsAppNumber(phone: string): string {
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:20 export function buildWhatsAppLink(phone: string, message: string): string {
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:21 const digits = sanitizeWhatsAppNumber(phone);
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:28 * Check if a WhatsApp number is valid (has enough digits).
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:30 export function isValidWhatsAppNumber(phone: string): boolean {
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:31 const digits = sanitizeWhatsAppNumber(phone);
+
+### WhatsApp
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:108 const whatsapp = cleanStr(biz?.whatsapp, 40);
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:122 if (!whatsapp) {
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:123 return Response.json({ ok: false, code: "WHATSAPP_NOT_SET", error: "Vendor WhatsApp is not set." }, { status: 400 });
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:159 orderSource: "chat_whatsapp",
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:160 paymentType: "chat_whatsapp",
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:183 type: "whatsapp",
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:184 vendorWhatsapp: whatsapp,
+C:\Users\USER\Desktop\bizhub\src\app\api\orders\chat\create\route.ts:198 body: "A customer started an order via WhatsApp.",
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\analytics\route.ts:167 const chatOrders = ordersWin.filter((o) => o.paymentType === "chat_whatsapp").length;
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:135 const isChat = payType === "chat_whatsapp";
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:162 const whatsappText = summaryLines.join("\n");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:195 whatsappText,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\chat\availability\route.ts:35 const whatsapp = String(biz?.whatsapp || "").trim();
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\chat\availability\route.ts:39 const enabled = !!(enabledToggle && subscribed && whatsapp);
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\chat\availability\route.ts:49 whatsappSet: !!whatsapp,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\chat\availability\route.ts:51 whatsapp: enabled ? whatsapp : null,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\orders\export\route.ts:42 if (pt === "chat_whatsapp") return "new";
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\orders\route.ts:33 if (pt === "chat_whatsapp") return "new";
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\plans\route.ts:51 addIf(core, !!features.continueInChat, "Let buyers complete orders via WhatsApp (Continue in Chat)");
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\reengagement\rewrite\route.ts:23 const system = `You are a friendly WhatsApp message writer for Nigerian small businesses.
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\store\route.ts:75 whatsapp: typeof body.whatsapp === "string" ? body.whatsapp.trim() : undefined,
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\support\chat\route.ts:54 "- WhatsApp status, WhatsApp groups, Instagram stories",
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:40 whatsapp: string | null;
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:90 return !!(chatAvail?.ok && chatAvail?.enabled && chatAvail?.whatsapp);
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:128 if (!storeSlug || !canChat || !chatAvail?.whatsapp) return;
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:157 // Build WhatsApp message
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:186 window.location.href = waLink(chatAvail.whatsapp, text);
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:188 toast.success("Opening WhatsApp...");
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:8 import { WhatsAppButton, WhatsAppIcon } from "@/components/ui/WhatsAppButton";
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:9 import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:23 const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:84 const supportWaLink = SUPPORT_WHATSAPP
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:85 ? buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:101 <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:103 <WhatsAppButton
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:153 <WhatsAppButton
+C:\Users\USER\Desktop\bizhub\src\app\help\page.tsx:155 label="Chat on WhatsApp"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:7 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:8 import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:41 const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:124 const supportWaLink = SUPPORT_WHATSAPP
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:125 ? buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:163 desc="Brand, location, WhatsApp, banner"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:312 <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\more\page.tsx:315 <WhatsAppButton
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx:75 onClick={() => alert("Check your receipt for the vendor's WhatsApp link!")}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:17 openWhatsAppInNewTab: boolean;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:32 openWhatsAppInNewTab: true,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:54 openWhatsAppInNewTab: typeof base?.openWhatsAppInNewTab === "boolean" ? base.openWhatsAppInNewTab : FALLBACK.openWhatsAppInNewTab,
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:191 title="Open WhatsApp in a new tab"
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:193 value={prefs.openWhatsAppInNewTab}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\preferences\page.tsx:194 onChange={(v) => setPrefs((p) => ({ ...p, openWhatsAppInNewTab: v }))}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:697 WhatsApp
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:3 import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:4 import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:29 const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:109 a: "Open your vendor dashboard, then copy your store link and share it on WhatsApp, Instagram, Facebook, or anywhere your customers are.\n\nTip: Share your store link first, then share individual product links for best results.",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:117 a: "Best order:\n1. Add 5–10 products with clear photos\n2. Set correct price and stock\n3. Add your WhatsApp number in store settings\n4. Share your store link with your customers",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:207 a: "Top tips:\n• Clear product photos (3–5 per product)\n• Fair prices\n• Fast WhatsApp responses\n• Good reviews\n• Regular updates and new products",
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:310 {SUPPORT_WHATSAPP ? (
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:318 <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:320 <WhatsAppButton
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\faq\page.tsx:321 href={buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:64 const [whatsapp, setWhatsapp] = useState("");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:112 setWhatsapp(biz.whatsapp || "");
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:157 whatsapp: whatsapp.trim(),
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:179 }, [name, description, state, city, whatsapp, instagram, logoUrl, bannerUrl, themeId, continueInChat, searchTags, planKey]);
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:382 WhatsApp Number
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:386 value={whatsapp}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:387 onChange={(e) => setWhatsapp(e.target.value)}
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:1 // FILE: src/components/ui/WhatsAppButton.tsx
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:7 * WhatsApp SVG icon (official shape, green brand color).
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:10 function WhatsAppIcon({ className }: { className?: string }) {
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:23 interface WhatsAppButtonProps {
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:32 * WhatsApp contact button. Opens WhatsApp ONLY on user click.
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:36 export function WhatsAppButton({
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:42 }: WhatsAppButtonProps) {
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:56 aria-label="Chat on WhatsApp"
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:57 title="Chat on WhatsApp"
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:59 <WhatsAppIcon className={size === "sm" ? "w-4 h-4" : "w-5 h-5"} />
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:74 aria-label={label || "Chat on WhatsApp"}
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:76 <WhatsAppIcon className={size === "sm" ? "w-4 h-4" : "w-5 h-5"} />
+C:\Users\USER\Desktop\bizhub\src\components\ui\WhatsAppButton.tsx:82 export { WhatsAppIcon };
+C:\Users\USER\Desktop\bizhub\src\components\PageHelpFloating.tsx:89 hint: "Brand info and WhatsApp settings.",
+C:\Users\USER\Desktop\bizhub\src\lib\smartmatch\buyerIntent.ts:44 } else if (t === "chat_whatsapp") {
+C:\Users\USER\Desktop\bizhub\src\lib\smartmatch\vendorProfile.ts:44 whatsapp?: string;
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:8 canSendWhatsappSummary: boolean;
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:28 canSendWhatsappSummary: !!obj.canSendWhatsappSummary,
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:56 FREE: { canUseAssistant: false, canSendWhatsappSummary: false, canUseShareTemplates: false },
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:57 LAUNCH: { canUseAssistant: true, canSendWhatsappSummary: true, canUseShareTemplates: true },
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:58 MOMENTUM: { canUseAssistant: true, canSendWhatsappSummary: true, canUseShareTemplates: true },
+C:\Users\USER\Desktop\bizhub\src\lib\vendor\assistantLimitsServer.ts:59 APEX: { canUseAssistant: true, canSendWhatsappSummary: true, canUseShareTemplates: true },
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:1 // FILE: src/lib/whatsapp/buildWhatsAppLink.ts
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:4 * Shared WhatsApp link builder.
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:8 export function sanitizeWhatsAppNumber(phone: string): string {
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:20 export function buildWhatsAppLink(phone: string, message: string): string {
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:21 const digits = sanitizeWhatsAppNumber(phone);
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:28 * Check if a WhatsApp number is valid (has enough digits).
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:30 export function isValidWhatsAppNumber(phone: string): boolean {
+C:\Users\USER\Desktop\bizhub\src\lib\whatsapp\buildWhatsAppLink.ts:31 const digits = sanitizeWhatsAppNumber(phone);
+
+### Headset
+
+### headset
+
+### earphone
+C:\Users\USER\Desktop\bizhub\src\lib\search\marketTaxonomy.ts:30 "airpod","airpods","earpiece","earpieces","earphone","earphones","charger","charging","powerbank","power",
+
+### earphones
+C:\Users\USER\Desktop\bizhub\src\lib\search\marketTaxonomy.ts:30 "airpod","airpods","earpiece","earpieces","earphone","earphones","charger","charging","powerbank","power",
+
+--- End matches ---

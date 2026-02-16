@@ -12,11 +12,11 @@ import { Button } from "@/components/ui/Button";
 import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 
 function PromotionCallbackInner() {
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
   const reference = sp.get("reference") ?? sp.get("trxref");
 
   const [status, setStatus] = useState<"loading" | "error" | "ok">("loading");
-  const [msg, setMsg] = useState("Confirming promotionâ€¦");
+  const [msg, setMsg] = useState("Confirming promotion?");
 
   useEffect(() => {
     let mounted = true;
@@ -65,7 +65,7 @@ function PromotionCallbackInner() {
               <div className="mx-auto h-14 w-14 rounded-2xl bg-biz-cream flex items-center justify-center">
                 <Loader2 className="h-6 w-6 text-orange-700 animate-spin" />
               </div>
-              <p className="mt-4 text-base font-bold text-biz-ink">Processingâ€¦</p>
+              <p className="mt-4 text-base font-bold text-biz-ink">Processing?</p>
               <p className="text-sm text-biz-muted mt-2">{msg}</p>
             </>
           ) : null}
@@ -90,7 +90,7 @@ function PromotionCallbackInner() {
             </>
           ) : null}
 
-          <p className="text-[11px] text-gray-500 mt-3 break-all">Payment ID: {reference || "â€”"}</p>
+          <p className="text-[11px] text-gray-500 mt-3 break-all">Payment ID: {reference || "?"}</p>
 
           <div className="mt-4 space-y-2">
             <Link href="/vendor/products" className="block">
@@ -107,14 +107,14 @@ function PromotionCallbackInner() {
 }
 
 export default function PromotionCallbackPage() {
-  // âœ… Next.js requires useSearchParams() to be wrapped in Suspense
+  // ? Next.js requires useSearchParams() to be wrapped in Suspense
   return (
     <Suspense
       fallback={
         <div className="min-h-screen">
           <GradientHeader title="Promotion" subtitle="Payment confirmation" showBack={true} />
           <div className="px-4 pb-24">
-            <Card className="p-4">Loadingâ€¦</Card>
+            <Card className="p-4">Loading?</Card>
           </div>
         </div>
       }
@@ -123,4 +123,6 @@ export default function PromotionCallbackPage() {
     </Suspense>
   );
 }
+
+
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -32,7 +32,7 @@ function permLabel(k: string) {
 
 export default function StaffRegisterClient() {
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
   const code = sp.get("code") || "";
 
   const [invite, setInvite] = useState<Invite | null>(null);
@@ -126,7 +126,7 @@ export default function StaffRegisterClient() {
       const errCode = String(e?.code || "");
       const errMsg = String(e?.message || "Registration failed");
 
-      // ✅ If account already exists, route them to staff login with the same invite code
+      // âœ… If account already exists, route them to staff login with the same invite code
       if (errCode === "auth/email-already-in-use" || errMsg.toLowerCase().includes("email-already-in-use")) {
         router.push(`/staff/login?code=${encodeURIComponent(code)}`);
         return;
@@ -146,7 +146,7 @@ export default function StaffRegisterClient() {
       <p className="text-base font-extrabold text-[#111827]">Create your staff account</p>
       <p className="text-sm text-gray-600 mt-1">Only set a password. Your role is pre-filled from the invite.</p>
 
-      {loading ? <p className="mt-4 text-sm text-gray-600">Loading invite…</p> : null}
+      {loading ? <p className="mt-4 text-sm text-gray-600">Loading inviteâ€¦</p> : null}
 
       {!loading && invite ? (
         <div className="mt-4 space-y-2">

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Analytics Adapter
  * Transforms your existing /api/vendor/analytics response
  * into the shapes expected by the new chart/section components.
@@ -133,7 +133,7 @@ function generateSalesInsight(growthPct: number | null, totalRevenue: number): s
 function generateConversionInsight(rate: number): string {
   if (rate > 0.5) return 'Your store converts visitors very well.';
   if (rate >= 0.2) return 'Your conversion rate is average. Improve product descriptions to boost it.';
-  if (rate > 0) return 'Low conversion — try better photos, clearer pricing, or adding more products.';
+  if (rate > 0) return 'Low conversion â€” try better photos, clearer pricing, or adding more products.';
   return 'No conversions yet. Focus on getting traffic to your store.';
 }
 
@@ -147,7 +147,7 @@ function generateEngagementInsight(
   if (leads > 0 && orders === 0) return 'Customers are interested but not buying. Follow up with leads quickly.';
   if (visits > 0 && orders > 0) {
     const rate = orders / visits;
-    if (rate > 0.3) return 'Strong engagement — visitors are converting to buyers.';
+    if (rate > 0.3) return 'Strong engagement â€” visitors are converting to buyers.';
     return 'Moderate engagement. Try improving your store page to convert more visitors.';
   }
   return 'Keep promoting your store to build engagement.';
@@ -168,7 +168,7 @@ function generateRevenueInsight(
 // ===========================
 
 /**
- * Adapt API response → AnalyticsSummary (dashboard card)
+ * Adapt API response â†’ AnalyticsSummary (dashboard card)
  */
 export function adaptToSummary(data: VendorAnalyticsResponse): AnalyticsSummary {
   const growthPct = data.comparisons?.deltas?.revenueDeltaPct ?? null;
@@ -188,7 +188,7 @@ export function adaptToSummary(data: VendorAnalyticsResponse): AnalyticsSummary 
 }
 
 /**
- * Adapt API response → SalesGrowthData (Section 1)
+ * Adapt API response â†’ SalesGrowthData (Section 1)
  */
 export function adaptToSalesGrowth(data: VendorAnalyticsResponse): SalesGrowthData {
   const currentTotal = data.overview?.totalRevenue || 0;
@@ -226,7 +226,7 @@ export function adaptToSalesGrowth(data: VendorAnalyticsResponse): SalesGrowthDa
 }
 
 /**
- * Adapt API response → RevenueBreakdownData (Section 2)
+ * Adapt API response â†’ RevenueBreakdownData (Section 2)
  */
 export function adaptToRevenueBreakdown(data: VendorAnalyticsResponse): RevenueBreakdownData | null {
   if (!data.insights?.topProducts || data.insights.topProducts.length === 0) {
@@ -238,7 +238,7 @@ export function adaptToRevenueBreakdown(data: VendorAnalyticsResponse): RevenueB
   const topProducts: ProductRevenue[] = data.insights.topProducts.map((p) => {
     const pct = totalRevenue > 0 ? (p.revenue / totalRevenue) * 100 : 0;
     // Truncate name at 15 characters per spec
-    const name = p.name.length > 15 ? p.name.substring(0, 15) + '…' : p.name;
+    const name = p.name.length > 15 ? p.name.substring(0, 15) + 'â€¦' : p.name;
     return {
       product_id: p.productId,
       product_name: name,
@@ -260,7 +260,7 @@ export function adaptToRevenueBreakdown(data: VendorAnalyticsResponse): RevenueB
 }
 
 /**
- * Adapt API response → ConversionData (Section 3)
+ * Adapt API response â†’ ConversionData (Section 3)
  */
 export function adaptToConversion(data: VendorAnalyticsResponse): ConversionData {
   const views = Number(data.overview?.views || data.overview?.visits || 0);
@@ -280,7 +280,7 @@ export function adaptToConversion(data: VendorAnalyticsResponse): ConversionData
 }
 
 /**
- * Adapt API response → TopProductsData (Section 4)
+ * Adapt API response â†’ TopProductsData (Section 4)
  */
 export function adaptToTopProducts(data: VendorAnalyticsResponse): TopProductsData | null {
   if (!data.insights?.topProducts || data.insights.topProducts.length === 0) {
@@ -301,7 +301,7 @@ export function adaptToTopProducts(data: VendorAnalyticsResponse): TopProductsDa
 }
 
 /**
- * Adapt API response → EngagementData (Section 5)
+ * Adapt API response â†’ EngagementData (Section 5)
  */
 export function adaptToEngagement(data: VendorAnalyticsResponse): EngagementData {
   const visits = Number(data.overview?.visits || 0);

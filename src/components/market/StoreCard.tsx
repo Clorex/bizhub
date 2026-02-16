@@ -1,4 +1,4 @@
-// FILE: src/components/market/StoreCard.tsx
+﻿// FILE: src/components/market/StoreCard.tsx
 "use client";
 
 import { memo } from "react";
@@ -43,7 +43,7 @@ export const StoreCard = memo(function StoreCard({ store: b }: StoreCardProps) {
             <span className="font-medium">@{slug}</span>
             {loc && (
               <>
-                <span>•</span>
+                <span>?</span>
                 <span className="flex items-center gap-1">
                   <MapPin className="w-3 h-3" />
                   {loc}

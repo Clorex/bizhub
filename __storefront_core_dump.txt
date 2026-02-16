@@ -1,0 +1,2073 @@
+﻿
+
+===== FILE: src/app/b/[slug]/page.tsx =====
+// FILE: src/app/b/[slug]/page.tsx
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import { db } from "@/lib/firebase/client";
+import { collection, getDocs, limit, query, where, orderBy } from "firebase/firestore";
+import { track } from "@/lib/track/client";
+import { Button } from "@/components/ui/Button";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { buildWhatsAppLink, isValidWhatsAppNumber } from "@/lib/whatsapp/buildWhatsAppLink";
+import {
+  Store,
+  Package,
+  ShoppingCart,
+  Plus,
+  BadgeCheck,
+  MapPin,
+  Instagram,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
+import { useCart } from "@/lib/cart/CartContext";
+import { CloudImage } from "@/components/CloudImage";
+import { toast } from "@/lib/ui/toast";
+import { cn } from "@/lib/cn";
+import {
+  normalizeCoverAspect,
+  coverAspectToTailwindClass,
+  coverAspectToWH,
+  type CoverAspectKey,
+} from "@/lib/products/coverAspect";
+import { getThemeById, getDefaultTheme, type StoreTheme } from "@/lib/themes/storeThemes";
+import { formatMoneyNGN } from "@/lib/money";
+
+/* ----------------------- Helpers ----------------------- */
+
+function fmtNaira(n: number) {
+  return formatMoneyNGN(Number(n || 0));
+}
+
+function saleIsActive(p: any, now = Date.now()) {
+  if (p?.saleActive !== true) return false;
+  const start = Number(p?.saleStartsAtMs || 0);
+  const end = Number(p?.saleEndsAtMs || 0);
+  if (start && now < start) return false;
+  if (end && now > end) return false;
+  const t = String(p?.saleType || "");
+  return t === "percent" || t === "fixed";
+}
+
+function computeSalePriceNgn(p: any) {
+  const base = Number(p?.price || 0);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+  if (!saleIsActive(p)) return Math.floor(base);
+
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return Math.max(0, Math.floor(base - Math.max(0, off)));
+  }
+  const pct = Math.max(0, Math.min(90, Number(p?.salePercent || 0)));
+  const off = Math.floor((base * pct) / 100);
+  return Math.max(0, Math.floor(base - off));
+}
+
+function saleBadgeText(p: any) {
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return off > 0 ? `${fmtNaira(off)} OFF` : "Sale";
+  }
+  const pct = Number(p?.salePercent || 0);
+  return pct > 0 ? `${pct}% OFF` : "Sale";
+}
+
+/* ----------------------- Themed Header Component ----------------------- */
+
+function ThemedStoreHeader({
+  theme,
+  name,
+  location,
+  whatsappLink,
+  onBack,
+  onCart,
+  cartCount,
+}: {
+  theme: StoreTheme;
+  name: string;
+  location: string;
+  whatsappLink: string;
+  onBack: () => void;
+  onCart: () => void;
+  cartCount: number;
+}) {
+  return (
+    <div className="relative overflow-hidden" style={{ background: theme.headerGradient }}>
+      {theme.headerOverlay && (
+        <div className="absolute inset-0 pointer-events-none" style={{ background: theme.headerOverlay }} />
+      )}
+
+      {theme.hasAnimation && theme.animationType === "shimmer" && (
+        <div className="absolute inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent animate-shimmer" />
+        </div>
+      )}
+
+      {theme.hasAnimation && theme.animationType === "gradient" && (
+        <div
+          className="absolute inset-0 pointer-events-none animate-gradient"
+          style={{ background: theme.headerGradient, backgroundSize: "200% 200%" }}
+        />
+      )}
+
+      <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/4" />
+      <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/4" />
+
+      <div className="relative z-10 safe-pt">
+        <div className="px-4 py-4">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={onBack}
+              className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition"
+            >
+              <ChevronLeft className="w-5 h-5" style={{ color: theme.headerTextColor }} />
+            </button>
+
+            <div className="flex-1 mx-4 text-center">
+              <h1 className="text-lg font-bold truncate" style={{ color: theme.headerTextColor }}>
+                {name}
+              </h1>
+              {location && (
+                <p
+                  className="text-xs opacity-80 flex items-center justify-center gap-1 mt-0.5"
+                  style={{ color: theme.headerTextColor }}
+                >
+                  <MapPin className="w-3 h-3" />
+                  {location}
+                </p>
+              )}
+            </div>
+
+            <div className="flex items-center gap-2">
+              {/* WhatsApp icon in header */}
+              {whatsappLink && (
+                <WhatsAppButton href={whatsappLink} variant="icon" size="sm" />
+              )}
+
+              <button
+                onClick={onCart}
+                className="relative w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center hover:bg-white/30 transition"
+              >
+                <ShoppingCart className="w-5 h-5" style={{ color: theme.headerTextColor }} />
+                {cartCount > 0 && (
+                  <span
+                    className="absolute -top-1 -right-1 w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
+                    style={{ background: theme.primaryColor, color: theme.buttonText }}
+                  >
+                    {cartCount > 9 ? "9+" : cartCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------- Themed Product Card ----------------------- */
+
+function ThemedProductCard({
+  theme,
+  product,
+  onOpen,
+  onQuickAdd,
+  canQuickAdd,
+}: {
+  theme: StoreTheme;
+  product: any;
+  onOpen: () => void;
+  onQuickAdd: () => void;
+  canQuickAdd: boolean;
+}) {
+  const img = Array.isArray(product?.images) ? product.images[0] : "";
+  const boosted = Number(product?.boostUntilMs || 0) > Date.now();
+  const onSale = saleIsActive(product);
+  const base = Number(product?.price || 0);
+  const final = onSale ? computeSalePriceNgn(product) : base;
+
+  const aspect: CoverAspectKey = normalizeCoverAspect(product?.coverAspect) ?? "1:1";
+  const aspectClass = coverAspectToTailwindClass(aspect);
+  const { w, h } = coverAspectToWH(aspect, 520);
+
+  const badges: string[] = [];
+  if (boosted) badges.push("Promoted");
+  if (onSale) badges.push(saleBadgeText(product));
+
+  return (
+    <div className="w-full">
+      <div
+        className="rounded-2xl overflow-hidden transition-all hover:shadow-lg cursor-pointer"
+        style={{
+          backgroundColor: theme.cardBg,
+          borderColor: theme.cardBorder,
+          borderWidth: 1,
+        }}
+        onClick={onOpen}
+      >
+        <div className={cn(aspectClass, "w-full overflow-hidden relative bg-gray-100")}>
+          {img ? (
+            <CloudImage
+              src={img}
+              alt={product?.name || "Product"}
+              w={w}
+              h={h}
+              sizes="(max-width: 430px) 45vw, 200px"
+              className="h-full w-full object-cover"
+            />
+          ) : (
+            <div
+              className="h-full w-full flex items-center justify-center"
+              style={{ backgroundColor: theme.primaryLight }}
+            >
+              <Package className="w-8 h-8" style={{ color: theme.textMuted }} />
+            </div>
+          )}
+
+          {badges.length > 0 && (
+            <div className="absolute top-2 left-2 flex flex-wrap gap-1">
+              {badges.map((badge) => (
+                <span
+                  key={badge}
+                  className="px-2 py-1 rounded-full text-[10px] font-bold"
+                  style={{
+                    backgroundColor:
+                      badge.includes("OFF") || badge === "Sale" ? theme.saleBadgeBg : theme.badgeBg,
+                    color:
+                      badge.includes("OFF") || badge === "Sale" ? theme.saleBadgeText : theme.badgeText,
+                  }}
+                >
+                  {badge}
+                </span>
+              ))}
+            </div>
+          )}
+
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              if (canQuickAdd) onQuickAdd();
+            }}
+            disabled={!canQuickAdd}
+            className={cn(
+              "absolute bottom-2 right-2 w-9 h-9 rounded-xl flex items-center justify-center transition-all",
+              canQuickAdd ? "shadow-lg hover:scale-105" : "opacity-60"
+            )}
+            style={{
+              background: canQuickAdd ? theme.buttonGradient : theme.cardBg,
+              color: canQuickAdd ? theme.buttonText : theme.textMuted,
+              borderWidth: canQuickAdd ? 0 : 1,
+              borderColor: theme.cardBorder,
+            }}
+          >
+            {canQuickAdd ? <Plus className="w-5 h-5" /> : <ShoppingCart className="w-4 h-4" />}
+          </button>
+        </div>
+
+        <div className="p-3">
+          <p className="text-sm font-bold line-clamp-2" style={{ color: theme.textPrimary }}>
+            {product?.name || "Product"}
+          </p>
+
+          <div className="mt-1.5">
+            {onSale ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs line-through" style={{ color: theme.textMuted }}>
+                  {fmtNaira(base)}
+                </span>
+                <span className="text-sm font-bold" style={{ color: theme.saleBadgeText }}>
+                  {fmtNaira(final)}
+                </span>
+              </div>
+            ) : (
+              <span className="text-sm font-bold" style={{ color: theme.primaryColor }}>
+                {fmtNaira(base)}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ----------------------- Main Component ----------------------- */
+
+export default function StorefrontPage() {
+  const router = useRouter();
+  const params = useParams();
+  const slug = String((params as any)?.slug ?? "");
+
+  const { addToCart, cart, clearCart } = useCart();
+
+  const [biz, setBiz] = useState<any>(null);
+  const [items, setItems] = useState<any[]>([]);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  const [verificationTier, setVerificationTier] = useState<number>(0);
+  const [apexActive, setApexActive] = useState<boolean>(false);
+  const [shelves, setShelves] = useState<any[]>([]);
+  const [activeShelf, setActiveShelf] = useState<string>("all");
+
+  const theme = useMemo(() => {
+    const themeId = biz?.themeId || "classic";
+    return getThemeById(themeId) || getDefaultTheme();
+  }, [biz]);
+
+  const products = useMemo(
+    () => items.filter((x) => String(x.listingType || "product") !== "service"),
+    [items]
+  );
+  const filteredProducts = useMemo(() => {
+    const list = products || [];
+    if (activeShelf === "all") return list;
+    if (activeShelf === "uncat") return list.filter((p: any) => !String(p?.categoryId || "").trim());
+    return list.filter((p: any) => String(p?.categoryId || "") === activeShelf);
+  }, [products, activeShelf]);
+
+  const cartCount = useMemo(() => {
+    const list = Array.isArray(cart?.items) ? cart.items : [];
+    return list.reduce((s: number, it: any) => s + Math.max(0, Number(it?.qty || 0)), 0);
+  }, [cart]);
+
+  // Build WhatsApp link for store page
+  const whatsapp = String(biz?.whatsapp || "");
+  const storeWaLink = useMemo(() => {
+    if (!whatsapp || !isValidWhatsAppNumber(whatsapp)) return "";
+    const storeName = String(biz?.name || slug);
+    return buildWhatsAppLink(
+      whatsapp,
+      `Hello ${storeName}! I'm browsing your myBizHub store.`
+    );
+  }, [whatsapp, biz?.name, slug]);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const qBiz = query(collection(db, "businesses"), where("slug", "==", slug), limit(1));
+        const snapBiz = await getDocs(qBiz);
+        if (snapBiz.empty) throw new Error("Store not found");
+        const b = { id: snapBiz.docs[0].id, ...snapBiz.docs[0].data() };
+
+        const qP = query(
+          collection(db, "products"),
+          where("businessSlug", "==", slug),
+          orderBy("createdAt", "desc"),
+          limit(200)
+        );
+        const snapP = await getDocs(qP);
+        const list = snapP.docs.map((d) => ({ id: d.id, ...d.data() }));
+        const listFiltered = list.filter((p: any) => !p.isDeleted && !p.deletedAt);
+
+        if (!mounted) return;
+        setBiz(b);
+        setItems(listFiltered);
+
+        if ((b as any)?.id) track({ type: "store_visit", businessId: (b as any).id, businessSlug: slug });
+
+        fetch(`/api/public/store/${encodeURIComponent(slug)}/trust`)
+          .then((r) => r.json())
+          .then((j) => {
+            if (!mounted) return;
+            setVerificationTier(Number(j?.trust?.verificationTier || 0));
+            setApexActive(!!j?.entitlements?.apexActive);
+          })
+          .catch(() => {});
+
+        fetch(`/api/public/store/${encodeURIComponent(slug)}/categories`)
+          .then((r) => r.json())
+          .then((j) => {
+            if (!mounted) return;
+            setShelves(Array.isArray(j?.categories) ? j.categories : []);
+          })
+          .catch(() => {});
+      } catch (e: any) {
+        setMsg(e?.message || "Could not load this store.");
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    if (slug) run();
+    return () => { mounted = false; };
+  }, [slug]);
+
+  function quickAdd(p: any) {
+    if (!p) return;
+
+    const existingStore = String(cart?.storeSlug || "");
+    if (existingStore && existingStore !== slug) {
+      const ok = confirm("Your cart has items from another store. Clear cart and add this item?");
+      if (!ok) return;
+      clearCart();
+    }
+
+    const img = Array.isArray(p?.images) ? p.images[0] : "";
+    const base = Number(p?.price || 0);
+    const onSale = saleIsActive(p);
+    const finalPrice = onSale ? computeSalePriceNgn(p) : Math.floor(base);
+
+    addToCart(
+      slug,
+      {
+        productId: String(p.id),
+        name: String(p?.name || "Product"),
+        price: finalPrice,
+        imageUrl: img || undefined,
+        selectedOptions: undefined,
+      },
+      1
+    );
+
+    toast.success("Added to cart!");
+  }
+
+  const banner = String(biz?.bannerUrl || "");
+  const logo = String(biz?.logoUrl || "");
+  const name = String(biz?.name || slug);
+  const about = String(biz?.description || "");
+  const location = [biz?.city, biz?.state].filter(Boolean).join(", ");
+  const instagram = String(biz?.instagram || "");
+
+  if (loading) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: theme.pageBg }}>
+        <div className="h-32 animate-pulse" style={{ background: theme.headerGradient }} />
+        <div className="px-4 py-4 space-y-4">
+          <div className="h-40 rounded-2xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
+          <div className="h-8 w-32 rounded-xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-48 rounded-2xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (msg) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: theme.pageBg }}>
+        <ThemedStoreHeader
+          theme={theme}
+          name="Store"
+          location=""
+          whatsappLink=""
+          onBack={() => router.push("/market")}
+          onCart={() => router.push("/cart")}
+          cartCount={0}
+        />
+        <div className="px-4 py-8">
+          <div
+            className="rounded-2xl p-6 text-center"
+            style={{ backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 }}
+          >
+            <div
+              className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4"
+              style={{ backgroundColor: theme.primaryLight }}
+            >
+              <Store className="w-8 h-8" style={{ color: theme.primaryColor }} />
+            </div>
+            <p className="text-lg font-bold" style={{ color: theme.textPrimary }}>
+              Store Not Found
+            </p>
+            <p className="text-sm mt-2" style={{ color: theme.textSecondary }}>
+              {msg}
+            </p>
+            <Button className="mt-6" onClick={() => router.push("/market")}>
+              Browse marketplace
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen pb-8" style={{ backgroundColor: theme.pageBg }}>
+      <ThemedStoreHeader
+        theme={theme}
+        name={name}
+        location={location}
+        whatsappLink={storeWaLink}
+        onBack={() => router.back()}
+        onCart={() => router.push("/cart")}
+        cartCount={cartCount}
+      />
+
+      <div className="px-4 space-y-6 pt-6 max-w-[1100px] mx-auto">
+        <div
+          className="rounded-3xl overflow-hidden"
+          style={{ backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 }}
+        >
+          {banner && (
+            <div className="h-32 w-full overflow-hidden">
+              <CloudImage
+                src={banner}
+                alt="Banner"
+                w={980}
+                h={360}
+                sizes="(max-width: 430px) 100vw, 430px"
+                className="h-full w-full object-cover"
+              />
+            </div>
+          )}
+
+          <div className="p-4">
+            <div className="flex items-start gap-3">
+              <div
+                className="w-16 h-16 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center"
+                style={{
+                  backgroundColor: theme.primaryLight,
+                  borderColor: theme.cardBorder,
+                  borderWidth: 1,
+                }}
+              >
+                {logo ? (
+                  <CloudImage
+                    src={logo}
+                    alt="Logo"
+                    w={160}
+                    h={160}
+                    sizes="64px"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Store className="w-7 h-7" style={{ color: theme.primaryColor }} />
+                )}
+              </div>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-lg font-bold" style={{ color: theme.textPrimary }}>
+                    {name}
+                  </h2>
+
+                  {verificationTier >= 2 ? (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                      style={{ backgroundColor: theme.saleBadgeBg, color: theme.saleBadgeText }}
+                      title={`Verification tier ${verificationTier}`}
+                    >
+                      <BadgeCheck className="w-3 h-3" />
+                      Verified
+                    </span>
+                  ) : null}
+
+                  {apexActive ? (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                      style={{ backgroundColor: theme.badgeBg, color: theme.badgeText }}
+                      title="Apex plan active"
+                    >
+                      <Sparkles className="w-3 h-3" />
+                      Apex
+                    </span>
+                  ) : null}
+                </div>
+
+                {location && (
+                  <p className="text-sm mt-1 flex items-center gap-1" style={{ color: theme.textSecondary }}>
+                    <MapPin className="w-3.5 h-3.5" />
+                    {location}
+                  </p>
+                )}
+
+                {instagram && (
+                  <p className="text-sm mt-1 flex items-center gap-1" style={{ color: theme.textMuted }}>
+                    <Instagram className="w-3.5 h-3.5" />
+                    @{instagram.replace(/^@/, "")}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            {about && (
+              <p className="mt-3 text-sm leading-relaxed" style={{ color: theme.textSecondary }}>
+                {about}
+              </p>
+            )}
+
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              {/* WhatsApp button (replaces old text-only version) */}
+              {storeWaLink ? (
+                <WhatsAppButton
+                  href={storeWaLink}
+                  label="WhatsApp"
+                  variant="button"
+                  className="w-full justify-center py-3"
+                />
+              ) : (
+                <div
+                  className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm opacity-50"
+                  style={{ backgroundColor: theme.buttonSecondaryBg, color: theme.buttonSecondaryText, borderColor: theme.buttonSecondaryBorder, borderWidth: 1 }}
+                >
+                  <span className="text-xs">WhatsApp not available</span>
+                </div>
+              )}
+
+              <button
+                onClick={() => router.push("/cart")}
+                className="flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm transition-all"
+                style={{
+                  backgroundColor: theme.buttonSecondaryBg,
+                  color: theme.buttonSecondaryText,
+                  borderColor: theme.buttonSecondaryBorder,
+                  borderWidth: 1,
+                }}
+              >
+                <Package className="w-4 h-4" />
+                Cart
+                {cartCount > 0 && (
+                  <span
+                    className="px-1.5 py-0.5 rounded-full text-[10px] font-bold"
+                    style={{ backgroundColor: theme.primaryColor, color: theme.buttonText }}
+                  >
+                    {cartCount}
+                  </span>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Products Section */}
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h3 className="text-base font-bold" style={{ color: theme.textPrimary }}>
+                Products
+              </h3>
+              <p className="text-xs mt-0.5" style={{ color: theme.textMuted }}>
+                {filteredProducts.length} item{products.length !== 1 ? "s" : ""} available
+              </p>
+            </div>
+
+          {(shelves?.length || 0) > 0 || products.some((p: any) => !String(p?.categoryId || "").trim()) ? (
+            <div className="mb-3 flex items-center gap-2 overflow-x-auto pb-1">
+              <button
+                onClick={() => setActiveShelf("all")}
+                className={[
+                  "shrink-0 px-3 py-1 rounded-full text-xs font-bold border transition",
+                  activeShelf === "all"
+                    ? "bg-orange-500 text-white border-orange-500"
+                    : "bg-white text-gray-700 border-gray-200 hover:border-orange-200",
+                ].join(" ")}
+              >
+                All
+              </button>
+
+              {(shelves || []).map((c: any) => (
+                <button
+                  key={String(c.id)}
+                  onClick={() => setActiveShelf(String(c.id))}
+                  className={[
+                    "shrink-0 px-3 py-1 rounded-full text-xs font-bold border transition",
+                    activeShelf === String(c.id)
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "bg-white text-gray-700 border-gray-200 hover:border-orange-200",
+                  ].join(" ")}
+                >
+                  {String(c.name || "Category")}
+                </button>
+              ))}
+
+              {products.some((p: any) => !String(p?.categoryId || "").trim()) ? (
+                <button
+                  onClick={() => setActiveShelf("uncat")}
+                  className={[
+                    "shrink-0 px-3 py-1 rounded-full text-xs font-bold border transition",
+                    activeShelf === "uncat"
+                      ? "bg-orange-500 text-white border-orange-500"
+                      : "bg-white text-gray-700 border-gray-200 hover:border-orange-200",
+                  ].join(" ")}
+                >
+                  Uncategorized
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+            {theme.hasAnimation && (
+              <span
+                className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold"
+                style={{ backgroundColor: theme.primaryLight, color: theme.primaryColor }}
+              >
+                <Sparkles className="w-3 h-3" />
+                {theme.name}
+              </span>
+            )}
+          </div>
+
+          {products.length === 0 ? (
+            <div
+              className="rounded-2xl"
+              style={{ backgroundColor: theme.cardBg, borderColor: theme.cardBorder, borderWidth: 1 }}
+            >
+              <EmptyState
+                variant="plain"
+                watermark={false}
+                icon={<Package className="w-10 h-10 text-gray-300" />}
+                title="No products yet"
+                description="This store hasn't added any products."
+                actions={[
+                  {
+                    label: "Browse marketplace",
+                    onClick: () => router.push("/market"),
+                    variant: "secondary",
+                    size: "sm",
+                  },
+                ]}
+              />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+              {filteredProducts.map((p: any) => {
+                const hasOptions = Array.isArray(p?.optionGroups) && p.optionGroups.length > 0;
+                const outOfStock = Number(p?.stock ?? 0) <= 0;
+                const canQuickAdd = !hasOptions && !outOfStock;
+
+                return (
+                  <ThemedProductCard
+                    key={p.id}
+                    theme={theme}
+                    product={p}
+                    canQuickAdd={canQuickAdd}
+                    onOpen={() => {
+                      track({
+                        type: "store_product_click",
+                        businessId: biz.id,
+                        businessSlug: slug,
+                        productId: p.id,
+                      });
+                      router.push(`/b/${slug}/p/${p.id}`);
+                    }}
+                    onQuickAdd={() => quickAdd(p)}
+                  />
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        <div className="pt-4 text-center">
+          <p className="text-xs" style={{ color: theme.textMuted }}>
+            Powered by{" "}
+            <button
+              onClick={() => router.push("/market")}
+              className="font-bold hover:underline"
+              style={{ color: theme.primaryColor }}
+            >
+              myBizHub
+            </button>
+          </p>
+        </div>
+      </div>
+
+      {cartCount > 0 && (
+        <div className="fixed bottom-6 left-4 right-4 z-40 max-w-[430px] mx-auto">
+          <button
+            onClick={() => router.push("/cart")}
+            className="w-full flex items-center justify-between py-4 px-5 rounded-2xl shadow-lg transition-all hover:scale-[1.02]"
+            style={{ background: theme.buttonGradient, color: theme.buttonText }}
+          >
+            <div className="flex items-center gap-3">
+              <div
+                className="w-10 h-10 rounded-xl flex items-center justify-center"
+                style={{ backgroundColor: "rgba(255,255,255,0.2)" }}
+              >
+                <ShoppingCart className="w-5 h-5" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-bold">
+                  {cartCount} item{cartCount !== 1 ? "s" : ""} in cart
+                </p>
+                <p className="text-xs opacity-80">Tap to view</p>
+              </div>
+            </div>
+            <ChevronRight className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+
+
+===== FILE: src/app/b/[slug]/layout.tsx =====
+import { ReactNode } from "react";
+import { notFound } from "next/navigation";
+import { getStoreNameBySlug, isPlaceholderSlug } from "@/lib/store/resolveStoreFromNext";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export default async function StoreSlugLayout({
+  children,
+  params,
+}: {
+  children: ReactNode;
+  params: { slug: string };
+}) {
+  const slug = String(params?.slug || "").trim().toLowerCase();
+
+  // Block placeholders like [slug]
+  if (!slug || isPlaceholderSlug(slug)) {
+    notFound();
+  }
+
+  // Ensure store exists (proper 404 if not)
+  const storeName = await getStoreNameBySlug(slug);
+  if (!storeName) {
+    notFound();
+  }
+
+  return <>{children}</>;
+}
+
+===== FILE: src/app/b/[slug]/p/[productId]/page.tsx =====
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { CloudImage } from "@/components/CloudImage";
+import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { buildWhatsAppLink, isValidWhatsAppNumber } from "@/lib/whatsapp/buildWhatsAppLink";
+import { db } from "@/lib/firebase/client";
+import { doc, getDoc } from "firebase/firestore";
+import { useCart } from "@/lib/cart/CartContext";
+import { track } from "@/lib/track/client";
+import { toast } from "@/lib/ui/toast";
+import { BadgeCheck, ShoppingCart, Package, Truck, MessageCircle, AlertCircle, Tag } from "lucide-react";
+import { normalizeCoverAspect, coverAspectToTailwindClass, coverAspectToWH, type CoverAspectKey } from "@/lib/products/coverAspect";
+import { formatMoneyNGN } from "@/lib/money";
+
+type OptionGroup = { name: string; values: string[] };
+
+type ShippingOption = {
+  id: string;
+  type: "pickup" | "delivery";
+  name: string;
+  feeKobo: number;
+  etaDays: number;
+  areasText?: string | null;
+};
+
+type ChatAvailability = {
+  ok: boolean;
+  enabled: boolean;
+  whatsapp: string | null;
+  storeName: string | null;
+  reasons?: { toggleOn: boolean; subscribed: boolean; whatsappSet: boolean };
+};
+
+function fmtNaira(n: number) {
+  return formatMoneyNGN(n);
+}
+
+function makeClientOrderId() {
+  try {
+    const c: any = (globalThis as any).crypto;
+    if (c?.randomUUID) return String(c.randomUUID());
+  } catch {}
+  return `chat_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function saleIsActive(p: any, now = Date.now()) {
+  if (p?.saleActive !== true) return false;
+  const start = Number(p?.saleStartsAtMs || 0);
+  const end = Number(p?.saleEndsAtMs || 0);
+  if (start && now < start) return false;
+  if (end && now > end) return false;
+  const t = String(p?.saleType || "");
+  return t === "percent" || t === "fixed";
+}
+
+function computeSalePriceNgn(p: any) {
+  const base = Number(p?.price || 0);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+  if (!saleIsActive(p)) return Math.floor(base);
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return Math.max(0, Math.floor(base - Math.max(0, off)));
+  }
+  const pct = Math.max(0, Math.min(90, Number(p?.salePercent || 0)));
+  const off = Math.floor((base * pct) / 100);
+  return Math.max(0, Math.floor(base - off));
+}
+
+function saleBadgeText(p: any) {
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return off > 0 ? `${fmtNaira(off)} OFF` : "Sale";
+  }
+  const pct = Number(p?.salePercent || 0);
+  return pct > 0 ? `${pct}% OFF` : "Sale";
+}
+
+type TrustBadgeType = "earned_apex" | "temporary_apex" | null;
+
+function trustBadgeTypeFromTrust(j: any): TrustBadgeType {
+  const badge = j?.badge || null;
+  if (badge?.active === true) {
+    const t = String(badge?.type || "");
+    if (t === "earned_apex" || t === "temporary_apex") return t as any;
+  }
+  if (j?.apexBadgeActive === true) return "earned_apex";
+  if (j?.temporaryApexBadgeActive === true) return "temporary_apex";
+  return null;
+}
+
+export default function ProductPage() {
+  const router = useRouter();
+  const params = useParams();
+  const slug = String((params as any)?.slug ?? "");
+  const productId = String((params as any)?.productId ?? "");
+
+  const { addToCart, cart } = useCart();
+
+  const [loading, setLoading] = useState(true);
+  const [p, setP] = useState<any>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<string, string>>({});
+
+  const [storeTrustBadge, setStoreTrustBadge] = useState<TrustBadgeType>(null);
+  const [vendorWhatsApp, setVendorWhatsApp] = useState<string>("");
+
+  const [activeImg, setActiveImg] = useState(0);
+
+  const [qty, setQty] = useState<number>(1);
+  const [deliveryLocation, setDeliveryLocation] = useState<string>("");
+
+  const [shipLoading, setShipLoading] = useState(false);
+  const [shipMsg, setShipMsg] = useState<string | null>(null);
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipId, setSelectedShipId] = useState<string>("");
+
+  const [chatAvail, setChatAvail] = useState<ChatAvailability | null>(null);
+
+  const images: string[] = useMemo(() => (Array.isArray(p?.images) ? p.images : []), [p]);
+  const optionGroups: OptionGroup[] = useMemo(
+    () => (Array.isArray(p?.optionGroups) ? p.optionGroups : []),
+    [p]
+  );
+
+  const coverAspect: CoverAspectKey = normalizeCoverAspect(p?.coverAspect) ?? "1:1";
+  const coverAspectClass = coverAspectToTailwindClass(coverAspect);
+
+  useEffect(() => {
+    setActiveImg(0);
+  }, [images.length, productId]);
+
+  const selectedOptionsClean = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const g of optionGroups) {
+      const v = selected[g.name];
+      if (v) out[g.name] = v;
+    }
+    return out;
+  }, [selected, optionGroups]);
+
+  const listingType = String(p?.listingType || "product");
+  const serviceMode = String(p?.serviceMode || "book");
+
+  const isService = listingType === "service";
+  const bookOnly = isService && serviceMode === "book";
+
+  const outOfStock = listingType === "product" && Number(p?.stock ?? 0) <= 0;
+
+  const selectedShipping = useMemo(() => {
+    if (!selectedShipId) return null;
+    return shippingOptions.find((o) => o.id === selectedShipId) || null;
+  }, [selectedShipId, shippingOptions]);
+
+  const shippingRequired = shippingOptions.length > 0;
+  const shippingFeeKobo = Number(selectedShipping?.feeKobo || 0);
+  const shippingFeeNgn = shippingFeeKobo / 100;
+
+  const canChat = useMemo(() => {
+    return !!(chatAvail?.ok && chatAvail?.enabled && chatAvail?.whatsapp);
+  }, [chatAvail]);
+
+  const baseUnitPriceNgn = Number(p?.price || 0);
+  const onSale = !!p && !bookOnly && saleIsActive(p);
+  const unitPriceNgn = onSale ? computeSalePriceNgn(p) : Math.floor(baseUnitPriceNgn);
+
+  const itemsSubtotalNgn = Math.max(0, Math.floor(Number(qty || 1)) * unitPriceNgn);
+  const estimatedTotalNgn = itemsSubtotalNgn + shippingFeeNgn;
+
+  const cartCount = useMemo(() => {
+    const items = Array.isArray(cart?.items) ? cart.items : [];
+    return items.reduce((s: number, it: any) => s + Math.max(0, Number(it?.qty || 0)), 0);
+  }, [cart]);
+
+  const canQuickOrderChat = useMemo(() => {
+    const q = Math.max(1, Math.floor(Number(qty || 1)));
+    if (!p) return false;
+    if (!canChat) return false;
+    if (bookOnly) return false;
+    if (outOfStock) return false;
+    if (shippingRequired && !selectedShipping) return false;
+    if (selectedShipping?.type !== "pickup") {
+      if (deliveryLocation.trim().length < 2) return false;
+    }
+    return q >= 1;
+  }, [qty, p, canChat, bookOnly, outOfStock, shippingRequired, selectedShipping, deliveryLocation]);
+
+  // Build WhatsApp link for product enquiry (icon button)
+  const productWaLink = useMemo(() => {
+    if (!vendorWhatsApp || !isValidWhatsAppNumber(vendorWhatsApp)) return "";
+    const productName = String(p?.name || "this product");
+    const productUrl = typeof window !== "undefined" ? window.location.href : "";
+    return buildWhatsAppLink(
+      vendorWhatsApp,
+      `Hi, I'm interested in ${productName} on BizHub: ${productUrl}`
+    );
+  }, [vendorWhatsApp, p]);
+
+  // Load trust badge + vendor WhatsApp
+  useEffect(() => {
+    let mounted = true;
+
+    // Load trust
+    fetch(`/api/public/store/${encodeURIComponent(slug)}/trust`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!mounted) return;
+        setStoreTrustBadge(trustBadgeTypeFromTrust(j));
+      })
+      .catch(() => {});
+
+    // Load vendor WhatsApp from public store API
+    fetch(`/api/public/store/${encodeURIComponent(slug)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!mounted) return;
+        const wa = String(j?.store?.whatsapp || "").trim();
+        setVendorWhatsApp(wa);
+      })
+      .catch(() => {});
+
+    return () => { mounted = false; };
+  }, [slug]);
+
+  // Load product
+  useEffect(() => {
+    let mounted = true;
+
+    async function run() {
+      try {
+        setLoading(true);
+        setMsg(null);
+
+        const snap = await getDoc(doc(db, "products", productId));
+        if (!snap.exists()) {
+          setMsg("Listing not found");
+          setP(null);
+          return;
+        }
+
+        const data = { id: snap.id, ...snap.data() } as any;
+        const productSlug = String(data?.businessSlug || "");
+        if (productSlug && productSlug !== slug) {
+          setMsg("This listing does not belong to this vendor.");
+          setP(null);
+          return;
+        }
+
+        if (!mounted) return;
+        setP(data);
+
+        if (data?.businessId) {
+          track({
+            type: "product_view",
+            businessId: String(data.businessId),
+            businessSlug: slug,
+            productId: String(data.id),
+          });
+        }
+      } catch (e: any) {
+        setMsg(e?.message || "Failed to load listing");
+        setP(null);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    if (productId) run();
+    return () => { mounted = false; };
+  }, [productId, slug]);
+
+  // Load shipping
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadShipping() {
+      setShipLoading(true);
+      setShipMsg(null);
+      try {
+        const r = await fetch(`/api/vendor/shipping/options?storeSlug=${encodeURIComponent(slug)}`);
+        const data = await r.json().catch(() => ({}));
+        if (!r.ok) throw new Error(data?.error || "Failed to load delivery options");
+
+        const opts: ShippingOption[] = Array.isArray(data.options) ? data.options : [];
+        if (!mounted) return;
+
+        setShippingOptions(opts);
+        if (opts.length > 0) {
+          setSelectedShipId(String(opts[0].id));
+        } else {
+          setSelectedShipId("");
+        }
+      } catch (e: any) {
+        if (!mounted) return;
+        setShippingOptions([]);
+        setSelectedShipId("");
+        setShipMsg(e?.message || "Failed to load delivery options");
+      } finally {
+        if (mounted) setShipLoading(false);
+      }
+    }
+
+    if (slug) loadShipping();
+    return () => { mounted = false; };
+  }, [slug]);
+
+  // Load chat availability
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadChatAvail() {
+      try {
+        const r = await fetch(`/api/vendor/chat/availability?storeSlug=${encodeURIComponent(slug)}`);
+        const data = (await r.json().catch(() => ({}))) as ChatAvailability;
+        if (!mounted) return;
+        if (!r.ok) {
+          setChatAvail(null);
+          return;
+        }
+        setChatAvail(data);
+      } catch {
+        if (!mounted) return;
+        setChatAvail(null);
+      }
+    }
+
+    if (slug) loadChatAvail();
+    return () => { mounted = false; };
+  }, [slug]);
+
+  function pick(groupName: string, value: string) {
+    setSelected((prev) => ({ ...prev, [groupName]: prev[groupName] === value ? "" : value }));
+  }
+
+  function add() {
+    if (!p) return;
+    addToCart(
+      slug,
+      {
+        productId: p.id,
+        name: String(p?.name || "Item"),
+        price: unitPriceNgn,
+        imageUrl: images[0],
+        selectedOptions: selectedOptionsClean,
+      },
+      1
+    );
+    toast.success("Added to cart.");
+  }
+
+  function bookOnlyHandler() {
+    toast.info("To book this service, you'll message the vendor on WhatsApp from the vendor page.");
+    router.push(`/b/${slug}`);
+  }
+
+  async function continueInChatQuickOrder() {
+    try {
+      if (!p) return;
+      if (!canChat) return;
+
+      const whatsapp = String(chatAvail?.whatsapp || "");
+      if (!whatsapp) return;
+
+      const q2 = Math.max(1, Math.floor(Number(qty || 1)));
+      const clientOrderId = makeClientOrderId();
+
+      const payload = {
+        storeSlug: slug,
+        clientOrderId,
+        items: [
+          {
+            productId: String(p.id),
+            name: String(p?.name || "Item"),
+            qty: q2,
+            price: unitPriceNgn,
+            imageUrl: images[0] || null,
+            selectedOptions: selectedOptionsClean,
+          },
+        ],
+      };
+
+      try {
+        if (typeof navigator !== "undefined" && "sendBeacon" in navigator) {
+          const blob = new Blob([JSON.stringify(payload)], { type: "application/json" });
+          (navigator as any).sendBeacon("/api/orders/chat/create", blob);
+        } else {
+          fetch("/api/orders/chat/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+            keepalive: true,
+          }).catch(() => {});
+        }
+      } catch {}
+
+      const storeName = chatAvail?.storeName ? String(chatAvail.storeName) : slug;
+      const refShort = String(clientOrderId).slice(0, 8);
+
+      const optsTxt =
+        selectedOptionsClean && Object.keys(selectedOptionsClean).length
+          ? ` (${Object.entries(selectedOptionsClean)
+              .map(([k, v]) => `${k}: ${v}`)
+              .join(", ")})`
+          : "";
+
+      const shipLabel = selectedShipping
+        ? `${selectedShipping.name} ${selectedShipping.type === "pickup" ? "(Pickup)" : "(Delivery)"}`
+        : shippingOptions.length > 0
+          ? "Not selected"
+          : "Not set";
+
+      const lines: string[] = [];
+      lines.push(`Hello ${storeName}.`);
+      lines.push(`I want to place a quick order from your myBizHub store.`);
+      lines.push(``);
+
+      if (onSale) {
+        lines.push(`Sale applied: ${saleBadgeText(p)}`);
+        lines.push(`Original unit price: ${fmtNaira(baseUnitPriceNgn)}`);
+        lines.push(`Sale unit price: ${fmtNaira(unitPriceNgn)}`);
+        lines.push(``);
+      }
+
+      lines.push(`- ${q2} x ${String(p?.name || "Item")}${optsTxt}`);
+      lines.push(`Items subtotal: ${fmtNaira(itemsSubtotalNgn)}`);
+      lines.push(``);
+      lines.push(`Delivery option: ${shipLabel}`);
+
+      if (selectedShipping?.type !== "pickup") {
+        lines.push(`Delivery location: ${deliveryLocation.trim() || "To be confirmed"}`);
+      } else {
+        lines.push(`Pickup: I will come to pick up.`);
+      }
+
+      if (selectedShipping) lines.push(`Estimated shipping fee: ${fmtNaira(shippingFeeNgn)}`);
+      lines.push(`Estimated total: ${fmtNaira(estimatedTotalNgn)}`);
+      lines.push(``);
+      lines.push(`myBizHub chat order ref: ${refShort}`);
+
+      window.open(
+        buildWhatsAppLink(whatsapp, lines.join("\n")),
+        "_blank"
+      );
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to open chat");
+    }
+  }
+
+  const activeUrl = images.length
+    ? images[Math.max(0, Math.min(activeImg, images.length - 1))]
+    : "";
+  const mainWH = coverAspectToWH(coverAspect, 980);
+
+  return (
+    <div className="min-h-screen bg-gray-50/30">
+      <GradientHeader
+        title={listingType === "service" ? "Service" : "Product"}
+        showBack={true}
+        subtitle={slug ? `Vendor: ${slug}` : undefined}
+        right={
+          <button
+            className="relative flex items-center gap-1.5 rounded-full border border-gray-100 bg-white px-3 py-2 text-xs font-semibold text-gray-600 shadow-sm"
+            onClick={() => router.push("/cart")}
+          >
+            <ShoppingCart className="h-3.5 w-3.5" />
+            Cart
+            {cartCount > 0 ? (
+              <span className="absolute -top-2 -right-2 min-w-5 h-5 px-1 rounded-full bg-orange-500 text-white text-[10px] font-bold flex items-center justify-center">
+                {cartCount}
+              </span>
+            ) : null}
+          </button>
+        }
+      />
+
+      <div className="px-4 pb-32 space-y-6 max-w-[1100px] mx-auto">
+        {/* Loading skeleton */}
+        {loading ? (
+          <>
+            <Card className="p-4">
+              <div className="aspect-square w-full rounded-3xl bg-gray-100 animate-pulse" />
+              <div className="mt-4 space-y-2">
+                <div className="h-5 w-3/4 rounded bg-gray-100 animate-pulse" />
+                <div className="h-4 w-1/3 rounded bg-gray-100 animate-pulse" />
+                <div className="h-3 w-full rounded bg-gray-100 animate-pulse" />
+                <div className="h-3 w-2/3 rounded bg-gray-100 animate-pulse" />
+              </div>
+            </Card>
+          </>
+        ) : null}
+
+        {/* Error */}
+        {msg && !loading ? (
+          <Card className="p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+                <AlertCircle className="h-5 w-5 text-red-500" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-red-700">Error</p>
+                <p className="text-xs text-gray-500 mt-0.5">{msg}</p>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {!loading && p ? (
+          <>
+            {/* Product image + details */}
+            <Card className="p-4">
+              <div
+                className={`${coverAspectClass} w-full rounded-3xl bg-gradient-to-br from-gray-100 to-gray-50 overflow-hidden relative`}
+              >
+                {activeUrl ? (
+                  <CloudImage
+                    src={activeUrl}
+                    alt={p?.name || "Item"}
+                    w={mainWH.w}
+                    h={mainWH.h}
+                    priority={true}
+                    sizes="(max-width: 430px) 100vw, 430px"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="h-full w-full flex items-center justify-center text-xs text-gray-400">
+                    <Package className="h-8 w-8 text-gray-300" />
+                  </div>
+                )}
+
+                {onSale ? (
+                  <div className="absolute top-3 left-3 flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <Tag className="h-3 w-3" />
+                    {saleBadgeText(p)}
+                  </div>
+                ) : null}
+              </div>
+
+              {/* Thumbnail strip */}
+              {images.length > 1 ? (
+                <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
+                  {images.slice(0, 10).map((u, idx) => {
+                    const active = idx === activeImg;
+                    return (
+                      <button
+                        key={`${u}_${idx}`}
+                        type="button"
+                        onClick={() => setActiveImg(idx)}
+                        className={[
+                          "h-14 w-14 rounded-2xl overflow-hidden border-2 shrink-0 transition",
+                          active
+                            ? "border-orange-400 shadow-sm"
+                            : "border-gray-100 bg-white",
+                        ].join(" ")}
+                        aria-label={`Image ${idx + 1}`}
+                      >
+                        <CloudImage
+                          src={u}
+                          alt={`Preview ${idx + 1}`}
+                          w={160}
+                          h={160}
+                          sizes="56px"
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+
+              {/* Name + trust badge + WhatsApp icon */}
+              <div className="mt-4 flex items-center gap-2 flex-wrap">
+                <p className="text-lg font-bold text-gray-900 flex-1">{p?.name}</p>
+
+                {storeTrustBadge === "earned_apex" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    Verified Apex
+                  </span>
+                ) : null}
+
+                {storeTrustBadge === "temporary_apex" ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                    <BadgeCheck className="h-3.5 w-3.5" />
+                    Apex
+                  </span>
+                ) : null}
+
+                {/* WhatsApp icon button for product enquiry */}
+                {productWaLink ? (
+                  <WhatsAppButton href={productWaLink} variant="icon" size="sm" />
+                ) : null}
+              </div>
+
+              {/* Fallback text if no WhatsApp */}
+              {!productWaLink && !loading && vendorWhatsApp === "" ? (
+                <p className="text-[11px] text-gray-400 mt-1">WhatsApp not available</p>
+              ) : null}
+
+              {/* Price */}
+              <div className="mt-2">
+                {bookOnly ? (
+                  <p className="text-sm font-medium text-gray-500">Book only</p>
+                ) : onSale ? (
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm line-through text-gray-400">
+                      {fmtNaira(baseUnitPriceNgn)}
+                    </span>
+                    <span className="text-lg font-black text-emerald-600">
+                      {fmtNaira(unitPriceNgn)}
+                    </span>
+                  </div>
+                ) : (
+                  <p className="text-lg font-black text-gray-900">
+                    {fmtNaira(baseUnitPriceNgn)}
+                  </p>
+                )}
+              </div>
+
+              {/* Stock / type + packaging */}
+              <div className="mt-3 flex items-center gap-4">
+                <div className="flex items-center gap-1.5 text-xs text-gray-500">
+                  <Package className="h-3.5 w-3.5" />
+                  {listingType === "product" ? (
+                    <span>
+                      Stock: <span className="font-semibold text-gray-900">{Number(p?.stock ?? 0)}</span>
+                    </span>
+                  ) : (
+                    <span>
+                      Type: <span className="font-semibold text-gray-900">Service</span>
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-gray-500">
+                  Packaging:{" "}
+                  <span className="font-semibold text-gray-900">{p?.packaging || "\u2014"}</span>
+                </div>
+              </div>
+
+              {/* Description */}
+              {p?.description ? (
+                <p className="mt-4 text-sm text-gray-600 whitespace-pre-wrap leading-relaxed">
+                  {String(p.description)}
+                </p>
+              ) : null}
+            </Card>
+
+            {/* Options / Variations */}
+            {optionGroups.length ? (
+              <SectionCard
+                title="Variations"
+                subtitle="Optional choices (price/stock stays the same)"
+              >
+                <div className="space-y-4">
+                  {optionGroups.map((g) => (
+                    <div key={g.name}>
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-bold text-gray-900">{g.name}</p>
+                        {selected[g.name] ? (
+                          <button
+                            className="text-xs font-semibold text-orange-600"
+                            onClick={() => pick(g.name, selected[g.name])}
+                          >
+                            Clear
+                          </button>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {(g.values || []).map((v) => {
+                          const active = selected[g.name] === v;
+                          return (
+                            <button
+                              key={v}
+                              onClick={() => pick(g.name, v)}
+                              className={
+                                active
+                                  ? "px-4 py-2 rounded-full text-xs font-bold text-white bg-gradient-to-br from-orange-500 to-orange-600 shadow-sm"
+                                  : "px-4 py-2 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+                              }
+                            >
+                              {v}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </SectionCard>
+            ) : null}
+
+            {/* Shipping options */}
+            {shippingOptions.length > 0 ? (
+              <SectionCard title="Delivery" subtitle="Select a delivery or pickup option">
+                <div className="space-y-2">
+                  {shippingOptions.map((opt) => {
+                    const active = selectedShipId === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setSelectedShipId(opt.id)}
+                        className={[
+                          "w-full text-left rounded-2xl border p-3 transition",
+                          active
+                            ? "border-orange-300 ring-2 ring-orange-100"
+                            : "border-gray-100 hover:bg-gray-50/50",
+                        ].join(" ")}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div
+                            className={[
+                              "mt-0.5 h-5 w-5 rounded-full border-2 flex items-center justify-center",
+                              active ? "border-orange-500" : "border-gray-300",
+                            ].join(" ")}
+                          >
+                            {active ? (
+                              <div className="h-2.5 w-2.5 rounded-full bg-orange-500" />
+                            ) : null}
+                          </div>
+
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2">
+                              <Truck className="h-3.5 w-3.5 text-gray-400" />
+                              <p className="text-sm font-bold text-gray-900">{opt.name}</p>
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 capitalize">
+                                {opt.type}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-1">
+                              Fee: {opt.feeKobo === 0 ? "Free" : fmtNaira(opt.feeKobo / 100)}
+                              {opt.etaDays ? ` \u00B7 ${opt.etaDays} day${opt.etaDays > 1 ? "s" : ""}` : ""}
+                            </p>
+                            {opt.areasText ? (
+                              <p className="text-[11px] text-gray-400 mt-0.5">{opt.areasText}</p>
+                            ) : null}
+                          </div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Delivery location input */}
+                {selectedShipping && selectedShipping.type !== "pickup" ? (
+                  <div className="mt-3">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Delivery location
+                    </label>
+                    <Input
+                      placeholder="Enter your delivery address"
+                      value={deliveryLocation}
+                      onChange={(e) => setDeliveryLocation(e.target.value)}
+                    />
+                  </div>
+                ) : null}
+              </SectionCard>
+            ) : null}
+
+            {shipMsg ? (
+              <Card className="p-3">
+                <p className="text-xs text-gray-500">{shipMsg}</p>
+              </Card>
+            ) : null}
+
+            {/* Fixed bottom CTA */}
+            <div className="fixed bottom-0 left-0 right-0 z-40">
+              <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+                <Card className="p-4 space-y-2">
+                  {bookOnly ? (
+                    <Button onClick={bookOnlyHandler}>Book service</Button>
+                  ) : canChat ? (
+                    <>
+                      <Button
+                        onClick={continueInChatQuickOrder}
+                        disabled={!canQuickOrderChat}
+                        leftIcon={<MessageCircle className="h-4 w-4" />}
+                      >
+                        Continue in Chat
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        onClick={add}
+                        disabled={outOfStock}
+                        leftIcon={<ShoppingCart className="h-4 w-4" />}
+                      >
+                        {outOfStock ? "Out of stock" : "Add to cart"}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button onClick={add} disabled={outOfStock} leftIcon={<ShoppingCart className="h-4 w-4" />}>
+                      {outOfStock ? "Out of stock" : "Add to cart"}
+                    </Button>
+                  )}
+
+                  <Button variant="secondary" onClick={() => router.push(`/b/${slug}`)}>
+                    Back to vendor
+                  </Button>
+
+                  {canChat && !canQuickOrderChat ? (
+                    <p className="text-[11px] text-gray-400 text-center">
+                      Select delivery option and enter delivery location to continue in chat.
+                    </p>
+                  ) : null}
+                </Card>
+              </div>
+            </div>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+
+===== FILE: src/app/store/[slug]/page.tsx =====
+import { notFound, redirect } from "next/navigation";
+import { getStoreNameBySlug, isPlaceholderSlug } from "@/lib/store/resolveStoreFromNext";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+export default async function StoreAliasPage({ params }: { params: { slug: string } }) {
+  const slug = String(params?.slug || "").trim().toLowerCase();
+
+  if (!slug || isPlaceholderSlug(slug)) notFound();
+
+  // Validate store exists (proper 404 if not)
+  const storeName = await getStoreNameBySlug(slug);
+  if (!storeName) notFound();
+
+  redirect(`/b/${slug}`);
+}
+
+===== FILE: src/components/ProductCard.tsx =====
+// FILE: src/components/ProductCard.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import {
+  normalizeCoverAspect,
+  coverAspectToTailwindClass,
+  type CoverAspectKey,
+} from "@/lib/products/coverAspect";
+import { formatMoneyNGN } from "@/lib/money";
+
+function saleIsActive(p: any, now = Date.now()) {
+  if (p?.saleActive !== true) return false;
+
+  const start = Number(p?.saleStartsAtMs || 0);
+  const end = Number(p?.saleEndsAtMs || 0);
+
+  if (start && now < start) return false;
+  if (end && now > end) return false;
+
+  const t = String(p?.saleType || "");
+  return t === "percent" || t === "fixed";
+}
+
+function computeSalePriceNgn(p: any) {
+  const base = Number(p?.priceKobo != null ? Number(p.priceKobo) / 100 : p?.price || 0);
+  if (!Number.isFinite(base) || base <= 0) return 0;
+  if (!saleIsActive(p)) return base;
+
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return Math.max(0, Math.floor(base - Math.max(0, off)));
+  }
+
+  const pct = Math.max(0, Math.min(90, Number(p?.salePercent || 0)));
+  const off = Math.floor((base * pct) / 100);
+  return Math.max(0, Math.floor(base - off));
+}
+
+function saleBadgeText(p: any) {
+  const t = String(p?.saleType || "");
+  if (t === "fixed") {
+    const off = Number(p?.saleAmountOffNgn || 0);
+    return off > 0 ? `${formatMoneyNGN(off)} OFF` : "Sale";
+  }
+  const pct = Number(p?.salePercent || 0);
+  return pct > 0 ? `${pct}% OFF` : "Sale";
+}
+
+type TrustBadgeType = "earned_apex" | "temporary_apex" | null;
+
+const trustCache = new Map<
+  string,
+  { fetchedAtMs: number; data: any; inflight?: Promise<any> }
+>();
+const TRUST_TTL_MS = 5 * 60 * 1000;
+
+async function fetchStoreTrust(slug: string) {
+  const s = String(slug || "").trim().toLowerCase();
+  if (!s) return null;
+
+  const url = `/api/public/store/${encodeURIComponent(s)}/trust`;
+
+  const r = await fetch(url);
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) return null;
+  return data;
+}
+
+function badgeTypeFromTrust(t: any): TrustBadgeType {
+  const badge = t?.badge || null;
+  const bActive = badge?.active === true;
+  const bType = String(badge?.type || "");
+
+  if (bActive && (bType === "earned_apex" || bType === "temporary_apex")) return bType as any;
+
+  if (t?.apexBadgeActive === true) return "earned_apex";
+  if (t?.temporaryApexBadgeActive === true) return "temporary_apex";
+
+  return null;
+}
+
+export function ProductCard({ slug, product }: { slug: string; product: any }) {
+  const name = String(product?.name ?? "Product");
+  const img = Array.isArray(product?.images) ? product.images?.[0] : null;
+
+  const listingType = String(product?.listingType || "product");
+  const serviceMode = String(product?.serviceMode || "book");
+  const bookOnly = listingType === "service" && serviceMode === "book";
+
+  const basePrice = Number(
+    product?.priceKobo != null ? Number(product.priceKobo) / 100 : product?.price || 0
+  );
+  const onSale = !bookOnly && saleIsActive(product);
+  const finalPrice = onSale ? computeSalePriceNgn(product) : basePrice;
+
+  const coverAspect: CoverAspectKey = normalizeCoverAspect(product?.coverAspect) ?? "1:1";
+  const aspectClass = coverAspectToTailwindClass(coverAspect);
+
+  const [trust, setTrust] = useState<any>(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadTrust() {
+      const s = String(slug || "").trim().toLowerCase();
+      if (!s) return;
+
+      const cached = trustCache.get(s);
+      const now = Date.now();
+
+      if (cached && cached.data && now - cached.fetchedAtMs < TRUST_TTL_MS) {
+        if (mounted) setTrust(cached.data);
+        return;
+      }
+
+      if (cached?.inflight) {
+        const d = await cached.inflight.catch(() => null);
+        if (mounted && d) setTrust(d);
+        return;
+      }
+
+      const inflight = fetchStoreTrust(s);
+      trustCache.set(s, { fetchedAtMs: now, data: cached?.data || null, inflight });
+
+      const d = await inflight.catch(() => null);
+      trustCache.set(s, { fetchedAtMs: Date.now(), data: d, inflight: undefined });
+
+      if (mounted) setTrust(d);
+    }
+
+    loadTrust();
+    return () => {
+      mounted = false;
+    };
+  }, [slug]);
+
+  const badgeType = badgeTypeFromTrust(trust);
+
+  return (
+    <Link
+      href={`/b/${slug}/p/${product.id}`}
+      className="block rounded-2xl border border-black/5 bg-white shadow-sm active:scale-[0.99] transition"
+      aria-label={name}
+      title={name}
+    >
+      <div className={`${aspectClass} w-full rounded-2xl bg-[#F3F4F6] overflow-hidden relative`}>
+        {img ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={img} alt={name} className="h-full w-full object-cover" loading="lazy" />
+        ) : (
+          <div className="h-full w-full flex items-center justify-center text-xs text-gray-500">
+            No image
+          </div>
+        )}
+
+        {onSale ? (
+          <div className="absolute top-2 left-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-emerald-50 text-emerald-700 border border-emerald-100">
+            {saleBadgeText(product)}
+          </div>
+        ) : null}
+
+        {badgeType === "earned_apex" ? (
+          <div
+            className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-[#0F172A] text-white border border-white/20"
+            title="Verified Apex badge (earned + maintained)"
+          >
+            Verified Apex
+          </div>
+        ) : null}
+
+        {badgeType === "temporary_apex" ? (
+          <div
+            className="absolute top-2 right-2 px-2 py-1 rounded-full text-[10px] font-extrabold bg-white/90 text-orange-700 border border-orange-200"
+            title="Temporary / probation Apex badge"
+          >
+            Apex (Temporary)
+          </div>
+        ) : null}
+      </div>
+
+      <div className="p-3">
+        {/* 2-line clamp + reserved height to keep card height consistent */}
+        <p
+          className="text-sm font-semibold text-gray-900 line-clamp-2 leading-tight min-h-[2.6rem]"
+          title={name}
+        >
+          {name}
+        </p>
+
+        <p className="mt-1 text-sm text-gray-700">
+          {bookOnly ? (
+            "Book only"
+          ) : onSale ? (
+            <>
+              <span className="line-through text-gray-400 mr-1">
+                {formatMoneyNGN(basePrice)}
+              </span>
+              <span className="text-emerald-700 font-extrabold">
+                {formatMoneyNGN(finalPrice)}
+              </span>
+            </>
+          ) : (
+            formatMoneyNGN(basePrice)
+          )}
+        </p>
+
+        <div className="mt-2">
+          <span className="inline-flex items-center rounded-full bg-[#FFF3E6] text-[#C2410C] px-2 py-1 text-[11px] font-medium">
+            View details
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+===== FILE: src/lib/store/resolveStoreFromNext.ts =====
+import "server-only";
+import { adminDb } from "@/lib/firebase/admin";
+
+function safeFirst(v: any): string | null {
+  if (typeof v === "string") return v;
+  if (Array.isArray(v) && typeof v[0] === "string") return v[0];
+  return null;
+}
+
+/**
+ * Extract store slug from a "next" URL like:
+ * - /b/my-store/checkout
+ * - /b/my-store
+ * - (or full URL) https://domain.com/b/my-store/checkout
+ */
+export function extractStoreSlugFromNext(nextParam?: string | null): string | null {
+  const raw = String(nextParam || "").trim();
+  if (!raw) return null;
+
+  let pathname = raw;
+
+  // If it's a full URL, parse it safely
+  if (/^https?:\/\//i.test(raw)) {
+    try {
+      pathname = new URL(raw).pathname || "";
+    } catch {
+      pathname = raw;
+    }
+  }
+
+  const m = pathname.match(/^\/b\/([^\/\?\#]+)/i);
+  if (!m) return null;
+
+  const slug = String(m[1] || "").trim().toLowerCase();
+  return slug || null;
+}
+
+/** Blocks placeholders like [slug] and other obvious dev placeholders */
+export function isPlaceholderSlug(slug: string): boolean {
+  const s = String(slug || "").trim().toLowerCase();
+  if (!s) return true;
+  if (s.includes("[") || s.includes("]")) return true; // catches [slug]
+  if (s === "slug") return true;
+  if (s === "%5bslug%5d") return true;
+  return false;
+}
+
+export async function getStoreNameBySlug(slug: string): Promise<string | null> {
+  const s = String(slug || "").trim().toLowerCase();
+  if (!s) return null;
+
+  // Firestore: businesses collection (same as your storefront page uses)
+  const snap = await adminDb
+    .collection("businesses")
+    .where("slug", "==", s)
+    .limit(1)
+    .get();
+
+  if (snap.empty) return null;
+
+  const doc = snap.docs[0];
+  const data = doc.data() as any;
+
+  const name =
+    String(
+      data?.name ||
+        data?.storeName ||
+        data?.businessName ||
+        data?.title ||
+        ""
+    ).trim();
+
+  return name || null;
+}
+
+/**
+ * Helper for server pages: read searchParams.next (whatever shape), return storeName or null.
+ */
+export async function resolveStoreNameFromSearchParams(searchParams: any): Promise<{
+  storeSlug: string | null;
+  storeName: string | null;
+}> {
+  const next = safeFirst(searchParams?.next);
+  const storeSlug = extractStoreSlugFromNext(next);
+  if (!storeSlug) return { storeSlug: null, storeName: null };
+
+  if (isPlaceholderSlug(storeSlug)) return { storeSlug, storeName: null };
+
+  const storeName = await getStoreNameBySlug(storeSlug);
+  return { storeSlug, storeName };
+}
+
+===== FILE: src/app/api/public/store/[slug]/route.ts =====
+// FILE: src/app/api/public/store/[slug]/route.ts
+
+import { adminDb } from "@/lib/firebase/admin";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function cleanSlug(v: any) {
+  return String(v || "").trim().toLowerCase().slice(0, 80);
+}
+
+export async function GET(
+  _req: Request,
+  ctx: { params: Promise<{ slug: string }> }
+) {
+  try {
+    const { slug } = await ctx.params;
+    const s = cleanSlug(slug);
+
+    if (!s) {
+      return Response.json({ ok: false, error: "Missing slug" }, { status: 400 });
+    }
+
+    const snap = await adminDb
+      .collection("businesses")
+      .where("slug", "==", s)
+      .limit(1)
+      .get();
+
+    if (snap.empty) {
+      return Response.json({ ok: false, error: "Store not found" }, { status: 404 });
+    }
+
+    const doc = snap.docs[0];
+    const data = doc.data();
+
+    // Build public store object (exclude sensitive fields)
+    const store = {
+      id: doc.id,
+      slug: data.slug || s,
+      name: data.name || s,
+      description: data.description || "",
+      logoUrl: data.logoUrl || "",
+      bannerUrl: data.bannerUrl || "",
+      whatsapp: data.whatsapp || "",
+      instagram: data.instagram || "",
+      state: data.state || "",
+      city: data.city || "",
+      
+      // Bank/payout details for direct transfer
+      payoutDetails: {
+        bankName: data.payoutDetails?.bankName || data.payout?.bankName || "",
+        accountNumber: data.payoutDetails?.accountNumber || data.payout?.accountNumber || "",
+        accountName: data.payoutDetails?.accountName || data.payout?.accountName || data.name || "",
+      },
+      
+      // Also include as 'payout' for backward compatibility
+      payout: {
+        bankName: data.payoutDetails?.bankName || data.payout?.bankName || "",
+        accountNumber: data.payoutDetails?.accountNumber || data.payout?.accountNumber || "",
+        accountName: data.payoutDetails?.accountName || data.payout?.accountName || data.name || "",
+      },
+    };
+
+    return Response.json({ ok: true, store });
+  } catch (e: any) {
+    console.error("Public store fetch error:", e);
+    return Response.json(
+      { ok: false, error: e?.message || "Failed to load store" },
+      { status: 500 }
+    );
+  }
+}

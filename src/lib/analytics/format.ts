@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Naira-aware formatting utilities for analytics display.
  * Replaces the USD-based formatters for your Nigerian market.
  */
@@ -16,7 +16,7 @@ export function formatNaira(amount: number): string {
 
 /**
  * Format Naira in compact form for charts.
- * e.g., 1500 → "₦1.5K", 1200000 → "₦1.2M"
+ * e.g., 1500 â†’ "₦1.5K", 1200000 â†’ "₦1.2M"
  */
 export function formatNairaCompact(amount: number): string {
   if (typeof amount !== 'number' || isNaN(amount) || amount <= 0) return '₦0';
@@ -35,7 +35,7 @@ export function formatNumber(n: number): string {
 
 /**
  * Format percentage with sign.
- * e.g., 23.456 → "+23.5%"
+ * e.g., 23.456 â†’ "+23.5%"
  */
 export function formatPercentageWithSign(value: number, decimals: number = 1): string {
   if (typeof value !== 'number' || isNaN(value)) return '0%';

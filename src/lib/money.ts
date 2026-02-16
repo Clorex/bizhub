@@ -1,4 +1,4 @@
-// Centralized currency formatting (NGN)
+﻿// Centralized currency formatting (NGN)
 // - Sanitizes mis-decoded Naira symbol sequences in string inputs
 // - Outputs consistent "₦50,000" style values
 // - UI should format at render-time from numeric values

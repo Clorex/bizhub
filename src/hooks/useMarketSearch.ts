@@ -18,7 +18,7 @@ import { applyMarketProductFilters } from "@/lib/market/filters/apply";
 import { saleIsActive } from "@/lib/market/sale";
 import type { MarketFilterState, MarketSortKey } from "@/lib/market/filters/types";
 import type { MarketCategoryKey } from "@/lib/search/marketTaxonomy";
-// âœ… ADDED: SmartMatch imports
+// ? ADDED: SmartMatch imports
 import { isSmartMatchEnabled } from "@/lib/smartmatch/featureFlag";
 import type { ProductMatchResult } from "@/lib/smartmatch/types";
 
@@ -141,12 +141,12 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
   const [searchQuery, setSearchQuery] = useState("");
   const impressed = useRef(new Set<string>());
 
-  // âœ… ADDED: SmartMatch scores state
+  // ? ADDED: SmartMatch scores state
   const [matchScores, setMatchScores] = useState<Record<string, ProductMatchResult> | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
   const smartMatchEnabled = isSmartMatchEnabled();
 
-  // âœ… ADDED: Fetch match scores for a pool of products
+  // ? ADDED: Fetch match scores for a pool of products
   const fetchMatchScores = useCallback(
     async (products: DocumentData[]) => {
       if (!smartMatchEnabled) return;
@@ -184,7 +184,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
           setMatchScores(null);
         }
       } catch {
-        // Graceful degradation â€” no scores, market works normally
+        // Graceful degradation ? no scores, market works normally
         setMatchScores(null);
       } finally {
         setMatchLoading(false);
@@ -228,7 +228,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
 
       setProductsPool(merged);
 
-      // âœ… ADDED: fetch match scores after products load
+      // ? ADDED: fetch match scores after products load
       fetchMatchScores(merged);
     } catch (e: any) {
       setError(e?.message || "Could not load marketplace. Please try again.");
@@ -273,7 +273,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
         const products = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
         setProductsPool(products);
 
-        // âœ… ADDED: fetch match scores
+        // ? ADDED: fetch match scores
         fetchMatchScores(products);
       } catch (e: any) {
         setError(e?.message || "Could not load this category. Please try again.");
@@ -342,7 +342,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
         const products = Array.from(productMap.values());
         setProductsPool(products);
 
-        // âœ… ADDED: fetch match scores
+        // ? ADDED: fetch match scores
         fetchMatchScores(products);
 
         const storeMap = new Map<string, any>();
@@ -366,7 +366,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
     [filters.category, loadByCategory, loadTrending, fetchMatchScores]
   );
 
-  // âœ… MODIFIED: pass matchScores to filter function
+  // ? MODIFIED: pass matchScores to filter function
   const getFilteredProducts = useCallback(() => {
     return applyMarketProductFilters({
       products: productsPool,
@@ -458,7 +458,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
     loadDeals();
   }, [filters.category, loadDeals]);
 
-  // âœ… ADDED: Refetch scores when filters change (buyer intent changed)
+  // ? ADDED: Refetch scores when filters change (buyer intent changed)
   useEffect(() => {
     if (smartMatchEnabled && productsPool.length > 0) {
       fetchMatchScores(productsPool);
@@ -473,7 +473,7 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
     error,
     searchQuery,
     productsPool,
-    // âœ… ADDED: expose match data
+    // ? ADDED: expose match data
     matchScores,
     matchLoading,
     smartMatchEnabled,
@@ -494,3 +494,4 @@ export function useMarketSearch({ filters, sortKey }: UseMarketSearchOptions) {
     trackProductClick,
   };
 }
+

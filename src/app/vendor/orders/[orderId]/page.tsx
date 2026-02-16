@@ -1,4 +1,4 @@
-// FILE: src/app/vendor/orders/[orderId]/page.tsx
+﻿// FILE: src/app/vendor/orders/[orderId]/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -48,7 +48,7 @@ import {
   Image as ImageIcon,
 } from "lucide-react";
 
-/* ———————————————————— Types ———————————————————— */
+/* â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” Types â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 
 type OpsStatus = "new" | "contacted" | "paid" | "in_transit" | "delivered" | "cancelled";
 
@@ -81,7 +81,7 @@ interface Shipping {
   carrier?: string;
 }
 
-/* ———————————————————— Helpers ———————————————————— */
+/* â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” Helpers â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 
 function fmtNaira(n: number): string {
   if (typeof n !== "number" || isNaN(n)) return "₦0";
@@ -128,7 +128,7 @@ function toDateSafe(v: any): Date | null {
 
 function fmtDate(v: any, options?: { includeTime?: boolean }): string {
   const date = toDateSafe(v);
-  if (!date) return "—";
+  if (!date) return "â€”";
   if (options?.includeTime) {
     return date.toLocaleString("en-NG", {
       month: "short",
@@ -165,7 +165,7 @@ function itemQty(it: any) {
   return Number.isFinite(q) && q > 0 ? Math.floor(q) : 1;
 }
 
-/* ———————————————————— Status Flow ———————————————————— */
+/* â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” Status Flow â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 
 const STATUS_FLOW: { key: OpsStatus; label: string; icon: any; description: string }[] = [
   { key: "new", label: "New", icon: Sparkles, description: "Order received" },
@@ -175,7 +175,7 @@ const STATUS_FLOW: { key: OpsStatus; label: string; icon: any; description: stri
   { key: "delivered", label: "Delivered", icon: Package, description: "Order completed" },
 ];
 
-/* ———————————————————— Transfer Proof Status Helpers ———————————————————— */
+/* â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” Transfer Proof Status Helpers â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 
 type ProofStatus = "pending" | "accepted" | "rejected" | "none";
 
@@ -201,7 +201,7 @@ function getProofStatusDisplay(status: ProofStatus): { label: string; color: str
   }
 }
 
-/* ———————————————————— Main Component ———————————————————— */
+/* â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” Main Component â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
 
 export default function VendorOrderDetailPage() {
   const params = useParams();
@@ -233,7 +233,7 @@ export default function VendorOrderDetailPage() {
     return orderId.slice(0, 8).toUpperCase();
   }, [order?.orderNumber, orderId]);
 
-  /* ——— Load Order ——— */
+  /* â€”â€”â€” Load Order â€”â€”â€” */
   const load = useCallback(
     async (isRefresh = false) => {
       if (isRefresh) setRefreshing(true);
@@ -260,7 +260,7 @@ export default function VendorOrderDetailPage() {
         }
         if (r.status === 403) {
           setHttpStatus(403);
-          setError(data?.error || "You don’t have permission to view this order.");
+          setError(data?.error || "You donâ€™t have permission to view this order.");
           setOrder(null);
           return;
         }
@@ -296,7 +296,7 @@ export default function VendorOrderDetailPage() {
     }
   }, [orderId, load]);
 
-  /* ——— Update Status ——— */
+  /* â€”â€”â€” Update Status â€”â€”â€” */
   const updateStatus = useCallback(
     async (newStatus: OpsStatus) => {
       setUpdating(true);
@@ -313,7 +313,7 @@ export default function VendorOrderDetailPage() {
         const data = await r.json().catch(() => ({}));
         if (!r.ok) throw new Error(data?.error || "Could not update status.");
 
-        toast.success(`Status updated to “${formatOpsStatus(newStatus)}”`);
+        toast.success(`Status updated to â€œ${formatOpsStatus(newStatus)}â€`);
         setShowStatusSheet(false);
         await load(true);
       } catch (e: any) {
@@ -325,7 +325,7 @@ export default function VendorOrderDetailPage() {
     [orderId, load]
   );
 
-  /* ——— Copy to Clipboard ——— */
+  /* â€”â€”â€” Copy to Clipboard â€”â€”â€” */
   const copyToClipboard = useCallback(async (text: string, label: string) => {
     try {
       await navigator.clipboard.writeText(text);
@@ -337,7 +337,7 @@ export default function VendorOrderDetailPage() {
     }
   }, []);
 
-  /* ——— Derived Data ——— */
+  /* â€”â€”â€” Derived Data â€”â€”â€” */
   const currentStatus = useMemo(() => {
     return String(order?.opsStatusEffective || order?.opsStatus || "new") as OpsStatus;
   }, [order]);
@@ -403,7 +403,7 @@ export default function VendorOrderDetailPage() {
             </div>
             <p className="text-lg font-bold text-gray-900">{httpStatus === 403 ? "Access Denied" : "Order Not Found"}</p>
             <p className="text-sm text-gray-500 mt-2">
-              {httpStatus === 403 ? "You don’t have permission to view this order." : error || "This order doesn’t exist or you don’t have access."}
+              {httpStatus === 403 ? "You donâ€™t have permission to view this order." : error || "This order doesnâ€™t exist or you donâ€™t have access."}
             </p>
             <div className="mt-6 flex justify-center gap-3">
               <Button onClick={() => load()}>Try Again</Button>
@@ -715,7 +715,7 @@ export default function VendorOrderDetailPage() {
                     {(item as any).variant && <p className="text-xs text-gray-500 mt-1">Variant: {(item as any).variant}</p>}
                     <div className="flex items-center justify-between mt-2">
                       <p className="text-xs text-gray-500">
-                        {fmtNaira(Number(item.price || 0))} × {qty}
+                        {fmtNaira(Number(item.price || 0))} Ã— {qty}
                       </p>
                       <p className="text-sm font-bold text-gray-900">{fmtNaira(itemTotal)}</p>
                     </div>

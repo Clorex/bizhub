@@ -8,7 +8,7 @@ import { useCart } from "@/lib/cart/CartContext";
 import { Button } from "@/components/ui/Button";
 
 function SuccessContent() {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const router = useRouter();
   const { clearCart } = useCart();
 
@@ -48,3 +48,4 @@ export default function OrderSuccessPage() {
     </Suspense>
   );
 }
+

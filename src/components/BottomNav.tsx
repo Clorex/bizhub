@@ -15,7 +15,7 @@ const items = [
 ];
 
 export function BottomNav() {
-  const pathname = usePathname();
+  const pathname = usePathname() || "/";
   const { cart } = useCart();
 
   const cartCount = (Array.isArray(cart?.items) ? cart.items : []).reduce((s: number, it: any) => {
@@ -72,3 +72,4 @@ export function BottomNav() {
     </div>
   );
 }
+

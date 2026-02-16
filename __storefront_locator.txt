@@ -1,0 +1,64 @@
+﻿=== STOREFRONT LOCATOR ===
+Root: C:\Users\USER\Desktop\bizhub
+
+--- Routes with [slug] ---
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\categories\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\payment-options\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\reviews\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\trust\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\checkout\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\p\[productId]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\pay\direct\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\layout.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\store\[slug]\page.tsx
+
+--- Any routes mentioning /b or /store in path ---
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\categories\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\payment-options\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\reviews\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\trust\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\store\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\checkout\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\p\[productId]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\pay\direct\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\layout.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\store\[slug]\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx
+
+--- Code refs: '/b/' (path:line) ---
+C:\Users\USER\Desktop\bizhub\src\app\account\page.tsx:197 href: businessSlug ? `/b/${businessSlug}` : "/vendor/store",
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\assistant\summary\route.ts:160 summaryLines.push(`Store link: ${slug ? `${process.env.NEXT_PUBLIC_APP_URL}/b/${slug}` : "—"}`);
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:116 router.push(`/b/${storeSlug}/checkout`);
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:121 router.push(`/b/${storeSlug}`);
+C:\Users\USER\Desktop\bizhub\src\app\cart\page.tsx:219 href={`/b/${storeSlug}`}
+C:\Users\USER\Desktop\bizhub\src\app\favorites\page.tsx:132 href={`/b/${fav.businessSlug}/p/${fav.productId}`}
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:191 router.push(`/b/${slug}/p/${product.id}`);
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:174 <Link href={"/b/" + storeSlug} className="block">
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:151 return `${window.location.origin}/b/${slug}`;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:57 const link = slug && p?.id ? `${origin}/b/${slug}/p/${p.id}` : "";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:156 const link = slug && p?.id ? `${origin}/b/${slug}/p/${p.id}` : "";
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:614 onView={() => router.push(`/b/${product.businessSlug}/p/${product.id}`)}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:628 onView={() => router.push(`/b/${product.businessSlug}/p/${product.id}`)}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promotions\page.tsx:291 onClick={() => router.push(`/b/${p.businessSlug || ""}/p/${p.id}`)}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\store\page.tsx:237 onClick={() => router.push(`/b/${business.slug}`)}
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:170 return `${window.location.origin}/b/${me.businessSlug}`;
+C:\Users\USER\Desktop\bizhub\src\app\vendor\page.tsx:495 onClick={() => router.push(`/b/${me?.businessSlug || ""}`)}
+C:\Users\USER\Desktop\bizhub\src\components\cart\EmptyCart.tsx:32 <Link href={`/b/${storeSlug}`} className="block">
+C:\Users\USER\Desktop\bizhub\src\components\market\StoreCard.tsx:25 href={`/b/${slug}`}
+C:\Users\USER\Desktop\bizhub\src\components\ProductCard.tsx:144 href={`/b/${slug}/p/${product.id}`}
+C:\Users\USER\Desktop\bizhub\src\lib\ai\groqPageHelp.ts:35 if (url.startsWith("/b/")) return url;
+C:\Users\USER\Desktop\bizhub\src\lib\ai\groqPageHelp.ts:108 - /b/<slug>
+C:\Users\USER\Desktop\bizhub\src\lib\store\resolveStoreFromNext.ts:12 * - /b/my-store/checkout
+C:\Users\USER\Desktop\bizhub\src\lib\store\resolveStoreFromNext.ts:13 * - /b/my-store
+C:\Users\USER\Desktop\bizhub\src\lib\store\resolveStoreFromNext.ts:14 * - (or full URL) https://domain.com/b/my-store/checkout
+
+--- Code refs: '@/components/ProductCard' (path:line) ---
+
+--- Code refs: '<ProductCard' (path:line) ---
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:459 <ProductCard
+C:\Users\USER\Desktop\bizhub\src\components\market\DealsCarousel.tsx:80 <ProductCard
+C:\Users\USER\Desktop\bizhub\src\components\ui\Skeleton.tsx:39 <ProductCardSkeleton key={i} />

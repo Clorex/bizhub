@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Suspense, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
@@ -8,7 +8,7 @@ import { useCart } from "@/lib/cart/CartContext";
 import { Button } from "@/components/ui/Button";
 
 function SuccessContent() {
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const { clearCart } = useCart();
 
   // Flutterwave sends `tx_ref` and `status` in the URL params

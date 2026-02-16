@@ -1,0 +1,1564 @@
+﻿
+
+===== FILE: src/app/market/page.tsx =====
+"use client";
+
+import { Suspense, useEffect, useMemo, useState, useCallback } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { ShoppingCart, SlidersHorizontal, ArrowUpDown, X, ArrowUp, Sparkles } from "lucide-react";
+
+import { useCart } from "@/lib/cart/CartContext";
+import { useMarketSearch } from "@/hooks/useMarketSearch";
+import { buildFashionFacets } from "@/lib/market/filters/facets";
+import { saleIsActive, computeSalePriceNgn } from "@/lib/market/sale";
+import { DEFAULT_MARKET_FILTERS, type MarketFilterState, type MarketSortKey } from "@/lib/market/filters/types";
+import { MARKET_CATEGORIES, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
+import { toast } from "@/lib/ui/toast";
+import { formatMoneyNGN } from "@/lib/money";
+
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { Chip } from "@/components/ui/Chip";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { ProductGridSkeleton, StoreCardSkeleton } from "@/components/ui/Skeleton";
+
+import { ProductCard } from "@/components/market/ProductCard";
+import { StoreCard } from "@/components/market/StoreCard";
+import { DealsCarousel } from "@/components/market/DealsCarousel";
+import { CategoryGrid } from "@/components/market/CategoryGrid";
+import { SearchBar } from "@/components/market/SearchBar";
+import { MarketFilterSheet } from "@/components/market/MarketFilterSheet";
+import { MarketSortSheet } from "@/components/market/MarketSortSheet";
+
+const POPULAR_SEARCHES = ["iPhone", "Sneakers", "Wigs", "Bags", "Perfume", "Ankara"];
+const ITEMS_PER_PAGE = 20;
+
+/* â€”â€”â€”â€”â€” URL param helpers (B5-3) â€”â€”â€”â€”â€” */
+
+function filtersToParams(filters: MarketFilterState, sortKey: MarketSortKey, q: string): URLSearchParams {
+  const p = new URLSearchParams();
+  if (q) p.set("q", q);
+  if (filters.category) p.set("cat", filters.category);
+  if (filters.location.state) p.set("state", filters.location.state);
+  if (filters.location.city) p.set("city", filters.location.city);
+  if (filters.price.min != null) p.set("pmin", String(filters.price.min));
+  if (filters.price.max != null) p.set("pmax", String(filters.price.max));
+  if (filters.status.onSale) p.set("sale", "1");
+  if (filters.trust.trustedBadgeOnly) p.set("trusted", "1");
+  if (sortKey !== "recommended") p.set("sort", sortKey);
+  return p;
+}
+
+function paramsToFilters(sp: URLSearchParams): { filters: MarketFilterState; sortKey: MarketSortKey; q: string } {
+  const filters: MarketFilterState = {
+    ...DEFAULT_MARKET_FILTERS,
+    category: (sp.get("cat") as MarketCategoryKey) || null,
+    location: { state: sp.get("state") || null, city: sp.get("city") || null },
+    price: {
+      min: sp.has("pmin") ? Number(sp.get("pmin")) : null,
+      max: sp.has("pmax") ? Number(sp.get("pmax")) : null,
+      quick: null,
+    },
+    status: { ...DEFAULT_MARKET_FILTERS.status, onSale: sp.get("sale") === "1" },
+    trust: { ...DEFAULT_MARKET_FILTERS.trust, trustedBadgeOnly: sp.get("trusted") === "1" },
+  };
+
+  const sortKey = (sp.get("sort") as MarketSortKey) || "recommended";
+  const q = sp.get("q") || "";
+  return { filters, sortKey, q };
+}
+
+/**
+ * IMPORTANT (build fix):
+ * Wrap the component using useSearchParams() in Suspense to avoid prerender/export errors.
+ */
+export default function MarketPage() {
+  return (
+    <Suspense fallback={<MarketPageFallback />}>
+      <MarketPageInner />
+    </Suspense>
+  );
+}
+
+function MarketPageFallback() {
+  return (
+    <div className="min-h-screen bg-gray-50 px-4 pt-4 pb-24">
+      <div className="h-10 w-40 bg-gray-200 rounded-xl mb-4" />
+      <Card className="p-4">
+        <p className="text-sm text-gray-600">Loading marketâ€¦</p>
+      </Card>
+      <div className="mt-4">
+        <ProductGridSkeleton count={6} />
+      </div>
+    </div>
+  );
+}
+
+function MarketPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const { addToCart, cart } = useCart();
+
+  const initial = useMemo(() => paramsToFilters(searchParams), []); // only on mount
+
+  const [filters, setFilters] = useState<MarketFilterState>(initial.filters);
+  const [sortKey, setSortKey] = useState<MarketSortKey>(initial.sortKey);
+  const [searchText, setSearchText] = useState(initial.q);
+
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sortOpen, setSortOpen] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const [displayCount, setDisplayCount] = useState(ITEMS_PER_PAGE);
+
+  const {
+    loading,
+    dealsLoading,
+    storesLoading,
+    error,
+    searchQuery,
+    productsPool,
+    matchScores,
+    smartMatchEnabled,
+    runSearch,
+    loadTrending,
+    getFilteredProducts,
+    getFilteredDeals,
+    getFilteredStores,
+    trackImpressions,
+    trackProductClick,
+  } = useMarketSearch({ filters, sortKey });
+
+  const items = useMemo(() => getFilteredProducts(), [getFilteredProducts]);
+  const deals = useMemo(() => getFilteredDeals(), [getFilteredDeals]);
+  const stores = useMemo(() => getFilteredStores(), [getFilteredStores]);
+  const fashionFacets = useMemo(() => buildFashionFacets(productsPool), [productsPool]);
+
+  const displayedItems = useMemo(() => items.slice(0, displayCount), [items, displayCount]);
+  const hasMore = displayCount < items.length;
+
+  const itemCount = useMemo(() => {
+    const list = Array.isArray(cart?.items) ? cart.items : [];
+    return list.reduce((s: number, it: any) => s + Math.max(0, Number(it?.qty || 0)), 0);
+  }, [cart]);
+
+  // Sync filters â†’ URL (shallow)
+  useEffect(() => {
+    const params = filtersToParams(filters, sortKey, searchText);
+    const qs = params.toString();
+    const target = qs ? `${pathname}?${qs}` : pathname;
+    const current = searchParams.toString();
+    if (qs !== current) router.replace(target, { scroll: false });
+  }, [filters, sortKey, searchText, pathname, router, searchParams]);
+
+  useEffect(() => {
+    trackImpressions(displayedItems);
+  }, [displayedItems, trackImpressions]);
+
+  useEffect(() => {
+    const handleScroll = () => setShowBackToTop(window.scrollY > 800);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    setDisplayCount(ITEMS_PER_PAGE);
+  }, [filters, sortKey, searchQuery]);
+
+  useEffect(() => {
+    if (initial.q) runSearch(initial.q);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSearch = useCallback(() => runSearch(searchText), [runSearch, searchText]);
+
+  const handleCategorySelect = useCallback(
+    (category: MarketCategoryKey | null) => {
+      setFilters((s) => ({ ...s, category, categorySpecific: { color: null, size: null } }));
+      if (category) {
+        runSearch("");
+        setSearchText("");
+      }
+    },
+    [runSearch]
+  );
+
+  const handleProductClick = useCallback(
+    (product: any) => {
+      const slug = String(product?.businessSlug || "");
+      if (!slug) return;
+      trackProductClick(product);
+      router.push(`/b/${slug}/p/${product.id}`);
+    },
+    [router, trackProductClick]
+  );
+
+  const handleAddToCart = useCallback(
+    (product: any) => {
+      const price = saleIsActive(product) ? computeSalePriceNgn(product) : product.price;
+      addToCart(product.businessSlug, {
+        productId: product.id,
+        name: product.name,
+        price,
+        imageUrl: Array.isArray(product?.images) ? product.images[0] : "",
+        selectedOptions: undefined,
+      });
+      toast.success(`${String(product?.name || "Item").slice(0, 30)} added to cart`);
+    },
+    [addToCart]
+  );
+
+  const handleLoadMore = () => setDisplayCount((prev) => prev + ITEMS_PER_PAGE);
+
+  const scrollToTop = () => window.scrollTo({ top: 0, behavior: "smooth" });
+
+  const clearAllFilters = () => {
+    setFilters(DEFAULT_MARKET_FILTERS);
+    setSortKey("recommended");
+    setSearchText("");
+    loadTrending();
+  };
+
+  const filterChips = useMemo(() => {
+    const chips: { key: string; label: string; onRemove: () => void }[] = [];
+
+    if (filters.category) {
+      const lbl = MARKET_CATEGORIES.find((c) => c.key === filters.category)?.label || filters.category;
+      chips.push({
+        key: "cat",
+        label: lbl,
+        onRemove: () => setFilters((s) => ({ ...s, category: null, categorySpecific: { color: null, size: null } })),
+      });
+    }
+
+    if (filters.location.state) {
+      chips.push({
+        key: "state",
+        label: filters.location.state,
+        onRemove: () => setFilters((s) => ({ ...s, location: { state: null, city: null } })),
+      });
+    }
+
+    if (filters.price.min != null || filters.price.max != null) {
+      const min = filters.price.min != null ? formatMoneyNGN(filters.price.min) : formatMoneyNGN(0);
+      const max = filters.price.max != null ? formatMoneyNGN(filters.price.max) : "Any";
+      chips.push({
+        key: "price",
+        label: `${min} â€“ ${max}`,
+        onRemove: () => setFilters((s) => ({ ...s, price: { min: null, max: null, quick: null } })),
+      });
+    }
+
+    if (filters.status.onSale) {
+      chips.push({
+        key: "sale",
+        label: "On Sale",
+        onRemove: () => setFilters((s) => ({ ...s, status: { ...s.status, onSale: false } })),
+      });
+    }
+
+    if (filters.trust.trustedBadgeOnly) {
+      chips.push({
+        key: "trusted",
+        label: "Trusted Only",
+        onRemove: () => setFilters((s) => ({ ...s, trust: { ...s.trust, trustedBadgeOnly: false } })),
+      });
+    }
+
+    if (sortKey !== "recommended") {
+      const sortLabels: Record<string, string> = {
+        best_match: "Best Match",
+        price_low: "Price: Lowâ†’High",
+        price_high: "Price: Highâ†’Low",
+        newest: "Newest",
+        popular: "Popular",
+      };
+      chips.push({
+        key: "sort",
+        label: `Sort: ${sortLabels[sortKey] || sortKey}`,
+        onRemove: () => setSortKey("recommended"),
+      });
+    }
+
+    return chips;
+  }, [filters, sortKey]);
+
+  const hasActiveFilters = filterChips.length > 0 || searchQuery;
+
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="sticky top-0 z-40 bg-white border-b border-gray-100 shadow-sm">
+        <div className="px-4 py-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className="relative h-8" style={{ width: "min(140px, 40vw)" }}>
+                <Image src="/brand/logo-transparent.png" alt="myBizHub" fill priority className="object-contain object-left" sizes="140px" />
+              </div>
+            </div>
+            <Link
+              href="/cart"
+              className="relative flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-semibold hover:border-orange-200 transition"
+            >
+              <ShoppingCart className="w-5 h-5 text-gray-600" />
+              <span className="hidden sm:inline">Cart</span>
+              {itemCount > 0 && (
+                <span className="absolute -top-2 -right-2 w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                  {itemCount > 9 ? "9+" : itemCount}
+                </span>
+              )}
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Search Section */}
+      <div className="bg-gradient-to-b from-orange-50 to-gray-50 px-4 py-4">
+        <SearchBar value={searchText} onChange={setSearchText} onSearch={handleSearch} loading={loading} suggestions={POPULAR_SEARCHES} />
+
+        <div className="mt-3 flex items-center gap-2">
+          <button
+            onClick={() => setFilterOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:border-orange-200 transition"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Filters
+            {filterChips.length > 0 && (
+              <span className="w-5 h-5 bg-orange-500 text-white text-xs font-bold rounded-full flex items-center justify-center">
+                {filterChips.length}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setSortOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold hover:border-orange-200 transition"
+          >
+            <ArrowUpDown className="w-4 h-4" />
+            Sort
+          </button>
+
+          {smartMatchEnabled && sortKey !== "best_match" ? (
+            <button
+              onClick={() => setSortKey("best_match")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-emerald-200 bg-emerald-50 text-xs font-bold text-emerald-700 hover:bg-emerald-100 transition"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Best Match
+            </button>
+          ) : null}
+
+          {smartMatchEnabled && sortKey === "best_match" ? (
+            <button
+              onClick={() => setSortKey("recommended")}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-orange-300 bg-gradient-to-br from-orange-50 to-white text-xs font-bold text-orange-700 shadow-sm"
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Best Match âœ“
+            </button>
+          ) : null}
+        </div>
+
+        {filterChips.length > 0 && (
+          <div className="mt-3 flex flex-wrap gap-2">
+            {filterChips.map((chip) => (
+              <Chip key={chip.key} active onClick={chip.onRemove}>
+                {chip.label}
+                <X className="w-3 h-3 ml-1" />
+              </Chip>
+            ))}
+            <button onClick={clearAllFilters} className="text-xs font-semibold text-orange-600 hover:text-orange-700 px-2">
+              Clear all
+            </button>
+          </div>
+        )}
+
+        {searchQuery && (
+          <p className="mt-3 text-sm text-gray-600">
+            Searching for <span className="font-bold text-gray-900">â€œ{searchQuery}â€</span>
+            {items.length > 0 && (
+              <span className="text-gray-500">
+                {" "}
+                â€¢ {items.length} result{items.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </p>
+        )}
+      </div>
+
+      <div className="px-4 pb-24 space-y-6 pt-6 max-w-[1100px] mx-auto">
+        {error && (
+          <Card className="p-4 bg-red-50 border-red-100">
+            <p className="text-red-700 font-medium text-sm">{error}</p>
+            <Button variant="secondary" size="sm" onClick={loadTrending} className="mt-2">
+              Try again
+            </Button>
+          </Card>
+        )}
+
+        <DealsCarousel deals={deals} loading={dealsLoading} onProductClick={handleProductClick} onAddToCart={handleAddToCart} />
+
+        {!searchQuery && (
+          <SectionCard title="Categories" subtitle="Browse by what youâ€™re looking for" right={<Sparkles className="w-5 h-5 text-orange-500" />}>
+            <CategoryGrid selectedCategory={filters.category} onSelectCategory={handleCategorySelect} />
+          </SectionCard>
+        )}
+
+        {searchQuery && (
+          <SectionCard title="Stores" subtitle="Vendors matching your search">
+            {storesLoading ? (
+              <div className="space-y-2">
+                <StoreCardSkeleton />
+                <StoreCardSkeleton />
+              </div>
+            ) : stores.length === 0 ? (
+              <p className="text-sm text-gray-500 py-4 text-center">No stores found for this search</p>
+            ) : (
+              <div className="space-y-2">
+                {stores.map((store) => (
+                  <StoreCard key={store.id} store={store} />
+                ))}
+              </div>
+            )}
+          </SectionCard>
+        )}
+
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">
+                {sortKey === "best_match"
+                  ? "Best Match"
+                  : searchQuery
+                    ? "Products"
+                    : filters.category
+                      ? MARKET_CATEGORIES.find((c) => c.key === filters.category)?.label || "Products"
+                      : "Trending"}
+              </h2>
+              {!loading && items.length > 0 && (
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {items.length} product{items.length !== 1 ? "s" : ""} found
+                </p>
+              )}
+            </div>
+          </div>
+
+          {loading ? (
+            <ProductGridSkeleton count={6} />
+          ) : items.length === 0 ? (
+            <EmptyState
+              title="No products found"
+              description={hasActiveFilters ? "Try adjusting your filters or search terms" : "Check back later for new products"}
+              ctaLabel={hasActiveFilters ? "Clear filters" : undefined}
+              onCta={hasActiveFilters ? clearAllFilters : undefined}
+            />
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 auto-rows-fr">
+                {displayedItems.map((product) => (
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    onClick={() => handleProductClick(product)}
+                    onAddToCart={() => handleAddToCart(product)}
+                    matchResult={matchScores?.[String(product?.id || "")] || null}
+                  />
+                ))}
+              </div>
+
+              {hasMore && (
+                <div className="mt-6 text-center">
+                  <Button variant="secondary" onClick={handleLoadMore} className="px-8">
+                    Load more ({items.length - displayCount} remaining)
+                  </Button>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      {showBackToTop && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-24 right-4 w-12 h-12 bg-orange-500 text-white rounded-full shadow-lg flex items-center justify-center hover:bg-orange-600 transition-all z-40"
+          aria-label="Back to top"
+        >
+          <ArrowUp className="w-5 h-5" />
+        </button>
+      )}
+
+      <MarketFilterSheet
+        open={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        value={filters}
+        onApply={(v) => {
+          setFilters(v);
+          runSearch(searchText);
+        }}
+        productsPool={productsPool}
+        fashionFacets={fashionFacets}
+      />
+
+      <MarketSortSheet open={sortOpen} onClose={() => setSortOpen(false)} value={sortKey} onChange={(v) => setSortKey(v)} />
+    </div>
+  );
+}
+
+
+
+
+===== FILE: src/app/marketplace/page.tsx =====
+import { redirect } from "next/navigation";
+
+export default function MarketplaceRedirectPage() {
+  redirect("/market");
+}
+
+===== FILE: src/components/market/ProductCard.tsx =====
+// FILE: src/components/market/ProductCard.tsx
+"use client";
+
+import { memo, useState, useCallback } from "react";
+import { BadgeCheck, Sparkles, Plus, ShoppingBag, Check } from "lucide-react";
+import { CloudImage } from "@/components/CloudImage";
+import { computeSalePriceNgn, saleBadgeText, saleIsActive } from "@/lib/market/sale";
+import { cn } from "@/lib/cn";
+import { SmartMatchBadge } from "@/components/market/SmartMatchBadge";
+import type { ProductMatchResult } from "@/lib/smartmatch/types";
+import { formatMoneyNGN } from "@/lib/money";
+
+function isVerifiedVendorFromProduct(p: any): boolean {
+  const candidates = [
+    p?.store?.isVerified,
+    p?.store?.verified,
+    p?.business?.isVerified,
+    p?.business?.verified,
+    p?.businessVerified,
+    p?.vendor?.verified,
+    p?.vendorVerified,
+    p?.verificationStatus,
+    p?.storeVerificationStatus,
+    p?.verifiedAt,
+  ];
+
+  for (const v of candidates) {
+    if (typeof v === "boolean") return v;
+    if (typeof v === "string") {
+      const s = v.trim().toUpperCase();
+      if (s === "VERIFIED" || s === "APPROVED") return true;
+      if (s === "UNVERIFIED" || s === "PENDING" || s === "REJECTED") return false;
+    }
+    if (v instanceof Date) return true;
+    if (v && typeof v === "object" && ("seconds" in (v as any) || "toDate" in (v as any))) return true;
+    if (typeof v === "number" && Number.isFinite(v)) return v > 0;
+  }
+  return false;
+}
+
+interface ProductCardProps {
+  product: any;
+  onClick: () => void;
+  onAddToCart?: (e: React.MouseEvent) => void;
+  compact?: boolean;
+  matchResult?: ProductMatchResult | null;
+}
+
+export const ProductCard = memo(function ProductCard({
+  product: p,
+  onClick,
+  onAddToCart,
+  compact = false,
+  matchResult,
+}: ProductCardProps) {
+  const img = Array.isArray(p?.images) ? p.images[0] : "";
+  const boosted = Number(p?.boostUntilMs || 0) > Date.now();
+  const isService = String(p?.listingType || "product") === "service";
+  const serviceMode = String(p?.serviceMode || "book");
+  const bookOnly = isService && serviceMode === "book";
+  const basePrice = Number(p?.price || 0);
+  const onSale = !bookOnly && saleIsActive(p);
+  const finalPrice = onSale ? computeSalePriceNgn(p) : basePrice;
+  const apexBadgeActive = p?.apexBadgeActive === true;
+
+  const vendorVerified = isVerifiedVendorFromProduct(p);
+
+  const [justAdded, setJustAdded] = useState(false);
+
+  const handleCardClick = (e: React.MouseEvent) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("[data-add-to-cart]")) return;
+    onClick();
+  };
+
+  const handleAddToCart = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      onAddToCart?.(e);
+      setJustAdded(true);
+      setTimeout(() => setJustAdded(false), 1200);
+    },
+    [onAddToCart]
+  );
+
+  const showMatchBadge = matchResult && matchResult.label !== "low_match" && matchResult.score.total >= 50;
+
+  const productName = String(p?.name || "Unnamed product");
+
+  return (
+    <div
+      onClick={handleCardClick}
+      className="block w-full text-left group cursor-pointer"
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onClick();
+        }
+      }}
+      aria-label={productName}
+      title={productName}
+    >
+      {/*
+        UNIFORM HEIGHT CARD:
+        - Fixed structure: square image + exactly 2-line name + 1-line price
+        - No flex-grow or justify-between that causes uneven spacing
+      */}
+      <div className="rounded-2xl border border-gray-100 bg-white overflow-hidden transition-all duration-200 hover:shadow-md hover:border-orange-200 group-active:scale-[0.98]">
+        {/* SQUARE IMAGE — forced aspect-square, no exceptions */}
+        <div className="relative w-full aspect-square bg-gray-100 overflow-hidden">
+          {img ? (
+            <CloudImage
+              src={img}
+              alt={productName}
+              w={400}
+              h={400}
+              sizes="(max-width: 430px) 45vw, 220px"
+              className="absolute inset-0 h-full w-full object-cover object-center transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <ShoppingBag className="w-8 h-8 text-gray-300" />
+            </div>
+          )}
+
+          {/* Top badges — absolute, don't affect layout */}
+          <div className="absolute top-1.5 left-1.5 right-1.5 flex items-start justify-between gap-1 pointer-events-none">
+            <div className="flex flex-col gap-1">
+              {showMatchBadge && !apexBadgeActive ? <SmartMatchBadge label={matchResult!.label} compact /> : null}
+
+              {apexBadgeActive && (
+                <div className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500 text-white inline-flex items-center gap-0.5 shadow-sm">
+                  <BadgeCheck className="h-2.5 w-2.5" />
+                  <span>Trusted</span>
+                </div>
+              )}
+
+              {!apexBadgeActive && !showMatchBadge && boosted && (
+                <div className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-white/95 text-orange-600 inline-flex items-center gap-0.5 shadow-sm">
+                  <Sparkles className="h-2.5 w-2.5" />
+                  <span>Ad</span>
+                </div>
+              )}
+            </div>
+
+            {onSale && (
+              <div className="px-1.5 py-0.5 rounded-full text-[9px] font-bold bg-red-500 text-white shadow-sm">
+                {saleBadgeText(p, formatMoneyNGN)}
+              </div>
+            )}
+          </div>
+
+          {/* Bottom row on image — absolute, don't affect layout */}
+          <div className="absolute bottom-1.5 left-1.5 right-1.5 flex items-end justify-between">
+            <div
+              className={cn(
+                "px-1.5 py-0.5 rounded-full text-[8px] font-semibold shadow-sm pointer-events-none border",
+                vendorVerified
+                  ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                  : "bg-white/90 text-gray-600 border-gray-200"
+              )}
+            >
+              {vendorVerified ? "Verified" : "Not verified"}
+            </div>
+
+            {!bookOnly && onAddToCart && (
+              <div
+                data-add-to-cart
+                onClick={handleAddToCart}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onAddToCart?.(e as any);
+                  }
+                }}
+                className={cn(
+                  "h-7 w-7 rounded-full flex items-center justify-center shadow-lg transition-all active:scale-90 cursor-pointer",
+                  justAdded ? "bg-green-500 text-white scale-110" : "bg-orange-500 text-white hover:bg-orange-600"
+                )}
+                aria-label={justAdded ? "Added!" : "Add to cart"}
+              >
+                {justAdded ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/*
+          TEXT AREA — fixed height, no flex-grow.
+          - Name: exactly 2 lines reserved (min-h + line-clamp-2)
+          - Price: exactly 1 line
+          - Consistent p-2 padding
+        */}
+        <div className="p-2">
+          <p
+            className="text-[13px] font-semibold text-gray-900 leading-snug line-clamp-2 min-h-[2.5rem]"
+            title={productName}
+          >
+            {productName}
+          </p>
+
+          <p className="mt-1 text-[13px] leading-none truncate">
+            {bookOnly ? (
+              <span className="text-gray-500 font-medium">Book only</span>
+            ) : onSale ? (
+              <>
+                <span className="line-through text-gray-400 mr-1 text-[11px]">{formatMoneyNGN(basePrice)}</span>
+                <span className="text-red-600 font-bold">{formatMoneyNGN(finalPrice)}</span>
+              </>
+            ) : (
+              <span className="text-gray-900 font-bold">{formatMoneyNGN(basePrice)}</span>
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+});
+
+
+===== FILE: src/components/market/DealsCarousel.tsx =====
+"use client";
+
+import { useRef, memo } from "react";
+import { ChevronLeft, ChevronRight, Flame } from "lucide-react";
+import { ProductCard } from "./ProductCard";
+import { DealsCarouselSkeleton } from "@/components/ui/Skeleton";
+import { SectionCard } from "@/components/ui/SectionCard";
+
+interface DealsCarouselProps {
+  deals: any[];
+  loading: boolean;
+  onProductClick: (product: any) => void;
+  onAddToCart: (product: any) => void;
+}
+
+export const DealsCarousel = memo(function DealsCarousel({
+  deals,
+  loading,
+  onProductClick,
+  onAddToCart,
+}: DealsCarouselProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: "left" | "right") => {
+    if (!scrollRef.current) return;
+    const amount = direction === "left" ? -200 : 200;
+    scrollRef.current.scrollBy({ left: amount, behavior: "smooth" });
+  };
+
+  if (loading) {
+    return (
+      <SectionCard
+        title="Hot Deals"
+        subtitle="Limited time offers"
+        right={<Flame className="w-5 h-5 text-red-500" />}
+      >
+        <DealsCarouselSkeleton />
+      </SectionCard>
+    );
+  }
+
+  if (deals.length === 0) {
+    return null;
+  }
+
+  return (
+    <SectionCard
+      title="Hot Deals"
+      subtitle={`${deals.length} discount${deals.length !== 1 ? "s" : ""} available`}
+      right={<Flame className="w-5 h-5 text-red-500" />}
+    >
+      <div className="relative -mx-1">
+        {/* Scroll buttons */}
+        {deals.length > 2 && (
+          <>
+            <button
+              onClick={() => scroll("left")}
+              className="absolute left-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-50 transition"
+              aria-label="Scroll left"
+            >
+              <ChevronLeft className="w-5 h-5 text-gray-600" />
+            </button>
+            <button
+              onClick={() => scroll("right")}
+              className="absolute right-0 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white shadow-lg flex items-center justify-center hover:bg-gray-50 transition"
+              aria-label="Scroll right"
+            >
+              <ChevronRight className="w-5 h-5 text-gray-600" />
+            </button>
+          </>
+        )}
+
+        <div
+          ref={scrollRef}
+          className="flex gap-3 overflow-x-auto scrollbar-hide px-1 py-1 snap-x snap-mandatory"
+          style={{ scrollbarWidth: "none", msOverflowStyle: "none" }}
+        >
+          {deals.map((product) => (
+            <div key={product.id} className="flex-shrink-0 w-40 snap-start">
+              <ProductCard
+                product={product}
+                onClick={() => onProductClick(product)}
+                onAddToCart={() => onAddToCart(product)}
+                compact
+              />
+            </div>
+          ))}
+        </div>
+      </div>
+    </SectionCard>
+  );
+});
+
+===== FILE: src/components/ui/Skeleton.tsx =====
+// FILE: src/components/ui/Skeleton.tsx
+"use client";
+
+import { cn } from "@/lib/cn";
+
+interface SkeletonProps {
+  className?: string;
+  variant?: "rectangular" | "circular" | "text";
+}
+
+export function Skeleton({ className, variant = "rectangular" }: SkeletonProps) {
+  return (
+    <div
+      className={cn(
+        "animate-pulse bg-gray-200",
+        variant === "circular" && "rounded-full",
+        variant === "text" && "rounded h-4",
+        variant === "rectangular" && "rounded-xl",
+        className
+      )}
+    />
+  );
+}
+
+export function ProductCardSkeleton() {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-3 shadow-sm">
+      <Skeleton className="aspect-square w-full rounded-xl" />
+      <Skeleton className="mt-3 h-4 w-3/4" variant="text" />
+      <Skeleton className="mt-2 h-4 w-1/2" variant="text" />
+    </div>
+  );
+}
+
+export function ProductGridSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div className="grid grid-cols-2 gap-3">
+      {Array.from({ length: count }).map((_, i) => (
+        <ProductCardSkeleton key={i} />
+      ))}
+    </div>
+  );
+}
+
+export function StoreCardSkeleton() {
+  return (
+    <div className="rounded-2xl border border-gray-100 bg-white p-4">
+      <Skeleton className="h-5 w-2/3" variant="text" />
+      <Skeleton className="mt-2 h-4 w-full" variant="text" />
+      <Skeleton className="mt-2 h-3 w-1/2" variant="text" />
+    </div>
+  );
+}
+
+export function DealsCarouselSkeleton() {
+  return (
+    <div className="flex gap-3 overflow-hidden">
+      {Array.from({ length: 3 }).map((_, i) => (
+        <div key={i} className="flex-shrink-0 w-40">
+          <Skeleton className="aspect-square w-full rounded-xl" />
+          <Skeleton className="mt-2 h-4 w-3/4" variant="text" />
+          <Skeleton className="mt-1 h-3 w-1/2" variant="text" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/* â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”
+   ANALYTICS SKELETONS (new)
+   â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
+
+export function SummaryCardSkeleton() {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
+      <div className="flex items-center justify-between mb-1">
+        <Skeleton className="h-5 w-28" variant="text" />
+        <Skeleton className="h-3.5 w-20" variant="text" />
+      </div>
+      <div className="mt-3">
+        <Skeleton className="h-10 w-24 rounded-lg" />
+      </div>
+      <div className="mt-4">
+        <Skeleton className="h-[120px] w-full rounded-xl" />
+      </div>
+      <div className="mt-4">
+        <Skeleton className="h-3.5 w-[90%]" variant="text" />
+      </div>
+      <div className="mt-4">
+        <Skeleton className="h-10 w-40 rounded-xl" />
+      </div>
+    </div>
+  );
+}
+
+export function SectionSkeleton() {
+  return (
+    <div className="bg-white rounded-2xl shadow-sm p-4 md:p-6">
+      <Skeleton className="h-5 w-36" variant="text" />
+      <div className="mt-1">
+        <Skeleton className="h-3.5 w-48" variant="text" />
+      </div>
+      <div className="mt-4">
+        <Skeleton className="h-[120px] md:h-[200px] w-full rounded-xl" />
+      </div>
+      <div className="mt-4">
+        <Skeleton className="h-3.5 w-[85%]" variant="text" />
+      </div>
+    </div>
+  );
+}
+
+
+===== FILE: src/components/market/CategoryGrid.tsx =====
+// FILE: src/components/market/CategoryGrid.tsx
+"use client";
+
+import { memo } from "react";
+import {
+  Shirt,
+  Smartphone,
+  Sparkles,
+  Home,
+  ShoppingBag,
+  Wrench,
+  Grid3X3,
+} from "lucide-react";
+import { MARKET_CATEGORIES, type MarketCategoryKey } from "@/lib/search/marketTaxonomy";
+import { cn } from "@/lib/cn";
+
+const CATEGORY_ICONS: Record<MarketCategoryKey, any> = {
+  fashion: Shirt,
+  phones: Smartphone,
+  beauty: Sparkles,
+  home: Home,
+  bags: ShoppingBag,
+  services: Wrench,
+  other: Grid3X3,
+};
+
+const CATEGORY_COLORS: Record<MarketCategoryKey, string> = {
+  fashion: "from-pink-500 to-rose-500",
+  phones: "from-blue-500 to-indigo-500",
+  beauty: "from-purple-500 to-fuchsia-500",
+  home: "from-amber-500 to-orange-500",
+  bags: "from-teal-500 to-cyan-500",
+  services: "from-green-500 to-emerald-500",
+  other: "from-gray-500 to-slate-500",
+};
+
+interface CategoryGridProps {
+  selectedCategory: MarketCategoryKey | null;
+  onSelectCategory: (category: MarketCategoryKey | null) => void;
+  counts?: Record<string, number>;
+}
+
+export const CategoryGrid = memo(function CategoryGrid({
+  selectedCategory,
+  onSelectCategory,
+  counts,
+}: CategoryGridProps) {
+  const categories = MARKET_CATEGORIES.filter((c) => c.key !== "other");
+
+  return (
+    <div className="space-y-3">
+      {/* All categories button */}
+      <button
+        onClick={() => onSelectCategory(null)}
+        className={cn(
+          "w-full rounded-2xl border p-4 text-left transition-all",
+          !selectedCategory
+            ? "border-orange-300 bg-gradient-to-br from-orange-50 to-white shadow-md"
+            : "border-gray-100 bg-white hover:border-orange-200 hover:shadow-sm"
+        )}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div
+              className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center",
+                !selectedCategory
+                  ? "bg-gradient-to-br from-orange-500 to-orange-600 text-white"
+                  : "bg-gray-100 text-gray-600"
+              )}
+            >
+              <Grid3X3 className="w-5 h-5" />
+            </div>
+            <div>
+              <p className={cn(
+                "text-sm font-bold",
+                !selectedCategory ? "text-orange-600" : "text-gray-900"
+              )}>
+                All Categories
+              </p>
+              <p className="text-xs text-gray-500">Browse everything</p>
+            </div>
+          </div>
+        </div>
+      </button>
+
+      {/* Category grid */}
+      <div className="grid grid-cols-3 gap-2">
+        {categories.map((category) => {
+          const Icon = CATEGORY_ICONS[category.key];
+          const isActive = selectedCategory === category.key;
+          const count = counts?.[category.key];
+
+          return (
+            <button
+              key={category.key}
+              onClick={() => onSelectCategory(isActive ? null : category.key)}
+              className={cn(
+                "rounded-2xl border p-3 text-left transition-all",
+                isActive
+                  ? "border-orange-300 bg-gradient-to-br from-orange-50 to-white shadow-md"
+                  : "border-gray-100 bg-white hover:border-orange-200 hover:shadow-sm"
+              )}
+            >
+              <div
+                className={cn(
+                  "w-9 h-9 rounded-xl flex items-center justify-center mb-2",
+                  isActive
+                    ? `bg-gradient-to-br ${CATEGORY_COLORS[category.key]} text-white`
+                    : "bg-gray-100 text-gray-600"
+                )}
+              >
+                <Icon className="w-4 h-4" />
+              </div>
+              <p className={cn(
+                "text-xs font-bold truncate",
+                isActive ? "text-orange-600" : "text-gray-900"
+              )}>
+                {category.label}
+              </p>
+              <p className="text-[10px] text-gray-500 truncate">{category.hint}</p>
+              {count !== undefined && count > 0 && (
+                <p className="text-[10px] text-gray-400 mt-1">{count} items</p>
+              )}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+});
+
+===== FILE: src/components/market/StoreCard.tsx =====
+// FILE: src/components/market/StoreCard.tsx
+"use client";
+
+import { memo } from "react";
+import Link from "next/link";
+import { Store, MapPin, BadgeCheck } from "lucide-react";
+
+interface StoreCardProps {
+  store: any;
+}
+
+export const StoreCard = memo(function StoreCard({ store: b }: StoreCardProps) {
+  const slug = String(b?.slug || "").trim();
+  const name = String(b?.name || slug || "Store");
+  const state = String(b?.state || "").trim();
+  const city = String(b?.city || "").trim();
+  const loc = [city, state].filter(Boolean).join(", ");
+  const description = String(b?.description || "").trim();
+  const verified = Number(b?.verificationTier || 0) >= 2;
+
+  if (!slug) return null;
+
+  return (
+    <Link
+      href={`/b/${slug}`}
+      className="block rounded-2xl border border-gray-100 bg-white p-4 hover:border-orange-200 hover:shadow-md transition-all group"
+    >
+      <div className="flex items-start gap-3">
+        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-100 to-orange-50 flex items-center justify-center shrink-0">
+          <Store className="w-5 h-5 text-orange-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-bold text-gray-900 truncate">{name}</p>
+            {verified && (
+              <BadgeCheck className="w-4 h-4 text-blue-500 shrink-0" />
+            )}
+          </div>
+          {description && (
+            <p className="text-xs text-gray-500 mt-1 line-clamp-2">{description}</p>
+          )}
+          <div className="flex items-center gap-2 mt-2 text-xs text-gray-400">
+            <span className="font-medium">@{slug}</span>
+            {loc && (
+              <>
+                <span>â€¢</span>
+                <span className="flex items-center gap-1">
+                  <MapPin className="w-3 h-3" />
+                  {loc}
+                </span>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+});
+
+===== FILE: src/app/vendor/promote/page-client.tsx =====
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { CheckCircle2, HelpCircle, Megaphone } from "lucide-react";
+
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+
+import { auth } from "@/lib/firebase/client";
+import { formatMoneyNGN } from "@/lib/money";
+
+/** Minimal SegmentedControl (keeps file self-contained + stable) */
+function SegmentedControl<T extends string>({
+  value,
+  onChange,
+  options,
+}: {
+  value: T;
+  onChange: (v: T) => void;
+  options: { value: T; label: string }[];
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2 rounded-2xl border border-biz-line bg-white p-1">
+      {options.map((o) => {
+        const active = o.value === value;
+        return (
+          <button
+            key={o.value}
+            type="button"
+            onClick={() => onChange(o.value)}
+            className={[
+              "rounded-2xl px-3 py-2 text-xs font-bold transition",
+              active ? "bg-orange-500 text-white" : "bg-transparent text-gray-700 hover:bg-gray-50",
+            ].join(" ")}
+          >
+            {o.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+type Tab = "setup" | "summary";
+
+function fmtNaira(n: number) {
+  return formatMoneyNGN(n);
+}
+
+function clampInt(n: any, min: number, max: number) {
+  const v = Math.floor(Number(n));
+  if (!Number.isFinite(v)) return min;
+  return Math.max(min, Math.min(max, v));
+}
+
+function parseIds(raw: string | null): string[] {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
+export default function PromoteWizardPage() {
+  const router = useRouter();
+  const sp = useSearchParams();
+
+  const presetProductId = sp.get("productId");
+  const presetIds = parseIds(sp.get("ids"));
+  const presetDays = sp.get("days");
+  const presetDaily = sp.get("daily");
+
+  const [tab, setTab] = useState<Tab>("setup");
+
+  const [loading, setLoading] = useState(true);
+  const [paying, setPaying] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  const [products, setProducts] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+
+  const [days, setDays] = useState<number>(2);
+  const [dailyBudget, setDailyBudget] = useState<number>(1700);
+  const maxProducts = 5;
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function load() {
+      setLoading(true);
+      setMsg(null);
+      try {
+        const data = await authedFetch("/api/vendor/products");
+        const list = Array.isArray(data.products) ? data.products : [];
+        const onlyProducts = list.filter((p: any) => String(p?.listingType || "product") !== "service");
+
+        if (!mounted) return;
+        setProducts(onlyProducts);
+
+        // Apply presets
+        const nextIds: string[] = [];
+
+        // ids=... takes priority
+        for (const id of presetIds) {
+          const exists = onlyProducts.some((p: any) => String(p.id) === id);
+          if (exists) nextIds.push(id);
+        }
+
+        // fallback: productId
+        if (nextIds.length === 0 && presetProductId) {
+          const exists = onlyProducts.some((p: any) => String(p.id) === String(presetProductId));
+          if (exists) nextIds.push(String(presetProductId));
+        }
+
+        if (nextIds.length) setSelectedIds(nextIds.slice(0, maxProducts));
+
+        if (presetDays) setDays(clampInt(presetDays, 2, 60));
+        if (presetDaily) setDailyBudget(clampInt(presetDaily, 1700, 500000));
+      } catch (e: any) {
+        if (!mounted) return;
+        setMsg(e?.message || "Failed to load products");
+        setProducts([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [presetProductId, presetDays, presetDaily]); // presetIds is derived from query; safe
+
+  function toggle(id: string) {
+    setSelectedIds((prev) => {
+      const has = prev.includes(id);
+      if (has) return prev.filter((x) => x !== id);
+      if (prev.length >= maxProducts) return prev;
+      return [...prev, id];
+    });
+  }
+
+  const selectedProducts = useMemo(() => {
+    const map = new Map(products.map((p) => [String(p.id), p]));
+    return selectedIds.map((id) => map.get(id)).filter(Boolean);
+  }, [products, selectedIds]);
+
+  const safeDays = useMemo(() => clampInt(days, 2, 60), [days]);
+  const safeDaily = useMemo(() => clampInt(dailyBudget, 1700, 500000), [dailyBudget]);
+
+  const totalCost = useMemo(() => safeDays * safeDaily, [safeDays, safeDaily]);
+
+  const exposureNote = useMemo(() => {
+    if (selectedIds.length <= 1) {
+      return "Higher daily budget increases how often your product appears in promoted slots.";
+    }
+    return "Your campaign will promote multiple products. Exposure is shared across selected products.";
+  }, [selectedIds.length]);
+
+  const canContinue =
+    selectedIds.length >= 1 &&
+    selectedIds.length <= maxProducts &&
+    safeDays >= 2 &&
+    safeDaily >= 1700;
+
+  async function startPayment() {
+    if (!canContinue) return;
+
+    setPaying(true);
+    setMsg(null);
+    try {
+      const data = await authedFetch("/api/promotions/initialize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          productIds: selectedIds,
+          days: safeDays,
+          dailyBudgetKobo: safeDaily * 100,
+        }),
+      });
+
+      window.location.href = data.authorization_url;
+    } catch (e: any) {
+      setMsg(e?.message || "Failed to start payment");
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader
+        title="Promotion"
+        subtitle="Boost a product like ads"
+        showBack={true}
+        right={
+          <button
+            className="rounded-2xl border border-biz-line bg-white px-3 py-2 text-xs font-bold shadow-soft inline-flex items-center gap-2"
+            onClick={() => router.push("/vendor/promote/faq")}
+          >
+            <HelpCircle className="h-4 w-4 text-gray-700" />
+            FAQ
+          </button>
+        }
+      />
+
+      <div className="px-4 pb-6 space-y-3">
+        <SegmentedControl<Tab>
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "setup", label: "Setup" },
+            { value: "summary", label: "Summary" },
+          ]}
+        />
+
+        {loading ? <Card className="p-4">LoadingÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦</Card> : null}
+        {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
+
+        {!loading ? (
+          <>
+            {tab === "setup" ? (
+              <>
+                <SectionCard
+                  title="Select products"
+                  subtitle={`Choose 1ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¦ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã¢â‚¬Å“${maxProducts} products to promote`}
+                  right={
+                    <span className="text-[11px] text-biz-muted">
+                      Selected: <b className="text-biz-ink">{selectedIds.length}</b>/{maxProducts}
+                    </span>
+                  }
+                >
+                  {products.length === 0 ? (
+                    <div className="text-sm text-biz-muted">
+                      You have no products yet. Add a product first.
+                      <div className="mt-3">
+                        <Button onClick={() => router.push("/vendor/products/new")}>Add product</Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {products.slice(0, 50).map((p: any) => {
+                        const id = String(p.id);
+                        const on = selectedIds.includes(id);
+                        const img = Array.isArray(p?.images) ? p.images[0] : "";
+
+                        return (
+                          <button
+                            key={id}
+                            onClick={() => toggle(id)}
+                            className={[
+                              "w-full text-left rounded-2xl border p-3 transition",
+                              on
+                                ? "border-transparent bg-gradient-to-br from-biz-accent2 to-biz-accent text-white shadow-float"
+                                : "border-biz-line bg-white hover:bg-black/[0.02]",
+                            ].join(" ")}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="h-12 w-12 rounded-2xl bg-biz-cream overflow-hidden shrink-0 border border-black/5">
+                                {img ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img src={img} alt={p?.name || "Product"} className="h-full w-full object-cover" />
+                                ) : null}
+                              </div>
+
+                              <div className="flex-1 min-w-0">
+                                <p className={on ? "text-sm font-bold" : "text-sm font-bold text-biz-ink"}>
+                                  {p?.name || "Product"}
+                                </p>
+                                <p className={on ? "text-[11px] opacity-90 mt-1" : "text-[11px] text-biz-muted mt-1"}>
+                                  {formatMoneyNGN(Number(p?.price || 0))}
+                                </p>
+                              </div>
+
+                              {on ? (
+                                <CheckCircle2 className="h-5 w-5 text-white shrink-0 mt-0.5" />
+                              ) : (
+                                <span className="h-5 w-5 rounded-full border border-biz-line bg-white shrink-0 mt-0.5" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  <p className="mt-3 text-[11px] text-biz-muted">
+                    If you select multiple products, exposure is shared across them.
+                  </p>
+                </SectionCard>
+
+                <SectionCard title="Budget & duration" subtitle="More budget = more exposure">
+                  <div className="space-y-3">
+                    <div>
+                      <p className="text-xs text-biz-muted mb-1">Days (minimum 2)</p>
+                      <Input
+                        type="number"
+                        min={2}
+                        max={60}
+                        value={String(days)}
+                        onChange={(e) => setDays(Number(e.target.value))}
+                        placeholder="2"
+                      />
+                    </div>
+
+                    <div>
+                      <p className="text-xs text-biz-muted mb-1">Daily budget (minimum {formatMoneyNGN(1700)})</p>
+                      <Input
+                        type="number"
+                        min={1700}
+                        step={100}
+                        value={String(dailyBudget)}
+                        onChange={(e) => setDailyBudget(Number(e.target.value))}
+                        placeholder="1700"
+                      />
+                      <p className="mt-2 text-[11px] text-biz-muted">{exposureNote}</p>
+                    </div>
+                  </div>
+                </SectionCard>
+
+                <Card className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-biz-ink">Estimated total</p>
+                      <p className="text-[11px] text-biz-muted mt-1">
+                        {safeDays} day(s) ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â {fmtNaira(safeDaily)}
+                      </p>
+                    </div>
+                    <p className="text-lg font-bold text-biz-ink">{fmtNaira(totalCost)}</p>
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-2">
+                    <Button
+                      onClick={() => setTab("summary")}
+                      disabled={!canContinue}
+                      leftIcon={<Megaphone className="h-4 w-4" />}
+                    >
+                      Continue
+                    </Button>
+                    <Button variant="secondary" onClick={() => router.push("/vendor/promotions")}>
+                      Campaigns
+                    </Button>
+                  </div>
+
+                  {!canContinue ? (
+                    <p className="mt-2 text-[11px] text-red-700">
+                      Select at least 1 product (max {maxProducts}), and use at least 2 days + {formatMoneyNGN(1700)}/day.
+                    </p>
+                  ) : null}
+                </Card>
+              </>
+            ) : null}
+
+            {tab === "summary" ? (
+              <>
+                <div className="rounded-[26px] p-4 text-white shadow-float bg-gradient-to-br from-biz-accent2 to-biz-accent">
+                  <p className="text-xs opacity-95">Promotion summary</p>
+                  <p className="text-xl font-bold mt-1">{fmtNaira(totalCost)}</p>
+                  <p className="text-[11px] opacity-95 mt-2">
+                    Duration: <b>{safeDays} day(s)</b> ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦Ãƒâ€šÃ‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Daily budget: <b>{fmtNaira(safeDaily)}</b>
+                  </p>
+                  <p className="text-[11px] opacity-95 mt-1">
+                    Products: <b>{selectedIds.length}</b> (shared exposure if multiple)
+                  </p>
+                </div>
+
+                <SectionCard title="Selected products" subtitle="These will be promoted">
+                  <div className="space-y-2">
+                    {selectedProducts.map((p: any) => (
+                      <div key={String(p.id)} className="rounded-2xl border border-biz-line bg-white p-3">
+                        <p className="text-sm font-bold text-biz-ink">{p?.name || "Product"}</p>
+                        <p className="text-[11px] text-biz-muted mt-1">{formatMoneyNGN(Number(p?.price || 0))}</p>
+                      </div>
+                    ))}
+                  </div>
+                </SectionCard>
+
+                <div className="fixed bottom-0 left-0 right-0 z-40">
+                  <div className="mx-auto w-full max-w-[430px] px-4 safe-pb pb-4">
+                    <Card className="p-4 space-y-2">
+                      <Button onClick={startPayment} loading={paying} disabled={!canContinue}>
+                        Pay {fmtNaira(totalCost)}
+                      </Button>
+                      <Button variant="secondary" onClick={() => setTab("setup")}>
+                        Edit campaign
+                      </Button>
+                    </Card>
+                  </div>
+                </div>
+
+                <div className="h-28" />
+              </>
+            ) : null}
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}

@@ -1,4 +1,4 @@
-
+﻿
 import { requireRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -53,7 +53,7 @@ function planExportCap(planKey: string) {
 
 export async function GET(req: Request) {
   try {
-    // ✅ owner-only export (PII may be included)
+    // âœ… owner-only export (PII may be included)
     const me = await requireRole(req, "owner");
     if (!me.businessId) return Response.json({ ok: false, error: "Missing businessId" }, { status: 400 });
 

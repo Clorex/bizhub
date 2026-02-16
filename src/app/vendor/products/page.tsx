@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -57,11 +57,11 @@ function buildShareCaption(p: any) {
   const link = slug && p?.id ? `${origin}/b/${slug}/p/${p.id}` : "";
 
   const lines: string[] = [];
-  lines.push(`🛒 *${name}*`);
-  if (price > 0) lines.push(`💰 Price: ${fmtNaira(price)}`);
-  if (link) lines.push(`🔗 ${link}`);
+  lines.push(`ðŸ›’ *${name}*`);
+  if (price > 0) lines.push(`ðŸ’° Price: ${fmtNaira(price)}`);
+  if (link) lines.push(`ðŸ”— ${link}`);
   lines.push("");
-  lines.push("✅ Secure checkout via myBizHub");
+  lines.push("âœ… Secure checkout via myBizHub");
 
   return lines.join("\n");
 }
@@ -92,7 +92,7 @@ type Category = { id: string; name: string; slug?: string };
 
 export default function VendorProductsPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const initialFilter = (searchParams.get("filter") as FilterType) || "all";
 
   const [items, setItems] = useState<any[]>([]);

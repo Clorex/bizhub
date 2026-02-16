@@ -1,4 +1,4 @@
-// FILE: src/app/b/[slug]/pay/direct/page-client.tsx
+﻿// FILE: src/app/b/[slug]/pay/direct/page-client.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -26,7 +26,7 @@ type ShippingOption = {
 };
 
 const NAIRA = "\u20A6"; // ₦
-const BULLET = "\u2022"; // •
+const BULLET = "\u2022"; // â€¢
 
 function fmtNaira(n: number) {
   try {
@@ -41,14 +41,14 @@ async function copyText(text: string) {
     await navigator.clipboard.writeText(text);
     toast.success("Copied.");
   } catch {
-    toast.error("Couldn’t copy. Please copy it manually.");
+    toast.error("Couldnâ€™t copy. Please copy it manually.");
   }
 }
 
 export default function DirectPayPage() {
   const params = useParams();
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
   const slug = String((params as any)?.slug ?? "");
 
   const { cart, subtotal, clearCart } = useCart();
@@ -196,7 +196,7 @@ export default function DirectPayPage() {
     try {
       if (!cart.storeSlug || cart.storeSlug !== slug || cart.items.length === 0) {
         setQuote(null);
-        setQuoteMsg("Your cart doesn’t match this vendor.");
+        setQuoteMsg("Your cart doesnâ€™t match this vendor.");
         return;
       }
 
@@ -267,7 +267,7 @@ export default function DirectPayPage() {
     }
 
     if (!cart.storeSlug || cart.storeSlug !== slug || cart.items.length === 0) {
-      toast.error("Your cart doesn’t match this vendor. Please go back to cart.");
+      toast.error("Your cart doesnâ€™t match this vendor. Please go back to cart.");
       router.push("/cart");
       return;
     }
@@ -313,7 +313,7 @@ export default function DirectPayPage() {
 
     const oid = String(data.orderId || "");
     if (!oid) {
-      toast.error("Order created, but we couldn’t open it. Please check your Orders page.");
+      toast.error("Order created, but we couldnâ€™t open it. Please check your Orders page.");
       return;
     }
 
@@ -328,7 +328,7 @@ export default function DirectPayPage() {
 
   async function uploadProof() {
     if (!orderId) {
-      setProofMsg("Create the order first (tap “I have paid”).");
+      setProofMsg("Create the order first (tap â€œI have paidâ€).");
       toast.info("Create the order first, then upload your proof.");
       return;
     }
@@ -404,12 +404,12 @@ export default function DirectPayPage() {
             ) : null}
           </p>
 
-          {quoteLoading ? <p className="text-[11px] opacity-95 mt-2">Updating total…</p> : null}
+          {quoteLoading ? <p className="text-[11px] opacity-95 mt-2">Updating totalâ€¦</p> : null}
           {quoteMsg ? <p className="text-[11px] text-red-100 mt-2">{quoteMsg}</p> : null}
         </div>
 
         <Card className="p-4">
-          {loading ? <p>Loading…</p> : null}
+          {loading ? <p>Loadingâ€¦</p> : null}
           {error ? <p className="text-red-700">{error}</p> : null}
 
           {!loading && !error ? (
@@ -461,7 +461,7 @@ export default function DirectPayPage() {
           {!orderId ? (
             <div className="mt-3">
               <p className="text-sm text-biz-muted">
-                Create the order first by tapping <b>“I have paid”</b>. Then you can upload proof here.
+                Create the order first by tapping <b>â€œI have paidâ€</b>. Then you can upload proof here.
               </p>
             </div>
           ) : (
@@ -503,7 +503,7 @@ export default function DirectPayPage() {
 
         <Card className="p-4">
           <p className="font-bold text-biz-ink">Shipping</p>
-          {shipLoading ? <p className="text-sm text-biz-muted mt-2">Loading shipping…</p> : null}
+          {shipLoading ? <p className="text-sm text-biz-muted mt-2">Loading shippingâ€¦</p> : null}
           {shipMsg ? <p className="text-sm text-red-700 mt-2">{shipMsg}</p> : null}
 
           {!shipLoading && !shipMsg ? (
@@ -563,3 +563,4 @@ export default function DirectPayPage() {
     </div>
   );
 }
+

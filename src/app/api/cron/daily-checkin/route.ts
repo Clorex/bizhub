@@ -1,4 +1,4 @@
-
+﻿
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import { buildBusinessDailySnapshot } from "@/lib/checkin/buildBusinessDailySnapshot";
@@ -103,7 +103,7 @@ export async function GET(req: Request) {
 
         const todayLine = `Today: ${Number(
           snapshot?.today?.orders || 0
-        )} order(s) • ${fmtNaira(
+        )} order(s) â€¢ ${fmtNaira(
           Number(snapshot?.today?.revenue || 0)
         )}`;
 
@@ -119,7 +119,7 @@ export async function GET(req: Request) {
           title: "Daily business check-in",
           lines: [
             todayLine,
-            `Pending: ${pending} • Disputes: ${disputes}`,
+            `Pending: ${pending} â€¢ Disputes: ${disputes}`,
             needs
               ? `Needs attention: ${needs} order(s)`
               : "Needs attention: none",
@@ -208,3 +208,4 @@ export async function GET(req: Request) {
     );
   }
 }
+

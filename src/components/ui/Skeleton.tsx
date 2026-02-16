@@ -34,7 +34,7 @@ export function ProductCardSkeleton() {
 
 export function ProductGridSkeleton({ count = 6 }: { count?: number }) {
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-2">
       {Array.from({ length: count }).map((_, i) => (
         <ProductCardSkeleton key={i} />
       ))}
@@ -66,9 +66,9 @@ export function DealsCarouselSkeleton() {
   );
 }
 
-/* â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”
+/* ??????????????????????????????????????????????
    ANALYTICS SKELETONS (new)
-   â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€”â€” */
+   ?????????????????????????????????????????????? */
 
 export function SummaryCardSkeleton() {
   return (
@@ -109,3 +109,5 @@ export function SectionSkeleton() {
     </div>
   );
 }
+
+

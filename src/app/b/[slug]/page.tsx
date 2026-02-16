@@ -26,12 +26,6 @@ import { useCart } from "@/lib/cart/CartContext";
 import { CloudImage } from "@/components/CloudImage";
 import { toast } from "@/lib/ui/toast";
 import { cn } from "@/lib/cn";
-import {
-  normalizeCoverAspect,
-  coverAspectToTailwindClass,
-  coverAspectToWH,
-  type CoverAspectKey,
-} from "@/lib/products/coverAspect";
 import { getThemeById, getDefaultTheme, type StoreTheme } from "@/lib/themes/storeThemes";
 import { formatMoneyNGN } from "@/lib/money";
 
@@ -190,11 +184,8 @@ function ThemedProductCard({
   const onSale = saleIsActive(product);
   const base = Number(product?.price || 0);
   const final = onSale ? computeSalePriceNgn(product) : base;
-
-  const aspect: CoverAspectKey = normalizeCoverAspect(product?.coverAspect) ?? "1:1";
-  const aspectClass = coverAspectToTailwindClass(aspect);
-  const { w, h } = coverAspectToWH(aspect, 520);
-
+  const w = 520;
+  const h = 520;
   const badges: string[] = [];
   if (boosted) badges.push("Promoted");
   if (onSale) badges.push(saleBadgeText(product));
@@ -210,7 +201,7 @@ function ThemedProductCard({
         }}
         onClick={onOpen}
       >
-        <div className={cn(aspectClass, "w-full overflow-hidden relative bg-gray-100")}>
+        <div className={cn("aspect-square", "w-full overflow-hidden relative bg-gray-100")}>
           {img ? (
             <CloudImage
               src={img}
@@ -270,7 +261,7 @@ function ThemedProductCard({
         </div>
 
         <div className="p-3">
-          <p className="text-sm font-bold line-clamp-2" style={{ color: theme.textPrimary }}>
+          <p className="text-sm font-bold line-clamp-2 leading-tight min-h-[2.6rem]" style={{ color: theme.textPrimary }}>
             {product?.name || "Product"}
           </p>
 
@@ -447,7 +438,7 @@ export default function StorefrontPage() {
         <div className="px-4 py-4 space-y-4">
           <div className="h-40 rounded-2xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
           <div className="h-8 w-32 rounded-xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+          <div className="grid grid-cols-2 gap-2">
             {[1, 2, 3, 4].map((i) => (
               <div key={i} className="h-48 rounded-2xl animate-pulse" style={{ backgroundColor: theme.cardBorder }} />
             ))}
@@ -733,7 +724,7 @@ export default function StorefrontPage() {
               />
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 gap-2">
               {filteredProducts.map((p: any) => {
                 const hasOptions = Array.isArray(p?.optionGroups) && p.optionGroups.length > 0;
                 const outOfStock = Number(p?.stock ?? 0) <= 0;
@@ -804,4 +795,5 @@ export default function StorefrontPage() {
     </div>
   );
 }
+
 

@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
 import { BottomNav } from "@/components/BottomNav";
 import { usePathname } from "next/navigation";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
+  const pathname = usePathname() || "/";
 
   const hideAllNav =
     pathname.startsWith("/admin") ||

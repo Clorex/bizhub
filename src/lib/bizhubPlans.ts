@@ -1,4 +1,4 @@
-// FILE: src/lib/bizhubPlans.ts
+﻿// FILE: src/lib/bizhubPlans.ts
 
 export type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
 export type BizhubBillingCycle = "monthly" | "quarterly" | "biannually" | "yearly";
@@ -31,7 +31,7 @@ export type PlanCatalog = {
   /** Longer breakdown */
   benefits: Record<string, string[]>;
 
-  /** Optional add-ons / upgrades (can include “coming soon”) */
+  /** Optional add-ons / upgrades (can include â€œcoming soonâ€) */
   purchases: Record<string, string[]>;
 };
 

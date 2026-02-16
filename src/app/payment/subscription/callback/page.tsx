@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 
 function SubscriptionCallbackInner() {
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
 
   // Flutterwave: tx_ref + transaction_id
   // Paystack: reference or trxref

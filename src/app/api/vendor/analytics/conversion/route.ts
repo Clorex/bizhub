@@ -1,3 +1,4 @@
+﻿export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from 'next/server';
 import { getVendorFromRequest } from '@/lib/auth/vendor-guard';
 import { requirePaidVendor } from '@/lib/auth/subscription-guard';
@@ -8,7 +9,7 @@ import { AnalyticsApiResponse, ConversionData } from '@/types/analytics';
  * GET /api/vendor/analytics/conversion
  * 
  * Returns conversion funnel data.
- * Views → Clicks → Purchases with conversion rate.
+ * Views â†’ Clicks â†’ Purchases with conversion rate.
  * 
  * Requires paid subscription (premium+).
  */

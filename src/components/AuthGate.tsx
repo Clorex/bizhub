@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -16,7 +16,7 @@ export function AuthGate({
   children: React.ReactNode;
 }) {
   const router = useRouter();
-  const pathname = usePathname();
+  const pathname = usePathname() || "/";
 
   const roles = Array.isArray(requireRole) ? requireRole : [requireRole];
 
@@ -66,7 +66,7 @@ export function AuthGate({
   if (loading) {
     return (
       <div className="min-h-screen p-4 bg-biz-bg">
-        <Card className="p-4">Loading…</Card>
+        <Card className="p-4">Loadingâ€¦</Card>
       </div>
     );
   }

@@ -1,3 +1,4 @@
+﻿export const dynamic = "force-dynamic";
 import { NextRequest, NextResponse } from 'next/server';
 import { getVendorFromRequest } from '@/lib/auth/vendor-guard';
 import { SubscriptionService } from '@/services/subscription/subscription.service';

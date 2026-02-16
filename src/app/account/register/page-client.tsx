@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -14,7 +14,7 @@ type Mode = "customer" | "vendor";
 
 export default function RegisterPage({ storeName }: { storeName?: string | null }) {
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
   const nextFromUrl = sp.get("next");
 
   const [mode, setMode] = useState<Mode>("customer");
@@ -208,3 +208,4 @@ export default function RegisterPage({ storeName }: { storeName?: string | null 
     </div>
   );
 }
+

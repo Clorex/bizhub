@@ -123,7 +123,7 @@ function niceError(e: any, fallback: string) {
 
 export default function SubscriptionSummaryPageClient() {
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
 
   const planFromUrl = String(sp.get("plan") || "LAUNCH").toUpperCase();
   const cycleFromUrl = String(sp.get("cycle") || "yearly").toLowerCase();

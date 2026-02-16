@@ -1,4 +1,4 @@
-// FILE: src/app/api/vendor/plans/route.ts
+﻿// FILE: src/app/api/vendor/plans/route.ts
 
 import { requireAnyRole } from "@/lib/auth/server";
 import { getPlanConfig, fallbackPlanConfig, type BizhubPlanKey } from "@/lib/vendor/planConfigServer";
@@ -44,7 +44,7 @@ function addIf(out: string[], ok: boolean, text: string) {
 function buildBenefitsForPlan(planKey: BizhubPlanKey, features: any, limits: any) {
   const benefits: Record<string, string[]> = {};
 
-  // ✅ CORE SELLING (user-focused, not feature-list)
+  // âœ… CORE SELLING (user-focused, not feature-list)
   const core: string[] = [];
   addIf(core, !!features.marketplace, "Reach thousands of buyers on the myBizHub Marketplace");
   addIf(core, !!features.storeCustomize, "Customize your store with your brand, logo, and banner");
@@ -53,14 +53,14 @@ function buildBenefitsForPlan(planKey: BizhubPlanKey, features: any, limits: any
   addIf(core, !!features.promotions, "Boost products to the top of the Marketplace (paid ads)");
   if (core.length) benefits["Sell more"] = core;
 
-  // ✅ PAYMENTS (user-friendly, no USD jargon)
+  // âœ… PAYMENTS (user-friendly, no USD jargon)
   const payments: string[] = [];
   if ((planKey === "MOMENTUM" || planKey === "APEX") && !!features.usdCheckout) {
     payments.push("Accept card payments in USD from international buyers");
   }
   if (payments.length) benefits["Payments"] = payments;
 
-  // ✅ OPERATIONS (expanded + user-focused)
+  // âœ… OPERATIONS (expanded + user-focused)
   const ops: string[] = [];
   
   addIf(ops, !!features.assistant, "Daily sales summary + tips to improve your business");
@@ -101,7 +101,7 @@ function buildBenefitsForPlan(planKey: BizhubPlanKey, features: any, limits: any
   
   if (ops.length) benefits["Operations & automation"] = ops;
 
-  // ✅ INSIGHTS (expanded + user-friendly)
+  // âœ… INSIGHTS (expanded + user-friendly)
   const insights: string[] = [];
   
   addIf(insights, !!features.monthAnalytics, "See monthly sales trends (not just weekly)");
@@ -130,14 +130,14 @@ function buildBenefitsForPlan(planKey: BizhubPlanKey, features: any, limits: any
   
   if (insights.length) benefits["Business insights"] = insights;
 
-  // ✅ APEX TRUST & PROTECTION (expanded + compelling)
+  // âœ… APEX TRUST & PROTECTION (expanded + compelling)
   const apex: string[] = [];
   
   addIf(apex, !!features.apexVerifiedBadge, "Display a Verified Apex badge to build buyer trust");
   addIf(apex, !!features.apexSmartRiskShield, "Smart Risk Shield monitors suspicious orders quietly");
   addIf(apex, !!features.apexPriorityDisputeOverride, "Priority dispute resolution (skip the queue + extra evidence slots)");
   
-  // ✅ Add more Apex-only benefits to make it compelling
+  // âœ… Add more Apex-only benefits to make it compelling
   if (planKey === "APEX") {
     apex.push("Higher marketplace ranking (your products show up first)");
     apex.push("Early access to new features before other plans");
@@ -146,7 +146,7 @@ function buildBenefitsForPlan(planKey: BizhubPlanKey, features: any, limits: any
   
   if (apex.length) benefits["Apex trust & protection"] = apex;
 
-  // ✅ Remove empty groups
+  // âœ… Remove empty groups
   for (const k of Object.keys(benefits)) {
     if (!benefits[k]?.length) delete benefits[k];
   }
@@ -161,7 +161,7 @@ function purchasesForPlan(planKey: BizhubPlanKey) {
   const items = addOns.filter((x) => x.kind === "item");
 
   const fmt = (title: string, m: number, y: number) =>
-    `${title} • ₦${m.toLocaleString("en-NG")}/month • ₦${y.toLocaleString("en-NG")}/year`;
+    `${title} â€¢ ₦${m.toLocaleString("en-NG")}/month â€¢ ₦${y.toLocaleString("en-NG")}/year`;
 
   const out: Record<string, string[]> = {};
 

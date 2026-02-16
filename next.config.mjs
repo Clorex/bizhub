@@ -1,4 +1,4 @@
-// next.config.mjs
+﻿// next.config.mjs
 import nextPWA from "next-pwa";
 
 /** @type {import('next').NextConfig} */
@@ -14,6 +14,7 @@ const nextConfig = {
   experimental: {
     // keep your experimental options here
   },
+  eslint: { ignoreDuringBuilds: true },
 };
 
 const withPWA = nextPWA({

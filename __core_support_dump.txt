@@ -1,0 +1,1625 @@
+﻿
+
+===== FILE: src/app/vendor/more/page.tsx =====
+// FILE: src/app/vendor/more/page.tsx
+"use client";
+
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
+
+import {
+  Store,
+  Package,
+  ClipboardList,
+  BarChart3,
+  Wallet,
+  Banknote,
+  Settings,
+  Shield,
+  HelpCircle,
+  LogOut,
+  Crown,
+  Megaphone,
+  Users,
+  BadgeCheck,
+  Sparkles,
+  Send,
+  BadgePercent,
+  TicketPercent,
+  ShoppingBag,
+  Truck,
+  ChevronRight,
+  Eye,
+  MessageCircle,
+  Headphones,
+} from "lucide-react";
+
+import { toast } from "@/lib/ui/toast";
+import { signOutClient } from "@/lib/auth/signOutClient";
+import { isSmartMatchEnabled } from "@/lib/smartmatch/featureFlag";
+
+const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
+
+function Group({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card className="p-4">
+      <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">{title}</p>
+      {subtitle ? <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p> : null}
+      <div className="mt-3 space-y-2">{children}</div>
+    </Card>
+  );
+}
+
+function Row({
+  icon,
+  title,
+  desc,
+  onClick,
+  highlight,
+  badge,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  desc?: string;
+  onClick: () => void;
+  highlight?: boolean;
+  badge?: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={[
+        "w-full text-left rounded-2xl border p-3 transition",
+        highlight
+          ? "border-orange-200 bg-gradient-to-br from-orange-50 to-white hover:from-orange-100"
+          : "border-gray-100 bg-white hover:bg-gray-50/50",
+      ].join(" ")}
+    >
+      <div className="flex items-center gap-3">
+        <div
+          className={[
+            "h-10 w-10 rounded-2xl flex items-center justify-center shrink-0",
+            highlight ? "bg-gradient-to-br from-orange-500 to-orange-600" : "bg-orange-50",
+          ].join(" ")}
+        >
+          {icon}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p
+              className={
+                highlight
+                  ? "text-sm font-bold text-orange-700"
+                  : "text-sm font-bold text-gray-900"
+              }
+            >
+              {title}
+            </p>
+            {badge ? (
+              <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                {badge}
+              </span>
+            ) : null}
+          </div>
+          {desc ? <p className="text-xs text-gray-500 mt-0.5">{desc}</p> : null}
+        </div>
+        <ChevronRight className="h-4 w-4 text-gray-300 shrink-0" />
+      </div>
+    </button>
+  );
+}
+
+export default function VendorMorePage() {
+  const router = useRouter();
+  const smartMatchEnabled = isSmartMatchEnabled();
+
+  const supportWaLink = SUPPORT_WHATSAPP
+    ? buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")
+    : "";
+
+  async function onSignOut() {
+    const res = await signOutClient();
+    if (res.ok) {
+      toast.success("Signed out");
+      router.push("/account/login");
+    } else {
+      toast.error(res.error || "Failed to sign out");
+    }
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50/30">
+      <GradientHeader title="More" subtitle="Tools, settings, and support" showBack={false} />
+
+      <div className="px-4 pb-32 space-y-4">
+        <Group title="Your plan" subtitle="Manage subscription and add-ons">
+          <Row
+            icon={<Crown className="h-5 w-5 text-white" />}
+            title="Subscription"
+            desc="Manage your plan and billing"
+            onClick={() => router.push("/vendor/subscription")}
+            highlight
+          />
+          <Row
+            icon={<ShoppingBag className="h-5 w-5 text-orange-600" />}
+            title="Plan add-ons"
+            desc="Buy extra features for your current plan"
+            onClick={() => router.push("/vendor/purchases")}
+          />
+        </Group>
+
+        <Group title="Your store" subtitle="Storefront and product management">
+          <Row
+            icon={<Store className="h-5 w-5 text-orange-600" />}
+            title="Store settings"
+            desc="Brand, location, WhatsApp, banner"
+            onClick={() => router.push("/vendor/store")}
+          />
+          <Row
+            icon={<BadgeCheck className="h-5 w-5 text-orange-600" />}
+            title="Verification"
+            desc="Get verified to build buyer trust"
+            onClick={() => router.push("/vendor/verification")}
+          />
+          <Row
+            icon={<Package className="h-5 w-5 text-orange-600" />}
+            title="Products"
+            desc="Create and manage your listings"
+            onClick={() => router.push("/vendor/products")}
+          />
+          <Row
+            icon={<Truck className="h-5 w-5 text-orange-600" />}
+            title="Shipping"
+            desc="Delivery and pickup options"
+            onClick={() => router.push("/vendor/shipping")}
+          />
+        </Group>
+
+        <Group title="Sales" subtitle="Orders, discounts, and performance">
+          <Row
+            icon={<ClipboardList className="h-5 w-5 text-orange-600" />}
+            title="Orders"
+            desc="View and manage your orders"
+            onClick={() => router.push("/vendor/orders")}
+          />
+          <Row
+            icon={<BadgePercent className="h-5 w-5 text-orange-600" />}
+            title="Discounts"
+            desc="Run sales on your products"
+            onClick={() => router.push("/vendor/discounts")}
+          />
+          <Row
+            icon={<TicketPercent className="h-5 w-5 text-orange-600" />}
+            title="Coupon codes"
+            desc="Discount codes for checkout"
+            onClick={() => router.push("/vendor/coupon")}
+          />
+          <Row
+            icon={<BarChart3 className="h-5 w-5 text-orange-600" />}
+            title="Best sellers"
+            desc="See your top-performing products"
+            onClick={() => router.push("/vendor/best-sellers")}
+          />
+        </Group>
+
+        <Group title="Insights" subtitle="Analytics and AI tools">
+          {smartMatchEnabled ? (
+            <Row
+              icon={<Eye className="h-5 w-5 text-orange-600" />}
+              title="Visibility & Match Score"
+              desc="See what affects how buyers find you"
+              onClick={() => router.push("/vendor/smartmatch")}
+              badge="New"
+            />
+          ) : null}
+
+          <Row
+            icon={<Sparkles className="h-5 w-5 text-orange-600" />}
+            title="Sales assistant"
+            desc="Daily summary and tips"
+            onClick={() => router.push("/vendor")}
+          />
+          <Row
+            icon={<BarChart3 className="h-5 w-5 text-orange-600" />}
+            title="Business analysis"
+            desc="Performance insights and trends"
+            onClick={() => router.push("/vendor/analytics")}
+          />
+          <Row
+            icon={<Send className="h-5 w-5 text-orange-600" />}
+            title="Re-engagement"
+            desc="Follow up with past buyers"
+            onClick={() => router.push("/vendor/reengagement")}
+          />
+        </Group>
+
+        <Group title="Growth">
+          <Row
+            icon={<Megaphone className="h-5 w-5 text-orange-600" />}
+            title="Promotions"
+            desc="Boost products in the marketplace"
+            onClick={() => router.push("/vendor/promotions")}
+          />
+        </Group>
+
+        <Group title="Team">
+          <Row
+            icon={<Users className="h-5 w-5 text-orange-600" />}
+            title="Staff"
+            desc="Invite and manage team access"
+            onClick={() => router.push("/vendor/staff")}
+          />
+        </Group>
+
+        <Group title="Money" subtitle="Balance and payouts">
+          <Row
+            icon={<Wallet className="h-5 w-5 text-orange-600" />}
+            title="Balance"
+            desc="Pending, available, and withdrawals"
+            onClick={() => router.push("/vendor/wallet")}
+          />
+          <Row
+            icon={<Banknote className="h-5 w-5 text-orange-600" />}
+            title="Payout details"
+            desc="Your bank account for withdrawals"
+            onClick={() => router.push("/vendor/settings/payouts")}
+          />
+        </Group>
+
+        <Group title="Account" subtitle="Settings and support">
+          <Row
+            icon={<Settings className="h-5 w-5 text-orange-600" />}
+            title="Preferences"
+            desc="Notifications and settings"
+            onClick={() => router.push("/vendor/preferences")}
+          />
+          <Row
+            icon={<Shield className="h-5 w-5 text-orange-600" />}
+            title="Security"
+            desc="Password and account safety"
+            onClick={() => router.push("/vendor/security")}
+          />
+          <Row
+            icon={<HelpCircle className="h-5 w-5 text-orange-600" />}
+            title="Help & FAQ"
+            desc="Tips, guides, and answers"
+            onClick={() => router.push("/vendor/promote/faq")}
+          />
+          <Row
+            icon={<MessageCircle className="h-5 w-5 text-orange-600" />}
+            title="AI Support Chat"
+            desc="Chat with our AI assistant"
+            onClick={() => router.push("/vendor/promote/faq/chat")}
+          />
+        </Group>
+
+        {/* Talk to customer care — prominent card */}
+        <Card className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-[#25D366] flex items-center justify-center shrink-0 shadow-sm">
+              <Headphones className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-base font-bold text-gray-900">Talk to customer care</p>
+              <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+              <div className="mt-3 flex gap-2">
+                {supportWaLink ? (
+                  <WhatsAppButton
+                    href={supportWaLink}
+                    label="Chat now"
+                    variant="button"
+                    size="md"
+                  />
+                ) : (
+                  <button
+                    onClick={() => router.push("/vendor/promote/faq/chat")}
+                    className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl bg-orange-500 text-white font-bold text-sm shadow-sm hover:bg-orange-600 transition"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Chat with AI support
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-4">
+          <button
+            className="w-full rounded-2xl border border-gray-100 bg-white py-3 text-sm font-bold text-red-600 hover:bg-red-50 transition"
+            onClick={onSignOut}
+          >
+            <span className="inline-flex items-center gap-2 justify-center">
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </span>
+          </button>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+
+===== FILE: src/app/help/page.tsx =====
+"use client";
+
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { WhatsAppButton, WhatsAppIcon } from "@/components/ui/WhatsAppButton";
+import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
+import {
+  HelpCircle,
+  MessageCircle,
+  ShoppingBag,
+  Truck,
+  CreditCard,
+  Shield,
+  ChevronDown,
+  ChevronUp,
+  ExternalLink,
+  Headphones,
+} from "lucide-react";
+
+const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
+
+interface FaqItem {
+  q: string;
+  a: string;
+}
+
+const faqs: FaqItem[] = [
+  {
+    q: "How do I place an order?",
+    a: "Browse the marketplace, add items to your cart, then proceed to checkout. You can pay via card, bank transfer, or other available methods.",
+  },
+  {
+    q: "How do I track my order?",
+    a: "Go to Profile \u2192 View orders. Tap any order to see its current status and delivery updates.",
+  },
+  {
+    q: "Can I cancel an order?",
+    a: "You can request a cancellation from the order details page if the vendor hasn't shipped it yet. Once shipped, contact the vendor directly.",
+  },
+  {
+    q: "How do payments work?",
+    a: "We use secure payment processing. Your payment goes to escrow and is released to the vendor once you confirm delivery.",
+  },
+  {
+    q: "What if I receive the wrong item?",
+    a: "Open a dispute from the order details page. We'll mediate between you and the vendor to resolve the issue.",
+  },
+  {
+    q: "How do I save products for later?",
+    a: "Tap the heart icon on any product to add it to your favorites. Access them from Profile \u2192 View favorites.",
+  },
+  {
+    q: "Is my data safe?",
+    a: "Yes. We use Firebase Authentication and encrypted connections. We never share your personal data with third parties.",
+  },
+];
+
+function FaqAccordion({ item }: { item: FaqItem }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <button
+      onClick={() => setOpen(!open)}
+      className="w-full text-left p-4 rounded-2xl border border-gray-100 bg-white hover:border-orange-200 transition"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-semibold text-gray-900 flex-1">{item.q}</p>
+        {open ? (
+          <ChevronUp className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+        ) : (
+          <ChevronDown className="w-4 h-4 text-gray-400 shrink-0 mt-0.5" />
+        )}
+      </div>
+      {open && <p className="text-sm text-gray-600 mt-2 leading-relaxed">{item.a}</p>}
+    </button>
+  );
+}
+
+export default function HelpPage() {
+  const router = useRouter();
+
+  const supportWaLink = SUPPORT_WHATSAPP
+    ? buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")
+    : "";
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Help & Support" subtitle="We're here to help" showBack />
+      <div className="px-4 pb-28 space-y-4">
+        {/* Talk to customer care — prominent card */}
+        {supportWaLink ? (
+          <Card className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#25D366] flex items-center justify-center shrink-0 shadow-sm">
+                <Headphones className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold text-gray-900">Talk to customer care</p>
+                <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+                <div className="mt-3">
+                  <WhatsAppButton
+                    href={supportWaLink}
+                    label="Chat now"
+                    variant="button"
+                    size="md"
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {/* Quick links */}
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            { icon: ShoppingBag, label: "Orders", desc: "Track purchases", href: "/orders" },
+            { icon: Shield, label: "Security", desc: "Account safety", href: "/account/security" },
+            { icon: Truck, label: "Shipping", desc: "Delivery info", href: "/orders" },
+            { icon: CreditCard, label: "Payments", desc: "Payment help", href: "/orders" },
+          ].map((item) => (
+            <button
+              key={item.label}
+              onClick={() => router.push(item.href)}
+              className="p-4 rounded-2xl border border-gray-100 bg-white hover:border-orange-200 transition text-left"
+            >
+              <item.icon className="w-6 h-6 text-orange-500 mb-2" />
+              <p className="text-sm font-bold text-gray-900">{item.label}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* FAQs */}
+        <Card className="p-4">
+          <p className="text-sm font-extrabold text-biz-ink mb-3">Frequently asked questions</p>
+          <div className="space-y-2">
+            {faqs.map((faq, i) => (
+              <FaqAccordion key={i} item={faq} />
+            ))}
+          </div>
+        </Card>
+
+        {/* Contact */}
+        <Card className="p-4">
+          <p className="text-sm font-extrabold text-biz-ink">Still need help?</p>
+          <p className="text-xs text-biz-muted mt-1">
+            If you can't find your answer above, reach out to us.
+          </p>
+          <div className="mt-3 space-y-2">
+            {supportWaLink ? (
+              <WhatsAppButton
+                href={supportWaLink}
+                label="Chat on WhatsApp"
+                variant="button"
+                size="md"
+                className="w-full justify-center"
+              />
+            ) : null}
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={() => {
+                window.open("mailto:support@mybizhub.co.za", "_blank");
+              }}
+            >
+              <span className="inline-flex items-center gap-2">
+                <MessageCircle className="w-4 h-4" />
+                Email support
+                <ExternalLink className="w-3 h-3 opacity-50" />
+              </span>
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+
+===== FILE: src/app/vendor/promote/faq/page.tsx =====
+"use client";
+
+import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
+import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
+
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { cn } from "@/lib/cn";
+import {
+  MessageCircle,
+  Lightbulb,
+  ChevronDown,
+  HelpCircle,
+  Store,
+  Package,
+  ClipboardList,
+  CreditCard,
+  Wallet,
+  Crown,
+  Megaphone,
+  TrendingUp,
+  Shield,
+} from "lucide-react";
+
+const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
+
+type TopicKey =
+  | "getting_started"
+  | "products"
+  | "orders"
+  | "payments"
+  | "payouts"
+  | "subscription"
+  | "promotions"
+  | "growth"
+  | "security";
+
+type Faq = { q: string; a: string };
+
+const TOPIC_ICONS: Record<TopicKey, any> = {
+  getting_started: Store,
+  products: Package,
+  orders: ClipboardList,
+  payments: CreditCard,
+  payouts: Wallet,
+  subscription: Crown,
+  promotions: Megaphone,
+  growth: TrendingUp,
+  security: Shield,
+};
+
+function FaqItem({ q, a }: { q: string; a: string }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <button
+      type="button"
+      onClick={() => setOpen((v) => !v)}
+      className={cn(
+        "w-full text-left rounded-2xl border bg-white p-4 transition",
+        open ? "border-orange-200 bg-orange-50/30" : "border-gray-100 hover:bg-gray-50/50"
+      )}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm font-bold text-gray-900 flex-1">{q}</p>
+        <ChevronDown
+          className={cn(
+            "w-4 h-4 text-gray-400 shrink-0 transition-transform",
+            open && "rotate-180"
+          )}
+        />
+      </div>
+      {open && (
+        <p className="text-sm text-gray-600 mt-3 whitespace-pre-wrap leading-relaxed">{a}</p>
+      )}
+    </button>
+  );
+}
+
+export default function VendorHelpCenterPage() {
+  const router = useRouter();
+
+  const [topic, setTopic] = useState<TopicKey>("getting_started");
+
+  const topics = useMemo(
+    () =>
+      [
+        { key: "getting_started", title: "Getting started", subtitle: "Set up your store" },
+        { key: "products", title: "Products", subtitle: "Listings & photos" },
+        { key: "orders", title: "Orders", subtitle: "Status & delivery" },
+        { key: "payments", title: "Payments", subtitle: "Checkout issues" },
+        { key: "payouts", title: "Withdrawals", subtitle: "Wallet & payouts" },
+        { key: "subscription", title: "Plans", subtitle: "Upgrades & limits" },
+        { key: "promotions", title: "Promotions", subtitle: "Boosting products" },
+        { key: "growth", title: "Growth tips", subtitle: "Get more sales" },
+        { key: "security", title: "Security", subtitle: "Account safety" },
+      ] as const,
+    []
+  );
+
+  const faqsByTopic: Record<TopicKey, Faq[]> = {
+    getting_started: [
+      {
+        q: "How do I share my store link?",
+        a: "Open your vendor dashboard, then copy your store link and share it on WhatsApp, Instagram, Facebook, or anywhere your customers are.\n\nTip: Share your store link first, then share individual product links for best results.",
+      },
+      {
+        q: "Why can't customers see my products?",
+        a: "Check these:\n• Your products have photos and a price\n• Your product is not out of stock\n• Your marketplace setting is ON\n\nIf it still doesn't show, contact support.",
+      },
+      {
+        q: "What should I do first after signing up?",
+        a: "Best order:\n1. Add 5–10 products with clear photos\n2. Set correct price and stock\n3. Add your WhatsApp number in store settings\n4. Share your store link with your customers",
+      },
+    ],
+    products: [
+      {
+        q: "How many photos should I upload?",
+        a: "1 photo is enough to start, but 3–5 photos sell better.\n\nUse clear photos with good lighting. Make the first photo your best one.",
+      },
+      {
+        q: "What are variations?",
+        a: "Variations help customers choose options like size, color, weight, or model.\n\nIf your product has different options, add variations so customers know exactly what they're buying.",
+      },
+      {
+        q: "Why is my product showing 'out of stock'?",
+        a: "That means the stock number is 0.\n\nUpdate the stock in the product editor, then save.",
+      },
+    ],
+    orders: [
+      {
+        q: "Where do I see new orders?",
+        a: "Go to Vendor → Orders.\n\nYou'll see the newest orders at the top.",
+      },
+      {
+        q: "A customer says they paid but I can't see it",
+        a: "Ask the customer to confirm they completed payment.\n\nIf you have a payment reference, contact support so we can check the status.",
+      },
+      {
+        q: "How do disputes work?",
+        a: "If there's an issue, a dispute can be opened so the order can be reviewed fairly.\n\nAlways keep your proof (chat screenshots, receipts). This helps resolve disputes faster.",
+      },
+    ],
+    payments: [
+      {
+        q: "My customer's payment failed. What can we do?",
+        a: "Tell the customer to try again.\n\nIf it still fails:\n• Use a different card\n• Check network connection\n• Try bank transfer option",
+      },
+      {
+        q: "Do customers abroad need a special card?",
+        a: "Most international cards work.\n\nSometimes a bank blocks online payments. The customer should enable online/international payments in their banking app.",
+      },
+    ],
+    payouts: [
+      {
+        q: "How do I withdraw my money?",
+        a: "Go to your Wallet/Balance page and follow the withdrawal steps.\n\nMake sure your payout details (bank account) are correct before withdrawing.",
+      },
+      {
+        q: "Why can't I withdraw yet?",
+        a: "This can happen if:\n• Your payout details are missing\n• There's a pending review\n• Your account needs verification\n\nContact support for help.",
+      },
+      {
+        q: "How long does withdrawal take?",
+        a: "Withdrawals usually arrive within 1–3 business days.\n\nIf it takes longer, contact support with your withdrawal reference.",
+      },
+    ],
+    subscription: [
+      {
+        q: "What changes after I upgrade?",
+        a: "Upgrades unlock higher limits and more tools (more products, more analytics, staff accounts, etc.).\n\nYour plan determines what features you can use.",
+      },
+      {
+        q: "I paid but my plan didn't change",
+        a: "Sometimes it takes a moment to sync.\n\nIf it doesn't update within 5 minutes, contact support and share your payment reference.",
+      },
+      {
+        q: "Can I cancel my subscription?",
+        a: "You can downgrade at any time. Paid subscriptions don't auto-renew.\n\nIf you don't renew, you'll return to Free access when your plan expires.",
+      },
+    ],
+    promotions: [
+      {
+        q: "What is a promotion?",
+        a: "Promotions help your products appear more often in the Marketplace (like ads).\n\nThe longer you run a promotion, the more exposure you get.",
+      },
+      {
+        q: "How long can I promote?",
+        a: "You can run promotions for multiple days (2, 7, 14 days, etc.).\n\nLonger promotions give more time for customers to discover your product.",
+      },
+      {
+        q: "Any tips to get better results?",
+        a: "Best tips:\n• Promote your best-selling product\n• Use a clear cover photo\n• Use a simple product name\n• Make sure price and stock are correct",
+      },
+    ],
+    growth: [
+      {
+        q: "How do I get more customers?",
+        a: "Best strategies:\n1. Share your store link everywhere\n2. Post products on social media regularly\n3. Offer discounts to first-time buyers\n4. Ask happy customers to refer friends\n5. Use re-engagement for past buyers",
+      },
+      {
+        q: "What makes customers buy more?",
+        a: "Top tips:\n• Clear product photos (3–5 per product)\n• Fair prices\n• Fast WhatsApp responses\n• Good reviews\n• Regular updates and new products",
+      },
+      {
+        q: "Should I run sales or discounts?",
+        a: "Yes! Sales work very well.\n\nBest times: end of month (payday), weekends, holidays.\n\nUse coupon codes or product discounts.",
+      },
+    ],
+    security: [
+      {
+        q: "How do I keep my account safe?",
+        a: "Best practices:\n• Don't share your login code (OTP)\n• Don't share your password\n• Be careful with unknown links\n• Only trust your myBizHub dashboard",
+      },
+      {
+        q: "Someone is pretending to be myBizHub support",
+        a: "myBizHub support will NEVER ask for your password or OTP.\n\nIf someone asks, ignore them and report it in support chat immediately.",
+      },
+      {
+        q: "What should I do if my account is hacked?",
+        a: "Contact support immediately and tell us:\n• What happened\n• When it happened\n• Any suspicious links you clicked\n\nWe'll help you secure your account.",
+      },
+    ],
+  };
+
+  const faqs = faqsByTopic[topic];
+  const currentTopic = topics.find((x) => x.key === topic);
+
+  return (
+    <div className="min-h-screen pb-28 bg-gray-50/30">
+      <GradientHeader title="Help & Support" subtitle="Get help quickly" showBack />
+
+      <div className="px-4 space-y-4 pt-4">
+        {/* ──────────── Chat + Quick Tips (side by side) ──────────── */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card
+            className="p-4 cursor-pointer hover:border-orange-200 transition"
+            onClick={() => router.push("/vendor/promote/faq/chat")}
+          >
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-3">
+              <MessageCircle className="w-5 h-5 text-white" />
+            </div>
+            <p className="text-sm font-bold text-gray-900">Chat with us</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">Talk to support</p>
+          </Card>
+
+          <Card
+            className="p-4 cursor-pointer hover:border-orange-200 transition"
+            onClick={() => setTopic("growth")}
+          >
+            <div className="w-11 h-11 rounded-xl bg-amber-50 flex items-center justify-center mb-3">
+              <Lightbulb className="w-5 h-5 text-amber-600" />
+            </div>
+            <p className="text-sm font-bold text-gray-900">Quick tips</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">Grow your sales</p>
+          </Card>
+        </div>
+
+        {/* ──────────── Help Topics ──────────── */}
+        <SectionCard title="Help topics" subtitle="Choose what you need help with">
+          <div className="grid grid-cols-3 gap-2">
+            {topics.map((t) => {
+              const Icon = TOPIC_ICONS[t.key];
+              const isActive = topic === t.key;
+              return (
+                <button
+                  key={t.key}
+                  onClick={() => setTopic(t.key)}
+                  className={cn(
+                    "p-3 rounded-2xl border text-center transition",
+                    isActive
+                      ? "border-orange-300 bg-orange-50 ring-1 ring-orange-100"
+                      : "border-gray-100 bg-white hover:bg-gray-50/50"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "w-9 h-9 rounded-xl flex items-center justify-center mx-auto mb-2",
+                      isActive ? "bg-orange-500" : "bg-gray-100"
+                    )}
+                  >
+                    <Icon className={cn("w-4.5 h-4.5", isActive ? "text-white" : "text-gray-500")} />
+                  </div>
+                  <p className={cn("text-[11px] font-bold truncate", isActive ? "text-orange-700" : "text-gray-700")}>
+                    {t.title}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </SectionCard>
+
+        {/* ──────────── FAQs for selected topic ──────────── */}
+        <SectionCard
+          title={currentTopic?.title || "Answers"}
+          subtitle={`${faqs.length} question${faqs.length !== 1 ? "s" : ""}`}
+        >
+          <div className="space-y-2">
+            {faqs.map((f) => (
+              <FaqItem key={f.q} q={f.q} a={f.a} />
+            ))}
+          </div>
+        </SectionCard>
+
+                {/* ──────────── Talk to customer care ──────────── */}
+        {SUPPORT_WHATSAPP ? (
+          <Card className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#25D366] flex items-center justify-center shrink-0 shadow-sm">
+                <HelpCircle className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-base font-bold text-gray-900">Talk to customer care</p>
+                <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
+                <div className="mt-3">
+                  <WhatsAppButton
+                    href={buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")}
+                    label="Chat now"
+                    variant="button"
+                    size="md"
+                  />
+                </div>
+              </div>
+            </div>
+          </Card>
+        ) : null}
+
+        {/* ──────────── Still need help? - CENTERED ──────────── */}
+        <Card className="p-6 bg-gradient-to-br from-gray-50 to-white">
+          <div className="flex flex-col items-center text-center">
+            <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-3">
+              <HelpCircle className="w-6 h-6 text-orange-600" />
+            </div>
+            <p className="text-base font-bold text-gray-900">Still need help?</p>
+            <p className="text-sm text-gray-500 mt-1">Our support team is here for you</p>
+            <Button
+              className="mt-4"
+              onClick={() => router.push("/vendor/promote/faq/chat")}
+              leftIcon={<MessageCircle className="w-4 h-4" />}
+            >
+              Chat with us
+            </Button>
+          </div>
+        </Card>
+
+        {/* ──────────── Safety reminder (compact) ──────────── */}
+        <p className="text-[11px] text-gray-400 text-center px-4">
+          Never share your password or OTP code with anyone, including support.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+
+
+===== FILE: src/app/vendor/promote/faq/chat/page.tsx =====
+"use client";
+
+import { useEffect, useMemo, useRef, useState } from "react";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { Button } from "@/components/ui/Button";
+import { auth } from "@/lib/firebase/client";
+
+type ChatMsg = {
+  role: "user" | "assistant";
+  text: string;
+  atMs: number;
+};
+
+function safeText(v: any, max = 2000) {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  if (s.length <= max) return s;
+  return s.slice(0, max).trim();
+}
+
+function makeMsg(role: ChatMsg["role"], text: string): ChatMsg {
+  return { role, text, atMs: Date.now() };
+}
+
+export default function VendorSupportChatPage() {
+  const [msgs, setMsgs] = useState<ChatMsg[]>([
+    makeMsg("assistant", "Hi. Iâ€™m myBizHub support. Tell me what youâ€™re trying to do, and what went wrong."),
+  ]);
+
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+  }, [msgs.length]);
+
+  const canSend = useMemo(() => !busy && safeText(text).length >= 2, [busy, text]);
+
+  async function send() {
+    const message = safeText(text);
+    if (!message || busy) return;
+
+    setErr(null);
+    setBusy(true);
+    setText("");
+
+    const nextUser = makeMsg("user", message);
+
+    // Keep short history
+    const history = [...msgs, nextUser].slice(-12);
+    setMsgs(history);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error("Please login again to use support chat.");
+
+      const r = await fetch("/api/vendor/support/chat", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message,
+          history: history.map((m) => ({ role: m.role, text: m.text })),
+        }),
+      });
+
+      const data = await r.json().catch(() => ({}));
+      if (!r.ok || !data?.ok) throw new Error(data?.error || "Support chat failed");
+
+      const reply = safeText(data.reply || "I didnâ€™t understand. Please try again.");
+
+      setMsgs((prev): ChatMsg[] => [...prev, makeMsg("assistant", reply)].slice(-20));
+    } catch (e: any) {
+      setErr(e?.message || "Failed");
+      setMsgs((prev): ChatMsg[] => [
+        ...prev,
+        makeMsg("assistant", "I couldnâ€™t reply right now. Please try again in a moment."),
+      ].slice(-20));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="min-h-screen">
+      <GradientHeader title="Support chat" subtitle="Explain your issue in simple words" showBack={true} />
+
+      <div className="px-4 pb-28 space-y-3">
+        {err ? <Card className="p-4 text-red-700">{err}</Card> : null}
+
+        <div className="space-y-2">
+          {msgs.map((m, idx) => (
+            <div
+              key={idx}
+              className={[
+                "rounded-2xl border border-biz-line p-3 text-sm",
+                m.role === "user" ? "bg-white" : "bg-biz-cream",
+              ].join(" ")}
+            >
+              <p className="text-[11px] text-gray-500 font-bold">{m.role === "user" ? "You" : "myBizHub support"}</p>
+              <p className="mt-1 whitespace-pre-wrap text-gray-800">{m.text}</p>
+            </div>
+          ))}
+          <div ref={bottomRef} />
+        </div>
+
+        <Card className="p-4">
+          <p className="text-[11px] text-biz-muted">Donâ€™t share passwords, OTP codes, or private banking details.</p>
+
+          <div className="mt-3 flex gap-2">
+            <input
+              className="flex-1 border border-biz-line rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30"
+              placeholder={busy ? "Replyingâ€¦" : "Type your messageâ€¦"}
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") send();
+              }}
+              disabled={busy}
+            />
+            <Button onClick={send} disabled={!canSend} loading={busy}>
+              Send
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+===== FILE: src/components/PageHelpFloating.tsx =====
+// FILE: src/components/PageHelpFloating.tsx
+"use client";
+
+/**
+ * B5-1: This component is NO LONGER rendered globally.
+ * It is only mounted inside vendor pages that explicitly include it.
+ *
+ * The floating button has been removed. Instead, this is rendered inline
+ * (e.g. inside vendor "More" page or vendor layout header).
+ *
+ * Usage:
+ *   import PageHelpInline from "@/components/PageHelpFloating";
+ *   <PageHelpInline />
+ */
+
+import { useEffect, useMemo, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { Card } from "@/components/Card";
+import { auth } from "@/lib/firebase/client";
+import { HelpCircle, Search, X } from "lucide-react";
+
+const CACHE_KEY = "mybizhub_pagehelp_cache_v2";
+
+type HelpRes = {
+  ok: boolean;
+  answer?: string;
+  quickSteps?: string[];
+  actions?: { label: string; url: string }[];
+  error?: string;
+};
+
+function nowMs() {
+  return Date.now();
+}
+
+function loadCache(): Record<
+  string,
+  { ts: number; answer: string; quickSteps: string[]; actions: any[] }
+> {
+  if (typeof window === "undefined") return {};
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return {};
+    const j = JSON.parse(raw);
+    return j && typeof j === "object" ? j : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveCache(v: any) {
+  if (typeof window === "undefined") return;
+  localStorage.setItem(CACHE_KEY, JSON.stringify(v));
+}
+
+export default function PageHelpInline() {
+  const router = useRouter();
+  const pathname = usePathname() || "/";
+
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<HelpRes | null>(null);
+
+  const pageMeta = useMemo(() => {
+    const map: Record<string, { title: string; hint: string }> = {
+      "/vendor": {
+        title: "Dashboard",
+        hint: "Sales overview, quick actions, mood tip.",
+      },
+      "/vendor/orders": {
+        title: "Orders",
+        hint: "View and manage orders.",
+      },
+      "/vendor/products": {
+        title: "Products",
+        hint: "Create and manage products.",
+      },
+      "/vendor/wallet": {
+        title: "Balance",
+        hint: "Earnings and withdrawals.",
+      },
+      "/vendor/more": {
+        title: "More",
+        hint: "Tools, staff, payouts, support.",
+      },
+      "/vendor/store": {
+        title: "Store settings",
+        hint: "Brand info and WhatsApp settings.",
+      },
+      "/vendor/reengagement": {
+        title: "Re\u2011engagement",
+        hint: "Follow up with past buyers.",
+      },
+    };
+
+    const base = pathname.startsWith("/vendor/orders/")
+      ? "/vendor/orders"
+      : pathname;
+    return (
+      map[base] || {
+        title: "Help",
+        hint: "Explain what this page does and what to do here.",
+      }
+    );
+  }, [pathname]);
+
+  async function ask(question: string, useCache = false) {
+    const trimmed = question.trim();
+    if (!trimmed) return;
+
+    const cache = loadCache();
+    const cacheKey = `${pathname}::${trimmed.toLowerCase()}`;
+
+    if (useCache) {
+      const cached = cache[cacheKey];
+      if (cached && nowMs() - Number(cached.ts || 0) < 24 * 3600 * 1000) {
+        setRes({
+          ok: true,
+          answer: cached.answer,
+          quickSteps: cached.quickSteps,
+          actions: cached.actions,
+        });
+        return;
+      }
+    }
+
+    try {
+      setBusy(true);
+      setRes(null);
+
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) {
+        setRes({ ok: false, error: "Please log in again." });
+        return;
+      }
+
+      const r = await fetch("/api/help/page", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          path: pathname,
+          pageTitle: pageMeta.title,
+          pageHint: pageMeta.hint,
+          question: trimmed,
+        }),
+      });
+
+      const j = (await r.json().catch(() => ({}))) as HelpRes;
+      if (!r.ok || !j?.ok)
+        throw new Error(j?.error || "Help failed");
+
+      setRes(j);
+
+      if (useCache) {
+        cache[cacheKey] = {
+          ts: nowMs(),
+          answer: String(j.answer || ""),
+          quickSteps: Array.isArray(j.quickSteps) ? j.quickSteps : [],
+          actions: Array.isArray(j.actions) ? j.actions : [],
+        };
+        saveCache(cache);
+      }
+    } catch (e: any) {
+      setRes({ ok: false, error: e?.message || "Help failed" });
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // B5-1: Render as an inline card/button, NOT a floating FAB
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setOpen(true);
+          setQ("");
+          setRes(null);
+        }}
+        className="w-full flex items-center gap-3 p-4 rounded-2xl border border-gray-100 bg-white hover:border-orange-200 hover:shadow-sm transition text-left"
+      >
+        <div className="w-10 h-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+          <HelpCircle className="w-5 h-5 text-orange-600" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-semibold text-gray-900">
+            Help & Support
+          </p>
+          <p className="text-xs text-gray-500 mt-0.5">
+            Get help with {pageMeta.title.toLowerCase()}
+          </p>
+        </div>
+      </button>
+
+      {/* Bottom sheet modal */}
+      {open && (
+        <div className="fixed inset-0 z-[70] bg-black/30 backdrop-blur-[2px] flex items-end justify-center p-4">
+          <div className="w-full max-w-xl">
+            <Card className="p-4 rounded-[26px]">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-extrabold text-gray-900">
+                    Help
+                  </p>
+                  <p className="text-[11px] text-gray-500 mt-1">
+                    {pageMeta.title} \u2022 Ask one quick question.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setOpen(false)}
+                  className="h-10 w-10 rounded-2xl border border-gray-200 bg-white inline-flex items-center justify-center"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4 text-gray-700" />
+                </button>
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Search / Ask\u2026"
+                  className="flex-1 rounded-2xl border border-gray-200 px-3 py-3 text-sm outline-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") ask(q, false);
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => ask(q, false)}
+                  disabled={busy}
+                  className="rounded-2xl border border-gray-200 bg-white px-3 py-3 text-sm font-bold text-gray-900 disabled:opacity-50 inline-flex items-center gap-2"
+                >
+                  <Search className="h-4 w-4" />
+                  {busy ? "\u2026" : "Ask"}
+                </button>
+              </div>
+
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() =>
+                    ask(
+                      "Explain what this page does and what I should do here.",
+                      true
+                    )
+                  }
+                  disabled={busy}
+                  className="text-[11px] font-bold text-gray-600 underline underline-offset-2 disabled:opacity-50"
+                >
+                  Explain this page
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() =>
+                    router.push("/vendor/promote/faq/chat")
+                  }
+                  className="ml-auto text-[11px] font-bold text-gray-600 underline underline-offset-2"
+                >
+                  Open support AI
+                </button>
+              </div>
+
+              <div className="mt-3">
+                {res?.ok ? (
+                  <div className="space-y-3">
+                    {res.answer && (
+                      <p className="text-sm text-gray-700">
+                        {res.answer}
+                      </p>
+                    )}
+
+                    {Array.isArray(res.quickSteps) &&
+                      res.quickSteps.length > 0 && (
+                        <div>
+                          <p className="text-[11px] font-extrabold text-gray-700">
+                            Quick steps
+                          </p>
+                          <ul className="mt-2 list-disc pl-5 text-sm text-gray-600 space-y-1">
+                            {res.quickSteps.slice(0, 3).map((s, i) => (
+                              <li key={i}>{s}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                    {Array.isArray(res.actions) &&
+                      res.actions.length > 0 && (
+                        <div className="grid grid-cols-2 gap-2">
+                          {res.actions.slice(0, 2).map((a, i) => (
+                            <button
+                              key={i}
+                              type="button"
+                              onClick={() => {
+                                setOpen(false);
+                                router.push(a.url);
+                              }}
+                              className="rounded-2xl border border-gray-200 bg-white py-3 text-sm font-bold text-gray-900 hover:bg-gray-50 transition"
+                            >
+                              {a.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                  </div>
+                ) : res?.error ? (
+                  <p className="text-sm text-gray-600">{res.error}</p>
+                ) : (
+                  <p className="text-sm text-gray-500">
+                    Ask a question to get help.
+                  </p>
+                )}
+              </div>
+            </Card>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+===== FILE: src/components/ui/WhatsAppButton.tsx =====
+// FILE: src/components/ui/WhatsAppButton.tsx
+"use client";
+
+import { cn } from "@/lib/cn";
+
+/**
+ * WhatsApp SVG icon (official shape, green brand color).
+ * Rendered inline so we don't need an extra icon library.
+ */
+function WhatsAppIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      className={cn("w-5 h-5", className)}
+      aria-hidden="true"
+    >
+      <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+    </svg>
+  );
+}
+
+interface WhatsAppButtonProps {
+  href: string;
+  label?: string;
+  variant?: "icon" | "button";
+  size?: "sm" | "md";
+  className?: string;
+}
+
+/**
+ * WhatsApp contact button. Opens WhatsApp ONLY on user click.
+ * - variant="icon": circular icon-only button
+ * - variant="button": pill button with icon + optional label
+ */
+export function WhatsAppButton({
+  href,
+  label,
+  variant = "icon",
+  size = "md",
+  className,
+}: WhatsAppButtonProps) {
+  if (!href) return null;
+
+  if (variant === "icon") {
+    return (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        className={cn(
+          "inline-flex items-center justify-center rounded-full bg-[#25D366] text-white shadow-lg transition-all hover:bg-[#20bd5a] hover:scale-105 active:scale-95",
+          size === "sm" ? "w-9 h-9" : "w-11 h-11",
+          className
+        )}
+        aria-label="Chat on WhatsApp"
+        title="Chat on WhatsApp"
+      >
+        <WhatsAppIcon className={size === "sm" ? "w-4 h-4" : "w-5 h-5"} />
+      </a>
+    );
+  }
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={cn(
+        "inline-flex items-center justify-center gap-2 rounded-2xl bg-[#25D366] text-white font-bold shadow-sm transition-all hover:bg-[#20bd5a] hover:scale-[1.02] active:scale-[0.98]",
+        size === "sm" ? "px-3 py-2 text-xs" : "px-4 py-2.5 text-sm",
+        className
+      )}
+      aria-label={label || "Chat on WhatsApp"}
+    >
+      <WhatsAppIcon className={size === "sm" ? "w-4 h-4" : "w-5 h-5"} />
+      {label && <span>{label}</span>}
+    </a>
+  );
+}
+
+export { WhatsAppIcon };
+
+
+===== FILE: src/lib/whatsapp/buildWhatsAppLink.ts =====
+// FILE: src/lib/whatsapp/buildWhatsAppLink.ts
+
+/**
+ * Shared WhatsApp link builder.
+ * Sanitizes phone number and encodes message.
+ * Returns a https://wa.me/ URL that opens only on user click (no popup issues).
+ */
+export function sanitizeWhatsAppNumber(phone: string): string {
+  // Strip everything except digits
+  let digits = String(phone || "").replace(/[^\d]/g, "");
+
+  // Convert Nigerian local format (080..., 070..., 090..., 081...) to international
+  if (/^0[789][01]\d{8}$/.test(digits)) {
+    digits = "234" + digits.slice(1);
+  }
+
+  return digits;
+}
+
+export function buildWhatsAppLink(phone: string, message: string): string {
+  const digits = sanitizeWhatsAppNumber(phone);
+  if (!digits) return "";
+  const encoded = encodeURIComponent(message);
+  return `https://wa.me/${digits}?text=${encoded}`;
+}
+
+/**
+ * Check if a WhatsApp number is valid (has enough digits).
+ */
+export function isValidWhatsAppNumber(phone: string): boolean {
+  const digits = sanitizeWhatsAppNumber(phone);
+  return digits.length >= 10;
+}
+
+
+===== FILE: src/lib/ai/groqPageHelp.ts =====
+type HelpAction = { label: string; url: string };
+
+export type PageHelpResponse = {
+  answer: string;
+  quickSteps: string[];
+  actions: HelpAction[];
+};
+
+function clamp(s: any, max = 220) {
+  const t = String(s || "").trim();
+  if (!t) return "";
+  return t.length > max ? t.slice(0, max).trim() : t;
+}
+
+function safeUrl(u: any) {
+  const url = String(u || "").trim();
+  if (!url) return "";
+  const allowed = [
+    "/vendor",
+    "/vendor/orders",
+    "/vendor/products",
+    "/vendor/products/new",
+    "/vendor/analytics",
+    "/vendor/reengagement",
+    "/vendor/reengagement?segment=buyers_repeat",
+    "/vendor/wallet",
+    "/vendor/withdrawals",
+    "/vendor/store",
+    "/vendor/more",
+    "/vendor/promote/faq",
+    "/vendor/promote/faq/chat",
+  ];
+  if (allowed.includes(url)) return url;
+  if (url.startsWith("/vendor/orders/")) return url;
+  if (url.startsWith("/b/")) return url;
+  return "";
+}
+
+async function groqChatJSON(args: { system: string; user: string; temperature?: number; model?: string }) {
+  const key = process.env.GROQ_API_KEY;
+  if (!key) throw new Error("Missing GROQ_API_KEY");
+
+  // âœ… Use a supported model (old llama3-8b-8192 was deprecated)
+  const model =
+    args.model ||
+    process.env.GROQ_MODEL_PAGE_HELP ||
+    process.env.GROQ_MODEL ||
+    "llama-3.1-8b-instant";
+
+  const r = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${key}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model,
+      temperature: typeof args.temperature === "number" ? args.temperature : 0.5,
+      messages: [
+        { role: "system", content: args.system },
+        { role: "user", content: args.user },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j?.error?.message || `Groq failed (${r.status})`);
+
+  const content = j?.choices?.[0]?.message?.content;
+  if (!content) throw new Error("Groq returned empty content");
+
+  return JSON.parse(content);
+}
+
+export async function groqPageHelp(args: {
+  path: string;
+  pageTitle: string;
+  pageHint?: string;
+  question: string;
+}): Promise<PageHelpResponse> {
+  const system = `
+You are myBizHubâ€™s in-app helper.
+Explain the CURRENT page simply and answer the user's question.
+Use plain everyday words. No jargon. No emojis.
+
+Return JSON only:
+{
+  "answer": string,
+  "quickSteps": string[],
+  "actions": [{ "label": string, "url": string }]
+}
+
+Only use allowed URLs:
+- /vendor
+- /vendor/orders
+- /vendor/products
+- /vendor/products/new
+- /vendor/analytics
+- /vendor/reengagement
+- /vendor/reengagement?segment=buyers_repeat
+- /vendor/wallet
+- /vendor/withdrawals
+- /vendor/store
+- /vendor/more
+- /vendor/promote/faq/chat
+- /vendor/promote/faq
+- /b/<slug>
+- /vendor/orders/<orderId>
+
+Keep answer <= 1200 chars.
+`;
+
+  const user = `
+PageTitle: ${args.pageTitle}
+Path: ${args.path}
+PageHint: ${String(args.pageHint || "")}
+
+UserQuestion: ${args.question}
+`;
+
+  const raw = await groqChatJSON({ system, user, temperature: 0.55 });
+
+  const answer = clamp(raw?.answer, 1200) || "Tell me what youâ€™re trying to do on this page.";
+
+  const quickSteps = (Array.isArray(raw?.quickSteps) ? raw.quickSteps : [])
+    .slice(0, 5)
+    .map((x: any) => clamp(x, 90))
+    .filter(Boolean);
+
+  const actions = (Array.isArray(raw?.actions) ? raw.actions : [])
+    .slice(0, 4)
+    .map((a: any) => ({
+      label: clamp(a?.label, 24) || "Open",
+      url: safeUrl(a?.url),
+    }))
+    .filter((a: any) => !!a.url);
+
+  return { answer, quickSteps, actions };
+}

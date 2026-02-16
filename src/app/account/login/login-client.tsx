@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -11,8 +11,8 @@ import { AlertCircle, ArrowRight } from "lucide-react";
 
 export default function LoginClient({ storeName }: { storeName?: string | null }) {
   const router = useRouter();
-  const sp = useSearchParams();
-  const next = sp.get("next");
+  const sp = useSearchParams() ?? new URLSearchParams();
+  const next = sp?.get("next");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -131,3 +131,5 @@ export default function LoginClient({ storeName }: { storeName?: string | null }
     </Card>
   );
 }
+
+

@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { CheckCircle2, AlertTriangle, Loader2 } from "lucide-react";
 
 function PromotionCallbackInner() {
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
 
   const reference = sp.get("tx_ref") ?? sp.get("reference") ?? sp.get("trxref");
   const transactionId = sp.get("transaction_id") ?? sp.get("transactionId");

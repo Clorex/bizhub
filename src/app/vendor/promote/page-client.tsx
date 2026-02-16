@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -68,7 +68,7 @@ function parseIds(raw: string | null): string[] {
 
 export default function PromoteWizardPage() {
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
 
   const presetProductId = sp.get("productId");
   const presetIds = parseIds(sp.get("ids"));
@@ -230,7 +230,7 @@ export default function PromoteWizardPage() {
           ]}
         />
 
-        {loading ? <Card className="p-4">LoadingÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¦</Card> : null}
+        {loading ? <Card className="p-4">Loading…</Card> : null}
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
 
         {!loading ? (
@@ -239,7 +239,7 @@ export default function PromoteWizardPage() {
               <>
                 <SectionCard
                   title="Select products"
-                  subtitle={`Choose 1ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã¢â‚¬Â¦ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ${maxProducts} products to promote`}
+                  subtitle={`Choose 1–${maxProducts} products to promote`}
                   right={
                     <span className="text-[11px] text-biz-muted">
                       Selected: <b className="text-biz-ink">{selectedIds.length}</b>/{maxProducts}
@@ -339,7 +339,7 @@ export default function PromoteWizardPage() {
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-biz-ink">Estimated total</p>
                       <p className="text-[11px] text-biz-muted mt-1">
-                        {safeDays} day(s) ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Â ÃƒÂ¢Ã¢â€šÂ¬Ã¢â€žÂ¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€šÃ‚Â {fmtNaira(safeDaily)}
+                        {safeDays} day(s) × {fmtNaira(safeDaily)}
                       </p>
                     </div>
                     <p className="text-lg font-bold text-biz-ink">{fmtNaira(totalCost)}</p>
@@ -373,7 +373,7 @@ export default function PromoteWizardPage() {
                   <p className="text-xs opacity-95">Promotion summary</p>
                   <p className="text-xl font-bold mt-1">{fmtNaira(totalCost)}</p>
                   <p className="text-[11px] opacity-95 mt-2">
-                    Duration: <b>{safeDays} day(s)</b> ÃƒÆ’Ã†â€™Ãƒâ€ Ã¢â‚¬â„¢ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â¢ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â‚¬Å¡Ã‚Â¬Ãƒâ€¦Ã‚Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¬ÃƒÆ’Ã†â€™ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â¢ Daily budget: <b>{fmtNaira(safeDaily)}</b>
+                    Duration: <b>{safeDays} day(s) × {fmtNaira(safeDaily)}</b>
                   </p>
                   <p className="text-[11px] opacity-95 mt-1">
                     Products: <b>{selectedIds.length}</b> (shared exposure if multiple)
@@ -413,3 +413,5 @@ export default function PromoteWizardPage() {
     </div>
   );
 }
+
+

@@ -1,15 +1,14 @@
 ﻿"use client";
 
-import { WhatsAppButton } from "@/components/ui/WhatsAppButton";
-import { buildWhatsAppLink } from "@/lib/whatsapp/buildWhatsAppLink";
-
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { SectionCard } from "@/components/ui/SectionCard";
 import { Button } from "@/components/ui/Button";
+import SupportWhatsAppCTA from "@/components/support/SupportWhatsAppCTA";
 import { cn } from "@/lib/cn";
+
 import {
   MessageCircle,
   Lightbulb,
@@ -25,8 +24,6 @@ import {
   TrendingUp,
   Shield,
 } from "lucide-react";
-
-const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || "";
 
 type TopicKey =
   | "getting_started"
@@ -83,7 +80,6 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 
 export default function VendorHelpCenterPage() {
   const router = useRouter();
-
   const [topic, setTopic] = useState<TopicKey>("getting_started");
 
   const topics = useMemo(
@@ -235,7 +231,7 @@ export default function VendorHelpCenterPage() {
       <GradientHeader title="Help & Support" subtitle="Get help quickly" showBack />
 
       <div className="px-4 space-y-4 pt-4">
-        {/* ──────────── Chat + Quick Tips (side by side) ──────────── */}
+        {/* Support shortcuts */}
         <div className="grid grid-cols-2 gap-3">
           <Card
             className="p-4 cursor-pointer hover:border-orange-200 transition"
@@ -244,8 +240,8 @@ export default function VendorHelpCenterPage() {
             <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center mb-3">
               <MessageCircle className="w-5 h-5 text-white" />
             </div>
-            <p className="text-sm font-bold text-gray-900">Chat with us</p>
-            <p className="text-[11px] text-gray-500 mt-0.5">Talk to support</p>
+            <p className="text-sm font-bold text-gray-900">Support chat</p>
+            <p className="text-[11px] text-gray-500 mt-0.5">Message our support team</p>
           </Card>
 
           <Card
@@ -260,7 +256,7 @@ export default function VendorHelpCenterPage() {
           </Card>
         </div>
 
-        {/* ──────────── Help Topics ──────────── */}
+        {/* Help Topics */}
         <SectionCard title="Help topics" subtitle="Choose what you need help with">
           <div className="grid grid-cols-3 gap-2">
             {topics.map((t) => {
@@ -285,7 +281,12 @@ export default function VendorHelpCenterPage() {
                   >
                     <Icon className={cn("w-4.5 h-4.5", isActive ? "text-white" : "text-gray-500")} />
                   </div>
-                  <p className={cn("text-[11px] font-bold truncate", isActive ? "text-orange-700" : "text-gray-700")}>
+                  <p
+                    className={cn(
+                      "text-[11px] font-bold truncate",
+                      isActive ? "text-orange-700" : "text-gray-700"
+                    )}
+                  >
                     {t.title}
                   </p>
                 </button>
@@ -294,7 +295,7 @@ export default function VendorHelpCenterPage() {
           </div>
         </SectionCard>
 
-        {/* ──────────── FAQs for selected topic ──────────── */}
+        {/* FAQs */}
         <SectionCard
           title={currentTopic?.title || "Answers"}
           subtitle={`${faqs.length} question${faqs.length !== 1 ? "s" : ""}`}
@@ -306,30 +307,14 @@ export default function VendorHelpCenterPage() {
           </div>
         </SectionCard>
 
-                {/* ──────────── Talk to customer care ──────────── */}
-        {SUPPORT_WHATSAPP ? (
-          <Card className="p-5 bg-gradient-to-br from-green-50 to-emerald-50 border-green-200">
-            <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#25D366] flex items-center justify-center shrink-0 shadow-sm">
-                <HelpCircle className="w-6 h-6 text-white" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-base font-bold text-gray-900">Talk to customer care</p>
-                <p className="text-sm text-gray-600 mt-1">We reply fast on WhatsApp</p>
-                <div className="mt-3">
-                  <WhatsAppButton
-                    href={buildWhatsAppLink(SUPPORT_WHATSAPP, "Hi BizHub support, I need help with\u2026")}
-                    label="Chat now"
-                    variant="button"
-                    size="md"
-                  />
-                </div>
-              </div>
-            </div>
-          </Card>
-        ) : null}
+        {/* Talk to customer care (WhatsApp) */}
+        <SupportWhatsAppCTA
+          title="Talk to customer care"
+          subtitle="We reply fast on WhatsApp"
+          buttonLabel="Chat on WhatsApp"
+        />
 
-        {/* ──────────── Still need help? - CENTERED ──────────── */}
+        {/* Still need help? */}
         <Card className="p-6 bg-gradient-to-br from-gray-50 to-white">
           <div className="flex flex-col items-center text-center">
             <div className="w-12 h-12 rounded-xl bg-orange-100 flex items-center justify-center mb-3">
@@ -342,12 +327,11 @@ export default function VendorHelpCenterPage() {
               onClick={() => router.push("/vendor/promote/faq/chat")}
               leftIcon={<MessageCircle className="w-4 h-4" />}
             >
-              Chat with us
+              Support chat
             </Button>
           </div>
         </Card>
 
-        {/* ──────────── Safety reminder (compact) ──────────── */}
         <p className="text-[11px] text-gray-400 text-center px-4">
           Never share your password or OTP code with anyone, including support.
         </p>
@@ -355,4 +339,3 @@ export default function VendorHelpCenterPage() {
     </div>
   );
 }
-

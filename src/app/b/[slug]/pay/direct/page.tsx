@@ -1,4 +1,4 @@
-// FILE: src/app/b/[slug]/pay/direct/page.tsx
+﻿// FILE: src/app/b/[slug]/pay/direct/page.tsx
 "use client";
 
 import { useEffect, useState, useCallback, useMemo } from "react";
@@ -53,7 +53,7 @@ interface VendorBankDetails {
 export default function DirectTransferPage() {
   const router = useRouter();
   const params = useParams();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const slug = String((params as any)?.slug ?? "");
 
   const { cart, subtotal, clearCart } = useCart();
@@ -236,20 +236,20 @@ export default function DirectTransferPage() {
 
     const phone = digitsOnly(vendorData.whatsapp);
     const message = [
-      `Ã°Å¸ÂÂ¦ *DIRECT TRANSFER PROOF*`,
+      `ÃƒÂ°Ã…Â¸Ã‚ÂÃ‚Â¦ *DIRECT TRANSFER PROOF*`,
       ``,
       `Hi ${vendorData.storeName}!`,
       ``,
       `I just transferred *${fmtNaira(amount)}* to your account.`,
       ``,
-      `Ã°Å¸â€œâ€¹ *Order Details:*`,
-      `Ã¢â‚¬Â¢ Order ID: ${orderId || "Pending"}`,
-      `Ã¢â‚¬Â¢ Customer: ${customerName}`,
-      `Ã¢â‚¬Â¢ Phone: ${customerPhone}`,
+      `ÃƒÂ°Ã…Â¸Ã¢â‚¬Å“Ã¢â‚¬Â¹ *Order Details:*`,
+      `ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Order ID: ${orderId || "Pending"}`,
+      `ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Customer: ${customerName}`,
+      `ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Phone: ${customerPhone}`,
       ``,
       `I'm sending my payment screenshot in this chat.`,
       ``,
-      `Please confirm receipt. Thank you! Ã°Å¸â„¢Â`,
+      `Please confirm receipt. Thank you! ÃƒÂ°Ã…Â¸Ã¢â€žÂ¢Ã‚Â`,
     ].join("\n");
 
     const url = `https://wa.me/${phone}?text=${encodeURIComponent(message)}`;
@@ -374,7 +374,7 @@ export default function DirectTransferPage() {
           <p className="text-sm font-medium text-orange-100">Amount to Transfer</p>
           <p className="text-4xl font-black mt-2 tracking-tight">{fmtNaira(amount)}</p>
           <p className="text-sm text-orange-100 mt-2">
-            Transfer exact amount Ã¢â‚¬Â¢ Include your name in narration
+            Transfer exact amount ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Include your name in narration
           </p>
         </div>
 
@@ -636,7 +636,7 @@ export default function DirectTransferPage() {
                         Tap to upload screenshot
                       </p>
                       <p className="text-xs text-gray-500 mt-1">
-                        PNG, JPG or PDF Ã¢â‚¬Â¢ Max 10MB
+                        PNG, JPG or PDF ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢ Max 10MB
                       </p>
                     </>
                   )}
@@ -705,3 +705,4 @@ export default function DirectTransferPage() {
     </div>
   );
 }
+

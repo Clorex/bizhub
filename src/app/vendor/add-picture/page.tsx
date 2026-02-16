@@ -1,4 +1,4 @@
-// FILE: src/app/vendor/add-picture/page.tsx
+﻿// FILE: src/app/vendor/add-picture/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
@@ -43,7 +43,7 @@ function writeSessionUrls(key: string, urls: string[]) {
 
 export default function VendorAddPicturePage() {
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
 
   // configurable via query params
   const sessionKey = String(sp.get("k") || "bizhub_vendor_add_picture_urls_v1");
@@ -108,7 +108,7 @@ export default function VendorAddPicturePage() {
         </div>
 
         <p className="text-[11px] text-gray-500">
-          Tip: If you go back without pressing “Done”, your uploaded pictures will still be saved for this step.
+          Tip: If you go back without pressing â€œDoneâ€, your uploaded pictures will still be saved for this step.
         </p>
       </div>
     </div>

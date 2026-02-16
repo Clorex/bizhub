@@ -1,4 +1,4 @@
-
+﻿
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { dayKeysBetween, fetchBusinessDailyMetrics, monthRangeFromYYYYMM } from "@/lib/metrics/daily";
@@ -372,15 +372,15 @@ export async function GET(req: Request) {
     if (awaitingConfirmCountAll > 0) suggestion = "Confirm pending direct transfers so you can close sales faster.";
     else if (disputedCountAll > 0) suggestion = "Respond to disputes quickly with clear delivery proof to protect visibility.";
     else if (products.length === 0) suggestion = "Add your first product so customers can start ordering.";
-    else if (outOfStockCount > 0) suggestion = "Restock your out‑of‑stock products so customers don’t bounce.";
+    else if (outOfStockCount > 0) suggestion = "Restock your outâ€‘ofâ€‘stock products so customers donâ€™t bounce.";
     else if (lowStockCount > 0) suggestion = "Top up low stock items (especially your fast movers).";
-    else if (visits > 0 && ordersWin.length === 0) suggestion = "You have visits but no orders—try clearer prices and a stronger product photo.";
+    else if (visits > 0 && ordersWin.length === 0) suggestion = "You have visits but no ordersâ€”try clearer prices and a stronger product photo.";
 
     let checkin: any = {
-      title: "Daily business check‑in",
+      title: "Daily business checkâ€‘in",
       lines: [
-        `Today: ${todayOrders} order(s) • ${fmtNaira(todayRevenue)}`,
-        `This ${usedRange}: ${ordersWin.length} order(s) • ${fmtNaira(totalRevenue)}`,
+        `Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`,
+        `This ${usedRange}: ${ordersWin.length} order(s) â€¢ ${fmtNaira(totalRevenue)}`,
         attentionCount ? `Needs attention: ${attentionCount} order(s)` : "Needs attention: none",
       ],
       suggestion,
@@ -439,7 +439,7 @@ export async function GET(req: Request) {
       });
     }
 
-    // ✅ Prefer AI saved checkin at 9am
+    // âœ… Prefer AI saved checkin at 9am
     const dk = lagosDayKey(new Date());
     try {
       const saved = await adminDb.collection("businesses").doc(me.businessId).collection("dailyCheckins").doc(dk).get();

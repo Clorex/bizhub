@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import GradientHeader from "@/components/GradientHeader";
@@ -111,7 +111,7 @@ export default function VendorPurchasesPage() {
 
       <div className="px-4 pb-24 space-y-3">
         {msg ? <Card className="p-4 text-red-700">{msg}</Card> : null}
-        {loading ? <Card className="p-4">Loading…</Card> : null}
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
 
         {!loading ? (
           <>
@@ -214,7 +214,7 @@ export default function VendorPurchasesPage() {
                                 Status:{" "}
                                 <b className="text-biz-ink">
                                   {a.status.toUpperCase()}
-                                  {a.expiresAtMs ? ` • expires: ${new Date(a.expiresAtMs).toLocaleDateString()}` : ""}
+                                  {a.expiresAtMs ? ` â€¢ expires: ${new Date(a.expiresAtMs).toLocaleDateString()}` : ""}
                                 </b>
                               </p>
                             ) : null}

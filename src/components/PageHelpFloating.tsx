@@ -1,4 +1,4 @@
-// FILE: src/components/PageHelpFloating.tsx
+﻿// FILE: src/components/PageHelpFloating.tsx
 "use client";
 
 /**
@@ -264,7 +264,7 @@ export default function PageHelpInline() {
                   }
                   className="ml-auto text-[11px] font-bold text-gray-600 underline underline-offset-2"
                 >
-                  Open support AI
+                  Open support chat
                 </button>
               </div>
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -18,7 +18,7 @@ function fmtNairaFromKobo(kobo: number) {
 }
 
 function fmtDateMs(ms?: number) {
-  if (!ms) return "—";
+  if (!ms) return "â€”";
   try {
     return new Date(ms).toLocaleString();
   } catch {
@@ -126,7 +126,7 @@ export default function AdminNotificationsPage() {
         <Card className="p-4">
           <p className="font-extrabold text-biz-ink">Overview</p>
           <p className="text-xs text-biz-muted mt-1">
-            Unread: <b className="text-biz-ink">{unreadCount}</b> • Total: <b className="text-biz-ink">{rows.length}</b>
+            Unread: <b className="text-biz-ink">{unreadCount}</b> â€¢ Total: <b className="text-biz-ink">{rows.length}</b>
           </p>
           <div className="mt-3 flex gap-2">
             <Button size="sm" variant="secondary" onClick={markAllRead} disabled={loading || unreadCount <= 0}>
@@ -138,7 +138,7 @@ export default function AdminNotificationsPage() {
           </div>
         </Card>
 
-        {loading ? <Card className="p-4">Loading…</Card> : null}
+        {loading ? <Card className="p-4">Loadingâ€¦</Card> : null}
 
         {!loading && rows.length === 0 ? (
           <Card className="p-5 text-center">
@@ -176,14 +176,14 @@ export default function AdminNotificationsPage() {
                     {bid ? (
                       <p className="text-[11px] text-gray-500 mt-1 break-all">
                         Business: <b className="text-biz-ink">{bid}</b>
-                        {slug ? <> • <b className="text-biz-ink">{slug}</b></> : null}
+                        {slug ? <> â€¢ <b className="text-biz-ink">{slug}</b></> : null}
                       </p>
                     ) : null}
 
                     {planKey ? (
                       <p className="text-[11px] text-gray-500 mt-1">
                         Plan: <b className="text-biz-ink">{planKey}</b>
-                        {cycle ? <> • <b className="text-biz-ink">{cycle}</b></> : null}
+                        {cycle ? <> â€¢ <b className="text-biz-ink">{cycle}</b></> : null}
                       </p>
                     ) : null}
 

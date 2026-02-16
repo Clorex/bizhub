@@ -112,7 +112,7 @@ export async function POST(req: Request) {
 
     const coverAspect = normalizeCoverAspect(body.coverAspect) ?? "1:1";
 
-    // Ã¢Å“â€¦ category + attrs
+    // ? category + attrs
     const colors = cleanListCsv(body.colorsCsv);
     const sizes = cleanListCsv(body.sizesCsv);
 
@@ -179,4 +179,5 @@ attrs: { colors, sizes },
     return Response.json({ ok: false, error: e?.message || "Create failed" }, { status: 500 });
   }
 }
+
 

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -14,7 +14,7 @@ type Invite = {
 
 export default function StaffLoginClient() {
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
   const code = sp.get("code") || "";
 
   const [invite, setInvite] = useState<Invite | null>(null);

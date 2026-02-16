@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/Button";
 import { CheckCircle2, AlertTriangle, Loader2, Copy, Check } from "lucide-react";
 
 function PaymentCallbackInner() {
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
 
   const initial = useMemo(() => {
     const reference = sp.get("tx_ref") ?? sp.get("reference") ?? sp.get("trxref") ?? "";

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import GradientHeader from "@/components/GradientHeader";
@@ -25,7 +25,7 @@ function makeMsg(role: ChatMsg["role"], text: string): ChatMsg {
 
 export default function VendorSupportChatPage() {
   const [msgs, setMsgs] = useState<ChatMsg[]>([
-    makeMsg("assistant", "Hi. I’m myBizHub support. Tell me what you’re trying to do, and what went wrong."),
+    makeMsg("assistant", "Hi. I'm myBizHub support. Tell me what you?re trying to do, and what went wrong."),
   ]);
 
   const [text, setText] = useState("");
@@ -73,14 +73,14 @@ export default function VendorSupportChatPage() {
       const data = await r.json().catch(() => ({}));
       if (!r.ok || !data?.ok) throw new Error(data?.error || "Support chat failed");
 
-      const reply = safeText(data.reply || "I didn’t understand. Please try again.");
+      const reply = safeText(data.reply || "I didn't understand. Please try again.");
 
       setMsgs((prev): ChatMsg[] => [...prev, makeMsg("assistant", reply)].slice(-20));
     } catch (e: any) {
       setErr(e?.message || "Failed");
       setMsgs((prev): ChatMsg[] => [
         ...prev,
-        makeMsg("assistant", "I couldn’t reply right now. Please try again in a moment."),
+        makeMsg("assistant", "I couldn't reply right now. Please try again in a moment."),
       ].slice(-20));
     } finally {
       setBusy(false);
@@ -111,12 +111,12 @@ export default function VendorSupportChatPage() {
         </div>
 
         <Card className="p-4">
-          <p className="text-[11px] text-biz-muted">Don’t share passwords, OTP codes, or private banking details.</p>
+          <p className="text-[11px] text-biz-muted">Don't share passwords, OTP codes, or private banking details.</p>
 
           <div className="mt-3 flex gap-2">
             <input
               className="flex-1 border border-biz-line rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-biz-accent/30"
-              placeholder={busy ? "Replying…" : "Type your message…"}
+              placeholder={busy ? "Replying?" : "Type your message?"}
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => {
@@ -133,3 +133,4 @@ export default function VendorSupportChatPage() {
     </div>
   );
 }
+

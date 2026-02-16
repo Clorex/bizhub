@@ -1,4 +1,4 @@
-// FILE: src/app/vendor/purchases/callback/page-client.tsx
+﻿// FILE: src/app/vendor/purchases/callback/page-client.tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -10,7 +10,7 @@ import { auth } from "@/lib/firebase/client";
 
 export default function VendorPurchasesCallbackPageClient() {
   const router = useRouter();
-  const sp = useSearchParams();
+  const sp = useSearchParams() ?? new URLSearchParams();
 
   const reference = String(sp.get("tx_ref") || sp.get("reference") || "").trim();
   const transactionId = String(sp.get("transaction_id") || sp.get("transactionId") || "").trim();

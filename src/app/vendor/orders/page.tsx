@@ -1,4 +1,4 @@
-// FILE: src/app/vendor/orders/page.tsx
+﻿// FILE: src/app/vendor/orders/page.tsx
 "use client";
 
 import { useEffect, useMemo, useState, useCallback } from "react";
@@ -131,7 +131,7 @@ function getStatusInfo(status: string): { label: string; bg: string; text: strin
 
 export default function VendorOrdersPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const searchParams = useSearchParams() ?? new URLSearchParams();
   const initialFilter = (searchParams.get("filter") as FilterTab) || "all";
 
   const [loading, setLoading] = useState(true);
@@ -509,7 +509,7 @@ export default function VendorOrdersPage() {
         {meta && orders.length > 0 && (
           <div className="text-center pt-2 space-y-2">
             <p className="text-xs text-gray-400">
-              Plan: {planKey} • Showing {filteredOrders.length} of {orders.length} orders
+              Plan: {planKey} â€¢ Showing {filteredOrders.length} of {orders.length} orders
             </p>
             {planKey === "FREE" && (
               <button
@@ -579,7 +579,7 @@ function OrderCard({ order, onClick }: { order: any; onClick: () => void }) {
   const relativeTime = fmtRelativeTime(order.createdAt);
   const isNew = status.toLowerCase() === "new";
 
-  // ✅ display order number like 0001
+  // âœ… display order number like 0001
   const displayNo = padOrderNumber(order.orderNumber) || String(order.id || "").slice(0, 8).toUpperCase();
 
   return (

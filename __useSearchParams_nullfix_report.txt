@@ -1,0 +1,53 @@
+﻿=== useSearchParams() NULL-SAFETY PATCH REPORT ===
+Changed files: 23
+
+-- Changed --
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\account\login\login-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\verify-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\pay\direct\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\b\[slug]\pay\direct\page-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\orders\success\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\staff\login\login-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\staff\register\register-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\add-picture\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\callback\page-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx
+
+-- Remaining ' = useSearchParams()' occurrences (should be none) --
+C:\Users\USER\Desktop\bizhub\src\app\account\invite\invite-client.tsx:15 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\account\login\login-client.tsx:14 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\account\register\page-client.tsx:17 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\account\verify\verify-client.tsx:10 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\market\page.tsx:100 const searchParams = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\orders\success\page.tsx:11 const searchParams = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\payment\callback\page-client.tsx:13 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page-client.tsx:15 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\payment\promotion\callback\page.tsx:13 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page-client.tsx:15 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\payment\subscription\callback\page.tsx:13 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\staff\login\login-client.tsx:17 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\staff\register\register-client.tsx:35 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\add-picture\page.tsx:46 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\success\page.tsx:11 const searchParams = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\orders\page.tsx:134 const searchParams = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\products\page.tsx:95 const searchParams = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\promote\page-client.tsx:71 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\purchases\callback\page-client.tsx:13 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\summary\page-client.tsx:126 const sp = useSearchParams() ?? new URLSearchParams();
+C:\Users\USER\Desktop\bizhub\src\app\vendor\subscription\page-client.tsx:118 const sp = useSearchParams() ?? new URLSearchParams();
+
+-- Remaining 'useSearchParams().' occurrences (should be none) --
+(none)

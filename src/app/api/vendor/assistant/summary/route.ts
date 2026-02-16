@@ -1,4 +1,4 @@
-
+﻿
 import { requireAnyRole } from "@/lib/auth/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { requireVendorUnlocked } from "@/lib/vendor/lockServer";
@@ -67,7 +67,7 @@ export async function GET(req: Request) {
     const storeName = String(biz?.name || slug || "Store");
     const openDisputes = Number(biz?.trust?.openDisputes || 0);
 
-    // ✅ Risk Shield (quiet monitoring add-on on Momentum; core on Apex)
+    // âœ… Risk Shield (quiet monitoring add-on on Momentum; core on Apex)
     const resolved = await getBusinessPlanResolved(me.businessId).catch(() => null);
     const planKey = cleanPlanKey(resolved?.planKey || access.planKey || "FREE");
     const hasActiveSubscription = !!resolved?.hasActiveSubscription;
@@ -150,14 +150,14 @@ export async function GET(req: Request) {
     }
 
     const summaryLines: string[] = [];
-    summaryLines.push(`myBizHub summary — ${storeName}`);
-    summaryLines.push(`Today: ${todayOrders} order(s) • ${fmtNaira(todayRevenue)}`);
-    summaryLines.push(`This week: ${weekOrders} order(s) • ${fmtNaira(weekRevenue)}`);
+    summaryLines.push(`myBizHub summary â€” ${storeName}`);
+    summaryLines.push(`Today: ${todayOrders} order(s) â€¢ ${fmtNaira(todayRevenue)}`);
+    summaryLines.push(`This week: ${weekOrders} order(s) â€¢ ${fmtNaira(weekRevenue)}`);
     if (openDisputes > 0) summaryLines.push(`Open disputes: ${openDisputes}`);
     if (riskShieldEnabled) {
       summaryLines.push(`Risk Shield: ${disputeLevel === "none" ? "OK" : disputeLevel.toUpperCase()} (${riskShieldMode})`);
     }
-    summaryLines.push(`Store link: ${slug ? `${process.env.NEXT_PUBLIC_APP_URL}/b/${slug}` : "—"}`);
+    summaryLines.push(`Store link: ${slug ? `${process.env.NEXT_PUBLIC_APP_URL}/b/${slug}` : "â€”"}`);
 
     const whatsappText = summaryLines.join("\n");
 
