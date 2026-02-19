@@ -1,7 +1,11 @@
-﻿// FILE: src/app/api/admin/smartmatch/compute/config/route.ts
+// FILE: src/app/api/admin/smartmatch/config/route.ts
+
 
 import { requireRole } from "@/lib/auth/server";
-import { getSmartMatchConfig, saveSmartMatchConfig } from "@/lib/smartmatch/configServer";
+import {
+  getSmartMatchConfig,
+  saveSmartMatchConfig,
+} from "@/lib/smartmatch/configServer";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,10 +17,15 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   try {
     await requireRole(req, "admin");
+
     const config = await getSmartMatchConfig();
+
     return Response.json({ ok: true, config });
   } catch (e: any) {
-    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json(
+      { ok: false, error: e?.message || "Failed" },
+      { status: 500 }
+    );
   }
 }
 
@@ -33,29 +42,23 @@ export async function POST(req: Request) {
 
     const body = await req.json().catch(() => ({}));
 
-    // Validate weights if provided (SPEC keys)
+    // Validate weights if provided
     if (body.weights) {
       const w = body.weights;
+      const total =
+        Number(w.location || 0) +
+        Number(w.delivery || 0) +
+        Number(w.reliability || 0) +
+        Number(w.paymentFit || 0) +
+        Number(w.vendorQuality || 0) +
+        Number(w.buyerHistory || 0);
 
-      const cm = Number(w.categoryMatch ?? 0);
-      const lp = Number(w.locationProximity ?? 0);
-      const rs = Number(w.reliabilityScore ?? 0);
-      const ac = Number(w.activityScore ?? 0);
-      const cr = Number(w.customerRatingScore ?? 0);
-
-      const all = [cm, lp, rs, ac, cr];
-      const invalid = all.some((x) => !Number.isFinite(x) || x < 0 || x > 100);
-      if (invalid) {
+      if (total > 150) {
         return Response.json(
-          { ok: false, error: "Each weight must be a number between 0 and 100." },
-          { status: 400 }
-        );
-      }
-
-      const total = cm + lp + rs + ac + cr;
-      if (total !== 100) {
-        return Response.json(
-          { ok: false, error: `Weights must sum to 100. Current sum = ${total}.` },
+          {
+            ok: false,
+            error: `Total weight (${total}) is too high. Keep it around 100 for balanced scoring.`,
+          },
           { status: 400 }
         );
       }
@@ -66,24 +69,28 @@ export async function POST(req: Request) {
 
     if (typeof body.enabled === "boolean") update.enabled = body.enabled;
     if (body.weights && typeof body.weights === "object") update.weights = body.weights;
-
     if (typeof body.hideThreshold === "number") update.hideThreshold = body.hideThreshold;
-
     if (typeof body.premiumBonus === "number") update.premiumBonus = body.premiumBonus;
     if (typeof body.premiumMinScore === "number") update.premiumMinScore = body.premiumMinScore;
-
     if (typeof body.profileCacheTtlMs === "number") update.profileCacheTtlMs = body.profileCacheTtlMs;
     if (typeof body.scoreCacheTtlMs === "number") update.scoreCacheTtlMs = body.scoreCacheTtlMs;
 
     if (Object.keys(update).length === 0) {
-      return Response.json({ ok: false, error: "No valid fields to update" }, { status: 400 });
+      return Response.json(
+        { ok: false, error: "No valid fields to update" },
+        { status: 400 }
+      );
     }
 
     await saveSmartMatchConfig(update);
 
     const updated = await getSmartMatchConfig();
+
     return Response.json({ ok: true, config: updated });
   } catch (e: any) {
-    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+    return Response.json(
+      { ok: false, error: e?.message || "Failed" },
+      { status: 500 }
+    );
   }
 }

@@ -1,0 +1,102 @@
+// FILE: src/lib/smartmatch/types.ts
+
+export type VendorReliabilityProfile = {
+  businessId: string;
+
+  // --- reliability signals (already present in your profile) ---
+  fulfillmentRate: number;         // 0–100
+  disputeRate: number;             // 0–100
+  totalCompletedOrders: number;
+  verificationTier: number;        // 0..3
+  apexBadgeActive: boolean;
+
+  // --- rating signals ---
+  averageRating: number;           // 0..5 (0 means none)
+  totalReviews: number;
+
+  // --- location ---
+  state: string;
+  city: string;
+
+  // --- admin moderation ---
+  flagged: boolean;
+
+  // --- optional activity signals (add later in vendorProfile compute if you have them) ---
+  lastActiveAtMs?: number | null;        // last login / last active
+  responseTimeAvgMin?: number | null;    // avg response time in minutes
+  recentListings7d?: number | null;      // optional
+
+  // --- optional delivery coverage (add later if you have it on business doc) ---
+  nationwideDelivery?: boolean;
+
+  computedAtMs: number;
+};
+
+export type BuyerIntentProfile = {
+  state: string | null;
+  city: string | null;
+
+  /** selected category key (from filters) */
+  category: string | null;
+
+  priceMin: number | null;
+  priceMax: number | null;
+
+  preferredPaymentType: "card" | "bank_transfer" | "chat" | null;
+
+  prefersPickup: boolean;
+  prefersDelivery: boolean;
+
+  vendorHistory: Record<string, number>;
+  pastCategories: string[];
+};
+
+/** 0–100 component breakdown (normalized), per your spec */
+export type MatchScoreBreakdown = {
+  categoryMatch: number;        // 0–100
+  locationProximity: number;    // 0–100
+  reliabilityScore: number;     // 0–100
+  activityScore: number;        // 0–100
+  customerRatingScore: number;  // 0–100
+  total: number;                // 0–100
+};
+
+export type MatchLabel = "best_match" | "recommended" | "fair_match" | "low_match";
+
+export type ProductMatchResult = {
+  productId: string;
+  businessId: string;
+  score: MatchScoreBreakdown;
+  label: MatchLabel;
+  reason: string;
+
+  /** helpful for debugging/exclusions */
+  excluded?: boolean;
+};
+
+/** weights are percentages that should sum to 100 */
+export type SmartMatchWeights = {
+  categoryMatch: number;        // default 30
+  locationProximity: number;    // default 20
+  reliabilityScore: number;     // default 20
+  activityScore: number;        // default 15
+  customerRatingScore: number;  // default 15
+};
+
+export type SmartMatchConfig = {
+  enabled: boolean;
+  weights: SmartMatchWeights;
+
+  /** optional: minimum score to show (you already use this concept) */
+  hideThreshold: number;
+
+  premiumBonus: number;
+  premiumMinScore: number;
+
+  profileCacheTtlMs: number;
+  scoreCacheTtlMs: number;
+
+  /** optional future additions */
+  inactiveDaysCutoff?: number;
+  reliabilityThreshold?: number;
+};

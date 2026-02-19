@@ -1,16 +1,7 @@
-// FILE: src/lib/smartmatch/types.ts
-
-/**
- * SmartMatch — Buyer–Vendor Match & Trust Score System
- *
- * Types for the entire SmartMatch pipeline:
- * 1. Vendor reliability profiles (precomputed)
- * 2. Buyer intent signals (inferred at query time)
- * 3. Match score output (per buyer × product)
- */
+﻿// FILE: src/lib/smartmatch/types.ts
 
 /* ------------------------------------------------------------------ */
-/*  Vendor Reliability Profile (precomputed, cached on vendor doc)     */
+/*  Vendor Reliability Profile (precomputed, cached on business doc)   */
 /* ------------------------------------------------------------------ */
 
 export type VendorReliabilityProfile = {
@@ -45,7 +36,7 @@ export type VendorReliabilityProfile = {
   state: string;
   city: string;
 
-  /** Payment methods supported */
+  /** Payment methods supported (kept for compatibility with existing code) */
   supportsCard: boolean;
   supportsBankTransfer: boolean;
   supportsChat: boolean;
@@ -59,11 +50,18 @@ export type VendorReliabilityProfile = {
   /** Total active reviews */
   totalReviews: number;
 
-  /** Rating score for SmartMatch (+20 to -10, 0 if below min reviews) */
+  /** Rating score (legacy field; ok to keep) */
   ratingScore: number;
 
   /** Recent review trend */
   reviewTrend: "improving" | "stable" | "declining";
+
+  /** Optional activity signals (if present; otherwise scorer uses neutral defaults) */
+  lastActiveAtMs?: number | null;
+  responseTimeAvgMin?: number | null;
+
+  /** Optional delivery coverage flag (if present) */
+  nationwideDelivery?: boolean;
 
   /** When this profile was last computed (ms since epoch) */
   computedAtMs: number;
@@ -73,47 +71,39 @@ export type VendorReliabilityProfile = {
 };
 
 /* ------------------------------------------------------------------ */
-/*  Buyer Intent Profile (inferred at query time, not stored)         */
+/*  Buyer Intent Profile (inferred at query time, not stored)          */
 /* ------------------------------------------------------------------ */
 
 export type BuyerIntentProfile = {
-  /** Buyer location (from filter selection or account) */
   state: string | null;
   city: string | null;
 
-  /** Selected category */
+  /** Selected category (from filters) */
   category: string | null;
 
-  /** Price range preference */
   priceMin: number | null;
   priceMax: number | null;
 
-  /** Preferred payment method (inferred from past orders) */
   preferredPaymentType: "card" | "bank_transfer" | "chat" | null;
 
-  /** Delivery preference */
   prefersPickup: boolean;
   prefersDelivery: boolean;
 
-  /** Past vendor interactions: businessId → order count */
   vendorHistory: Record<string, number>;
-
-  /** Categories the buyer has purchased from before */
   pastCategories: string[];
 };
 
 /* ------------------------------------------------------------------ */
-/*  Match Score Output                                                */
+/*  Match Score Output (SPEC: normalized 0–100 components)             */
 /* ------------------------------------------------------------------ */
 
 export type MatchScoreBreakdown = {
-  location: number;       // 0–25
-  delivery: number;       // 0–15
-  reliability: number;    // 0–25
-  paymentFit: number;     // 0–10
-  vendorQuality: number;  // 0–15
-  buyerHistory: number;   // 0–10
-  total: number;          // 0–100
+  categoryMatch: number;        // 0–100
+  locationProximity: number;    // 0–100
+  reliabilityScore: number;     // 0–100
+  activityScore: number;        // 0–100
+  customerRatingScore: number;  // 0–100
+  total: number;                // 0–100
 };
 
 export type MatchLabel = "best_match" | "recommended" | "fair_match" | "low_match";
@@ -123,42 +113,40 @@ export type ProductMatchResult = {
   businessId: string;
   score: MatchScoreBreakdown;
   label: MatchLabel;
-  /** Human-readable explanation for the buyer */
   reason: string;
+  excluded?: boolean;
 };
 
 /* ------------------------------------------------------------------ */
-/*  Scoring Config (admin-adjustable weights)                         */
+/*  Scoring Config (admin-adjustable weights)                          */
 /* ------------------------------------------------------------------ */
 
+/** weights are percentages that should sum to 100 */
 export type SmartMatchWeights = {
-  location: number;       // max points for location match
-  delivery: number;       // max points for delivery speed
-  reliability: number;    // max points for fulfillment rate
-  paymentFit: number;     // max points for payment compatibility
-  vendorQuality: number;  // max points for verification + low disputes + stock accuracy + reviews
-  buyerHistory: number;   // max points for repeat buyer boost
+  categoryMatch: number;        // default 30
+  locationProximity: number;    // default 20
+  reliabilityScore: number;     // default 20
+  activityScore: number;        // default 15
+  customerRatingScore: number;  // default 15
 };
 
 export type SmartMatchConfig = {
   enabled: boolean;
   weights: SmartMatchWeights;
-  /** Minimum score to show in results (products below are hidden unless explicitly searched) */
+
+  /** Minimum score to show in results */
   hideThreshold: number;
-  /** Premium vendor bonus points (capped, cannot exceed 100 total) */
+
   premiumBonus: number;
-  /** Premium bonus only applies if score >= this threshold */
   premiumMinScore: number;
-  /** Cache TTL in milliseconds for vendor profiles */
+
   profileCacheTtlMs: number;
-  /** Cache TTL in milliseconds for match score results */
   scoreCacheTtlMs: number;
 };
 
 /* ------------------------------------------------------------------ */
-/*  Factor status for vendor dashboard                                */
+/*  Vendor dashboard insights                                          */
 /* ------------------------------------------------------------------ */
-
 export type FactorStatus = "good" | "improve" | "bad";
 
 export type VendorMatchInsight = {

@@ -1,0 +1,6 @@
+// FILE: src/app/api/admin/smartmatch/config/route.ts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+// Re-export existing handlers
+export { GET, POST } from "../compute/config/route";

@@ -1,0 +1,976 @@
+﻿
+// FILE: src/lib/smartmatch/score.ts
+
+import type {
+  BuyerIntentProfile,
+  VendorReliabilityProfile,
+  MatchScoreBreakdown,
+  MatchLabel,
+  ProductMatchResult,
+  SmartMatchWeights,
+} from "./types";
+import {
+  DEFAULT_WEIGHTS,
+  DELIVERY_THRESHOLDS,
+  FULFILLMENT_THRESHOLDS,
+  DISPUTE_THRESHOLDS,
+  scoreToLabel,
+} from "./config";
+
+function norm(s: any): string {
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim();
+}
+
+/* ------------------------------------------------------------------ */
+/*  Individual factor scorers                                         */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Location match: 0 → weights.location
+ */
+function scoreLocation(
+  buyer: BuyerIntentProfile,
+  vendor: VendorReliabilityProfile,
+  maxPts: number
+): number {
+  const buyerState = norm(buyer.state);
+  const buyerCity = norm(buyer.city);
+  const vendorState = norm(vendor.state);
+  const vendorCity = norm(vendor.city);
+
+  if (!buyerState && !buyerCity) return Math.round(maxPts * 0.5);
+
+  if (buyerCity && vendorCity && buyerCity === vendorCity) return maxPts;
+
+  if (
+    buyerCity &&
+    vendorCity &&
+    (vendorCity.includes(buyerCity) || buyerCity.includes(vendorCity))
+  ) {
+    return Math.round(maxPts * 0.85);
+  }
+
+  if (buyerState && vendorState && buyerState === vendorState) {
+    return Math.round(maxPts * 0.72);
+  }
+
+  if (
+    buyerState &&
+    vendorState &&
+    (vendorState.includes(buyerState) || buyerState.includes(vendorState))
+  ) {
+    return Math.round(maxPts * 0.6);
+  }
+
+  if (vendorState) return Math.round(maxPts * 0.4);
+
+  return 0;
+}
+
+/**
+ * Delivery performance: 0 → weights.delivery
+ */
+function scoreDelivery(
+  vendor: VendorReliabilityProfile,
+  maxPts: number
+): number {
+  const h = vendor.avgDeliveryHours;
+
+  if (!h || h <= 0) return Math.round(maxPts * 0.3);
+
+  if (h <= DELIVERY_THRESHOLDS.fast) return maxPts;
+  if (h <= DELIVERY_THRESHOLDS.moderate) return Math.round(maxPts * 0.67);
+  if (h <= DELIVERY_THRESHOLDS.slow) return Math.round(maxPts * 0.33);
+
+  return 0;
+}
+
+/**
+ * Order reliability (fulfillment rate): 0 → weights.reliability
+ */
+function scoreReliability(
+  vendor: VendorReliabilityProfile,
+  maxPts: number
+): number {
+  const rate = vendor.fulfillmentRate;
+  const orders = vendor.totalCompletedOrders;
+
+  if (orders === 0) return Math.round(maxPts * 0.4);
+
+  if (rate >= FULFILLMENT_THRESHOLDS.excellent) return maxPts;
+  if (rate >= FULFILLMENT_THRESHOLDS.good) return Math.round(maxPts * 0.72);
+  if (rate >= FULFILLMENT_THRESHOLDS.fair) return Math.round(maxPts * 0.4);
+
+  return 0;
+}
+
+/**
+ * Payment compatibility: 0 → weights.paymentFit
+ */
+function scorePaymentFit(
+  buyer: BuyerIntentProfile,
+  vendor: VendorReliabilityProfile,
+  maxPts: number
+): number {
+  const pref = buyer.preferredPaymentType;
+
+  if (!pref) return Math.round(maxPts * 0.5);
+
+  if (pref === "card" && vendor.supportsCard) return maxPts;
+  if (pref === "bank_transfer" && vendor.supportsBankTransfer) return maxPts;
+  if (pref === "chat" && vendor.supportsChat) return maxPts;
+
+  if (vendor.supportsCard || vendor.supportsBankTransfer || vendor.supportsChat) {
+    return Math.round(maxPts * 0.5);
+  }
+
+  return 0;
+}
+
+/**
+ * Vendor quality signals: 0 → weights.vendorQuality
+ *
+ * Breakdown within this bucket:
+ * - Verified vendor  → 35% of maxPts
+ * - Dispute rate      → 25% of maxPts
+ * - Stock accuracy    → 15% of maxPts
+ * - Review rating     → 25% of maxPts
+ */
+function scoreVendorQuality(
+  vendor: VendorReliabilityProfile,
+  maxPts: number
+): number {
+  let pts = 0;
+
+  // ── Verification (35% of maxPts) ──
+  const verifyMax = Math.round(maxPts * 0.35);
+  if (vendor.apexBadgeActive) {
+    pts += verifyMax;
+  } else if (vendor.verificationTier >= 3) {
+    pts += Math.round(verifyMax * 0.9);
+  } else if (vendor.verificationTier >= 2) {
+    pts += Math.round(verifyMax * 0.7);
+  } else if (vendor.verificationTier >= 1) {
+    pts += Math.round(verifyMax * 0.5);
+  }
+
+  // ── Dispute rate (25% of maxPts) ──
+  const disputeMax = Math.round(maxPts * 0.25);
+  if (vendor.totalCompletedOrders === 0) {
+    pts += Math.round(disputeMax * 0.5);
+  } else if (vendor.disputeRate < DISPUTE_THRESHOLDS.excellent) {
+    pts += disputeMax;
+  } else if (vendor.disputeRate < DISPUTE_THRESHOLDS.acceptable) {
+    pts += Math.round(disputeMax * 0.5);
+  }
+
+  // ── Stock accuracy (15% of maxPts) ──
+  const stockMax = Math.round(maxPts * 0.15);
+  if (vendor.stockAccuracyRate >= 90) {
+    pts += stockMax;
+  } else if (vendor.stockAccuracyRate >= 70) {
+    pts += Math.round(stockMax * 0.5);
+  }
+
+  // ── Review rating (25% of maxPts) ──
+  const reviewMax = Math.round(maxPts * 0.25);
+  if (vendor.totalReviews > 0 && vendor.averageRating > 0) {
+    if (vendor.averageRating >= 4.5) {
+      pts += reviewMax;
+    } else if (vendor.averageRating >= 4.0) {
+      pts += Math.round(reviewMax * 0.8);
+    } else if (vendor.averageRating >= 3.5) {
+      pts += Math.round(reviewMax * 0.5);
+    } else if (vendor.averageRating >= 3.0) {
+      pts += Math.round(reviewMax * 0.25);
+    }
+    // Below 3.0 → 0 points
+  } else {
+    // No reviews yet → neutral (40% of review bucket)
+    pts += Math.round(reviewMax * 0.4);
+  }
+
+  return Math.min(maxPts, pts);
+}
+
+/**
+ * Buyer history boost: 0 → weights.buyerHistory
+ */
+function scoreBuyerHistory(
+  buyer: BuyerIntentProfile,
+  vendor: VendorReliabilityProfile,
+  maxPts: number
+): number {
+  const orderCount = buyer.vendorHistory[vendor.businessId] || 0;
+
+  if (orderCount > 0) return maxPts;
+
+  return 0;
+}
+
+/* ------------------------------------------------------------------ */
+/*  Main scorer                                                       */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Compute the match score between a buyer and a vendor.
+ */
+export function computeMatchScore(args: {
+  buyer: BuyerIntentProfile;
+  vendor: VendorReliabilityProfile;
+  weights?: SmartMatchWeights;
+  productCategories?: string[];
+  isPremium?: boolean;
+  premiumBonus?: number;
+  premiumMinScore?: number;
+}): MatchScoreBreakdown {
+  const {
+    buyer,
+    vendor,
+    weights = DEFAULT_WEIGHTS,
+    productCategories,
+    isPremium = false,
+    premiumBonus = 0,
+    premiumMinScore = 70,
+  } = args;
+
+  const location = scoreLocation(buyer, vendor, weights.location);
+  const delivery = scoreDelivery(vendor, weights.delivery);
+  const reliability = scoreReliability(vendor, weights.reliability);
+  const paymentFit = scorePaymentFit(buyer, vendor, weights.paymentFit);
+  const vendorQuality = scoreVendorQuality(vendor, weights.vendorQuality);
+
+  let buyerHistory = scoreBuyerHistory(buyer, vendor, weights.buyerHistory);
+
+  if (
+    buyerHistory === 0 &&
+    productCategories?.length &&
+    buyer.pastCategories.length > 0
+  ) {
+    const overlap = productCategories.some((c) =>
+      buyer.pastCategories.includes(c)
+    );
+    if (overlap) {
+      buyerHistory = Math.round(weights.buyerHistory * 0.5);
+    }
+  }
+
+  let rawTotal = location + delivery + reliability + paymentFit + vendorQuality + buyerHistory;
+
+  // ✅ Flagged vendor penalty — hard cap at 30
+  if (vendor.flagged) {
+    rawTotal = Math.min(rawTotal, 30);
+  }
+
+  // Premium bonus (ethical: only if score is already good)
+  // ✅ No premium bonus for flagged vendors
+  if (isPremium && premiumBonus > 0 && rawTotal >= premiumMinScore && !vendor.flagged) {
+    rawTotal = Math.min(100, rawTotal + premiumBonus);
+  }
+
+  const total = Math.max(0, Math.min(100, rawTotal));
+
+  return {
+    location,
+    delivery,
+    reliability,
+    paymentFit,
+    vendorQuality,
+    buyerHistory,
+    total,
+  };
+}
+
+/**
+ * Build a human-readable reason string for a match score.
+ */
+export function buildMatchReason(
+  score: MatchScoreBreakdown,
+  vendor: VendorReliabilityProfile,
+  weights: SmartMatchWeights = DEFAULT_WEIGHTS
+): string {
+  const parts: string[] = [];
+
+  // Location
+  if (score.location >= weights.location * 0.8) {
+    parts.push("near you");
+  } else if (score.location >= weights.location * 0.6) {
+    parts.push("in your state");
+  }
+
+  // Delivery
+  if (score.delivery >= weights.delivery * 0.8) {
+    parts.push("delivers fast");
+  }
+
+  // Reliability
+  if (vendor.totalCompletedOrders > 0 && vendor.fulfillmentRate >= 90) {
+    parts.push(`${vendor.fulfillmentRate}% fulfillment rate`);
+  }
+
+  // Quality
+  if (vendor.apexBadgeActive) {
+    parts.push("trusted vendor");
+  } else if (vendor.isVerified) {
+    parts.push("verified seller");
+  }
+
+  // Low disputes
+  if (
+    vendor.totalCompletedOrders >= 5 &&
+    vendor.disputeRate < DISPUTE_THRESHOLDS.excellent
+  ) {
+    parts.push("low dispute rate");
+  }
+
+  // ✅ Review rating
+  if (vendor.totalReviews >= 5 && vendor.averageRating >= 4.0) {
+    parts.push(`${vendor.averageRating.toFixed(1)}★ rating`);
+  }
+
+  // Buyer history
+  if (score.buyerHistory >= weights.buyerHistory * 0.8) {
+    parts.push("you've ordered here before");
+  }
+
+  if (parts.length === 0) return "";
+
+  const joined = parts.join(" · ");
+  return joined.charAt(0).toUpperCase() + joined.slice(1);
+}
+
+/**
+ * Build a full ProductMatchResult.
+ */
+export function buildProductMatchResult(args: {
+  productId: string;
+  businessId: string;
+  buyer: BuyerIntentProfile;
+  vendor: VendorReliabilityProfile;
+  weights?: SmartMatchWeights;
+  productCategories?: string[];
+  isPremium?: boolean;
+  premiumBonus?: number;
+  premiumMinScore?: number;
+}): ProductMatchResult {
+  const score = computeMatchScore(args);
+  const label = scoreToLabel(score.total);
+  const reason = buildMatchReason(score, args.vendor, args.weights);
+
+  return {
+    productId: args.productId,
+    businessId: args.businessId,
+    score,
+    label,
+    reason,
+  };
+}
+// FILE: src/lib/smartmatch/configServer.ts
+
+import { adminDb } from "@/lib/firebase/admin";
+import type { SmartMatchConfig } from "./types";
+import { DEFAULT_CONFIG } from "./config";
+
+const CONFIG_DOC_PATH = "config/smartmatch";
+
+let cachedConfig: SmartMatchConfig | null = null;
+let cachedAtMs = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+
+/**
+ * Load SmartMatch config from Firestore (with in-memory cache).
+ * Falls back to DEFAULT_CONFIG if doc doesn't exist.
+ *
+ * Admin can update `config/smartmatch` doc to change weights at runtime.
+ */
+export async function getSmartMatchConfig(): Promise<SmartMatchConfig> {
+  const now = Date.now();
+
+  if (cachedConfig && now - cachedAtMs < CACHE_TTL_MS) {
+    return cachedConfig;
+  }
+
+  try {
+    const snap = await adminDb.doc(CONFIG_DOC_PATH).get();
+
+    if (!snap.exists) {
+      cachedConfig = { ...DEFAULT_CONFIG };
+      cachedAtMs = now;
+      return cachedConfig;
+    }
+
+    const data = snap.data() as any;
+
+    const config: SmartMatchConfig = {
+      enabled: data?.enabled !== false,
+      weights: {
+        location: clampInt(data?.weights?.location, 0, 50, DEFAULT_CONFIG.weights.location),
+        delivery: clampInt(data?.weights?.delivery, 0, 50, DEFAULT_CONFIG.weights.delivery),
+        reliability: clampInt(data?.weights?.reliability, 0, 50, DEFAULT_CONFIG.weights.reliability),
+        paymentFit: clampInt(data?.weights?.paymentFit, 0, 50, DEFAULT_CONFIG.weights.paymentFit),
+        vendorQuality: clampInt(data?.weights?.vendorQuality, 0, 50, DEFAULT_CONFIG.weights.vendorQuality),
+        buyerHistory: clampInt(data?.weights?.buyerHistory, 0, 50, DEFAULT_CONFIG.weights.buyerHistory),
+      },
+      hideThreshold: clampInt(data?.hideThreshold, 0, 100, DEFAULT_CONFIG.hideThreshold),
+      premiumBonus: clampInt(data?.premiumBonus, 0, 20, DEFAULT_CONFIG.premiumBonus),
+      premiumMinScore: clampInt(data?.premiumMinScore, 0, 100, DEFAULT_CONFIG.premiumMinScore),
+      profileCacheTtlMs: clampInt(
+        data?.profileCacheTtlMs,
+        60_000,
+        24 * 3600_000,
+        DEFAULT_CONFIG.profileCacheTtlMs
+      ),
+      scoreCacheTtlMs: clampInt(
+        data?.scoreCacheTtlMs,
+        60_000,
+        3600_000,
+        DEFAULT_CONFIG.scoreCacheTtlMs
+      ),
+    };
+
+    cachedConfig = config;
+    cachedAtMs = now;
+    return config;
+  } catch (e: any) {
+    console.error("[smartmatch/configServer] Failed to load config:", e?.message);
+    cachedConfig = { ...DEFAULT_CONFIG };
+    cachedAtMs = now;
+    return cachedConfig;
+  }
+}
+
+/**
+ * Save SmartMatch config to Firestore (admin use).
+ */
+export async function saveSmartMatchConfig(
+  config: Partial<SmartMatchConfig>
+): Promise<void> {
+  await adminDb.doc(CONFIG_DOC_PATH).set(
+    {
+      ...config,
+      updatedAtMs: Date.now(),
+    },
+    { merge: true }
+  );
+
+  // Bust cache
+  cachedConfig = null;
+  cachedAtMs = 0;
+}
+
+function clampInt(v: any, min: number, max: number, fallback: number): number {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.max(min, Math.min(max, Math.round(n)));
+}
+// FILE: src/lib/smartmatch/profileServer.ts
+
+import { adminDb } from "@/lib/firebase/admin";
+import { computeVendorProfile } from "./vendorProfile";
+import type { VendorReliabilityProfile } from "./types";
+import { getSmartMatchConfig } from "./configServer";
+
+/**
+ * Load a cached vendor profile from the business doc.
+ * Returns null if not yet computed or expired.
+ */
+export async function getCachedVendorProfile(
+  businessId: string
+): Promise<VendorReliabilityProfile | null> {
+  try {
+    const snap = await adminDb.collection("businesses").doc(businessId).get();
+    if (!snap.exists) return null;
+
+    const data = snap.data() as any;
+    const profile = data?.smartMatch?.profile as VendorReliabilityProfile | undefined;
+
+    if (!profile || !profile.computedAtMs) return null;
+
+    const config = await getSmartMatchConfig();
+    const age = Date.now() - profile.computedAtMs;
+
+    if (age > config.profileCacheTtlMs) return null;
+
+    return profile;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Load cached vendor profiles for multiple businesses in batch.
+ * Returns a map of businessId → profile (only includes valid cached ones).
+ */
+export async function getCachedVendorProfiles(
+  businessIds: string[]
+): Promise<Map<string, VendorReliabilityProfile>> {
+  const map = new Map<string, VendorReliabilityProfile>();
+  if (!businessIds.length) return map;
+
+  const config = await getSmartMatchConfig();
+  const now = Date.now();
+
+  // Firestore getAll supports up to ~500 refs at a time
+  const chunks = chunkArray(
+    businessIds.filter(Boolean),
+    400
+  );
+
+  for (const chunk of chunks) {
+    try {
+      const refs = chunk.map((id) => adminDb.collection("businesses").doc(id));
+      const snaps: any[] = await (adminDb as any).getAll(...refs);
+
+      for (const snap of snaps) {
+        if (!snap || !snap.exists) continue;
+
+        const data = snap.data() as any;
+        const profile = data?.smartMatch?.profile as
+          | VendorReliabilityProfile
+          | undefined;
+
+        if (!profile || !profile.computedAtMs) continue;
+
+        const age = now - profile.computedAtMs;
+        if (age > config.profileCacheTtlMs) continue;
+
+        map.set(snap.id, profile);
+      }
+    } catch (e: any) {
+      console.error("[smartmatch/profileServer] Batch load error:", e?.message);
+    }
+  }
+
+  return map;
+}
+
+/**
+ * Compute and store a vendor's reliability profile.
+ * This is the "heavy" operation that should be run periodically or on-demand.
+ */
+export async function computeAndStoreVendorProfile(
+  businessId: string
+): Promise<VendorReliabilityProfile> {
+  // Load business
+  const bizSnap = await adminDb.collection("businesses").doc(businessId).get();
+  if (!bizSnap.exists) {
+    throw new Error(`Business ${businessId} not found`);
+  }
+  const business = { id: bizSnap.id, ...(bizSnap.data() as any) };
+
+  // Load orders for this business (last 6 months for relevance)
+  const sixMonthsAgo = new Date(Date.now() - 180 * 24 * 3600_000);
+  const ordersSnap = await adminDb
+    .collection("orders")
+    .where("businessId", "==", businessId)
+    .where("createdAt", ">=", sixMonthsAgo)
+    .limit(500)
+    .get();
+
+  const orders = ordersSnap.docs.map((d) => ({ id: d.id, ...(d.data() as any) }));
+
+  // Load disputes for this business
+  const disputesSnap = await adminDb
+    .collection("disputes")
+    .where("businessId", "==", businessId)
+    .limit(200)
+    .get();
+
+  // Fallback: also check disputes by orderId if businessId not indexed on disputes
+  let disputes = disputesSnap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as any),
+  }));
+
+  // If no disputes found by businessId, try matching by order IDs
+  if (disputes.length === 0 && orders.length > 0) {
+    const orderIds = orders.map((o) => o.id).slice(0, 30);
+
+    if (orderIds.length > 0) {
+      const chunks = chunkArray(orderIds, 10);
+      for (const chunk of chunks) {
+        try {
+          const dSnap = await adminDb
+            .collection("disputes")
+            .where("orderId", "in", chunk)
+            .get();
+
+          for (const d of dSnap.docs) {
+            disputes.push({ id: d.id, ...(d.data() as any) });
+          }
+        } catch {
+          // "in" queries have limits; best-effort
+        }
+      }
+    }
+  }
+
+  // Load products for stock accuracy
+  const productsSnap = await adminDb
+    .collection("products")
+    .where("businessId", "==", businessId)
+    .limit(200)
+    .get();
+
+  const products = productsSnap.docs.map((d) => ({
+    id: d.id,
+    ...(d.data() as any),
+  }));
+
+  // Compute profile
+  const profile = computeVendorProfile({
+    business,
+    orders,
+    disputes,
+    products,
+  });
+
+  // Store on business doc
+  await adminDb
+    .collection("businesses")
+    .doc(businessId)
+    .set(
+      {
+        smartMatch: {
+          profile,
+          lastComputedAtMs: Date.now(),
+        },
+      },
+      { merge: true }
+    );
+
+  return profile;
+}
+
+/**
+ * Compute profiles for ALL active vendors.
+ * Used by admin cron/trigger.
+ */
+export async function computeAllVendorProfiles(): Promise<{
+  computed: number;
+  failed: number;
+  errors: string[];
+}> {
+  let computed = 0;
+  let failed = 0;
+  const errors: string[] = [];
+
+  // Get all businesses with active subscriptions (or all, depending on strategy)
+  // For Phase 1: compute for ALL businesses (even free) since free vendors
+  // are included in smart ranking per the spec.
+  const bizSnap = await adminDb.collection("businesses").limit(1000).get();
+
+  for (const doc of bizSnap.docs) {
+    try {
+      await computeAndStoreVendorProfile(doc.id);
+      computed++;
+    } catch (e: any) {
+      failed++;
+      const msg = `${doc.id}: ${e?.message || "Unknown error"}`;
+      errors.push(msg);
+      if (errors.length <= 10) {
+        console.error("[smartmatch/computeAll]", msg);
+      }
+    }
+  }
+
+  return { computed, failed, errors: errors.slice(0, 20) };
+}
+
+function chunkArray<T>(arr: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < arr.length; i += size) {
+    chunks.push(arr.slice(i, i + size));
+  }
+  return chunks;
+}
+// FILE: src/lib/smartmatch/buyerIntent.ts
+
+import type { BuyerIntentProfile } from "./types";
+import type { MarketFilterState } from "@/lib/market/filters/types";
+
+/**
+ * Build a BuyerIntentProfile from available signals.
+ *
+ * Phase 1: Uses filter state + optional order history.
+ * Phase 2: Will add session tracking, past searches, etc.
+ */
+export function buildBuyerIntent(args: {
+  filters: MarketFilterState;
+  /** Past orders for this buyer: { businessId, paymentType, categoryKeys }[] */
+  orderHistory?: Array<{
+    businessId: string;
+    paymentType?: string;
+    categoryKeys?: string[];
+  }>;
+}): BuyerIntentProfile {
+  const { filters, orderHistory = [] } = args;
+
+  // --- Location from filters ---
+  const state = filters.location.state || null;
+  const city = filters.location.city || null;
+
+  // --- Category ---
+  const category = filters.category || null;
+
+  // --- Price range ---
+  const priceMin = filters.price.min ?? null;
+  const priceMax = filters.price.max ?? null;
+
+  // --- Payment preference (inferred from past orders) ---
+  let preferredPaymentType: BuyerIntentProfile["preferredPaymentType"] = null;
+  if (orderHistory.length > 0) {
+    const typeCounts: Record<string, number> = {};
+    for (const o of orderHistory) {
+      const t = String(o.paymentType || "");
+      if (t === "paystack_escrow" || t === "flutterwave") {
+        typeCounts["card"] = (typeCounts["card"] || 0) + 1;
+      } else if (t === "direct_transfer") {
+        typeCounts["bank_transfer"] = (typeCounts["bank_transfer"] || 0) + 1;
+      } else if (t === "chat_whatsapp") {
+        typeCounts["chat"] = (typeCounts["chat"] || 0) + 1;
+      }
+    }
+    const sorted = Object.entries(typeCounts).sort((a, b) => b[1] - a[1]);
+    if (sorted.length > 0) {
+      preferredPaymentType = sorted[0][0] as any;
+    }
+  }
+
+  // --- Vendor history ---
+  const vendorHistory: Record<string, number> = {};
+  for (const o of orderHistory) {
+    if (o.businessId) {
+      vendorHistory[o.businessId] = (vendorHistory[o.businessId] || 0) + 1;
+    }
+  }
+
+  // --- Past categories ---
+  const catSet = new Set<string>();
+  for (const o of orderHistory) {
+    if (Array.isArray(o.categoryKeys)) {
+      for (const c of o.categoryKeys) {
+        catSet.add(String(c));
+      }
+    }
+  }
+  const pastCategories = Array.from(catSet);
+
+  return {
+    state,
+    city,
+    category,
+    priceMin,
+    priceMax,
+    preferredPaymentType,
+    prefersPickup: false,   // Phase 2: infer from order history
+    prefersDelivery: false,  // Phase 2: infer from order history
+    vendorHistory,
+    pastCategories,
+  };
+}
+// FILE: src/lib/smartmatch/featureFlag.ts
+
+/**
+ * SmartMatch feature flag.
+ *
+ * Phase 1: Controlled by environment variable.
+ * Phase 2: Can be moved to Firestore config/smartmatch doc for runtime toggling.
+ *
+ * Set NEXT_PUBLIC_SMARTMATCH_ENABLED=true in .env to enable.
+ */
+
+const ENV_KEY = "NEXT_PUBLIC_SMARTMATCH_ENABLED";
+
+/**
+ * Check if SmartMatch is enabled (client-safe).
+ */
+export function isSmartMatchEnabled(): boolean {
+  if (typeof process !== "undefined" && process.env?.[ENV_KEY]) {
+    return String(process.env[ENV_KEY]).toLowerCase() === "true";
+  }
+
+  // Fallback: disabled
+  return false;
+}
+
+/**
+ * Server-side check — can also read from Firestore config.
+ * For Phase 1, same as client check.
+ */
+export function isSmartMatchEnabledServer(): boolean {
+  return isSmartMatchEnabled();
+}
+// FILE: src/lib/smartmatch/types.ts
+
+/**
+ * SmartMatch — Buyer–Vendor Match & Trust Score System
+ *
+ * Types for the entire SmartMatch pipeline:
+ * 1. Vendor reliability profiles (precomputed)
+ * 2. Buyer intent signals (inferred at query time)
+ * 3. Match score output (per buyer × product)
+ */
+
+/* ------------------------------------------------------------------ */
+/*  Vendor Reliability Profile (precomputed, cached on vendor doc)     */
+/* ------------------------------------------------------------------ */
+
+export type VendorReliabilityProfile = {
+  /** Firestore business doc ID */
+  businessId: string;
+
+  /** Percentage of orders fulfilled successfully (0–100) */
+  fulfillmentRate: number;
+
+  /** Average delivery time in hours (0 = unknown) */
+  avgDeliveryHours: number;
+
+  /** Percentage of orders that resulted in a dispute (0–100) */
+  disputeRate: number;
+
+  /** Total completed orders used to compute stats */
+  totalCompletedOrders: number;
+
+  /** Total disputes filed against this vendor */
+  totalDisputes: number;
+
+  /** Whether vendor is verified (any level) */
+  isVerified: boolean;
+
+  /** Verification tier (0=none, 1=basic, 2=ID, 3=address) */
+  verificationTier: number;
+
+  /** Whether vendor has apex badge active */
+  apexBadgeActive: boolean;
+
+  /** Vendor location */
+  state: string;
+  city: string;
+
+  /** Payment methods supported */
+  supportsCard: boolean;
+  supportsBankTransfer: boolean;
+  supportsChat: boolean;
+
+  /** Stock accuracy: ratio of products with accurate stock (0–100) */
+  stockAccuracyRate: number;
+
+  /** Average review rating (weighted by decay, 0 = no reviews) */
+  averageRating: number;
+
+  /** Total active reviews */
+  totalReviews: number;
+
+  /** Rating score for SmartMatch (+20 to -10, 0 if below min reviews) */
+  ratingScore: number;
+
+  /** Recent review trend */
+  reviewTrend: "improving" | "stable" | "declining";
+
+  /** When this profile was last computed (ms since epoch) */
+  computedAtMs: number;
+
+  /** Whether this vendor has been flagged by admin for SmartMatch abuse */
+  flagged: boolean;
+};
+
+/* ------------------------------------------------------------------ */
+/*  Buyer Intent Profile (inferred at query time, not stored)         */
+/* ------------------------------------------------------------------ */
+
+export type BuyerIntentProfile = {
+  /** Buyer location (from filter selection or account) */
+  state: string | null;
+  city: string | null;
+
+  /** Selected category */
+  category: string | null;
+
+  /** Price range preference */
+  priceMin: number | null;
+  priceMax: number | null;
+
+  /** Preferred payment method (inferred from past orders) */
+  preferredPaymentType: "card" | "bank_transfer" | "chat" | null;
+
+  /** Delivery preference */
+  prefersPickup: boolean;
+  prefersDelivery: boolean;
+
+  /** Past vendor interactions: businessId → order count */
+  vendorHistory: Record<string, number>;
+
+  /** Categories the buyer has purchased from before */
+  pastCategories: string[];
+};
+
+/* ------------------------------------------------------------------ */
+/*  Match Score Output                                                */
+/* ------------------------------------------------------------------ */
+
+export type MatchScoreBreakdown = {
+  location: number;       // 0–25
+  delivery: number;       // 0–15
+  reliability: number;    // 0–25
+  paymentFit: number;     // 0–10
+  vendorQuality: number;  // 0–15
+  buyerHistory: number;   // 0–10
+  total: number;          // 0–100
+};
+
+export type MatchLabel = "best_match" | "recommended" | "fair_match" | "low_match";
+
+export type ProductMatchResult = {
+  productId: string;
+  businessId: string;
+  score: MatchScoreBreakdown;
+  label: MatchLabel;
+  /** Human-readable explanation for the buyer */
+  reason: string;
+};
+
+/* ------------------------------------------------------------------ */
+/*  Scoring Config (admin-adjustable weights)                         */
+/* ------------------------------------------------------------------ */
+
+export type SmartMatchWeights = {
+  location: number;       // max points for location match
+  delivery: number;       // max points for delivery speed
+  reliability: number;    // max points for fulfillment rate
+  paymentFit: number;     // max points for payment compatibility
+  vendorQuality: number;  // max points for verification + low disputes + stock accuracy + reviews
+  buyerHistory: number;   // max points for repeat buyer boost
+};
+
+export type SmartMatchConfig = {
+  enabled: boolean;
+  weights: SmartMatchWeights;
+  /** Minimum score to show in results (products below are hidden unless explicitly searched) */
+  hideThreshold: number;
+  /** Premium vendor bonus points (capped, cannot exceed 100 total) */
+  premiumBonus: number;
+  /** Premium bonus only applies if score >= this threshold */
+  premiumMinScore: number;
+  /** Cache TTL in milliseconds for vendor profiles */
+  profileCacheTtlMs: number;
+  /** Cache TTL in milliseconds for match score results */
+  scoreCacheTtlMs: number;
+};
+
+/* ------------------------------------------------------------------ */
+/*  Factor status for vendor dashboard                                */
+/* ------------------------------------------------------------------ */
+
+export type FactorStatus = "good" | "improve" | "bad";
+
+export type VendorMatchInsight = {
+  factor: string;
+  label: string;
+  status: FactorStatus;
+  value: string;
+  tip: string;
+};

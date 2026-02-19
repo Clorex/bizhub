@@ -1,222 +1,161 @@
 // FILE: src/lib/smartmatch/score.ts
-
 import type {
   BuyerIntentProfile,
   VendorReliabilityProfile,
   MatchScoreBreakdown,
-  MatchLabel,
   ProductMatchResult,
   SmartMatchWeights,
 } from "./types";
-import {
-  DEFAULT_WEIGHTS,
-  DELIVERY_THRESHOLDS,
-  FULFILLMENT_THRESHOLDS,
-  DISPUTE_THRESHOLDS,
-  scoreToLabel,
-} from "./config";
+import { DEFAULT_WEIGHTS, scoreToLabel } from "./config";
+
+function clamp100(n: number): number {
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(100, Math.round(n)));
+}
 
 function norm(s: any): string {
   return String(s || "")
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, "")
+    .replace(/[^a-z0-9\s>/:-]/g, "")
     .trim();
 }
 
-/* ------------------------------------------------------------------ */
-/*  Individual factor scorers                                         */
-/* ------------------------------------------------------------------ */
+/** category_match (0/60/100). Non-matching categories should be excluded before ranking. */
+function scoreCategoryMatch(buyer: BuyerIntentProfile, productCategories?: string[]) {
+  const buyerCat = norm(buyer.category);
+  const cats = Array.isArray(productCategories) ? productCategories.map(norm).filter(Boolean) : [];
+
+  // If buyer didn't filter category, treat as neutral match
+  if (!buyerCat) return { score: 100, excluded: false };
+
+  if (cats.includes(buyerCat)) return { score: 100, excluded: false };
+
+  // "Related": same top-level segment (supports keys like "fashion>shoes" or "fashion/shoes")
+  const buyerTop = buyerCat.split(/[>/:-]/)[0]?.trim();
+  const related =
+    buyerTop &&
+    cats.some((c) => {
+      const top = c.split(/[>/:-]/)[0]?.trim();
+      return top && top === buyerTop;
+    });
+
+  if (related) return { score: 60, excluded: false };
+
+  return { score: 0, excluded: true };
+}
 
 /**
- * Location match: 0 → weights.location
+ * location_proximity (0–100)
+ * Same city=100, Same state=70, Nearby state=40, Far=10
+ * If nationwide_delivery enabled, allow far but cap at 50 (we treat far-with-nationwide as 50).
  */
-function scoreLocation(
-  buyer: BuyerIntentProfile,
-  vendor: VendorReliabilityProfile,
-  maxPts: number
-): number {
+function scoreLocationProximity(buyer: BuyerIntentProfile, vendor: VendorReliabilityProfile): number {
   const buyerState = norm(buyer.state);
   const buyerCity = norm(buyer.city);
   const vendorState = norm(vendor.state);
   const vendorCity = norm(vendor.city);
 
-  if (!buyerState && !buyerCity) return Math.round(maxPts * 0.5);
+  // If buyer has no location preference, neutral
+  if (!buyerState && !buyerCity) return 50;
 
-  if (buyerCity && vendorCity && buyerCity === vendorCity) return maxPts;
+  if (buyerCity && vendorCity && buyerCity === vendorCity) return 100;
 
-  if (
-    buyerCity &&
-    vendorCity &&
-    (vendorCity.includes(buyerCity) || buyerCity.includes(vendorCity))
-  ) {
-    return Math.round(maxPts * 0.85);
+  if (buyerState && vendorState && buyerState === vendorState) return 70;
+
+  // If vendor can deliver nationwide, allow out-of-state with cap 50
+  if (vendor.nationwideDelivery && buyerState && vendorState && buyerState !== vendorState) {
+    return 50;
   }
 
-  if (buyerState && vendorState && buyerState === vendorState) {
-    return Math.round(maxPts * 0.72);
-  }
+  // "Nearby state" — you don’t have state adjacency data yet, so we treat any different state as "nearby"
+  if (buyerState && vendorState && buyerState !== vendorState) return 40;
 
-  if (
-    buyerState &&
-    vendorState &&
-    (vendorState.includes(buyerState) || buyerState.includes(vendorState))
-  ) {
-    return Math.round(maxPts * 0.6);
-  }
+  // Missing vendor location but buyer wants one
+  if (!vendorState && !vendorCity) return 10;
 
-  if (vendorState) return Math.round(maxPts * 0.4);
-
-  return 0;
+  return 10;
 }
 
 /**
- * Delivery performance: 0 → weights.delivery
+ * reliability_score (0–100)
+ * Derived from fulfillmentRate, disputeRate, verificationTier (+ apexBadge).
  */
-function scoreDelivery(
-  vendor: VendorReliabilityProfile,
-  maxPts: number
-): number {
-  const h = vendor.avgDeliveryHours;
+function scoreReliabilityScore(vendor: VendorReliabilityProfile): number {
+  const orders = vendor.totalCompletedOrders || 0;
 
-  if (!h || h <= 0) return Math.round(maxPts * 0.3);
+  const completion = orders > 0 ? clamp100(vendor.fulfillmentRate) : 50;
 
-  if (h <= DELIVERY_THRESHOLDS.fast) return maxPts;
-  if (h <= DELIVERY_THRESHOLDS.moderate) return Math.round(maxPts * 0.67);
-  if (h <= DELIVERY_THRESHOLDS.slow) return Math.round(maxPts * 0.33);
+  // disputeRate is 0–100, where lower is better → convert to "goodness"
+  const disputeGoodness = orders > 0 ? clamp100(100 - (vendor.disputeRate || 0)) : 50;
 
-  return 0;
+  let verification = 20;
+  if (vendor.apexBadgeActive) verification = 100;
+  else if (vendor.verificationTier >= 3) verification = 90;
+  else if (vendor.verificationTier >= 2) verification = 70;
+  else if (vendor.verificationTier >= 1) verification = 40;
+
+  // Weighted blend (internal)
+  const total = Math.round(completion * 0.5 + disputeGoodness * 0.25 + verification * 0.25);
+  return clamp100(total);
 }
 
 /**
- * Order reliability (fulfillment rate): 0 → weights.reliability
+ * activity_score (0–100)
+ * Based on recency and optional response time.
+ * If you don’t store activity, we return neutral=50.
  */
-function scoreReliability(
-  vendor: VendorReliabilityProfile,
-  maxPts: number
-): number {
-  const rate = vendor.fulfillmentRate;
-  const orders = vendor.totalCompletedOrders;
+function scoreActivityScore(vendor: VendorReliabilityProfile): number {
+  const now = Date.now();
 
-  if (orders === 0) return Math.round(maxPts * 0.4);
+  // Recency bucket
+  let recency = 50;
+  const last = vendor.lastActiveAtMs ?? null;
+  if (typeof last === "number" && last > 0) {
+    const days = (now - last) / (24 * 3600_000);
+    if (days <= 1) recency = 100;
+    else if (days <= 3) recency = 80;
+    else if (days <= 7) recency = 60;
+    else if (days <= 14) recency = 40;
+    else recency = 20;
+  }
 
-  if (rate >= FULFILLMENT_THRESHOLDS.excellent) return maxPts;
-  if (rate >= FULFILLMENT_THRESHOLDS.good) return Math.round(maxPts * 0.72);
-  if (rate >= FULFILLMENT_THRESHOLDS.fair) return Math.round(maxPts * 0.4);
+  // Response time (optional)
+  let response = 50;
+  const rt = vendor.responseTimeAvgMin ?? null;
+  if (typeof rt === "number" && rt >= 0) {
+    if (rt <= 10) response = 100;
+    else if (rt <= 60) response = 70;
+    else if (rt <= 240) response = 40;
+    else response = 20;
+  }
 
-  return 0;
+  // Blend
+  return clamp100(Math.round(recency * 0.7 + response * 0.3));
 }
 
 /**
- * Payment compatibility: 0 → weights.paymentFit
+ * customer_rating_score (0–100)
+ * averageRating × 20
+ * apply confidence threshold (few reviews => pull toward neutral 50)
  */
-function scorePaymentFit(
-  buyer: BuyerIntentProfile,
-  vendor: VendorReliabilityProfile,
-  maxPts: number
-): number {
-  const pref = buyer.preferredPaymentType;
+function scoreCustomerRatingScore(vendor: VendorReliabilityProfile): number {
+  const minReviews = 5;
 
-  if (!pref) return Math.round(maxPts * 0.5);
+  const avg = Number(vendor.averageRating || 0);
+  const count = Number(vendor.totalReviews || 0);
 
-  if (pref === "card" && vendor.supportsCard) return maxPts;
-  if (pref === "bank_transfer" && vendor.supportsBankTransfer) return maxPts;
-  if (pref === "chat" && vendor.supportsChat) return maxPts;
+  const base = avg > 0 ? clamp100(avg * 20) : 50;
 
-  if (vendor.supportsCard || vendor.supportsBankTransfer || vendor.supportsChat) {
-    return Math.round(maxPts * 0.5);
-  }
+  if (count <= 0) return 50;
 
-  return 0;
+  const conf = Math.max(0, Math.min(1, count / minReviews));
+  // confidence smoothing to avoid instant burying / abuse
+  const smoothed = Math.round(50 * (1 - conf) + base * conf);
+
+  return clamp100(smoothed);
 }
 
-/**
- * Vendor quality signals: 0 → weights.vendorQuality
- *
- * Breakdown within this bucket:
- * - Verified vendor  → 35% of maxPts
- * - Dispute rate      → 25% of maxPts
- * - Stock accuracy    → 15% of maxPts
- * - Review rating     → 25% of maxPts
- */
-function scoreVendorQuality(
-  vendor: VendorReliabilityProfile,
-  maxPts: number
-): number {
-  let pts = 0;
-
-  // ── Verification (35% of maxPts) ──
-  const verifyMax = Math.round(maxPts * 0.35);
-  if (vendor.apexBadgeActive) {
-    pts += verifyMax;
-  } else if (vendor.verificationTier >= 3) {
-    pts += Math.round(verifyMax * 0.9);
-  } else if (vendor.verificationTier >= 2) {
-    pts += Math.round(verifyMax * 0.7);
-  } else if (vendor.verificationTier >= 1) {
-    pts += Math.round(verifyMax * 0.5);
-  }
-
-  // ── Dispute rate (25% of maxPts) ──
-  const disputeMax = Math.round(maxPts * 0.25);
-  if (vendor.totalCompletedOrders === 0) {
-    pts += Math.round(disputeMax * 0.5);
-  } else if (vendor.disputeRate < DISPUTE_THRESHOLDS.excellent) {
-    pts += disputeMax;
-  } else if (vendor.disputeRate < DISPUTE_THRESHOLDS.acceptable) {
-    pts += Math.round(disputeMax * 0.5);
-  }
-
-  // ── Stock accuracy (15% of maxPts) ──
-  const stockMax = Math.round(maxPts * 0.15);
-  if (vendor.stockAccuracyRate >= 90) {
-    pts += stockMax;
-  } else if (vendor.stockAccuracyRate >= 70) {
-    pts += Math.round(stockMax * 0.5);
-  }
-
-  // ── Review rating (25% of maxPts) ──
-  const reviewMax = Math.round(maxPts * 0.25);
-  if (vendor.totalReviews > 0 && vendor.averageRating > 0) {
-    if (vendor.averageRating >= 4.5) {
-      pts += reviewMax;
-    } else if (vendor.averageRating >= 4.0) {
-      pts += Math.round(reviewMax * 0.8);
-    } else if (vendor.averageRating >= 3.5) {
-      pts += Math.round(reviewMax * 0.5);
-    } else if (vendor.averageRating >= 3.0) {
-      pts += Math.round(reviewMax * 0.25);
-    }
-    // Below 3.0 → 0 points
-  } else {
-    // No reviews yet → neutral (40% of review bucket)
-    pts += Math.round(reviewMax * 0.4);
-  }
-
-  return Math.min(maxPts, pts);
-}
-
-/**
- * Buyer history boost: 0 → weights.buyerHistory
- */
-function scoreBuyerHistory(
-  buyer: BuyerIntentProfile,
-  vendor: VendorReliabilityProfile,
-  maxPts: number
-): number {
-  const orderCount = buyer.vendorHistory[vendor.businessId] || 0;
-
-  if (orderCount > 0) return maxPts;
-
-  return 0;
-}
-
-/* ------------------------------------------------------------------ */
-/*  Main scorer                                                       */
-/* ------------------------------------------------------------------ */
-
-/**
- * Compute the match score between a buyer and a vendor.
- */
+/** Exact formula: sum(weights% * componentScore)/100 */
 export function computeMatchScore(args: {
   buyer: BuyerIntentProfile;
   vendor: VendorReliabilityProfile;
@@ -225,7 +164,7 @@ export function computeMatchScore(args: {
   isPremium?: boolean;
   premiumBonus?: number;
   premiumMinScore?: number;
-}): MatchScoreBreakdown {
+}): MatchScoreBreakdown & { excluded?: boolean } {
   const {
     buyer,
     vendor,
@@ -236,114 +175,71 @@ export function computeMatchScore(args: {
     premiumMinScore = 70,
   } = args;
 
-  const location = scoreLocation(buyer, vendor, weights.location);
-  const delivery = scoreDelivery(vendor, weights.delivery);
-  const reliability = scoreReliability(vendor, weights.reliability);
-  const paymentFit = scorePaymentFit(buyer, vendor, weights.paymentFit);
-  const vendorQuality = scoreVendorQuality(vendor, weights.vendorQuality);
+  const cat = scoreCategoryMatch(buyer, productCategories);
+  const categoryMatch = cat.score;
 
-  let buyerHistory = scoreBuyerHistory(buyer, vendor, weights.buyerHistory);
+  const locationProximity = scoreLocationProximity(buyer, vendor);
+  const reliabilityScore = scoreReliabilityScore(vendor);
+  const activityScore = scoreActivityScore(vendor);
+  const customerRatingScore = scoreCustomerRatingScore(vendor);
 
-  if (
-    buyerHistory === 0 &&
-    productCategories?.length &&
-    buyer.pastCategories.length > 0
-  ) {
-    const overlap = productCategories.some((c) =>
-      buyer.pastCategories.includes(c)
-    );
-    if (overlap) {
-      buyerHistory = Math.round(weights.buyerHistory * 0.5);
-    }
-  }
+  const sumW =
+    weights.categoryMatch +
+    weights.locationProximity +
+    weights.reliabilityScore +
+    weights.activityScore +
+    weights.customerRatingScore;
 
-  let rawTotal = location + delivery + reliability + paymentFit + vendorQuality + buyerHistory;
+  const denom = sumW > 0 ? sumW : 100;
 
-  // ✅ Flagged vendor penalty — hard cap at 30
-  if (vendor.flagged) {
-    rawTotal = Math.min(rawTotal, 30);
-  }
+  let rawTotal = Math.round(
+    (weights.categoryMatch * categoryMatch +
+      weights.locationProximity * locationProximity +
+      weights.reliabilityScore * reliabilityScore +
+      weights.activityScore * activityScore +
+      weights.customerRatingScore * customerRatingScore) / denom
+  );
 
-  // Premium bonus (ethical: only if score is already good)
-  // ✅ No premium bonus for flagged vendors
+  // Flagged vendor safeguard (your existing behavior)
+  if (vendor.flagged) rawTotal = Math.min(rawTotal, 30);
+
+  // Premium bonus (your existing behavior; set premiumBonus=0 to disable)
   if (isPremium && premiumBonus > 0 && rawTotal >= premiumMinScore && !vendor.flagged) {
     rawTotal = Math.min(100, rawTotal + premiumBonus);
   }
 
-  const total = Math.max(0, Math.min(100, rawTotal));
+  const total = clamp100(rawTotal);
 
   return {
-    location,
-    delivery,
-    reliability,
-    paymentFit,
-    vendorQuality,
-    buyerHistory,
+    categoryMatch,
+    locationProximity,
+    reliabilityScore,
+    activityScore,
+    customerRatingScore,
     total,
+    excluded: cat.excluded,
   };
 }
 
-/**
- * Build a human-readable reason string for a match score.
- */
-export function buildMatchReason(
-  score: MatchScoreBreakdown,
-  vendor: VendorReliabilityProfile,
-  weights: SmartMatchWeights = DEFAULT_WEIGHTS
-): string {
+export function buildMatchReason(score: MatchScoreBreakdown): string {
   const parts: string[] = [];
 
-  // Location
-  if (score.location >= weights.location * 0.8) {
-    parts.push("near you");
-  } else if (score.location >= weights.location * 0.6) {
-    parts.push("in your state");
-  }
+  if (score.categoryMatch === 100) parts.push("exact category match");
+  else if (score.categoryMatch >= 60) parts.push("related category");
 
-  // Delivery
-  if (score.delivery >= weights.delivery * 0.8) {
-    parts.push("delivers fast");
-  }
+  if (score.locationProximity >= 100) parts.push("same city");
+  else if (score.locationProximity >= 70) parts.push("same state");
+  else if (score.locationProximity >= 40) parts.push("near your state");
 
-  // Reliability
-  if (vendor.totalCompletedOrders > 0 && vendor.fulfillmentRate >= 90) {
-    parts.push(`${vendor.fulfillmentRate}% fulfillment rate`);
-  }
-
-  // Quality
-  if (vendor.apexBadgeActive) {
-    parts.push("trusted vendor");
-  } else if (vendor.isVerified) {
-    parts.push("verified seller");
-  }
-
-  // Low disputes
-  if (
-    vendor.totalCompletedOrders >= 5 &&
-    vendor.disputeRate < DISPUTE_THRESHOLDS.excellent
-  ) {
-    parts.push("low dispute rate");
-  }
-
-  // ✅ Review rating
-  if (vendor.totalReviews >= 5 && vendor.averageRating >= 4.0) {
-    parts.push(`${vendor.averageRating.toFixed(1)}★ rating`);
-  }
-
-  // Buyer history
-  if (score.buyerHistory >= weights.buyerHistory * 0.8) {
-    parts.push("you've ordered here before");
-  }
+  if (score.reliabilityScore >= 80) parts.push("reliable seller");
+  if (score.activityScore >= 80) parts.push("active recently");
+  if (score.customerRatingScore >= 80) parts.push("highly rated");
 
   if (parts.length === 0) return "";
-
   const joined = parts.join(" · ");
   return joined.charAt(0).toUpperCase() + joined.slice(1);
 }
 
-/**
- * Build a full ProductMatchResult.
- */
 export function buildProductMatchResult(args: {
   productId: string;
   businessId: string;
@@ -355,15 +251,15 @@ export function buildProductMatchResult(args: {
   premiumBonus?: number;
   premiumMinScore?: number;
 }): ProductMatchResult {
-  const score = computeMatchScore(args);
-  const label = scoreToLabel(score.total);
-  const reason = buildMatchReason(score, args.vendor, args.weights);
+  const scoreWithExcluded = computeMatchScore(args);
+  const { excluded, ...score } = scoreWithExcluded;
 
   return {
     productId: args.productId,
     businessId: args.businessId,
     score,
-    label,
-    reason,
+    label: scoreToLabel(score.total),
+    reason: buildMatchReason(score),
+    excluded: !!excluded,
   };
 }

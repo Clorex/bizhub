@@ -1,0 +1,1198 @@
+﻿
+
+==========================================================================================
+SMARTMATCH CORE DUMP
+==========================================================================================
+Root: C:\Users\USER\Desktop\bizhub
+Date: 2026-02-19T00:28:26
+Node: v24.12.0
+NPM:  11.6.2
+
+
+==========================================================================================
+FILES INCLUDED (max 12)
+==========================================================================================
+C:\Users\USER\Desktop\bizhub\prisma\schema.prisma
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page.tsx
+C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx
+C:\Users\USER\Desktop\bizhub\src\app\api\admin\smartmatch\compute\config\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\admin\smartmatch\compute\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\admin\smartmatch\flag\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\marketing\optout\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\categories\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\payment-options\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\public\store\[slug]\reviews\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\smartmatch\rank\route.ts
+C:\Users\USER\Desktop\bizhub\src\app\api\vendor\smartmatch\insights\route.ts
+
+==========================================================================================
+DUMPS (TRUNCATED)
+==========================================================================================
+
+==========================================================================================
+FILE: C:\Users\USER\Desktop\bizhub\prisma\schema.prisma
+==========================================================================================
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ===========================
+// VENDOR
+// ===========================
+model Vendor {
+  id                  String   @id @default(cuid())
+  name                String
+  email               String   @unique
+  store_name          String
+  is_paid             Boolean  @default(false)
+  subscription_tier   String   @default("basic")
+  subscription_expiry DateTime?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  products    Product[]
+  orders      Order[]
+  daily_stats VendorDailyStats[]
+
+  @@map("vendors")
+}
+
+// ===========================
+// PRODUCT
+// ===========================
+model Product {
+  id          String   @id @default(cuid())
+  vendor_id   String
+  name        String
+  price       Float
+  image_url   String   @default("")
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  vendor      Vendor      @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+  order_items OrderItem[]
+  views       ProductView[]
+  clicks      ProductClick[]
+  saves       ProductSave[]
+  cart_adds   CartAdd[]
+
+  @@index([vendor_id])
+  @@map("products")
+}
+
+// ===========================
+// ORDER
+// ===========================
+model Order {
+  id          String      @id @default(cuid())
+  vendor_id   String
+  customer_id String
+  total       Float
+  status      String      @default("completed")
+  created_at  DateTime    @default(now())
+  updated_at  DateTime    @updatedAt
+
+  vendor      Vendor      @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+  items       OrderItem[]
+
+  @@index([vendor_id])
+  @@index([vendor_id, created_at])
+  @@map("orders")
+}
+
+// ===========================
+// ORDER ITEM
+// ===========================
+model OrderItem {
+  id          String   @id @default(cuid())
+  order_id    String
+  product_id  String
+  quantity    Int
+  price       Float
+  created_at  DateTime @default(now())
+
+  order       Order    @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([order_id])
+  @@index([product_id])
+  @@map("order_items")
+}
+
+// ===========================
+// PRODUCT VIEWS
+// ===========================
+model ProductView {
+  id          String   @id @default(cuid())
+  product_id  String
+  vendor_id   String
+  viewer_id   String?
+  created_at  DateTime @default(now())
+
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([vendor_id])
+  @@index([vendor_id, created_at])
+  @@map("product_views")
+}
+
+// ===========================
+// PRODUCT CLICKS
+// ===========================
+model ProductClick {
+  id          String   @id @default(cuid())
+  product_id  String
+  vendor_id   String
+  clicker_id  String?
+  created_at  DateTime @default(now())
+
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([vendor_id])
+  @@index([vendor_id, created_at])
+  @@map("product_clicks")
+}
+
+// ===========================
+// PRODUCT SAVES
+// ===========================
+model ProductSave {
+  id          String   @id @default(cuid())
+  product_id  String
+  vendor_id   String
+  user_id     String
+  created_at  DateTime @default(now())
+
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([vendor_id])
+  @@index([vendor_id, created_at])
+  @@map("product_saves")
+}
+
+// ===========================
+// CART ADDS
+// ===========================
+model CartAdd {
+  id          String   @id @default(cuid())
+  product_id  String
+  vendor_id   String
+  user_id     String
+  created_at  DateTime @default(now())
+
+  product     Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@index([vendor_id])
+  @@index([vendor_id, created_at])
+  @@map("cart_adds")
+}
+
+// ===========================
+// VENDOR DAILY STATS (PRE-AGGREGATED)
+// ===========================
+model VendorDailyStats {
+  id          String   @id @default(cuid())
+  vendor_id   String
+  date        DateTime @db.Date
+  sales_count Int      @default(0)
+  revenue     Float    @default(0)
+  views       Int      @default(0)
+  clicks      Int      @default(0)
+  purchases   Int      @default(0)
+  saves       Int      @default(0)
+  cart_adds   Int      @default(0)
+  shares      Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  vendor      Vendor   @relation(fields: [vendor_id], references: [id], onDelete: Cascade)
+
+  @@unique([vendor_id, date])
+  @@index([vendor_id, date])
+  @@map("vendor_daily_stats")
+}
+
+==========================================================================================
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page.tsx
+==========================================================================================
+// FILE: src/app/admin/smartmatch/page.tsx
+import { Suspense } from "react";
+import ClientPage from "./page-client";
+
+export const dynamic = "force-dynamic";
+
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <ClientPage />
+    </Suspense>
+  );
+}
+
+==========================================================================================
+FILE: C:\Users\USER\Desktop\bizhub\src\app\admin\smartmatch\page-client.tsx
+==========================================================================================
+[TRUNCATED] total lines: 696. Showing first 220 and last 60.
+
+// FILE: src/app/admin/smartmatch/page-client.tsx
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { auth } from "@/lib/firebase/client";
+import GradientHeader from "@/components/GradientHeader";
+import { Card } from "@/components/Card";
+import { SectionCard } from "@/components/ui/SectionCard";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import {
+  RefreshCw,
+  AlertCircle,
+  CheckCircle2,
+  Settings2,
+  Zap,
+  Shield,
+  Flag,
+  BarChart3,
+  Power,
+  Sliders,
+  Search,
+  AlertTriangle,
+} from "lucide-react";
+
+type WeightsState = {
+  location: number;
+  delivery: number;
+  reliability: number;
+  paymentFit: number;
+  vendorQuality: number;
+  buyerHistory: number;
+};
+
+type ConfigState = {
+  enabled: boolean;
+  weights: WeightsState;
+  hideThreshold: number;
+  premiumBonus: number;
+  premiumMinScore: number;
+  profileCacheTtlMs: number;
+  scoreCacheTtlMs: number;
+};
+
+type ComputeResult = {
+  ok: boolean;
+  mode?: string;
+  computed?: number;
+  failed?: number;
+  errors?: string[];
+  profile?: any;
+  error?: string;
+};
+
+type Toast = { text: string; type: "success" | "error" } | null;
+
+const WEIGHT_FIELDS: { key: keyof WeightsState; label: string; hint: string; icon: any; max: number }[] = [
+  { key: "location", label: "Location Match", hint: "Same city/state proximity", icon: Search, max: 50 },
+  { key: "delivery", label: "Delivery Speed", hint: "Fast delivery performance", icon: Zap, max: 50 },
+  { key: "reliability", label: "Order Reliability", hint: "Fulfillment rate", icon: CheckCircle2, max: 50 },
+  { key: "paymentFit", label: "Payment Fit", hint: "Supports buyer's payment method", icon: BarChart3, max: 50 },
+  { key: "vendorQuality", label: "Vendor Quality", hint: "Verification + disputes + stock", icon: Shield, max: 50 },
+  { key: "buyerHistory", label: "Buyer History", hint: "Repeat purchases boost", icon: Settings2, max: 50 },
+];
+
+export default function AdminSmartMatchPage() {
+  const router = useRouter();
+
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [computing, setComputing] = useState(false);
+  const [flagging, setFlagging] = useState(false);
+
+  const [config, setConfig] = useState<ConfigState | null>(null);
+  const [draft, setDraft] = useState<ConfigState | null>(null);
+  const [toast, setToast] = useState<Toast>(null);
+
+  const [computeResult, setComputeResult] = useState<ComputeResult | null>(null);
+
+  // Flag vendor state
+  const [flagBusinessId, setFlagBusinessId] = useState("");
+  const [flagReason, setFlagReason] = useState("");
+  const [flagAction, setFlagAction] = useState<"flag" | "unflag">("flag");
+
+  // Single vendor compute
+  const [singleBusinessId, setSingleBusinessId] = useState("");
+
+  async function authedFetch(path: string, init?: RequestInit) {
+    const token = await auth.currentUser?.getIdToken();
+    const r = await fetch(path, {
+      ...init,
+      headers: { ...(init?.headers || {}), Authorization: `Bearer ${token}` },
+    });
+    const data = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(data?.error || "Request failed");
+    return data;
+  }
+
+  async function loadConfig() {
+    setLoading(true);
+    setToast(null);
+    try {
+      const data = await authedFetch("/api/admin/smartmatch/config");
+      if (data?.ok && data?.config) {
+        setConfig(data.config);
+        setDraft(JSON.parse(JSON.stringify(data.config)));
+      } else {
+        throw new Error("Failed to load config");
+      }
+    } catch (e: any) {
+      setToast({ text: e?.message || "Failed to load", type: "error" });
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  async function saveConfig() {
+    if (!draft) return;
+    setSaving(true);
+    setToast(null);
+    try {
+      const total =
+        draft.weights.location +
+        draft.weights.delivery +
+        draft.weights.reliability +
+        draft.weights.paymentFit +
+        draft.weights.vendorQuality +
+        draft.weights.buyerHistory;
+
+      if (total > 150) {
+        throw new Error(`Total weight (${total}) is too high. Keep around 100 for balanced scoring.`);
+      }
+
+      const data = await authedFetch("/api/admin/smartmatch/config", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+
+      if (data?.ok && data?.config) {
+        setConfig(data.config);
+        setDraft(JSON.parse(JSON.stringify(data.config)));
+        setToast({ text: "Config saved successfully", type: "success" });
+      }
+    } catch (e: any) {
+      setToast({ text: e?.message || "Failed to save", type: "error" });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function runCompute(businessId?: string) {
+    setComputing(true);
+    setComputeResult(null);
+    setToast(null);
+    try {
+      const body: any = {};
+      if (businessId?.trim()) body.businessId = businessId.trim();
+
+      const data = await authedFetch("/api/admin/smartmatch/compute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      setComputeResult(data);
+
+      if (data?.ok) {
+        const msg =
+          data.mode === "single"
+            ? `Profile computed for ${data.businessId}`
+            : `Computed ${data.computed} profiles (${data.failed} failed)`;
+        setToast({ text: msg, type: "success" });
+      } else {
+        setToast({ text: data?.error || "Compute failed", type: "error" });
+      }
+    } catch (e: any) {
+      setToast({ text: e?.message || "Compute failed", type: "error" });
+    } finally {
+      setComputing(false);
+    }
+  }
+
+  async function flagVendor() {
+    if (!flagBusinessId.trim()) return;
+    setFlagging(true);
+    setToast(null);
+    try {
+      const data = await authedFetch("/api/admin/smartmatch/flag", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          businessId: flagBusinessId.trim(),
+          flagged: flagAction === "flag",
+          reason: flagReason.trim(),
+        }),
+      });
+
+      if (data?.ok) {
+        setToast({
+          text: `Vendor ${flagAction === "flag" ? "flagged" : "unflagged"} successfully`,
+          type: "success",
+        });
+        setFlagBusinessId("");
+        setFlagReason("");
+      }
+    } catch (e: any) {
+      setToast({ text: e?.message || "Flag operation failed", type: "error" });
+    } finally {
+      setFlagging(false);
+    }
+  }
+
+  const weightsTotal = draft
+    ? draft.weights.location +
+
+----- [TRUNCATED MIDDLE] -----
+
+                      <Flag className="h-4 w-4 inline mr-1.5" />
+                      Flag
+                    </button>
+                    <button
+                      onClick={() => setFlagAction("unflag")}
+                      className={`rounded-2xl border p-3 text-sm font-bold transition ${
+                        flagAction === "unflag"
+                          ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                          : "border-gray-100 bg-white text-gray-700"
+                      }`}
+                    >
+                      <CheckCircle2 className="h-4 w-4 inline mr-1.5" />
+                      Unflag
+                    </button>
+                  </div>
+                </div>
+
+                {flagAction === "flag" ? (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      Reason (optional)
+                    </label>
+                    <Input
+                      placeholder="Why are you flagging this vendor?"
+                      value={flagReason}
+                      onChange={(e) => setFlagReason(e.target.value)}
+                    />
+                  </div>
+                ) : null}
+
+                <Button
+                  variant="secondary"
+                  onClick={flagVendor}
+                  loading={flagging}
+                  disabled={flagging || !flagBusinessId.trim()}
+                >
+                  <Flag className="h-4 w-4 mr-1.5" />
+                  {flagAction === "flag" ? "Flag vendor" : "Remove flag"}
+                </Button>
+              </div>
+            </SectionCard>
+
+            {/* Info */}
+            <Card className="p-4">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                <span className="font-semibold text-gray-700">How it works:</span>{" "}
+                Vendor profiles are computed from order fulfillment data, disputes,
+                verification status, and stock accuracy. Profiles are cached for{" "}
+                {Math.round((draft.profileCacheTtlMs || 0) / 60000)} minutes.
+                Match scores are computed per-buyer at query time using the weights
+                above. Set <code className="text-orange-600">NEXT_PUBLIC_SMARTMATCH_ENABLED=true</code> in
+                your environment to enable the feature for all users.
+              </p>
+            </Card>
+          </>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+==========================================================================================
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\admin\smartmatch\compute\config\route.ts
+==========================================================================================
+// FILE: src/app/api/admin/smartmatch/config/route.ts
+
+
+import { requireRole } from "@/lib/auth/server";
+import {
+  getSmartMatchConfig,
+  saveSmartMatchConfig,
+} from "@/lib/smartmatch/configServer";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/admin/smartmatch/config
+ * Returns the current SmartMatch config (weights, thresholds, etc.)
+ */
+export async function GET(req: Request) {
+  try {
+    await requireRole(req, "admin");
+
+    const config = await getSmartMatchConfig();
+
+    return Response.json({ ok: true, config });
+  } catch (e: any) {
+    return Response.json(
+      { ok: false, error: e?.message || "Failed" },
+      { status: 500 }
+    );
+  }
+}
+
+/**
+ * POST /api/admin/smartmatch/config
+ * Update SmartMatch config (admin only).
+ *
+ * Body: Partial<SmartMatchConfig>
+ * Only provided fields are merged.
+ */
+export async function POST(req: Request) {
+  try {
+    await requireRole(req, "admin");
+
+    const body = await req.json().catch(() => ({}));
+
+    // Validate weights if provided
+    if (body.weights) {
+      const w = body.weights;
+      const total =
+        Number(w.location || 0) +
+        Number(w.delivery || 0) +
+        Number(w.reliability || 0) +
+        Number(w.paymentFit || 0) +
+        Number(w.vendorQuality || 0) +
+        Number(w.buyerHistory || 0);
+
+      if (total > 150) {
+        return Response.json(
+          {
+            ok: false,
+            error: `Total weight (${total}) is too high. Keep it around 100 for balanced scoring.`,
+          },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Build clean update
+    const update: Record<string, any> = {};
+
+    if (typeof body.enabled === "boolean") update.enabled = body.enabled;
+    if (body.weights && typeof body.weights === "object") update.weights = body.weights;
+    if (typeof body.hideThreshold === "number") update.hideThreshold = body.hideThreshold;
+    if (typeof body.premiumBonus === "number") update.premiumBonus = body.premiumBonus;
+    if (typeof body.premiumMinScore === "number") update.premiumMinScore = body.premiumMinScore;
+    if (typeof body.profileCacheTtlMs === "number") update.profileCacheTtlMs = body.profileCacheTtlMs;
+    if (typeof body.scoreCacheTtlMs === "number") update.scoreCacheTtlMs = body.scoreCacheTtlMs;
+
+    if (Object.keys(update).length === 0) {
+      return Response.json(
+        { ok: false, error: "No valid fields to update" },
+        { status: 400 }
+      );
+    }
+
+    await saveSmartMatchConfig(update);
+
+    const updated = await getSmartMatchConfig();
+
+    return Response.json({ ok: true, config: updated });
+  } catch (e: any) {
+    return Response.json(
+      { ok: false, error: e?.message || "Failed" },
+      { status: 500 }
+    );
+  }
+}
+
+==========================================================================================
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\admin\smartmatch\compute\route.ts
+==========================================================================================
+// FILE: src/app/api/admin/smartmatch/compute/route.ts
+
+
+import { requireRole } from "@/lib/auth/server";
+import {
+  computeAndStoreVendorProfile,
+  computeAllVendorProfiles,
+} from "@/lib/smartmatch/profileServer";
+import { isSmartMatchEnabledServer } from "@/lib/smartmatch/featureFlag";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * POST /api/admin/smartmatch/compute
+ *
+ * Admin-only endpoint to compute vendor reliability profiles.
+ *
+ * Body:
+ *   { businessId?: string }
+ *
+ * If businessId is provided, computes for that single vendor.
+ * If omitted, computes for ALL vendors (bulk).
+ */
+export async function POST(req: Request) {
+  try {
+    // Admin-only
+    const me = await requireRole(req, "admin");
+    if (!me) {
+      return Response.json(
+        { ok: false, error: "Admin access required" },
+        { status: 403 }
+      );
+    }
+
+    if (!isSmartMatchEnabledServer()) {
+      return Response.json(
+        {
+          ok: false,
+          error: "SmartMatch is disabled. Set NEXT_PUBLIC_SMARTMATCH_ENABLED=true to enable.",
+        },
+        { status: 400 }
+      );
+    }
+
+    const body = await req.json().catch(() => ({}));
+    const businessId = typeof body?.businessId === "string"
+      ? body.businessId.trim()
+      : null;
+
+    // Single vendor compute
+    if (businessId) {
+      const profile = await computeAndStoreVendorProfile(businessId);
+
+      return Response.json({
+        ok: true,
+        mode: "single",
+        businessId,
+        profile,
+      });
+    }
+
+    // Bulk compute all vendors
+    const result = await computeAllVendorProfiles();
+
+    return Response.json({
+      ok: true,
+      mode: "bulk",
+      computed: result.computed,
+      failed: result.failed,
+      errors: result.errors,
+    });
+  } catch (e: any) {
+    console.error("[POST /api/admin/smartmatch/compute]", e?.message);
+    return Response.json(
+      { ok: false, error: e?.message || "Failed to compute profiles" },
+      { status: 500 }
+    );
+  }
+}
+
+==========================================================================================
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\admin\smartmatch\flag\route.ts
+==========================================================================================
+// FILE: src/app/api/admin/smartmatch/flag/route.ts
+
+
+import { requireRole } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * POST /api/admin/smartmatch/flag
+ *
+ * Admin endpoint to flag/unflag vendors that exploit the SmartMatch system.
+ *
+ * Flagged vendors get a score penalty or are excluded from smart ranking.
+ *
+ * Body:
+ * {
+ *   businessId: string
+ *   flagged: boolean
+ *   reason?: string
+ * }
+ */
+export async function POST(req: Request) {
+  try {
+    await requireRole(req, "admin");
+
+    const body = await req.json().catch(() => ({}));
+
+    const businessId = typeof body?.businessId === "string"
+      ? body.businessId.trim()
+      : "";
+
+    if (!businessId) {
+      return Response.json(
+        { ok: false, error: "businessId is required" },
+        { status: 400 }
+      );
+    }
+
+    const flagged = body?.flagged === true;
+    const reason = typeof body?.reason === "string"
+      ? body.reason.trim().slice(0, 500)
+      : "";
+
+    const bizRef = adminDb.collection("businesses").doc(businessId);
+    const snap = await bizRef.get();
+
+    if (!snap.exists) {
+      return Response.json(
+        { ok: false, error: "Business not found" },
+        { status: 404 }
+      );
+    }
+
+    await bizRef.set(
+      {
+        smartMatch: {
+          flagged,
+          flagReason: flagged ? reason || "Flagged by admin" : null,
+          flaggedAtMs: flagged ? Date.now() : null,
+          flaggedBy: flagged ? "admin" : null,
+        },
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    // Log the action
+    await adminDb.collection("activityLog").add({
+      type: flagged ? "smartmatch_vendor_flagged" : "smartmatch_vendor_unflagged",
+      businessId,
+      reason: reason || null,
+      timestamp: FieldValue.serverTimestamp(),
+    });
+
+    return Response.json({
+      ok: true,
+      businessId,
+      flagged,
+      reason: reason || null,
+    });
+  } catch (e: any) {
+    return Response.json(
+      { ok: false, error: e?.message || "Failed" },
+      { status: 500 }
+    );
+  }
+}
+
+==========================================================================================
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\marketing\optout\route.ts
+==========================================================================================
+// FILE: src/app/api/marketing/optout/route.ts
+
+import { requireMe } from "@/lib/auth/server";
+import { adminDb } from "@/lib/firebase/admin";
+import { FieldValue } from "firebase-admin/firestore";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+function cleanSlug(s: any) {
+  return String(s || "").trim().toLowerCase().slice(0, 80);
+}
+
+export async function GET(req: Request) {
+  try {
+    const me = await requireMe(req);
+
+    const ref = adminDb.collection("users").doc(me.uid);
+    const snap = await ref.get();
+    const d = snap.exists ? (snap.data() as any) : {};
+
+    const prefs = d?.marketingPrefs || {};
+    const globalOptOut = !!prefs.globalOptOut;
+
+    const storeOptOutSlugs: string[] = Array.isArray(prefs.storeOptOutSlugs)
+      ? prefs.storeOptOutSlugs.map(String).filter(Boolean).slice(0, 500)
+      : [];
+
+    return Response.json({ ok: true, globalOptOut, storeOptOutSlugs });
+  } catch (e: any) {
+    return Response.json({ ok: false, error: e?.message || "Unauthorized" }, { status: 401 });
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const me = await requireMe(req);
+
+    const body = await req.json().catch(() => ({}));
+    const storeSlug = cleanSlug(body.storeSlug);
+    const optOut = body.optOut === true;
+
+    if (!storeSlug) return Response.json({ ok: false, error: "storeSlug required" }, { status: 400 });
+
+    const ref = adminDb.collection("users").doc(me.uid);
+
+    await adminDb.runTransaction(async (t) => {
+      const snap = await t.get(ref);
+      const d = snap.exists ? (snap.data() as any) : {};
+      const prefs = d?.marketingPrefs || {};
+
+      const cur: string[] = Array.isArray(prefs.storeOptOutSlugs)
+        ? prefs.storeOptOutSlugs.map(String).filter(Boolean)
+        : [];
+
+      const set = new Set(cur.map((x) => x.toLowerCase()));
+      if (optOut) set.add(storeSlug);
+      else set.delete(storeSlug);
+
+      t.set(
+        ref,
+        {
+          marketingPrefs: {
+            ...prefs,
+            storeOptOutSlugs: Array.from(set).slice(0, 500),
+            updatedAtMs: Date.now(),
+          },
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true }
+      );
+    });
+
+    return Response.json({ ok: true });
+  } catch (e: any) {
+    return Response.json({ ok: false, error: e?.message || "Failed" }, { status: 500 });
+  }
+}
+
+==========================================================================================
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\smartmatch\rank\route.ts
+==========================================================================================
+// FILE: src/app/api/smartmatch/rank/route.ts
+
+
+import { isSmartMatchEnabledServer } from "@/lib/smartmatch/featureFlag";
+import { getSmartMatchConfig } from "@/lib/smartmatch/configServer";
+import { getCachedVendorProfiles } from "@/lib/smartmatch/profileServer";
+import { buildBuyerIntent } from "@/lib/smartmatch/buyerIntent";
+import { buildProductMatchResult } from "@/lib/smartmatch/score";
+import { DEFAULT_MARKET_FILTERS } from "@/lib/market/filters/types";
+import type { ProductMatchResult } from "@/lib/smartmatch/types";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * POST /api/smartmatch/rank
+ *
+ * Given a list of product stubs (id + businessId + categoryKeys),
+ * returns match scores for each product relative to the buyer.
+ *
+ * This is a lightweight endpoint — vendor profiles are pre-cached
+ * on business docs. It does NOT load full product data.
+ *
+ * Body:
+ * {
+ *   products: Array<{ id: string; businessId: string; categoryKeys?: string[] }>
+ *   filters: MarketFilterState (optional — used to build buyer intent)
+ *   orderHistory?: Array<{ businessId: string; paymentType?: string; categoryKeys?: string[] }>
+ * }
+ *
+ * Returns:
+ * {
+ *   ok: boolean
+ *   enabled: boolean
+ *   scores: Record<productId, ProductMatchResult>
+ * }
+ */
+export async function POST(req: Request) {
+  try {
+    if (!isSmartMatchEnabledServer()) {
+      return Response.json({ ok: true, enabled: false, scores: {} });
+    }
+
+    const config = await getSmartMatchConfig();
+    if (!config.enabled) {
+      return Response.json({ ok: true, enabled: false, scores: {} });
+    }
+
+    const body = await req.json().catch(() => ({}));
+
+    const productStubs: Array<{
+      id: string;
+      businessId: string;
+      categoryKeys?: string[];
+    }> = Array.isArray(body?.products) ? body.products.slice(0, 200) : [];
+
+    if (productStubs.length === 0) {
+      return Response.json({ ok: true, enabled: true, scores: {} });
+    }
+
+    // Build buyer intent
+    const filters = body?.filters || DEFAULT_MARKET_FILTERS;
+    const orderHistory = Array.isArray(body?.orderHistory)
+      ? body.orderHistory.slice(0, 100)
+      : [];
+
+    const buyer = buildBuyerIntent({ filters, orderHistory });
+
+    // Collect unique business IDs
+    const businessIds = [
+      ...new Set(
+        productStubs
+          .map((p) => String(p.businessId || ""))
+          .filter(Boolean)
+      ),
+    ];
+
+    // Load cached vendor profiles in batch
+    const profileMap = await getCachedVendorProfiles(businessIds);
+
+    // Compute scores
+    const scores: Record<string, ProductMatchResult> = {};
+
+    for (const stub of productStubs) {
+      const productId = String(stub.id || "");
+      const businessId = String(stub.businessId || "");
+
+      if (!productId || !businessId) continue;
+
+      const vendor = profileMap.get(businessId);
+      if (!vendor) {
+        // No profile cached — skip (will show without match badge)
+        continue;
+      }
+
+      // Check if vendor has premium subscription
+      // (We stored this info on the profile already via supportsCard etc.
+      //  For premium check, we need subscription data.
+      //  Since profile is computed from business doc, we can check the
+      //  business doc's subscription field. For Phase 1, we'll consider
+      //  any vendor with a non-FREE plan as "premium".)
+      const isPremium =
+        vendor.supportsCard || vendor.supportsBankTransfer || vendor.supportsChat;
+
+      const result = buildProductMatchResult({
+        productId,
+        businessId,
+        buyer,
+        vendor,
+        weights: config.weights,
+        productCategories: stub.categoryKeys,
+        isPremium,
+        premiumBonus: config.premiumBonus,
+        premiumMinScore: config.premiumMinScore,
+      });
+
+      scores[productId] = result;
+    }
+
+    return Response.json({
+      ok: true,
+      enabled: true,
+      scores,
+    });
+  } catch (e: any) {
+    console.error("[POST /api/smartmatch/rank]", e?.message);
+    // Graceful degradation — return empty scores, don't break the market
+    return Response.json({
+      ok: true,
+      enabled: false,
+      scores: {},
+      _error: e?.message,
+    });
+  }
+}
+
+==========================================================================================
+FILE: C:\Users\USER\Desktop\bizhub\src\app\api\vendor\smartmatch\insights\route.ts
+==========================================================================================
+// FILE: src/app/api/vendor/smartmatch/insights/route.ts
+
+
+import { requireAnyRole } from "@/lib/auth/server";
+import { isSmartMatchEnabledServer } from "@/lib/smartmatch/featureFlag";
+import {
+  getCachedVendorProfile,
+  computeAndStoreVendorProfile,
+} from "@/lib/smartmatch/profileServer";
+import { buildVendorInsights } from "@/lib/smartmatch/insights";
+import { computeMatchScore } from "@/lib/smartmatch/score";
+import { getSmartMatchConfig } from "@/lib/smartmatch/configServer";
+import type { BuyerIntentProfile } from "@/lib/smartmatch/types";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/vendor/smartmatch/insights
+ *
+ * Returns the vendor's SmartMatch visibility insights:
+ * - Their reliability profile
+ * - Factor-by-factor breakdown with status + tips
+ * - A simulated "average match score" (what a typical buyer would see)
+ */
+export async function GET(req: Request) {
+  try {
+    const me = await requireAnyRole(req, ["owner", "staff"]);
+    if (!me.businessId) {
+      return Response.json(
+        { ok: false, error: "Missing businessId" },
+        { status: 400 }
+      );
+    }
+
+    if (!isSmartMatchEnabledServer()) {
+      return Response.json({
+        ok: true,
+        enabled: false,
+        message: "SmartMatch is not enabled on this platform.",
+      });
+    }
+
+    const config = await getSmartMatchConfig();
+    if (!config.enabled) {
+      return Response.json({
+        ok: true,
+        enabled: false,
+        message: "SmartMatch is currently disabled by admin.",
+      });
+    }
+
+    // Try cached profile first, compute if missing/expired
+    let profile = await getCachedVendorProfile(me.businessId);
+
+    if (!profile) {
+      try {
+        profile = await computeAndStoreVendorProfile(me.businessId);
+      } catch (e: any) {
+        return Response.json(
+          {
+            ok: false,
+            error: `Could not compute your profile: ${e?.message || "Unknown error"}`,
+          },
+          { status: 500 }
+        );
+      }
+    }
+
+    // Build insights
+    const insights = buildVendorInsights(profile);
+
+    // Simulate a "typical buyer" match score
+    // This gives vendors a rough idea of how they'd score
+    const typicalBuyer: BuyerIntentProfile = {
+      state: profile.state || null,
+      city: profile.city || null,
+      category: null,
+      priceMin: null,
+      priceMax: null,
+      preferredPaymentType: "card",
+      prefersPickup: false,
+      prefersDelivery: true,
+      vendorHistory: {},
+      pastCategories: [],
+    };
+
+    const sameLocationScore = computeMatchScore({
+      buyer: typicalBuyer,
+      vendor: profile,
+      weights: config.weights,
+    });
+
+    // Also compute for a buyer in a different location
+    const differentLocationBuyer: BuyerIntentProfile = {
+      ...typicalBuyer,
+      state: "different_state",
+      city: "different_city",
+    };
+
+    const differentLocationScore = computeMatchScore({
+      buyer: differentLocationBuyer,
+      vendor: profile,
+      weights: config.weights,
+    });
+
+    // Factor statuses summary
+    const goodCount = insights.filter((i) => i.status === "good").length;
+    const improveCount = insights.filter((i) => i.status === "improve").length;
+    const badCount = insights.filter((i) => i.status === "bad").length;
+
+    return Response.json({
+      ok: true,
+      enabled: true,
+      profile: {
+        fulfillmentRate: profile.fulfillmentRate,
+        avgDeliveryHours: profile.avgDeliveryHours,
+        disputeRate: profile.disputeRate,
+        totalCompletedOrders: profile.totalCompletedOrders,
+        verificationTier: profile.verificationTier,
+        apexBadgeActive: profile.apexBadgeActive,
+        stockAccuracyRate: profile.stockAccuracyRate,
+        computedAtMs: profile.computedAtMs,
+      },
+      insights,
+      simulatedScores: {
+        sameLocation: {
+          total: sameLocationScore.total,
+          breakdown: sameLocationScore,
+        },
+        differentLocation: {
+          total: differentLocationScore.total,
+          breakdown: differentLocationScore,
+        },
+      },
+      summary: {
+        good: goodCount,
+        improve: improveCount,
+        bad: badCount,
+        overallHealth:
+          badCount === 0 && improveCount <= 1
+            ? "strong"
+            : badCount === 0
+              ? "moderate"
+              : "needs_work",
+      },
+    });
+  } catch (e: any) {
+    console.error("[GET /api/vendor/smartmatch/insights]", e?.message);
+    return Response.json(
+      { ok: false, error: e?.message || "Failed" },
+      { status: 500 }
+    );
+  }
+}
+
+==========================================================================================
+WHAT I STILL NEED (VERY IMPORTANT)
+==========================================================================================
+From Chrome DevTools > Network while on /admin/smartmatch:
+- failing request URL
+- status code
+- response body (or screenshot)
+
+Because your UI shows 'Request failed' — that is usually API 401/403/404/500.
+
+==========================================================================================
+DONE
+==========================================================================================
+Created: C:\Users\USER\Desktop\bizhub\smartmatch_core_dump.txt
