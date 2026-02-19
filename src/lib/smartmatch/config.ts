@@ -22,38 +22,22 @@ export const DEFAULT_CONFIG: SmartMatchConfig = {
   enabled: true,
   weights: DEFAULT_WEIGHTS,
 
-  // Keep your existing concept (auto-hide low scoring matches)
   hideThreshold: 0,
 
-  // Optional monetization behavior (set to 0 to disable bonus)
   premiumBonus: 0,
   premiumMinScore: 70,
 
-  // caches
   profileCacheTtlMs: 30 * 60 * 1000, // 30 min
   scoreCacheTtlMs: 5 * 60 * 1000,    // 5 min
 };
 
 /**
- * Kept for compatibility (other parts of your code may import these).
- * They are not used by the new spec scorer directly, but keeping them avoids breakage.
+ * Kept for compatibility with any older imports in the codebase.
+ * (Not required by the new spec scorer, but harmless.)
  */
-export const DELIVERY_THRESHOLDS = {
-  fast: 24,
-  moderate: 72,
-  slow: 168,
-};
-
-export const FULFILLMENT_THRESHOLDS = {
-  excellent: 95,
-  good: 85,
-  fair: 70,
-};
-
-export const DISPUTE_THRESHOLDS = {
-  excellent: 2,     // <2%
-  acceptable: 5,    // <5%
-};
+export const DELIVERY_THRESHOLDS = { fast: 24, moderate: 72, slow: 168 };
+export const FULFILLMENT_THRESHOLDS = { excellent: 95, good: 85, fair: 70 };
+export const DISPUTE_THRESHOLDS = { excellent: 2, acceptable: 5 };
 
 export function scoreToLabel(total: number): MatchLabel {
   const t = Number(total || 0);
@@ -61,4 +45,53 @@ export function scoreToLabel(total: number): MatchLabel {
   if (t >= 70) return "recommended";
   if (t >= 50) return "fair_match";
   return "low_match";
+}
+
+/** ✅ UI helper used by SmartMatchBadge.tsx */
+export function labelToDisplayText(label: MatchLabel): string {
+  switch (label) {
+    case "best_match":
+      return "Best Match";
+    case "recommended":
+      return "Recommended";
+    case "fair_match":
+      return "Fair Match";
+    case "low_match":
+    default:
+      return "Low Match";
+  }
+}
+
+/**
+ * ✅ UI helper used by SmartMatchBadge.tsx
+ * IMPORTANT: returns an object with bg/text/border (NOT a string).
+ */
+export function labelToColorClasses(label: MatchLabel): { bg: string; text: string; border: string } {
+  switch (label) {
+    case "best_match":
+      return {
+        bg: "bg-emerald-50",
+        text: "text-emerald-800",
+        border: "border-emerald-200",
+      };
+    case "recommended":
+      return {
+        bg: "bg-blue-50",
+        text: "text-blue-800",
+        border: "border-blue-200",
+      };
+    case "fair_match":
+      return {
+        bg: "bg-amber-50",
+        text: "text-amber-900",
+        border: "border-amber-200",
+      };
+    case "low_match":
+    default:
+      return {
+        bg: "bg-gray-50",
+        text: "text-gray-700",
+        border: "border-gray-200",
+      };
+  }
 }

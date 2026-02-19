@@ -1,0 +1,77 @@
+﻿// FILE: src/lib/smartmatch/config.ts
+import type { MatchLabel, SmartMatchConfig, SmartMatchWeights } from "./types";
+
+/**
+ * ✅ SPEC DEFAULT WEIGHTS (sum = 100)
+ * match_score =
+ * (0.30 × category_match) +
+ * (0.20 × location_proximity) +
+ * (0.20 × reliability_score) +
+ * (0.15 × activity_score) +
+ * (0.15 × customer_rating_score)
+ */
+export const DEFAULT_WEIGHTS: SmartMatchWeights = {
+  categoryMatch: 30,
+  locationProximity: 20,
+  reliabilityScore: 20,
+  activityScore: 15,
+  customerRatingScore: 15,
+};
+
+
+
+/**
+ * Convert match label to display text.
+ */
+export function labelToDisplayText(label: MatchLabel): string {
+  switch (label) {
+    case "best_match": return "Best Match";
+    case "recommended": return "Recommended";
+    case "fair_match": return "Fair Match";
+    case "low_match": return "Low Match";
+    default: return "Unknown";
+  }
+}
+
+/**
+ * Get color classes for match label.
+ */
+export function labelToColorClasses(label: MatchLabel): string {
+  switch (label) {
+    case "best_match": return "bg-emerald-100 text-emerald-800 border-emerald-300";
+    case "recommended": return "bg-blue-100 text-blue-800 border-blue-300";
+    case "fair_match": return "bg-yellow-100 text-yellow-800 border-yellow-300";
+    case "low_match": return "bg-gray-100 text-gray-800 border-gray-300";
+    default: return "bg-gray-100 text-gray-800 border-gray-300";
+  }
+}
+
+/**
+ * Kept for compatibility (other parts of your code may import these).
+ * They are not used by the new spec scorer directly, but keeping them avoids breakage.
+ */
+export const DELIVERY_THRESHOLDS = {
+  fast: 24,
+  moderate: 72,
+  slow: 168,
+};
+
+export const FULFILLMENT_THRESHOLDS = {
+  excellent: 95,
+  good: 85,
+  fair: 70,
+};
+
+export const DISPUTE_THRESHOLDS = {
+  excellent: 2,     // <2%
+  acceptable: 5,    // <5%
+};
+
+export function scoreToLabel(total: number): MatchLabel {
+  const t = Number(total || 0);
+  if (t >= 85) return "best_match";
+  if (t >= 70) return "recommended";
+  if (t >= 50) return "fair_match";
+  return "low_match";
+}
+
