@@ -1,0 +1,27 @@
+﻿git : warning: in the working copy of 'public/sw.js', LF will be replaced by CRLF the next time Git 
+touches it
+At line:20 char:13
++ $gitOut += (git add -A 2>&1 | Out-String)
++             ~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (warning: in the... Git touches it:String) [], RemoteExcepti 
+   on
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+warning: in the working copy of 'public/workbox-4754cb34.js', LF will be replaced by CRLF the next time 
+Git touches it
+warning: in the working copy of 'src/lib/analytics/restock-analyzer.service.ts', LF will be replaced by 
+CRLF the next time Git touches it
+[main eee0e6a] fix: TS noImplicitAny in restock analyzer
+ 4 files changed, 56 insertions(+), 6 deletions(-)
+ create mode 100644 build-local.log
+ create mode 100644 vercel-build.log
+git : To https://github.com/Clorex/bizhub.git
+At line:22 char:13
++ $gitOut += (git push 2>&1 | Out-String)
++             ~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (To https://github.com/Clorex/bizhub.git:String) [], RemoteE 
+   xception
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+   580237a..eee0e6a  main -> main
+
