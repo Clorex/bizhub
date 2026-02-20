@@ -171,7 +171,9 @@ export class RestockAnalyzerService {
     let productsProcessed = 0;
     let flagsCreated = 0;
 
-    const snap = await adminDb
+    
+    const cooldownHours = await cfgCooldownHours(businessId);
+const snap = await adminDb
       .collection("products")
       .where("businessId", "==", businessId)
       .limit(500)
@@ -188,11 +190,7 @@ export class RestockAnalyzerService {
         productsProcessed++;
 
         for (const f of flags) {
-          const recent = await ProductInsightFlagsRepository.hasRecentFlag(
-            productId,
-            f.flag_type,
-            cfgCooldownHours(businessId)
-          );
+          const recent = await ProductInsightFlagsRepository.hasRecentFlag(productId, f.flag_type, cooldownHours);
           if (!recent) {
             await ProductInsightFlagsRepository.create({
               product_id: productId,
@@ -249,3 +247,4 @@ async function cfgCooldownHours(businessId: string): Promise<number> {
 }
 
 export const restockAnalyzer = new RestockAnalyzerService();
+

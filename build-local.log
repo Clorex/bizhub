@@ -25,4 +25,10 @@ OK: no broken Naira symbol found.
  Γ£ô Compiled successfully
    Skipping linting
    Checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/80) ...
+   Generating static pages (20/80) 
+   Generating static pages (40/80) 
+   Generating static pages (60/80) 
+ Γ£ô Generating static pages (80/80)
 
