@@ -165,8 +165,8 @@ export class RestockAnalyzerService {
     }
 
     // C) Conversion warning
-    const totalViews = metrics.reduce((acc, m) => acc + Number((m as any)?.views || 0), 0);
-    const totalOrders = metrics.reduce((acc, m) => acc + Number((m as any)?.orders || 0), 0);
+    const totalViews = metrics.reduce((acc: number, m: any) => acc + Number((m as any)?.views || 0), 0);
+    const totalOrders = metrics.reduce((acc: number, m: any) => acc + Number((m as any)?.orders || 0), 0);
     const convRate = totalViews > 0 ? totalOrders / totalViews : 0;
 
     if (
@@ -281,7 +281,7 @@ export class RestockAnalyzerService {
   private calculateVelocity(metrics: any[]): number {
     if (!metrics.length) return 0;
     const last = metrics.slice(-7);
-    const totalUnits = last.reduce((acc, m) => acc + Number((m as any)?.units_sold || 0), 0);
+    const totalUnits = last.reduce((acc: number, m: any) => acc + Number((m as any)?.units_sold || 0), 0);
     const denom = Math.max(1, last.length);
     const v = totalUnits / denom;
     return Math.round(v * 10) / 10; // 1dp
@@ -293,8 +293,8 @@ export class RestockAnalyzerService {
     const last3 = metrics.slice(-3);
     const prev4 = metrics.slice(-7, -3);
 
-    const last3Avg = last3.reduce((acc, m) => acc + Number((m as any)?.views || 0), 0) / 3;
-    const prev4Avg = prev4.reduce((acc, m) => acc + Number((m as any)?.views || 0), 0) / 4;
+    const last3Avg = last3.reduce((acc: number, m: any) => acc + Number((m as any)?.views || 0), 0) / 3;
+    const prev4Avg = prev4.reduce((acc: number, m: any) => acc + Number((m as any)?.views || 0), 0) / 4;
 
     if (prev4Avg === 0) return last3Avg > 0 ? 100 : 0;
     return ((last3Avg - prev4Avg) / prev4Avg) * 100;
@@ -358,3 +358,4 @@ export class RestockAnalyzerService {
 }
 
 export const restockAnalyzer = new RestockAnalyzerService();
+
