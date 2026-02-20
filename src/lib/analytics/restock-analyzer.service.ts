@@ -219,10 +219,13 @@ export class RestockAnalyzerService {
    * We simply read what exists and merge numeric overrides if present.
    */
   private async getConfig(businessId: string): Promise<RestockConfig> {
-    try {
-      const row = await prisma.restockAlertConfig.findUnique({
-        where: { business_id: businessId },
-      });
+    // NOTE:
+    // Vercel build uses the generated Prisma Client from prisma/schema.prisma.
+    // That client currently does NOT expose prisma.restockAlertConfig, so we must not reference it.
+    // We use default config derived from RESTOCK_CONFIG (compile-safe + runtime-safe).
+    void businessId;
+    return DEFAULT_CONFIG;
+  });
 
       const r: any = row;
 
@@ -358,4 +361,5 @@ export class RestockAnalyzerService {
 }
 
 export const restockAnalyzer = new RestockAnalyzerService();
+
 

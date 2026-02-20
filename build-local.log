@@ -25,25 +25,27 @@ OK: no broken Naira symbol found.
  Γ£ô Compiled successfully
    Skipping linting
    Checking validity of types ...
-   Collecting page data ...
-node.exe : unhandledRejection Error [PageNotFoundError]: Cannot find module for page: /_document
+node.exe : Failed to compile.
 At line:1 char:1
 + & "C:\Program Files\nodejs/node.exe" "C:\Program Files\nodejs/node_mo ...
 + ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (unhandledReject...age: /_document:String) [], RemoteExcepti 
-   on
+    + CategoryInfo          : NotSpecified: (Failed to compile.:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-    at getPagePath (C:\Users\USER\Desktop\bizhub\node_modules\next\dist\server\require.js:94:15)
-    at requirePage (C:\Users\USER\Desktop\bizhub\node_modules\next\dist\server\require.js:99:22)
-    at C:\Users\USER\Desktop\bizhub\node_modules\next\dist\server\load-components.js:72:65
-    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
-    at async Promise.all (index 0)
-    at async loadComponentsImpl 
-(C:\Users\USER\Desktop\bizhub\node_modules\next\dist\server\load-components.js:71:33)
-    at async Object.hasCustomGetInitialProps 
-(C:\Users\USER\Desktop\bizhub\node_modules\next\dist\build\utils.js:1274:24) {
-  type: 'PageNotFoundError',
-  code: 'ENOENT'
-}
+
+./src/lib/analytics/restock-analyzer.service.ts:64:32
+Type error: Property 'getProductMetrics' does not exist on type 'RestockAnalyzerService'.
+
+[0m [90m 62 |[39m   }[33m>[39m {[0m
+[0m [90m 63 |[39m     [36mconst[39m config [33m=[39m [36mawait[39m 
+[36mthis[39m[33m.[39mgetConfig(businessId)[33m;[39m[0m
+[0m[31m[1m>[22m[39m[90m 64 |[39m     [36mconst[39m metrics [33m=[39m [36mawait[39m 
+[36mthis[39m[33m.[39mgetProductMetrics(businessId[33m,[39m productId)[33m;[39m[0m
+[0m [90m    |[39m                                [31m[1m^[22m[39m[0m
+[0m [90m 65 |[39m[0m
+[0m [90m 66 |[39m     [36mif[39m ([33m![39mmetrics[33m.[39mlength) {[0m
+[0m [90m 67 |[39m       [36mreturn[39m { flags[33m:[39m [][33m,[39m velocity[33m:[39m 
+[35m0[39m[33m,[39m trendPct[33m:[39m [35m0[39m[33m,[39m daysToStockout[33m:[39m 
+[36mnull[39m }[33m;[39m[0m
+Next.js build worker exited with code: 1 and signal: null
 
