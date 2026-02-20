@@ -1,5 +1,4 @@
-﻿// FILE: src/components/cart/CartSummary.tsx
-"use client";
+﻿"use client";
 
 import { memo } from "react";
 import { ShoppingBag, MessageCircle, CreditCard, ChevronRight } from "lucide-react";
@@ -18,35 +17,23 @@ interface CartSummaryProps {
 }
 
 export const CartSummary = memo(function CartSummary({
-  subtotal,
-  itemCount,
-  storeSlug,
-  canChat,
-  chatLoading = false,
-  onCheckout,
-  onContinueInChat,
-  onContinueShopping,
+  subtotal, itemCount, storeSlug, canChat, chatLoading = false,
+  onCheckout, onContinueInChat, onContinueShopping,
 }: CartSummaryProps) {
   return (
-    <div className="bg-white rounded-t-3xl border-t border-gray-200 shadow-[0_-4px_20px_rgba(0,0,0,0.08)] p-5 pb-8">
-      {/* Summary */}
+    <div className="bg-white rounded-t-2xl border-t border-gray-200 shadow-float p-5 pb-8">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <p className="text-sm text-gray-500">Subtotal</p>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="text-caption text-gray-500">Subtotal</p>
+          <p className="text-micro text-gray-400 mt-0.5">
             {itemCount} item{itemCount !== 1 ? "s" : ""}
           </p>
         </div>
-        <p className="text-2xl font-bold text-gray-900">{formatMoneyNGN(subtotal)}</p>
+        <p className="text-2xl font-extrabold text-gray-900 tracking-tight">{formatMoneyNGN(subtotal)}</p>
       </div>
 
-      {/* Actions */}
-      <div className="space-y-2">
-        <Button
-          onClick={onCheckout}
-          className="w-full"
-          leftIcon={<CreditCard className="w-4 h-4" />}
-        >
+      <div className="space-y-2.5">
+        <Button onClick={onCheckout} className="w-full" leftIcon={<CreditCard className="w-4 h-4" />}>
           Proceed to Checkout
         </Button>
 
@@ -65,7 +52,7 @@ export const CartSummary = memo(function CartSummary({
 
         <button
           onClick={onContinueShopping}
-          className="w-full flex items-center justify-center gap-2 py-3 text-sm font-medium text-gray-600 hover:text-orange-600 transition"
+          className="w-full flex items-center justify-center gap-2 py-3 text-caption font-medium text-gray-500 hover:text-orange-600 transition"
         >
           <ShoppingBag className="w-4 h-4" />
           Continue Shopping

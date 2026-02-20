@@ -1,4 +1,4 @@
-// FILE: src/lib/vendor/planConfigServer.ts
+﻿// FILE: src/lib/vendor/planConfigServer.ts
 import { adminDb } from "@/lib/firebase/admin";
 
 export type BizhubPlanKey = "FREE" | "LAUNCH" | "MOMENTUM" | "APEX";
@@ -32,6 +32,12 @@ export type PlanFeatures = {
 
   /** ✅ NEW: allow customers pay in USD at checkout (only used on MOMENTUM/APEX) */
   usdCheckout: boolean;
+
+  /** Smart Restock & Demand Alerts (Apex only) */
+  smartRestock: boolean;
+
+  /** Buyer Intent Radar / Hot Deals Advantage (Apex only) */
+  buyerIntentRadar: boolean;
 };
 
 export type PlanLimits = {
@@ -116,6 +122,8 @@ function cleanFeatures(v: any, fallback: PlanFeatures): PlanFeatures {
     installmentPlans: typeof o.installmentPlans === "boolean" ? o.installmentPlans : fallback.installmentPlans,
 
     usdCheckout: typeof o.usdCheckout === "boolean" ? o.usdCheckout : fallback.usdCheckout,
+    smartRestock: typeof o.smartRestock === "boolean" ? o.smartRestock : fallback.smartRestock,
+    buyerIntentRadar: typeof o.buyerIntentRadar === "boolean" ? o.buyerIntentRadar : fallback.buyerIntentRadar,
   };
 }
 
@@ -175,6 +183,8 @@ export function fallbackPlanConfig(): PlanConfig {
           installmentPlans: false,
 
           usdCheckout: false,
+          smartRestock: false,
+          buyerIntentRadar: false,
         },
         limits: {
           maxProducts: 25,
@@ -227,6 +237,8 @@ export function fallbackPlanConfig(): PlanConfig {
           installmentPlans: false,
 
           usdCheckout: false,
+          smartRestock: false,
+          buyerIntentRadar: false,
         },
         limits: {
           maxProducts: 5000,
@@ -278,7 +290,9 @@ export function fallbackPlanConfig(): PlanConfig {
           customerNotes: true,
           installmentPlans: false,
 
-          usdCheckout: true, // ✅ default ON
+          usdCheckout: true,
+          smartRestock: false,
+          buyerIntentRadar: false,
         },
         limits: {
           maxProducts: 20000,
@@ -330,7 +344,9 @@ export function fallbackPlanConfig(): PlanConfig {
           customerNotes: true,
           installmentPlans: true,
 
-          usdCheckout: true, // ✅ default ON
+          usdCheckout: true,
+          smartRestock: true,
+          buyerIntentRadar: true,
         },
         limits: {
           maxProducts: 100000,
@@ -666,3 +682,4 @@ export async function getBusinessPlanResolved(businessId: string) {
     addons: applied.addons,
   };
 }
+

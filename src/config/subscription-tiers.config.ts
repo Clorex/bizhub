@@ -1,4 +1,4 @@
-import { UpgradeOption } from '@/types/subscription';
+﻿import { UpgradeOption } from '@/types/subscription';
 
 export const SUBSCRIPTION_TIERS: Record<string, UpgradeOption> = {
   basic: {
@@ -45,6 +45,7 @@ export const FEATURE_ACCESS: Record<string, string[]> = {
   basic: ['sales_growth', 'revenue_breakdown'],
   premium: ['sales_growth', 'revenue_breakdown', 'conversion', 'top_products', 'engagement'],
   pro: ['sales_growth', 'revenue_breakdown', 'conversion', 'top_products', 'engagement', 'export', 'api'],
+  apex: ['sales_growth', 'revenue_breakdown', 'conversion', 'top_products', 'engagement', 'export', 'api', 'smart_restock'],
 };
 
 export const FREE_TRIAL_DAYS = 14;

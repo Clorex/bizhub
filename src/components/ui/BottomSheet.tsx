@@ -1,8 +1,9 @@
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useId, useMemo } from "react";
 import { createPortal } from "react-dom";
+import { X } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export function BottomSheet({
@@ -21,26 +22,15 @@ export function BottomSheet({
   className?: string;
 }) {
   const id = useId();
-
   const canPortal = typeof window !== "undefined" && typeof document !== "undefined";
-  const el = useMemo(() => {
-    if (!canPortal) return null;
-    return document.body;
-  }, [canPortal]);
+  const el = useMemo(() => (canPortal ? document.body : null), [canPortal]);
 
   useEffect(() => {
     if (!open) return;
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
-
-    // lock scroll
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
@@ -56,51 +46,46 @@ export function BottomSheet({
       aria-modal="true"
       className="fixed inset-0 z-[60]"
     >
-      {/* Overlay */}
       <button
         type="button"
         aria-label="Close"
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
         onClick={onClose}
       />
 
-      {/* Panel */}
-      <div
-        className={cn(
-          "absolute inset-x-0 bottom-0",
-          "rounded-t-[26px] bg-white border border-biz-line shadow-float",
-          "max-h-[85vh] flex flex-col overflow-hidden",
-          className
-        )}
-      >
-        <div className="px-4 pt-3 pb-3 border-b border-biz-line">
+      <div className={cn(
+        "absolute inset-x-0 bottom-0",
+        "rounded-t-3xl bg-white shadow-float",
+        "max-h-[85vh] flex flex-col overflow-hidden animate-slide-up",
+        className
+      )}>
+        {/* Handle + Header */}
+        <div className="px-4 pt-3 pb-3 border-b border-gray-100">
+          <div className="w-10 h-1 bg-gray-200 rounded-full mx-auto mb-3" />
           <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              {title ? (
-                <p id={`sheet_title_${id}`} className="text-sm font-extrabold text-biz-ink">
-                  {title}
-                </p>
-              ) : null}
-              <div className="mt-2 h-1 w-10 bg-black/10 rounded-full mx-auto" />
-            </div>
-
+            {title && (
+              <h3 id={`sheet_title_${id}`} className="text-h3 text-gray-900">
+                {title}
+              </h3>
+            )}
             <button
               type="button"
               onClick={onClose}
-              className="text-xs font-extrabold text-gray-600 px-3 py-2 rounded-2xl hover:bg-black/[0.03]"
+              className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition shrink-0"
+              aria-label="Close"
             >
-              Close
+              <X className="w-4 h-4 text-gray-600" />
             </button>
           </div>
         </div>
 
-        <div className="px-4 py-4 overflow-auto">{children}</div>
+        <div className="px-4 py-4 overflow-auto flex-1">{children}</div>
 
-        {footer ? (
-          <div className="px-4 py-4 border-t border-biz-line bg-white">
+        {footer && (
+          <div className="px-4 py-4 border-t border-gray-100 bg-white safe-pb">
             {footer}
           </div>
-        ) : null}
+        )}
       </div>
     </div>,
     el

@@ -1,4 +1,4 @@
-import React from "react";
+﻿import React from "react";
 
 interface SectionHeaderProps {
   title: string;
@@ -9,12 +9,6 @@ interface SectionHeaderProps {
   className?: string;
 }
 
-/**
- * Section Header
- * Used at the top of each analytics section.
- * Title + optional subtitle + optional action button.
- * Optional meta line (range / last updated).
- */
 export default function SectionHeader({
   title,
   subtitle,
@@ -26,11 +20,11 @@ export default function SectionHeader({
   return (
     <div className={`flex items-start justify-between mb-4 ${className}`}>
       <div className="min-w-0">
-        <h3 className="analytics-section-title">{title}</h3>
-        {subtitle && <p className="analytics-section-subtitle">{subtitle}</p>}
+        <h3 className="text-h3 text-gray-900">{title}</h3>
+        {subtitle && <p className="text-caption text-gray-500 mt-0.5">{subtitle}</p>}
 
         {(metaLeft || metaRight) && (
-          <div className="mt-1 flex items-center justify-between gap-3 text-[11px] text-gray-400">
+          <div className="mt-1 flex items-center justify-between gap-3 text-micro text-gray-400">
             <span className="truncate">{metaLeft || ""}</span>
             <span className="shrink-0">{metaRight || ""}</span>
           </div>

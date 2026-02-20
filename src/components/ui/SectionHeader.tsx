@@ -1,4 +1,5 @@
-import Link from "next/link";
+﻿import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 
 export function SectionHeader({
   title,
@@ -14,15 +15,19 @@ export function SectionHeader({
   return (
     <div className="flex items-end justify-between">
       <div>
-        <p className="text-sm font-extrabold text-biz-ink">{title}</p>
-        {subtitle ? <p className="text-xs text-gray-500 mt-1">{subtitle}</p> : null}
+        <h2 className="text-h3 text-gray-900">{title}</h2>
+        {subtitle && <p className="text-caption text-gray-500 mt-0.5">{subtitle}</p>}
       </div>
 
-      {href ? (
-        <Link href={href} className="text-xs font-semibold text-biz-accent">
+      {href && (
+        <Link
+          href={href}
+          className="text-caption font-semibold text-orange-600 hover:text-orange-700 transition inline-flex items-center gap-0.5"
+        >
           {hrefLabel}
+          <ChevronRight className="w-3.5 h-3.5" />
         </Link>
-      ) : null}
+      )}
     </div>
   );
 }

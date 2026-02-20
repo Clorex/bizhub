@@ -18,6 +18,8 @@ import { QuickStat } from "@/components/vendor/QuickStat";
 import { VendorEmptyState } from "@/components/vendor/EmptyState";
 import { PageSkeleton } from "@/components/vendor/PageSkeleton";
 import DashboardAnalyticsCard from "@/components/vendor/DashboardAnalyticsCard";
+import { RestockDashboardCard } from "@/components/restock/RestockDashboardCard";
+import { IntentRadarDashboardCard } from "@/components/intent-radar/IntentRadarDashboardCard";
 import { auth } from "@/lib/firebase/client";
 import { toast } from "@/lib/ui/toast";
 import { cn } from "@/lib/cn";
@@ -599,11 +601,18 @@ export default function VendorDashboardPage() {
 
             <DashboardAnalyticsCard range={range} />
 
+            {/* Smart Restock & Demand Alerts (Apex only) */}
+            <RestockDashboardCard />
+
+            {/* Buyer Intent Radar (Apex only) */}
+            <IntentRadarDashboardCard />
+
             <SectionCard title="Quick actions" subtitle="Manage your business">
               <div className="grid grid-cols-2 gap-2">
                 <QuickActionCard icon={Plus} label="Add product" href="/vendor/products/new" color="orange" />
                 <QuickActionCard icon={ClipboardList} label="View orders" href="/vendor/orders" color="blue" />
                 <QuickActionCard icon={BarChart3} label="View analytics" href="/vendor/analytics" color="purple" />
+                <QuickActionCard icon={Package} label="Smart restock" href="/vendor/restock" color="green" />
                 <QuickActionCard icon={Settings} label="Store settings" href="/vendor/store" color="gray" />
               </div>
 
@@ -710,3 +719,8 @@ function QuickActionCard({
     </Link>
   );
 }
+
+
+
+
+

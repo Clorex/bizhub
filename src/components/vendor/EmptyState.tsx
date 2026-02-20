@@ -1,5 +1,4 @@
-// FILE: src/components/vendor/EmptyState.tsx
-"use client";
+﻿"use client";
 
 import { memo } from "react";
 import { EmptyState } from "@/components/ui/EmptyState";
@@ -31,15 +30,13 @@ export const VendorEmptyState = memo(function VendorEmptyState({
     <EmptyState
       variant="plain"
       watermark={false}
-      className={cn(compact ? "py-6" : "py-10")}
+      className={cn(compact ? "py-8" : "py-12")}
       icon={
-        <div
-          className={cn(
-            "rounded-full bg-gray-100 flex items-center justify-center mx-auto",
-            compact ? "w-12 h-12" : "w-16 h-16"
-          )}
-        >
-          <Icon className={cn("text-gray-400", compact ? "w-6 h-6" : "w-8 h-8")} />
+        <div className={cn(
+          "rounded-2xl bg-gray-100 flex items-center justify-center mx-auto",
+          compact ? "w-14 h-14" : "w-16 h-16"
+        )}>
+          <Icon className={cn("text-gray-400", compact ? "w-6 h-6" : "w-7 h-7")} />
         </div>
       }
       title={title}

@@ -203,6 +203,10 @@ export const BIZHUB_PLANS: Record<BizhubPlanKey, PlanCatalog> = {
         "Priority dispute review (coming soon)",
       ],
 
+      "Buyer intelligence": [
+        "Buyer Intent Radar — available on Apex plan",
+      ],
+
       "Inventory intelligence": [
         "Best-selling product tracking (coming soon)",
         "Dead stock detection (coming soon)",
@@ -252,6 +256,7 @@ export const BIZHUB_PLANS: Record<BizhubPlanKey, PlanCatalog> = {
       "Best sales visibility",
       "Advanced automation (coming soon)",
       "Unlimited sales products",
+      "Buyer Intent Radar (Hot Deals)",
     ],
 
     benefits: {
@@ -263,6 +268,7 @@ export const BIZHUB_PLANS: Record<BizhubPlanKey, PlanCatalog> = {
 
       "Better sales tools": [
         "Unlimited sales products",
+      "Buyer Intent Radar (Hot Deals)",
         "Best marketplace visibility for sales",
         "More control for high-volume sales (coming soon)",
       ],
@@ -279,8 +285,15 @@ export const BIZHUB_PLANS: Record<BizhubPlanKey, PlanCatalog> = {
         "Faster dispute resolution (coming soon)",
       ],
 
+      "Buyer Intent Radar (Hot Deals)": [
+        "Detect high buyer interest on your products",
+        "Hot Deal signals when buyers are ready to purchase",
+        "Privacy-safe interest tracking (no buyer identity exposed)",
+        "Suggested actions: promo, restock, respond fast",
+      ],
+
       "Advanced inventory & forecasting": [
-        "Smart restock prediction (coming soon)",
+        "Smart restock prediction (active)",
         "Seasonal product performance (coming soon)",
         "Supplier tracking (coming soon)",
       ],
@@ -373,4 +386,5 @@ export function getEntitlement(params: {
 export function productLimitFor(planKey: BizhubPlanKey): number | "unlimited" {
   return BIZHUB_PLANS[planKey]?.limits?.maxProducts ?? 20;
 }
+
 

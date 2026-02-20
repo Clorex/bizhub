@@ -1,7 +1,7 @@
-// FILE: src/components/ui/InfoTooltip.tsx
-"use client";
+﻿"use client";
 
 import React from "react";
+import { HelpCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 export function InfoTooltip({
@@ -18,9 +18,9 @@ export function InfoTooltip({
       <span className="sr-only">{label}</span>
       <span
         tabIndex={0}
-        className="inline-flex items-center justify-center w-4 h-4 rounded-full border border-gray-300 text-[10px] font-bold text-gray-500 bg-white cursor-help"
+        className="inline-flex items-center justify-center w-4 h-4 rounded-full text-gray-400 hover:text-gray-600 cursor-help transition"
       >
-        i
+        <HelpCircle className="w-3.5 h-3.5" />
       </span>
 
       <span
@@ -28,8 +28,8 @@ export function InfoTooltip({
         className={cn(
           "pointer-events-none absolute z-50 hidden group-hover:block group-focus-within:block",
           "top-6 left-1/2 -translate-x-1/2",
-          "w-[240px] rounded-xl border border-gray-200 bg-white px-3 py-2 shadow-lg",
-          "text-[11px] leading-snug text-gray-700"
+          "w-[220px] rounded-xl border border-gray-200 bg-white px-3 py-2.5 shadow-float",
+          "text-micro leading-snug text-gray-600"
         )}
       >
         {text}

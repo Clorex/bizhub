@@ -1,7 +1,8 @@
-"use client";
+﻿"use client";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { ChevronRight } from "lucide-react";
 
 type Banner = {
   title: string;
@@ -16,39 +17,43 @@ export function BannerCarousel({ banners }: { banners: Banner[] }) {
 
   const toneClass = useMemo(() => {
     const t = banners[i]?.tone ?? "orange";
-    if (t === "dark") return "bg-gradient-to-br from-[#111827] to-[#1f2937] text-white";
-    if (t === "cream") return "bg-gradient-to-br from-biz-cream to-biz-sand text-biz-ink";
-    return "bg-gradient-to-br from-biz-accent2 to-biz-accent text-white";
+    if (t === "dark") return "bg-gradient-to-br from-gray-900 to-gray-800 text-white";
+    if (t === "cream") return "bg-gradient-to-br from-biz-cream to-biz-sand text-gray-900";
+    return "bg-gradient-to-br from-[#FF4D00] to-[#FF6A00] text-white";
   }, [banners, i]);
 
   return (
-    <div className="space-y-2">
-      <div className={`rounded-2xl p-4 shadow-soft ${toneClass}`}>
-        <p className="text-sm font-extrabold">{banners[i].title}</p>
-        <p className="text-xs opacity-90 mt-1">{banners[i].subtitle}</p>
+    <div className="space-y-2.5">
+      <div className={`rounded-2xl p-5 shadow-card ${toneClass} transition-all duration-200`}>
+        <p className="text-h3">{banners[i].title}</p>
+        <p className="text-caption opacity-80 mt-1">{banners[i].subtitle}</p>
 
-        <div className="mt-3 flex items-center justify-between">
+        <div className="mt-4">
           <Link
             href={banners[i].href}
-            className="rounded-xl bg-white/15 px-4 py-2 text-xs font-semibold"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-white/20 hover:bg-white/30 px-4 py-2.5 text-[13px] font-semibold transition"
           >
             {banners[i].cta}
+            <ChevronRight className="w-3.5 h-3.5" />
           </Link>
-
-          <div className="h-12 w-12 rounded-2xl bg-white/15" />
         </div>
       </div>
 
-      <div className="flex justify-center gap-2">
-        {banners.map((_, idx) => (
-          <button
-            key={idx}
-            onClick={() => setI(idx)}
-            className={idx === i ? "h-2.5 w-5 rounded-full bg-biz-accent" : "h-2.5 w-2.5 rounded-full bg-gray-300"}
-            aria-label={`banner-${idx}`}
-          />
-        ))}
-      </div>
+      {banners.length > 1 && (
+        <div className="flex justify-center gap-1.5">
+          {banners.map((_, idx) => (
+            <button
+              key={idx}
+              onClick={() => setI(idx)}
+              className={idx === i
+                ? "h-2 w-5 rounded-full bg-[#FF4D00] transition-all"
+                : "h-2 w-2 rounded-full bg-gray-300 hover:bg-gray-400 transition-all"
+              }
+              aria-label={`Banner ${idx + 1}`}
+            />
+          ))}
+        </div>
+      )}
     </div>
   );
 }

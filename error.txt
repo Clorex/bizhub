@@ -1,0 +1,282 @@
+﻿
+> bizhub@0.1.0 prebuild
+> npm run check:naira
+
+
+> bizhub@0.1.0 check:naira
+> node scripts/check-no-bad-naira.js
+
+OK: no broken Naira symbol found.
+
+> bizhub@0.1.0 build
+> next build
+
+  Γû▓ Next.js 14.2.35
+  - Environments: .env.local
+
+   Creating an optimized production build ...
+> [PWA] Compile server
+> [PWA] Compile server
+> [PWA] Compile client (static)
+> [PWA] Auto register service worker with: C:\Users\USER\Desktop\bizhub\node_modules\next-pwa\register.js
+> [PWA] Service worker: C:\Users\USER\Desktop\bizhub\public\sw.js
+> [PWA]   url: /sw.js
+> [PWA]   scope: /
+ Γ£ô Compiled successfully
+   Skipping linting
+   Checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/80) ...
+   Generating static pages (20/80) 
+   Generating static pages (40/80) 
+   Generating static pages (60/80) 
+ Γ£ô Generating static pages (80/80)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                                    Size     First Load JS
+Γöî Γùï /                                                          158 B          87.7 kB
+Γö£ Γùï /_not-found                                                158 B          87.7 kB
+Γö£ Γùï /account                                                   5.75 kB         232 kB
+Γö£ Γùï /account/forgot                                            3.63 kB         222 kB
+Γö£ ╞Æ /account/invite                                            3.48 kB         221 kB
+Γö£ ╞Æ /account/login                                             3.72 kB         222 kB
+Γö£ Γùï /account/notifications                                     4.19 kB         222 kB
+Γö£ ╞Æ /account/register                                          4.18 kB         222 kB
+Γö£ Γùï /account/security                                          3.31 kB         221 kB
+Γö£ ╞Æ /account/verify                                            2.4 kB          220 kB
+Γö£ Γùï /admin                                                     2.65 kB         221 kB
+Γö£ Γùï /admin/analytics                                           4.29 kB         222 kB
+Γö£ Γùï /admin/customers                                           3.88 kB         222 kB
+Γö£ Γùï /admin/disputes                                            3.48 kB         221 kB
+Γö£ Γùï /admin/finance                                             6.16 kB         224 kB
+Γö£ Γùï /admin/packages                                            4.86 kB         223 kB
+Γö£ Γùï /admin/reports                                             2.75 kB         221 kB
+Γö£ Γùï /admin/reviews                                             5.27 kB         223 kB
+Γö£ ╞Æ /admin/smartmatch                                          5.03 kB         223 kB
+Γö£ Γùï /admin/subscription                                        3.6 kB          222 kB
+Γö£ Γùï /admin/vendors                                             4.24 kB         222 kB
+Γö£ ╞Æ /admin/vendors/[businessId]                                5.49 kB         224 kB
+Γö£ Γùï /admin/verification                                        3.98 kB         222 kB
+Γö£ Γùï /admin/withdrawals                                         3.85 kB         222 kB
+Γö£ ╞Æ /api/achievements                                          0 B                0 B
+Γö£ ╞Æ /api/admin/analytics/platform                              0 B                0 B
+Γö£ ╞Æ /api/admin/apex/trust/recompute                            0 B                0 B
+Γö£ ╞Æ /api/admin/bootstrap                                       0 B                0 B
+Γö£ ╞Æ /api/admin/buyers/freeze                                   0 B                0 B
+Γö£ ╞Æ /api/admin/customers                                       0 B                0 B
+Γö£ ╞Æ /api/admin/disputes                                        0 B                0 B
+Γö£ ╞Æ /api/admin/finance                                         0 B                0 B
+Γö£ ╞Æ /api/admin/notifications                                   0 B                0 B
+Γö£ ╞Æ /api/admin/plan-config                                     0 B                0 B
+Γö£ ╞Æ /api/admin/platform/pin                                    0 B                0 B
+Γö£ ╞Æ /api/admin/platform/withdraw                               0 B                0 B
+Γö£ ╞Æ /api/admin/platform/withdraw/payout-details                0 B                0 B
+Γö£ ╞Æ /api/admin/platform/withdraw/send-code                     0 B                0 B
+Γö£ ╞Æ /api/admin/reports/daily                                   0 B                0 B
+Γö£ ╞Æ /api/admin/reviews                                         0 B                0 B
+Γö£ ╞Æ /api/admin/reviews/[reviewId]/resolve                      0 B                0 B
+Γö£ ╞Æ /api/admin/security/send-code                              0 B                0 B
+Γö£ ╞Æ /api/admin/security/session                                0 B                0 B
+Γö£ ╞Æ /api/admin/security/verify-code                            0 B                0 B
+Γö£ ╞Æ /api/admin/smartmatch/compute                              0 B                0 B
+Γö£ ╞Æ /api/admin/smartmatch/compute/config                       0 B                0 B
+Γö£ ╞Æ /api/admin/smartmatch/config                               0 B                0 B
+Γö£ ╞Æ /api/admin/smartmatch/flag                                 0 B                0 B
+Γö£ ╞Æ /api/admin/vendors                                         0 B                0 B
+Γö£ ╞Æ /api/admin/vendors/[businessId]/analytics                  0 B                0 B
+Γö£ ╞Æ /api/admin/vendors/[businessId]/subscription               0 B                0 B
+Γö£ ╞Æ /api/admin/verification                                    0 B                0 B
+Γö£ ╞Æ /api/admin/withdrawals                                     0 B                0 B
+Γö£ ╞Æ /api/auth/send-email-code                                  0 B                0 B
+Γö£ ╞Æ /api/auth/verify-email-code                                0 B                0 B
+Γö£ ╞Æ /api/checkout/quote                                        0 B                0 B
+Γö£ ╞Æ /api/cron/aggregate-daily-stats                            0 B                0 B
+Γö£ ╞Æ /api/cron/daily-checkin                                    0 B                0 B
+Γö£ ╞Æ /api/cron/intent-radar                                     0 B                0 B
+Γö£ ╞Æ /api/cron/restock-alerts                                   0 B                0 B
+Γö£ ╞Æ /api/customer/onboard                                      0 B                0 B
+Γö£ ╞Æ /api/customer/orders                                       0 B                0 B
+Γö£ ╞Æ /api/customer/orders/[orderId]                             0 B                0 B
+Γö£ ╞Æ /api/disputes/create                                       0 B                0 B
+Γö£ ╞Æ /api/escrow/confirm                                        0 B                0 B
+Γö£ ╞Æ /api/escrow/release                                        0 B                0 B
+Γö£ ╞Æ /api/escrow/sweep                                          0 B                0 B
+Γö£ ╞Æ /api/help/page                                             0 B                0 B
+Γö£ ╞Æ /api/marketing/optout                                      0 B                0 B
+Γö£ ╞Æ /api/me                                                    0 B                0 B
+Γö£ ╞Æ /api/orders/[orderId]                                      0 B                0 B
+Γö£ ╞Æ /api/orders/[orderId]/installments/[idx]/paystack/init     0 B                0 B
+Γö£ ╞Æ /api/orders/[orderId]/installments/[idx]/paystack/verify   0 B                0 B
+Γö£ ╞Æ /api/orders/[orderId]/installments/[idx]/proof             0 B                0 B
+Γö£ ╞Æ /api/orders/[orderId]/installments/[idx]/review            0 B                0 B
+Γö£ ╞Æ /api/orders/[orderId]/installments/[idx]/transfer-proof    0 B                0 B
+Γö£ ╞Æ /api/orders/[orderId]/payment-plan                         0 B                0 B
+Γö£ ╞Æ /api/orders/[orderId]/review                               0 B                0 B
+Γö£ ╞Æ /api/orders/chat/create                                    0 B                0 B
+Γö£ ╞Æ /api/orders/direct/create                                  0 B                0 B
+Γö£ ╞Æ /api/orders/recent                                         0 B                0 B
+Γö£ ╞Æ /api/paystack/initialize                                   0 B                0 B
+Γö£ ╞Æ /api/paystack/verify                                       0 B                0 B
+Γö£ ╞Æ /api/promotions/confirm                                    0 B                0 B
+Γö£ ╞Æ /api/promotions/initialize                                 0 B                0 B
+Γö£ ╞Æ /api/promotions/my                                         0 B                0 B
+Γö£ ╞Æ /api/public/orders/[orderId]/transfer-proof                0 B                0 B
+Γö£ ╞Æ /api/public/store/[slug]                                   0 B                0 B
+Γö£ ╞Æ /api/public/store/[slug]/categories                        0 B                0 B
+Γö£ ╞Æ /api/public/store/[slug]/payment-options                   0 B                0 B
+Γö£ ╞Æ /api/public/store/[slug]/reviews                           0 B                0 B
+Γö£ ╞Æ /api/public/store/[slug]/trust                             0 B                0 B
+Γö£ ╞Æ /api/smartmatch/rank                                       0 B                0 B
+Γö£ ╞Æ /api/staff/accept                                          0 B                0 B
+Γö£ ╞Æ /api/staff/invite                                          0 B                0 B
+Γö£ ╞Æ /api/subscriptions/confirm                                 0 B                0 B
+Γö£ ╞Æ /api/subscriptions/initialize                              0 B                0 B
+Γö£ ╞Æ /api/subscriptions/my                                      0 B                0 B
+Γö£ ╞Æ /api/track                                                 0 B                0 B
+Γö£ ╞Æ /api/uploads/cloudinary/sign                               0 B                0 B
+Γö£ ╞Æ /api/vendor/access                                         0 B                0 B
+Γö£ ╞Æ /api/vendor/analytics                                      0 B                0 B
+Γö£ ╞Æ /api/vendor/analytics/conversion                           0 B                0 B
+Γö£ ╞Æ /api/vendor/analytics/customer-engagement                  0 B                0 B
+Γö£ ╞Æ /api/vendor/analytics/revenue-breakdown                    0 B                0 B
+Γö£ ╞Æ /api/vendor/analytics/sales-growth                         0 B                0 B
+Γö£ ╞Æ /api/vendor/analytics/summary                              0 B                0 B
+Γö£ ╞Æ /api/vendor/analytics/top-products                         0 B                0 B
+Γö£ ╞Æ /api/vendor/assistant/summary                              0 B                0 B
+Γö£ ╞Æ /api/vendor/best-sellers                                   0 B                0 B
+Γö£ ╞Æ /api/vendor/categories                                     0 B                0 B
+Γö£ ╞Æ /api/vendor/categories/[id]                                0 B                0 B
+Γö£ ╞Æ /api/vendor/chat/availability                              0 B                0 B
+Γö£ ╞Æ /api/vendor/coupons                                        0 B                0 B
+Γö£ ╞Æ /api/vendor/coupons/validate                               0 B                0 B
+Γö£ ╞Æ /api/vendor/customers                                      0 B                0 B
+Γö£ ╞Æ /api/vendor/customers/export                               0 B                0 B
+Γö£ ╞Æ /api/vendor/customers/notes                                0 B                0 B
+Γö£ ╞Æ /api/vendor/dead-stock                                     0 B                0 B
+Γö£ ╞Æ /api/vendor/discounts                                      0 B                0 B
+Γö£ ╞Æ /api/vendor/insights                                       0 B                0 B
+Γö£ ╞Æ /api/vendor/intent-radar/dashboard                         0 B                0 B
+Γö£ ╞Æ /api/vendor/intent-radar/product                           0 B                0 B
+Γö£ ╞Æ /api/vendor/mood/tip                                       0 B                0 B
+Γö£ ╞Æ /api/vendor/onboard                                        0 B                0 B
+Γö£ ╞Æ /api/vendor/orders                                         0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/[orderId]                               0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/[orderId]/disputes                      0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/[orderId]/disputes/[disputeId]/comment  0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/[orderId]/followups                     0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/[orderId]/installments/[idx]/review     0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/[orderId]/notes                         0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/[orderId]/ops-status                    0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/[orderId]/payment-plan                  0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/[orderId]/status                        0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/[orderId]/transfer-proof/review         0 B                0 B
+Γö£ ╞Æ /api/vendor/orders/export                                  0 B                0 B
+Γö£ ╞Æ /api/vendor/payout-details                                 0 B                0 B
+Γö£ ╞Æ /api/vendor/plans                                          0 B                0 B
+Γö£ ╞Æ /api/vendor/products                                       0 B                0 B
+Γö£ ╞Æ /api/vendor/products/[productId]                           0 B                0 B
+Γö£ ╞Æ /api/vendor/purchases                                      0 B                0 B
+Γö£ ╞Æ /api/vendor/purchases/catalog                              0 B                0 B
+Γö£ ╞Æ /api/vendor/purchases/confirm                              0 B                0 B
+Γö£ ╞Æ /api/vendor/purchases/initialize                           0 B                0 B
+Γö£ ╞Æ /api/vendor/push/register                                  0 B                0 B
+Γö£ ╞Æ /api/vendor/push/unregister                                0 B                0 B
+Γö£ ╞Æ /api/vendor/reengagement/audience                          0 B                0 B
+Γö£ ╞Æ /api/vendor/reengagement/remix                             0 B                0 B
+Γö£ ╞Æ /api/vendor/reengagement/rewrite                           0 B                0 B
+Γö£ ╞Æ /api/vendor/reengagement/send                              0 B                0 B
+Γö£ ╞Æ /api/vendor/restock/config                                 0 B                0 B
+Γö£ ╞Æ /api/vendor/restock/dashboard                              0 B                0 B
+Γö£ ╞Æ /api/vendor/restock/dismiss                                0 B                0 B
+Γö£ ╞Æ /api/vendor/restock/product                                0 B                0 B
+Γö£ ╞Æ /api/vendor/reviews                                        0 B                0 B
+Γö£ ╞Æ /api/vendor/reviews/[reviewId]/appeal                      0 B                0 B
+Γö£ ╞Æ /api/vendor/settings/notifications                         0 B                0 B
+Γö£ ╞Æ /api/vendor/shipping                                       0 B                0 B
+Γö£ ╞Æ /api/vendor/shipping/options                               0 B                0 B
+Γö£ ╞Æ /api/vendor/smartmatch/insights                            0 B                0 B
+Γö£ ╞Æ /api/vendor/staff                                          0 B                0 B
+Γö£ ╞Æ /api/vendor/store                                          0 B                0 B
+Γö£ ╞Æ /api/vendor/subscription/status                            0 B                0 B
+Γö£ ╞Æ /api/vendor/subscription/upgrade                           0 B                0 B
+Γö£ ╞Æ /api/vendor/support/chat                                   0 B                0 B
+Γö£ ╞Æ /api/vendor/verification                                   0 B                0 B
+Γö£ ╞Æ /api/vendor/wallet                                         0 B                0 B
+Γö£ ╞Æ /api/vendor/withdrawals                                    0 B                0 B
+Γö£ ╞Æ /api/webhooks/flutterwave                                  0 B                0 B
+Γö£ ╞Æ /b/[slug]                                                  9.52 kB         232 kB
+Γö£ ╞Æ /b/[slug]/checkout                                         10.5 kB         229 kB
+Γö£ ╞Æ /b/[slug]/p/[productId]                                    11.6 kB         230 kB
+Γö£ ╞Æ /b/[slug]/pay/direct                                       8.37 kB         110 kB
+Γö£ Γùï /cart                                                      7.21 kB         118 kB
+Γö£ Γùï /favorites                                                 3.21 kB         230 kB
+Γö£ ╞Æ /fcm-sw                                                    0 B                0 B
+Γö£ ╞Æ /firebase-messaging-sw.js                                  0 B                0 B
+Γö£ Γùï /help                                                      5.11 kB         107 kB
+Γö£ Γùï /market                                                    20 kB           251 kB
+Γö£ Γùï /marketplace                                               158 B          87.7 kB
+Γö£ Γùï /orders                                                    5.61 kB         232 kB
+Γö£ ╞Æ /orders/[orderId]                                          4.52 kB         223 kB
+Γö£ ╞Æ /orders/[orderId]/dispute                                  2.12 kB         226 kB
+Γö£ Γùï /orders/success                                            3.07 kB         107 kB
+Γö£ ╞Æ /payment/callback                                          3.63 kB         114 kB
+Γö£ Γùï /payment/promotion/callback                                2.8 kB          113 kB
+Γö£ Γùï /payment/subscription/callback                             2.79 kB         113 kB
+Γö£ ╞Æ /staff/login                                               2.66 kB         221 kB
+Γö£ ╞Æ /staff/register                                            3.16 kB         221 kB
+Γö£ ╞Æ /store/[slug]                                              158 B          87.7 kB
+Γö£ Γùï /vendor                                                    211 B           343 kB
+Γö£ Γùï /vendor/add-picture                                        1.42 kB         225 kB
+Γö£ Γùï /vendor/analytics                                          29.5 kB         346 kB
+Γö£ Γùï /vendor/best-sellers                                       6.09 kB         224 kB
+Γö£ Γùï /vendor/coupon                                             7.07 kB         225 kB
+Γö£ Γùï /vendor/customers                                          6.17 kB         227 kB
+Γö£ Γùï /vendor/dashboard                                          210 B           343 kB
+Γö£ Γùï /vendor/dead-stock                                         3.98 kB         222 kB
+Γö£ Γùï /vendor/discounts                                          2.92 kB         221 kB
+Γö£ Γùï /vendor/insights                                           3.29 kB         221 kB
+Γö£ Γùï /vendor/intent-radar                                       7.94 kB         226 kB
+Γö£ Γùï /vendor/more                                               5.75 kB         224 kB
+Γö£ Γùï /vendor/orders                                             7.98 kB         229 kB
+Γö£ ╞Æ /vendor/orders/[orderId]                                   7.46 kB         232 kB
+Γö£ ╞Æ /vendor/orders/[orderId]/dispute                           6.34 kB         231 kB
+Γö£ Γùï /vendor/orders/success                                     3.44 kB        99.7 kB
+Γö£ Γùï /vendor/preferences                                        3.4 kB          105 kB
+Γö£ Γùï /vendor/products                                           9.81 kB         231 kB
+Γö£ ╞Æ /vendor/products/[productId]/edit                          5.96 kB         235 kB
+Γö£ Γùï /vendor/products/new                                       4.44 kB         233 kB
+Γö£ ╞Æ /vendor/promote                                            5.88 kB         224 kB
+Γö£ Γùï /vendor/promote/faq                                        8.04 kB         110 kB
+Γö£ Γùï /vendor/promote/faq/chat                                   3.17 kB         221 kB
+Γö£ Γùï /vendor/promotions                                         6.15 kB         224 kB
+Γö£ Γùï /vendor/purchases                                          3.64 kB         222 kB
+Γö£ ╞Æ /vendor/purchases/callback                                 2.68 kB         221 kB
+Γö£ Γùï /vendor/reengagement                                       10.8 kB         229 kB
+Γö£ Γùï /vendor/restock                                            8.31 kB         226 kB
+Γö£ Γùï /vendor/restock/settings                                   3.95 kB         222 kB
+Γö£ Γùï /vendor/reviews                                            5.22 kB         223 kB
+Γö£ Γùï /vendor/security                                           3.58 kB         222 kB
+Γö£ Γùï /vendor/settings/payouts                                   5.29 kB         223 kB
+Γö£ Γùï /vendor/shipping                                           6.58 kB         225 kB
+Γö£ ╞Æ /vendor/smartmatch                                         6.55 kB         225 kB
+Γö£ Γùï /vendor/staff                                              6.18 kB         224 kB
+Γö£ Γùï /vendor/store                                              9.99 kB         242 kB
+Γö£ ╞Æ /vendor/subscription                                       5.21 kB         223 kB
+Γö£ ╞Æ /vendor/subscription/summary                               6.23 kB         224 kB
+Γö£ Γùï /vendor/upgrade                                            3.32 kB         108 kB
+Γö£ Γùï /vendor/verification                                       6.85 kB         225 kB
+Γö£ Γùï /vendor/wallet                                             3.26 kB         221 kB
+Γöö Γùï /vendor/withdrawals                                        4.3 kB          222 kB
++ First Load JS shared by all                                  87.6 kB
+  Γö£ chunks/2117-77d61e2bc1e0a635.js                            31.9 kB
+  Γö£ chunks/fd9d1056-7376e75e0b89b29b.js                        53.6 kB
+  Γöö other shared chunks (total)                                2.02 kB
+
+
+╞Æ Middleware                                                   25.6 kB
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+
+

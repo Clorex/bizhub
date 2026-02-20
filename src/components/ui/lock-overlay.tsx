@@ -1,8 +1,8 @@
-// FILE: src/components/ui/lock-overlay.tsx
-"use client";
+﻿"use client";
 
 import React from "react";
 import { useRouter } from "next/navigation";
+import { Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 
 interface LockOverlayProps {
@@ -26,35 +26,19 @@ export default function LockOverlay({
 
   return (
     <div className={`relative overflow-hidden rounded-2xl ${className}`}>
-      {/* Blurred content behind overlay */}
       <div className="filter blur-[8px] pointer-events-none select-none" aria-hidden="true">
         {children}
       </div>
 
-      {/* Overlay */}
-      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/85 backdrop-blur-sm p-6 text-center">
-        <svg
-          className="w-12 h-12 text-orange-500 mb-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-          strokeWidth={1.5}
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"
-          />
-        </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/90 backdrop-blur-sm p-6 text-center">
+        <div className="w-14 h-14 rounded-2xl bg-orange-50 flex items-center justify-center mb-4">
+          <Lock className="w-6 h-6 text-orange-500" />
+        </div>
 
-        <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
-        <p className="text-sm text-gray-600 mb-5 max-w-[280px]">{description}</p>
+        <h3 className="text-h3 text-gray-900 mb-2">{title}</h3>
+        <p className="text-body text-gray-500 mb-5 max-w-[280px]">{description}</p>
 
-        <Button
-          variant="primary"
-          size="md"
-          onClick={() => router.push(buttonHref)}
-        >
+        <Button variant="primary" size="md" onClick={() => router.push(buttonHref)}>
           {buttonText}
         </Button>
       </div>

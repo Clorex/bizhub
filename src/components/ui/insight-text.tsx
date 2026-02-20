@@ -1,4 +1,5 @@
-import React from 'react';
+﻿import React from "react";
+import { Lightbulb } from "lucide-react";
 
 interface InsightTextProps {
   text: string;
@@ -6,30 +7,17 @@ interface InsightTextProps {
   showIcon?: boolean;
 }
 
-/**
- * Insight Text Component
- * Displays actionable insight with lightbulb icon.
- * Light grey background, rounded corners.
- */
 export default function InsightText({
   text,
-  className = '',
+  className = "",
   showIcon = true,
 }: InsightTextProps) {
   if (!text) return null;
 
   return (
-    <div
-      className={`
-        flex items-start gap-2
-        text-sm text-gray-500 leading-relaxed
-        bg-gray-50 rounded-xl
-        px-4 py-3 mt-4
-        ${className}
-      `}
-    >
+    <div className={`flex items-start gap-2.5 text-body text-gray-600 leading-relaxed bg-orange-50/50 border border-orange-100 rounded-xl px-4 py-3 mt-4 ${className}`}>
       {showIcon && (
-        <span className="flex-shrink-0 text-base leading-none mt-0.5">💡</span>
+        <Lightbulb className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
       )}
       <span>{text}</span>
     </div>

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useRouter } from "next/navigation";
+import { ArrowLeft } from "lucide-react";
 import { cn } from "@/lib/cn";
 import { BrandLogo } from "@/components/brand/BrandLogo";
 
@@ -21,39 +22,34 @@ export function GradientHeader({
 
   return (
     <div className={cn("relative", className)}>
-      {/* Brand strip */}
-      <div className="h-2 w-full bg-gradient-to-r from-biz-accent2 to-biz-accent" />
+      <div className="h-1.5 w-full bg-gradient-to-r from-[#FF4D00] to-[#FF6A00]" />
 
-      {/* Header body */}
-      <div className="px-4 pt-5 pb-5 bg-gradient-to-b from-biz-sand to-biz-bg">
-        <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3">
-            {showBack ? (
+      <div className="px-4 pt-4 pb-4 bg-gradient-to-b from-biz-sand/60 to-biz-bg">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            {showBack && (
               <button
                 onClick={() => router.back()}
-                className={cn(
-                  "h-10 w-10 rounded-2xl bg-white border border-biz-line shadow-soft",
-                  "flex items-center justify-center text-biz-ink"
-                )}
+                className="h-10 w-10 rounded-xl bg-white border border-gray-200 shadow-soft flex items-center justify-center text-gray-700 hover:bg-gray-50 transition active:scale-95 shrink-0"
                 aria-label="Back"
               >
-                <span className="text-lg leading-none">←</span>
+                <ArrowLeft className="w-4 h-4" />
               </button>
-            ) : null}
+            )}
 
-            {/* Brand logo */}
-            <div className="mt-0.5">
-              <BrandLogo size={34} priority />
-            </div>
+            {!showBack && (
+              <div className="shrink-0">
+                <BrandLogo size={32} priority />
+              </div>
+            )}
 
             <div className="min-w-0">
-              <h1 className="text-lg font-bold tracking-tight text-biz-ink">{title}</h1>
-
-              {subtitle ? <p className="text-xs text-biz-muted mt-1">{subtitle}</p> : null}
+              <h1 className="text-lg font-bold tracking-tight text-gray-900 truncate">{title}</h1>
+              {subtitle && <p className="text-caption text-gray-500 mt-0.5 truncate">{subtitle}</p>}
             </div>
           </div>
 
-          {right ? <div className="shrink-0">{right}</div> : null}
+          {right && <div className="shrink-0 flex items-center gap-2">{right}</div>}
         </div>
       </div>
     </div>

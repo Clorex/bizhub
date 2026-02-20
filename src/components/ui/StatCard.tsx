@@ -1,4 +1,4 @@
-import { Card } from "@/components/Card";
+﻿import { Card } from "@/components/Card";
 import { cn } from "@/lib/cn";
 
 export function StatCard({
@@ -15,10 +15,10 @@ export function StatCard({
   className?: string;
 }) {
   const inner = (
-    <Card className={cn("p-4", onClick ? "cursor-pointer" : "", className)}>
-      <p className="text-xs text-biz-muted">{label}</p>
-      <p className="text-lg font-bold text-biz-ink mt-1">{value}</p>
-      {hint ? <p className="text-[11px] text-gray-500 mt-1">{hint}</p> : null}
+    <Card className={cn("p-4", onClick && "cursor-pointer hover:shadow-float hover:border-orange-200 transition-all", className)}>
+      <p className="text-micro text-gray-500 uppercase tracking-wide">{label}</p>
+      <p className="text-xl font-bold text-gray-900 mt-1.5 tracking-tight">{value}</p>
+      {hint && <p className="text-micro text-gray-400 mt-1">{hint}</p>}
     </Card>
   );
 

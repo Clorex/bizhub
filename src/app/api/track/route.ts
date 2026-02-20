@@ -1,4 +1,5 @@
-﻿
+﻿// FILE: src/app/api/track/route.ts
+
 import { unlockAchievement } from "@/lib/achievements/server";
 import { adminDb } from "@/lib/firebase/admin";
 import { FieldValue } from "firebase-admin/firestore";
@@ -19,6 +20,30 @@ function clampCount(n: any) {
   return Math.min(500, Math.floor(c));
 }
 
+// Hash a user identifier for privacy-safe intent tracking
+function anonymize(input: string): string {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    const char = input.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return `anon_${Math.abs(hash).toString(36)}`;
+}
+
+// Intent event types that we track for Buyer Intent Radar
+const INTENT_EVENT_TYPES = new Set([
+  "intent_product_view",
+  "intent_repeat_view",
+  "intent_time_spent",
+  "intent_add_to_cart",
+  "intent_save",
+  "intent_contact_click",
+  "intent_checkout_start",
+  "intent_compare",
+  "intent_store_revisit",
+]);
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -33,9 +58,34 @@ export async function POST(req: Request) {
       return Response.json({ ok: false, error: "businessId and type required" }, { status: 400 });
     }
 
+    // ===== BUYER INTENT EVENTS =====
+    if (INTENT_EVENT_TYPES.has(type)) {
+      if (!productId) {
+        return Response.json({ ok: false, error: "productId required for intent events" }, { status: 400 });
+      }
+
+      const userId = String(body.userId || body.sessionId || "unknown");
+      const anonId = anonymize(userId + businessId);
+      const durationSeconds = Math.max(0, Math.min(3600, Number(body.durationSeconds || 0)));
+      const eventType = type.replace("intent_", "");
+
+      await adminDb.collection("buyerIntentEvents").add({
+        product_id: productId,
+        business_id: businessId,
+        anonymous_id: anonId,
+        event_type: eventType,
+        duration_seconds: durationSeconds || null,
+        created_at: Date.now(),
+        createdAt: FieldValue.serverTimestamp(),
+      });
+
+      return Response.json({ ok: true });
+    }
+
+    // ===== EXISTING TRACKING LOGIC =====
     const dk = dayKey();
 
-    // ===== Business daily metrics =====
+    // Business daily metrics
     const bizDocId = `${businessId}_${dk}`;
     const bizRef = adminDb.collection("businessMetricsDaily").doc(bizDocId);
 
@@ -46,10 +96,6 @@ export async function POST(req: Request) {
       dayKey: dk,
     };
 
-    // Definitions:
-    // visits = store_visit + product_view
-    // leads = market_click + store_product_click
-    // views = market_impression
     if (type === "store_visit") {
       inc.visits = FieldValue.increment(count);
       inc.storeVisits = FieldValue.increment(count);
@@ -80,7 +126,7 @@ export async function POST(req: Request) {
       }).catch(() => {});
     }
 
-    // ===== Product daily metrics (optional) =====
+    // Product daily metrics (optional)
     if (productId) {
       const prodDocId = `${productId}_${dk}`;
       const prodRef = adminDb.collection("productMetricsDaily").doc(prodDocId);
@@ -100,8 +146,7 @@ export async function POST(req: Request) {
       await prodRef.set(pinc, { merge: true });
     }
 
-    // ===== Platform daily metrics (NEW) =====
-    // Doc ID = dayKey (easy month history lookup without indexes)
+    // Platform daily metrics
     const platRef = adminDb.collection("platformMetricsDaily").doc(dk);
 
     const plinc: any = {

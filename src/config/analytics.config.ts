@@ -51,3 +51,65 @@ export const ANALYTICS_CONFIG = {
     SUBSCRIPTION_STATUS: '/api/vendor/subscription/status',
   },
 } as const;
+// ===========================
+// SMART RESTOCK & DEMAND ALERTS CONFIG
+// ===========================
+export const RESTOCK_CONFIG = {
+  // Growth thresholds for demand detection
+  DEMAND_RISING_THRESHOLD_PCT: 60,
+  DEMAND_SPIKE_THRESHOLD_PCT: 120,
+
+  // Stockout prediction
+  STOCKOUT_WARN_DAYS: 7,
+  STOCKOUT_URGENT_DAYS: 3,
+
+  // Alert cooldown (hours) to prevent spam
+  ALERT_COOLDOWN_HOURS: 48,
+
+  // Conversion warning threshold
+  LOW_CONVERSION_VIEWS_MIN: 20,
+  LOW_CONVERSION_RATE_THRESHOLD: 0.02,
+
+  // Trending threshold (product velocity vs store average)
+  TRENDING_VELOCITY_MULTIPLIER: 1.5,
+
+  // Cache TTL
+  CACHE_TTL_RESTOCK_DASHBOARD: 300, // 5 minutes
+
+  // API endpoints
+  ENDPOINTS: {
+    RESTOCK_DASHBOARD: '/api/vendor/restock/dashboard',
+    RESTOCK_PRODUCT: '/api/vendor/restock/product',
+    RESTOCK_CONFIG: '/api/vendor/restock/config',
+    RESTOCK_DISMISS: '/api/vendor/restock/dismiss',
+  },
+} as const;
+
+// ===========================
+// BUYER INTENT RADAR CONFIG
+// ===========================
+export const INTENT_RADAR_CONFIG = {
+  // Score thresholds
+  WARM_THRESHOLD: 40,
+  STRONG_THRESHOLD: 70,
+  HOT_THRESHOLD: 100,
+
+  // Hot deal trigger rules
+  STRONG_USERS_48H: 2,
+  HOT_USERS_FOR_FLAG: 1,
+
+  // Flag expiry
+  FLAG_EXPIRY_HOURS: 48,
+
+  // Alert cooldown
+  ALERT_COOLDOWN_HOURS: 24,
+
+  // Cache TTL
+  CACHE_TTL_INTENT_DASHBOARD: 300,
+
+  // API endpoints
+  ENDPOINTS: {
+    INTENT_DASHBOARD: '/api/vendor/intent-radar/dashboard',
+    INTENT_PRODUCT: '/api/vendor/intent-radar/product',
+  },
+} as const;

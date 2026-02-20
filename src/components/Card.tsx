@@ -8,14 +8,13 @@ export function Card(
 ) {
   const { className = "", variant = "default", ...rest } = props;
 
-  const base =
-    "rounded-[22px] border shadow-soft overflow-hidden";
+  const base = "rounded-2xl overflow-hidden transition-shadow duration-150";
   const styles =
     variant === "soft"
-      ? "bg-biz-cream border-transparent"
+      ? "bg-biz-cream border border-transparent shadow-soft"
       : variant === "ghost"
-        ? "bg-transparent border-transparent shadow-none"
-        : "bg-white border-biz-line";
+        ? "bg-transparent border-transparent"
+        : "bg-white border border-gray-100 shadow-card";
 
   return <div className={cn(base, styles, className)} {...rest} />;
 }

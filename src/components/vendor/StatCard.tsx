@@ -1,5 +1,4 @@
-// FILE: src/components/vendor/StatCard.tsx
-"use client";
+﻿"use client";
 
 import { memo } from "react";
 import { ChevronRight } from "lucide-react";
@@ -14,43 +13,16 @@ interface StatCardProps {
   color?: StatColor;
   subtitle?: string;
   onClick?: () => void;
-  trend?: {
-    value: string;
-    direction: "up" | "down" | "neutral";
-  };
+  trend?: { value: string; direction: "up" | "down" | "neutral" };
 }
 
-const COLOR_MAP: Record<StatColor, { bg: string; icon: string; trend: string }> = {
-  orange: {
-    bg: "bg-orange-50",
-    icon: "text-orange-600",
-    trend: "text-orange-600",
-  },
-  green: {
-    bg: "bg-green-50",
-    icon: "text-green-600",
-    trend: "text-green-600",
-  },
-  blue: {
-    bg: "bg-blue-50",
-    icon: "text-blue-600",
-    trend: "text-blue-600",
-  },
-  purple: {
-    bg: "bg-purple-50",
-    icon: "text-purple-600",
-    trend: "text-purple-600",
-  },
-  red: {
-    bg: "bg-red-50",
-    icon: "text-red-600",
-    trend: "text-red-600",
-  },
-  gray: {
-    bg: "bg-gray-100",
-    icon: "text-gray-600",
-    trend: "text-gray-600",
-  },
+const COLOR_MAP: Record<StatColor, { bg: string; icon: string }> = {
+  orange: { bg: "bg-orange-50", icon: "text-orange-600" },
+  green: { bg: "bg-emerald-50", icon: "text-emerald-600" },
+  blue: { bg: "bg-blue-50", icon: "text-blue-600" },
+  purple: { bg: "bg-purple-50", icon: "text-purple-600" },
+  red: { bg: "bg-red-50", icon: "text-red-600" },
+  gray: { bg: "bg-gray-100", icon: "text-gray-600" },
 };
 
 export const StatCard = memo(function StatCard({
@@ -69,8 +41,8 @@ export const StatCard = memo(function StatCard({
     <Component
       onClick={onClick}
       className={cn(
-        "bg-white rounded-2xl border border-gray-100 p-4 text-left w-full",
-        onClick && "hover:border-orange-200 hover:shadow-sm cursor-pointer transition group"
+        "bg-white rounded-2xl border border-gray-100 p-4 text-left w-full shadow-card transition-all duration-150",
+        onClick && "hover:border-orange-200 hover:shadow-float cursor-pointer active:scale-[0.98] group"
       )}
     >
       <div className="flex items-start justify-between">
@@ -83,24 +55,17 @@ export const StatCard = memo(function StatCard({
       </div>
 
       <div className="mt-3">
-        <p className="text-2xl font-black text-gray-900 tracking-tight">{value}</p>
-        <p className="text-[11px] font-medium text-gray-500 mt-1 uppercase tracking-wide">
-          {label}
-        </p>
-        {subtitle && (
-          <p className="text-[11px] text-gray-400 mt-0.5">{subtitle}</p>
-        )}
+        <p className="text-2xl font-extrabold text-gray-900 tracking-tight">{value}</p>
+        <p className="text-micro text-gray-500 mt-1 uppercase tracking-wide">{label}</p>
+        {subtitle && <p className="text-micro text-gray-400 mt-0.5">{subtitle}</p>}
         {trend && (
-          <p
-            className={cn(
-              "text-[11px] font-bold mt-1.5",
-              trend.direction === "up" && "text-green-600",
-              trend.direction === "down" && "text-red-600",
-              trend.direction === "neutral" && "text-gray-500"
-            )}
-          >
-            {trend.direction === "up" && "↑ "}
-            {trend.direction === "down" && "↓ "}
+          <p className={cn(
+            "text-micro font-bold mt-1.5",
+            trend.direction === "up" && "text-emerald-600",
+            trend.direction === "down" && "text-red-600",
+            trend.direction === "neutral" && "text-gray-500"
+          )}>
+            {trend.direction === "up" ? "↑ " : trend.direction === "down" ? "↓ " : ""}
             {trend.value}
           </p>
         )}

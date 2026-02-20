@@ -1,7 +1,7 @@
-// FILE: src/components/ui/Toaster.tsx
-"use client";
+﻿"use client";
 
 import { useEffect, useRef, useState } from "react";
+import { X, CheckCircle2, AlertCircle, Info } from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { ToastVariant } from "@/lib/ui/toast";
 
@@ -16,11 +16,11 @@ type ToastItem = {
 
 const EVENT_NAME = "bizhub_toast";
 
-function variantStyles(v: ToastVariant) {
-  if (v === "success") return "border-emerald-100 bg-emerald-50 text-emerald-800";
-  if (v === "error") return "border-rose-100 bg-rose-50 text-rose-800";
-  return "border-biz-line bg-white text-biz-ink";
-}
+const variantConfig: Record<ToastVariant, { border: string; bg: string; text: string; icon: any }> = {
+  success: { border: "border-emerald-200", bg: "bg-emerald-50", text: "text-emerald-800", icon: CheckCircle2 },
+  error: { border: "border-red-200", bg: "bg-red-50", text: "text-red-800", icon: AlertCircle },
+  info: { border: "border-gray-200", bg: "bg-white", text: "text-gray-800", icon: Info },
+};
 
 export function Toaster() {
   const [items, setItems] = useState<ToastItem[]>([]);
@@ -29,12 +29,7 @@ export function Toaster() {
   function remove(id: string) {
     setItems((prev) => prev.filter((x) => x.id !== id));
     const t = timers.current[id];
-    if (t) {
-      try {
-        clearTimeout(t);
-      } catch {}
-      delete timers.current[id];
-    }
+    if (t) { try { clearTimeout(t); } catch {} delete timers.current[id]; }
   }
 
   useEffect(() => {
@@ -53,56 +48,50 @@ export function Toaster() {
       };
 
       setItems((prev) => {
-        // keep max 3 visible
         const filtered = prev.filter((x) => x.id !== id);
         return [next, ...filtered].slice(0, 3);
       });
 
-      // auto dismiss
       timers.current[id] = setTimeout(() => remove(id), next.durationMs);
     }
 
     window.addEventListener(EVENT_NAME, onToast as any);
     return () => window.removeEventListener(EVENT_NAME, onToast as any);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   if (!items.length) return null;
 
   return (
-    <div
-      className={cn(
-        "fixed left-0 right-0 z-[60] pointer-events-none",
-        // keep above customer bottom nav
-        "bottom-24 md:bottom-6"
-      )}
-    >
-      <div className="mx-auto w-full max-w-[430px] px-4 space-y-2">
-        {items.map((t) => (
-          <div
-            key={t.id}
-            className={cn(
-              "pointer-events-auto rounded-2xl border shadow-soft px-4 py-3",
-              "flex items-start justify-between gap-3",
-              variantStyles(t.variant)
-            )}
-          >
-            <div className="min-w-0">
-              {t.title ? <p className="text-xs font-extrabold">{t.title}</p> : null}
-              <p className={t.title ? "text-sm mt-1" : "text-sm"}>{t.message}</p>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => remove(t.id)}
-              className="shrink-0 h-8 w-8 rounded-xl border border-black/5 bg-white/70 hover:bg-white"
-              aria-label="Close"
-              title="Close"
+    <div className="fixed left-0 right-0 z-[60] pointer-events-none bottom-24 md:bottom-6">
+      <div className="mx-auto w-full max-w-[400px] px-4 space-y-2">
+        {items.map((t) => {
+          const config = variantConfig[t.variant];
+          const IconComp = config.icon;
+          return (
+            <div
+              key={t.id}
+              className={cn(
+                "pointer-events-auto rounded-xl border shadow-float px-4 py-3",
+                "flex items-start gap-3 animate-fade-in-up",
+                config.border, config.bg, config.text
+              )}
             >
-              ×
-            </button>
-          </div>
-        ))}
+              <IconComp className="w-5 h-5 shrink-0 mt-0.5 opacity-70" />
+              <div className="min-w-0 flex-1">
+                {t.title && <p className="text-[13px] font-bold">{t.title}</p>}
+                <p className={cn("text-[13px]", t.title && "mt-0.5")}>{t.message}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => remove(t.id)}
+                className="shrink-0 w-7 h-7 rounded-lg hover:bg-black/5 flex items-center justify-center transition"
+                aria-label="Close"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

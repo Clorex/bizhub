@@ -1,8 +1,7 @@
-// FILE: src/components/reviews/ReviewCard.tsx
-"use client";
+﻿"use client";
 
 import { ReviewStars } from "./ReviewStars";
-import { User, Clock, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 type Props = {
@@ -38,15 +37,10 @@ export function ReviewCard({ review, showStatus = false }: Props) {
   if (isRemoved) return null;
 
   return (
-    <div
-      className={cn(
-        "p-4 rounded-2xl border transition",
-        isUnderReview
-          ? "bg-amber-50 border-amber-200"
-          : "bg-white border-gray-100"
-      )}
-    >
-      {/* Header */}
+    <div className={cn(
+      "p-4 rounded-xl border transition-all duration-150",
+      isUnderReview ? "bg-amber-50 border-amber-200" : "bg-white border-gray-100 shadow-card"
+    )}>
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center shrink-0">
@@ -61,31 +55,26 @@ export function ReviewCard({ review, showStatus = false }: Props) {
             <div className="flex items-center gap-2 mt-0.5">
               <ReviewStars rating={review.rating} size="sm" />
               {formatDate(review.createdAt) && (
-                <span className="text-xs text-gray-400">
-                  {formatDate(review.createdAt)}
-                </span>
+                <span className="text-micro text-gray-400">{formatDate(review.createdAt)}</span>
               )}
             </div>
           </div>
         </div>
 
         {showStatus && isUnderReview && (
-          <span className="flex items-center gap-1 px-2 py-1 rounded-full bg-amber-100 text-amber-700 text-[10px] font-bold">
+          <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-micro font-semibold">
             <AlertCircle className="w-3 h-3" />
             Under Review
           </span>
         )}
       </div>
 
-      {/* Comment */}
       {review.comment && !isUnderReview && (
-        <p className="text-sm text-gray-600 mt-3 leading-relaxed">
-          {review.comment}
-        </p>
+        <p className="text-body text-gray-600 mt-3 leading-relaxed">{review.comment}</p>
       )}
 
       {isUnderReview && (
-        <p className="text-xs text-amber-600 mt-3 italic">
+        <p className="text-caption text-amber-600 mt-3 italic">
           This review is being reviewed by our team.
         </p>
       )}

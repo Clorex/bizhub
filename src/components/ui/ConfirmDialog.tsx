@@ -1,5 +1,4 @@
-// FILE: src/components/ui/ConfirmDialog.tsx
-"use client";
+﻿"use client";
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo } from "react";
@@ -36,17 +35,10 @@ export function ConfirmDialog({
 
   useEffect(() => {
     if (!open) return;
-
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", onKey);
-
-    // lock scroll
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
@@ -59,21 +51,21 @@ export function ConfirmDialog({
     <div className="fixed inset-0 z-[70]">
       <button
         type="button"
-        className="absolute inset-0 bg-black/50"
+        className="absolute inset-0 bg-black/50 backdrop-blur-[2px]"
         aria-label="Close"
         onClick={onClose}
         disabled={loading}
       />
 
       <div className="absolute inset-x-0 bottom-0 md:inset-0 md:flex md:items-center md:justify-center p-4 pb-safe">
-        <Card className={cn("w-full md:max-w-[440px] p-5 rounded-3xl", loading && "pointer-events-none opacity-95")}>
+        <Card className={cn("w-full md:max-w-[420px] p-5 animate-scale-in", loading && "pointer-events-none opacity-95")}>
           <div className="flex items-start gap-3">
-            {icon ? <div className="shrink-0 mt-0.5">{icon}</div> : null}
+            {icon && <div className="shrink-0 mt-0.5">{icon}</div>}
             <div className="min-w-0">
-              <p className="text-base font-extrabold text-gray-900">{title}</p>
-              {description ? (
-                <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">{description}</p>
-              ) : null}
+              <h3 className="text-h3 text-gray-900">{title}</h3>
+              {description && (
+                <p className="text-body text-gray-600 mt-2 whitespace-pre-line">{description}</p>
+              )}
             </div>
           </div>
 
@@ -81,9 +73,8 @@ export function ConfirmDialog({
             <Button variant="secondary" onClick={onClose} disabled={loading}>
               {cancelText}
             </Button>
-
             <Button
-              variant={tone === "danger" ? "danger" : undefined}
+              variant={tone === "danger" ? "danger" : "primary"}
               onClick={onConfirm}
               loading={loading}
             >

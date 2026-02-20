@@ -1,4 +1,4 @@
-import { cn } from "@/lib/cn";
+﻿import { cn } from "@/lib/cn";
 
 export function SegmentedControl<T extends string>({
   value,
@@ -14,7 +14,7 @@ export function SegmentedControl<T extends string>({
   return (
     <div
       className={cn(
-        "rounded-2xl border border-biz-line bg-white shadow-soft p-1 grid",
+        "rounded-xl border border-gray-200 bg-gray-100/80 p-1 grid",
         className
       )}
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
@@ -29,11 +29,11 @@ export function SegmentedControl<T extends string>({
             onClick={() => (!disabled ? onChange(o.value) : undefined)}
             disabled={disabled}
             className={cn(
-              "rounded-2xl py-2 text-xs font-bold transition",
+              "rounded-lg py-2.5 text-[13px] font-semibold transition-all duration-150 min-h-[40px]",
               active
-                ? "text-white bg-gradient-to-br from-biz-accent2 to-biz-accent shadow-float"
-                : "text-biz-ink",
-              disabled ? "opacity-40 cursor-not-allowed" : ""
+                ? "text-white bg-gradient-to-r from-[#FF4D00] to-[#FF6A00] shadow-sm"
+                : "text-gray-600 hover:text-gray-900",
+              disabled && "opacity-40 cursor-not-allowed"
             )}
             title={disabled ? "Locked on current plan" : undefined}
           >

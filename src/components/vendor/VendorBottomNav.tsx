@@ -2,12 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import {
-  LayoutDashboard,
-  Package,
-  ClipboardList,
-  MoreHorizontal,
-} from "lucide-react";
+import { LayoutDashboard, Package, ClipboardList, MoreHorizontal } from "lucide-react";
 import { cn } from "@/lib/cn";
 
 const items = [
@@ -22,8 +17,8 @@ export function VendorBottomNav() {
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50">
-      <div className="mx-auto w-full max-w-[640px] px-4 safe-pb pb-4">
-        <div className="rounded-3xl border border-biz-line bg-white/90 backdrop-blur shadow-float px-2 py-2 flex">
+      <div className="mx-auto w-full max-w-[640px] px-3 safe-pb pb-3">
+        <nav className="rounded-2xl border border-gray-200/80 bg-white/95 backdrop-blur-lg shadow-float px-1 py-1 flex">
           {items.map(({ href, label, Icon, exact }) => {
             const active = exact
               ? pathname === href || pathname === href + "/"
@@ -34,40 +29,19 @@ export function VendorBottomNav() {
                 key={href}
                 href={href}
                 className={cn(
-                  "flex-1 py-2 flex flex-col items-center justify-center gap-1 rounded-2xl transition min-h-[44px]",
-                  "hover:bg-black/5"
+                  "flex-1 py-2.5 flex flex-col items-center justify-center gap-1 rounded-xl transition-colors min-h-[52px]",
+                  active ? "bg-orange-50" : "hover:bg-gray-50"
                 )}
               >
-                <Icon
-                  className={cn(
-                    "h-5 w-5",
-                    active ? "text-biz-accent" : "text-gray-500"
-                  )}
-                />
-                <span
-                  className={cn(
-                    "text-[11px]",
-                    active ? "font-extrabold text-biz-accent" : "text-gray-500"
-                  )}
-                >
+                <Icon className={cn("h-5 w-5", active ? "text-[#FF4D00]" : "text-gray-400")} strokeWidth={active ? 2.5 : 2} />
+                <span className={cn("text-[10px]", active ? "font-bold text-[#FF4D00]" : "font-medium text-gray-400")}>
                   {label}
                 </span>
-
-                <span
-                  className={cn(
-                    "h-1 w-6 rounded-full transition-colors",
-                    active
-                      ? "bg-gradient-to-r from-biz-accent2 to-biz-accent"
-                      : "bg-transparent"
-                  )}
-                  aria-hidden="true"
-                />
               </Link>
             );
           })}
-        </div>
+        </nav>
       </div>
     </div>
   );
 }
-

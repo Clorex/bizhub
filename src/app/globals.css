@@ -1,50 +1,50 @@
 ﻿@import "tailwindcss";
 
-/* Tailwind v4 theme tokens */
 @theme {
-  /* Brand (electric orange) */
-  --color-biz-accent: #ff2d00;
-  --color-biz-accent2: #ff5200;
+  --color-biz-accent: #ff4d00;
+  --color-biz-accent2: #ff6a00;
+  --color-biz-accent-hover: #e64500;
+  --color-biz-accent-light: #fff4ed;
 
-  /* Neutrals */
   --color-biz-ink: #111827;
   --color-biz-muted: #6b7280;
 
-  --color-biz-bg: #f6f7fb;
+  --color-biz-bg: #f7f7fb;
   --color-biz-card: #ffffff;
-  --color-biz-line: #e7e7ee;
+  --color-biz-line: #e5e7eb;
 
-  /* Warm surfaces */
-  --color-biz-sand: #ffe2b8;
-  --color-biz-cream: #fff3e1;
+  --color-biz-sand: #fff0db;
+  --color-biz-cream: #fff8ee;
 
-  /* Shadows */
-  --shadow-soft: 0 10px 25px rgba(17, 24, 39, 0.08);
-  --shadow-float: 0 12px 30px rgba(17, 24, 39, 0.10);
+  --shadow-soft: 0 1px 3px rgba(0,0,0,0.06), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-card: 0 2px 8px rgba(0,0,0,0.06);
+  --shadow-float: 0 8px 24px rgba(0,0,0,0.10);
 }
 
 @layer base {
-  html,
-  body {
+  html, body {
     height: 100%;
   }
 
   body {
-    background: theme(colors.biz-bg);
-    color: theme(colors.biz-ink);
+    background: var(--color-biz-bg);
+    color: var(--color-biz-ink);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
-  /* Better tap feel on mobile */
-  button,
-  a {
+  button, a {
     -webkit-tap-highlight-color: transparent;
   }
 
-  /* Ensure minimum tap targets on interactive elements */
-  button,
-  [role="button"],
-  a {
-    min-height: 0; /* reset; use .min-tap explicitly */
+  /* Strict type scale enforcement */
+  h1, .text-h1 { font-size: 1.75rem; line-height: 2.125rem; font-weight: 800; letter-spacing: -0.02em; }
+  h2, .text-h2 { font-size: 1.25rem; line-height: 1.75rem; font-weight: 700; letter-spacing: -0.01em; }
+  h3, .text-h3 { font-size: 1rem; line-height: 1.5rem; font-weight: 700; }
+
+  input, textarea, select {
+    font-size: 16px; /* Prevent iOS zoom */
   }
 }
 
@@ -53,7 +53,6 @@
     padding-bottom: max(env(safe-area-inset-bottom), 1rem);
   }
 
-  /* Hide scrollbar for horizontal chip/tab scrollers */
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -62,24 +61,31 @@
     display: none;
   }
 
-  /* 44px minimum tap target */
   .min-tap {
     min-width: 44px;
     min-height: 44px;
   }
+
+  /* Consistent section spacing */
+  .section-gap {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  /* Card entrance animation */
+  .animate-card-in {
+    animation: fade-in-up 0.2s ease-out both;
+  }
+  .animate-card-in-delay-1 { animation-delay: 50ms; }
+  .animate-card-in-delay-2 { animation-delay: 100ms; }
+  .animate-card-in-delay-3 { animation-delay: 150ms; }
+  .animate-card-in-delay-4 { animation-delay: 200ms; }
 }
 
-/* ═══════════════════════════════════════════════════════
-   STORE THEME ANIMATIONS
-   ═══════════════════════════════════════════════════════ */
-
 @keyframes shimmer {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
 }
 
 .animate-shimmer {
@@ -87,28 +93,18 @@
 }
 
 @keyframes slideUp {
-  from {
-    transform: translateY(100%);
-  }
-  to {
-    transform: translateY(0);
-  }
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }
 
 .animate-slideUp {
-  animation: slideUp 0.3s ease-out;
+  animation: slideUp 0.25s ease-out;
 }
 
 @keyframes gradientFlow {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
 .animate-gradient {
@@ -117,12 +113,8 @@
 }
 
 @keyframes pulse-slow {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
 }
 
 .animate-pulse-slow {
