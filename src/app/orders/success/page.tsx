@@ -6,6 +6,7 @@ import Link from "next/link";
 import { CheckCircle } from "lucide-react";
 import { useCart } from "@/lib/cart/CartContext";
 import { Button } from "@/components/ui/Button";
+import { pixelPurchase } from "@/lib/pixels";
 
 function SuccessContent() {
   const searchParams = useSearchParams() ?? new URLSearchParams();
@@ -16,6 +17,12 @@ function SuccessContent() {
 
   useEffect(() => {
     clearCart();
+
+    // ── Fire purchase pixel event (slight delay for script loading on redirect) ──
+    const t = setTimeout(() => {
+      pixelPurchase({ orderId: reference || undefined });
+    }, 1500);
+    return () => clearTimeout(t);
   }, [clearCart]);
 
   return (
@@ -48,4 +55,3 @@ export default function OrderSuccessPage() {
     </Suspense>
   );
 }
-

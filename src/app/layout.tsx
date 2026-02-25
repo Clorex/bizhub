@@ -9,6 +9,7 @@ import { PWARegister } from "@/components/PWARegister";
 import { Toaster } from "@/components/ui/Toaster";
 import PageHelpFloating from "@/components/PageHelpFloating";
 import PushBellFloating from "@/components/PushBellFloating";
+import { PixelProvider } from "@/components/PixelProvider";
 
 const THEME_COLOR = "#FF2D00"; // tailwind: biz.orange
 
@@ -33,6 +34,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         </CartProvider>
 
         <PWARegister />
+        <PixelProvider />
       </body>
     </html>
   );

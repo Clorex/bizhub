@@ -8,6 +8,7 @@ import { getFriendlyAuthError } from "@/lib/auth/friendlyError";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle, ArrowRight } from "lucide-react";
+import { pixelLogin } from "@/lib/pixels";
 
 export default function LoginClient({ storeName }: { storeName?: string | null }) {
   const router = useRouter();
@@ -40,6 +41,9 @@ export default function LoginClient({ storeName }: { storeName?: string | null }
         role === "staff" ? "/vendor" : "/market";
 
       const dest = next || fallbackNext;
+
+      // ── Fire login pixel event ──
+      pixelLogin("email");
 
       if (!emailVerified) {
         router.push(`/account/verify?next=${encodeURIComponent(dest)}`);
@@ -131,5 +135,3 @@ export default function LoginClient({ storeName }: { storeName?: string | null }
     </Card>
   );
 }
-
-

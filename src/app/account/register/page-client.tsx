@@ -9,6 +9,7 @@ import GradientHeader from "@/components/GradientHeader";
 import { Card } from "@/components/Card";
 import { Button } from "@/components/ui/Button";
 import { AlertCircle, ArrowRight } from "lucide-react";
+import { pixelSignUp } from "@/lib/pixels";
 
 type Mode = "customer" | "vendor";
 
@@ -71,6 +72,9 @@ export default function RegisterPage({ storeName }: { storeName?: string | null 
         method: "POST",
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      // ── Fire sign-up pixel event ──
+      pixelSignUp(mode === "vendor" ? "vendor" : "customer");
 
       const dest = nextFromUrl || nextDefault;
       router.push(`/account/verify?next=${encodeURIComponent(dest)}`);
@@ -208,4 +212,3 @@ export default function RegisterPage({ storeName }: { storeName?: string | null 
     </div>
   );
 }
-
