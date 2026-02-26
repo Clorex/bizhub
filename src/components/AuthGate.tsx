@@ -66,7 +66,7 @@ export function AuthGate({
   if (loading) {
     return (
       <div className="min-h-screen p-4 bg-biz-bg">
-        <Card className="p-4">Loading…</Card>
+        <Card className="p-4">Loading</Card>
       </div>
     );
   }
@@ -90,4 +90,3 @@ export function AuthGate({
 
   return <>{children}</>;
 }
-

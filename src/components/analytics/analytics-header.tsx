@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React from 'react';
 import Badge from '@/components/ui/badge';
@@ -21,10 +21,10 @@ export default function AnalyticsHeader({
   expiryWarning,
 }: AnalyticsHeaderProps) {
   const tierVariant = subscriptionTier === 'pro'
-    ? 'orange'
+    ? 'brand' as const
     : subscriptionTier === 'premium'
-    ? 'orange'
-    : 'default';
+    ? 'momentum' as const
+    : 'default' as const;
 
   return (
     <div className="mb-6 md:mb-8">

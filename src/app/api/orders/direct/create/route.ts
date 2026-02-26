@@ -125,12 +125,14 @@ export async function POST(req: Request) {
         displayOrderRef: makeDisplayRef(storeSlug, next), alreadyExisted: false };
     });
 
-        // Trigger first-order achievement for vendor
-    unlockAchievement({
-      actorType: "vendor",
-      actorId: businessId,
-      key: "vendor_first_order",
-    }).catch(() => {});
+    // Only trigger first-order achievement for genuinely NEW orders
+    if (result?.ok && !result?.alreadyExisted) {
+      unlockAchievement({
+        actorType: "vendor",
+        actorId: businessId,
+        key: "vendor_first_order",
+      }).catch(() => {});
+    }
 
     return Response.json({
       success: true,
@@ -145,4 +147,3 @@ export async function POST(req: Request) {
     return Response.json({ error: error?.message || "Failed to create order" }, { status: 500 });
   }
 }
-

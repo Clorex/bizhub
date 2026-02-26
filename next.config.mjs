@@ -1,4 +1,4 @@
-﻿// next.config.mjs
+// next.config.mjs
 import nextPWA from "next-pwa";
 
 /** @type {import('next').NextConfig} */

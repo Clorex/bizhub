@@ -44,10 +44,14 @@ export async function POST(req: Request) {
     const actorId = role === "customer" ? me.uid : (me.businessId || me.uid);
     const actorType = role === "customer" ? "customer" : "vendor";
 
-    await markAchievementsSeen({ actorType, actorId, keys });
+    const success = await markAchievementsSeen({ actorType, actorId, keys });
+
+    if (!success) {
+      return Response.json({ ok: false, error: "Failed to mark achievements as seen" }, { status: 500 });
+    }
 
     return Response.json({ ok: true });
   } catch (e: any) {
-    return Response.json({ ok: false, error: e?.message }, { status: 200 });
+    return Response.json({ ok: false, error: e?.message }, { status: 500 });
   }
 }

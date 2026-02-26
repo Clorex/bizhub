@@ -1,4 +1,4 @@
-﻿// FILE: src/app/layout.tsx
+// FILE: src/app/layout.tsx
 import "./globals.css";
 import "./cropper.css";
 

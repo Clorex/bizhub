@@ -1,5 +1,8 @@
-﻿// FILE: src/app/vendor/page.tsx
-"use client";
+﻿"use client";
+
+export const dynamic = "force-dynamic";
+
+// FILE: src/app/vendor/page.tsx
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
@@ -286,23 +289,18 @@ export default function VendorDashboardPage() {
     return !!access?.features?.canUseMonthRange;
   }, [access]);
 
-  // CRITICAL FIX: Use the store/business plan from access, not viewer.
-  // Only consider subscription state AFTER data has loaded.
   const isSubscribed = useMemo(() => {
-    if (!access) return true; // While loading or no access data, assume subscribed to avoid flash
+    if (!access) return true;
     const source = String(access?.source || "free");
     const pk = String(access?.planKey || "FREE").toUpperCase();
     return source === "subscription" && pk !== "FREE";
   }, [access]);
 
-  // Whether we should show any upgrade prompts at all
-  // Only show after loading is complete AND we know the plan is free/low tier
   const showUpgradePrompts = useMemo(() => {
-    if (loading) return false; // Never show while loading
-    if (!access) return false; // No access data yet
+    if (loading) return false;
+    if (!access) return false;
     const pk = String(access?.planKey || "FREE").toUpperCase();
     const tier = Number(access?.tier ?? 0);
-    // Apex (tier 3) and Momentum (tier 2) should never see upgrade prompts
     return tier < 1 || (pk === "FREE" && !isSubscribed);
   }, [loading, access, isSubscribed]);
 
@@ -393,7 +391,7 @@ export default function VendorDashboardPage() {
               className="absolute top-3 right-3 text-blue-400 hover:text-blue-600 text-xs font-bold"
               aria-label="Dismiss"
             >
-              ✕
+              ?
             </button>
             <div className="flex items-start gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
@@ -601,10 +599,8 @@ export default function VendorDashboardPage() {
 
             <DashboardAnalyticsCard range={range} />
 
-            {/* Smart Restock & Demand Alerts (Apex only) */}
             <RestockDashboardCard />
 
-            {/* Buyer Intent Radar (Apex only) */}
             <IntentRadarDashboardCard />
 
             <SectionCard title="Quick actions" subtitle="Manage your business">
@@ -657,7 +653,6 @@ export default function VendorDashboardPage() {
               )}
             </SectionCard>
 
-            {/* Upgrade CTA — only for confirmed free/low-tier vendors, NEVER for Apex/Momentum */}
             {showUpgradePrompts && (
               <Card className="p-5 bg-gradient-to-br from-purple-50 to-orange-50 border-purple-100">
                 <div className="flex items-start gap-4">
@@ -719,7 +714,6 @@ function QuickActionCard({
     </Link>
   );
 }
-
 
 
 

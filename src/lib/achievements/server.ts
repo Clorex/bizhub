@@ -74,26 +74,34 @@ export async function getUnseenAchievements(params: {
 
 /**
  * Mark achievements as seen.
+ * Uses set+merge instead of update to prevent failures if doc structure differs.
  */
 export async function markAchievementsSeen(params: {
   actorType: "vendor" | "customer";
   actorId: string;
   keys: AchievementKey[];
-}): Promise<void> {
+}): Promise<boolean> {
   const { actorType, actorId, keys } = params;
-  if (!actorId || !keys.length) return;
+  if (!actorId || !keys.length) return true;
 
   const batch = adminDb.batch();
 
   for (const key of keys) {
     const docId = `${actorType}_${actorId}_${key}`;
     const ref = adminDb.collection("achievements").doc(docId);
-    batch.update(ref, { seen: true });
+    // Use set+merge instead of update — safe even if doc is missing or malformed
+    batch.set(ref, {
+      seen: true,
+      seenAtMs: Date.now(),
+      seenAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
   }
 
   try {
     await batch.commit();
+    return true;
   } catch (e) {
     console.error("Failed to mark achievements seen:", e);
+    return false;
   }
 }

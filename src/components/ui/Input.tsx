@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { forwardRef, useState } from "react";
 import { Eye, EyeOff } from "lucide-react";
@@ -19,7 +19,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-micro text-gray-700 font-semibold mb-1.5 uppercase tracking-wide">
+          <label className="block text-caption font-semibold text-ink-light mb-1.5">
             {label}
           </label>
         )}
@@ -28,14 +28,13 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             ref={ref}
             type={isPassword && showPassword ? "text" : type}
             className={cn(
-              "w-full rounded-xl border bg-white px-4 py-3 text-sm outline-none transition-all duration-150",
-              "placeholder:text-gray-400",
-              "min-h-[48px]",
+              "w-full rounded-xl border bg-surface px-4 py-3 text-body-sm outline-none transition-all duration-150",
+              "placeholder:text-ink-lightest",
               error
-                ? "border-red-300 focus:ring-2 focus:ring-red-200 focus:border-red-400"
+                ? "border-error focus:ring-2 focus:ring-error/20 focus:border-error"
                 : success
-                ? "border-green-300 focus:ring-2 focus:ring-green-200 focus:border-green-400"
-                : "border-gray-200 focus:ring-2 focus:ring-orange-200/60 focus:border-orange-300",
+                ? "border-success focus:ring-2 focus:ring-success/20 focus:border-success"
+                : "border-line focus:ring-2 focus:ring-brand/20 focus:border-brand",
               isPassword && "pr-12",
               className
             )}
@@ -45,7 +44,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600 transition min-tap"
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-ink-lighter hover:text-ink transition-colors"
               tabIndex={-1}
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
@@ -53,12 +52,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
             </button>
           )}
         </div>
-        {error && <p className="mt-1.5 text-xs text-red-600 font-medium">{error}</p>}
-        {hint && !error && <p className="mt-1.5 text-xs text-gray-400">{hint}</p>}
+        {error && <p className="mt-1.5 text-caption text-error font-medium">{error}</p>}
+        {hint && !error && <p className="mt-1.5 text-caption text-ink-lighter">{hint}</p>}
       </div>
     );
   }
 );
 
 Input.displayName = "Input";
-

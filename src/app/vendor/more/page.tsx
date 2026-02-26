@@ -1,5 +1,8 @@
-﻿// FILE: src/app/vendor/more/page.tsx
-"use client";
+﻿"use client";
+
+export const dynamic = "force-dynamic";
+
+// FILE: src/app/vendor/more/page.tsx
 
 import { useRouter } from "next/navigation";
 import GradientHeader from "@/components/GradientHeader";
@@ -300,3 +303,7 @@ export default function VendorMorePage() {
     </div>
   );
 }
+
+
+
+

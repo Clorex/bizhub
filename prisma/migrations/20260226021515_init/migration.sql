@@ -115,6 +115,25 @@ CREATE TABLE "vendor_daily_stats" (
     CONSTRAINT "vendor_daily_stats_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "ProductHotScore" (
+    "id" TEXT NOT NULL,
+    "product_id" TEXT NOT NULL,
+    "category_id" TEXT,
+    "hot_score" DOUBLE PRECISION NOT NULL,
+    "category_rank" INTEGER,
+    "global_rank" INTEGER,
+    "badge_type" TEXT NOT NULL DEFAULT 'none',
+    "last_calculated_at" TIMESTAMP(3) NOT NULL,
+    "previous_category_rank" INTEGER,
+    "previous_global_rank" INTEGER,
+    "rank_movement" INTEGER,
+    "created_at" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updated_at" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ProductHotScore_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "vendors_email_key" ON "vendors"("email");
 
@@ -123,31 +142,54 @@ CREATE INDEX "products_vendor_id_idx" ON "products"("vendor_id");
 
 -- CreateIndex
 CREATE INDEX "orders_vendor_id_idx" ON "orders"("vendor_id");
+
+-- CreateIndex
 CREATE INDEX "orders_vendor_id_created_at_idx" ON "orders"("vendor_id", "created_at");
 
 -- CreateIndex
 CREATE INDEX "order_items_order_id_idx" ON "order_items"("order_id");
+
+-- CreateIndex
 CREATE INDEX "order_items_product_id_idx" ON "order_items"("product_id");
 
 -- CreateIndex
 CREATE INDEX "product_views_vendor_id_idx" ON "product_views"("vendor_id");
+
+-- CreateIndex
 CREATE INDEX "product_views_vendor_id_created_at_idx" ON "product_views"("vendor_id", "created_at");
 
 -- CreateIndex
 CREATE INDEX "product_clicks_vendor_id_idx" ON "product_clicks"("vendor_id");
+
+-- CreateIndex
 CREATE INDEX "product_clicks_vendor_id_created_at_idx" ON "product_clicks"("vendor_id", "created_at");
 
 -- CreateIndex
 CREATE INDEX "product_saves_vendor_id_idx" ON "product_saves"("vendor_id");
+
+-- CreateIndex
 CREATE INDEX "product_saves_vendor_id_created_at_idx" ON "product_saves"("vendor_id", "created_at");
 
 -- CreateIndex
 CREATE INDEX "cart_adds_vendor_id_idx" ON "cart_adds"("vendor_id");
+
+-- CreateIndex
 CREATE INDEX "cart_adds_vendor_id_created_at_idx" ON "cart_adds"("vendor_id", "created_at");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "vendor_daily_stats_vendor_id_date_key" ON "vendor_daily_stats"("vendor_id", "date");
 CREATE INDEX "vendor_daily_stats_vendor_id_date_idx" ON "vendor_daily_stats"("vendor_id", "date");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "vendor_daily_stats_vendor_id_date_key" ON "vendor_daily_stats"("vendor_id", "date");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ProductHotScore_product_id_key" ON "ProductHotScore"("product_id");
+
+-- CreateIndex
+CREATE INDEX "ProductHotScore_category_id_hot_score_idx" ON "ProductHotScore"("category_id", "hot_score");
+
+-- CreateIndex
+CREATE INDEX "ProductHotScore_global_rank_idx" ON "ProductHotScore"("global_rank");
 
 -- AddForeignKey
 ALTER TABLE "products" ADD CONSTRAINT "products_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -175,3 +217,6 @@ ALTER TABLE "cart_adds" ADD CONSTRAINT "cart_adds_product_id_fkey" FOREIGN KEY (
 
 -- AddForeignKey
 ALTER TABLE "vendor_daily_stats" ADD CONSTRAINT "vendor_daily_stats_vendor_id_fkey" FOREIGN KEY ("vendor_id") REFERENCES "vendors"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ProductHotScore" ADD CONSTRAINT "ProductHotScore_product_id_fkey" FOREIGN KEY ("product_id") REFERENCES "products"("id") ON DELETE CASCADE ON UPDATE CASCADE;
