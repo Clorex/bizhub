@@ -1,4 +1,4 @@
-// FILE: src/app/layout.tsx
+﻿// FILE: src/app/layout.tsx
 import "./globals.css";
 import "./cropper.css";
 
@@ -7,7 +7,7 @@ import { CartProvider } from "@/lib/cart/CartContext";
 import { AppShell } from "@/components/AppShell";
 import { PWARegister } from "@/components/PWARegister";
 import { Toaster } from "@/components/ui/Toaster";
-import PageHelpFloating from "@/components/PageHelpFloating";
+
 import PushBellFloating from "@/components/PushBellFloating";
 import { PixelProvider } from "@/components/PixelProvider";
 
@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
 
           <Toaster />
           <PushBellFloating />
-          <PageHelpFloating />
+          
         </CartProvider>
 
         <PWARegister />
@@ -39,3 +39,4 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     </html>
   );
 }
+
